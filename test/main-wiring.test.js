@@ -59,7 +59,8 @@ test('every d.X a wiring/ or ipc/ module reads is on shared', () => {
   const d = shared || loadMain();
   // Modules handed their own deps object rather than shared, and optional hooks.
   const notShared = new Set(['askConfirm', 'journalDir', 'confirmClear', 'onCleared', 'level', 'cardChanged','builtinSkins', 'clearBackground',
-    'openPath', 'pickPackFile', 'reloadSkins', 'voice', 'day', 'workArea', 'toLowerCase', 'getDate', 'getFullYear', 'getMonth']);
+    'openPath', 'pickPackFile', 'reloadSkins', 'voice', 'day', 'workArea', 'toLowerCase', 'getDate', 'getFullYear', 'getMonth',
+    'homeTurnEnded']); // set by ipc/repo.js once the IPC is registered, after this test's load stops
   const dirs = ['wiring', 'ipc'].map(dir => path.join(MAIN, dir));
   const files = dirs.flatMap(dir => fs.readdirSync(dir).filter(f => f.endsWith('.js')).map(f => path.join(dir, f)));
   files.push(path.join(MAIN, 'projects', 'releases-ipc.js'));

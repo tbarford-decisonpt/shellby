@@ -218,8 +218,9 @@
     { name: 'rewind', kind: 'shellby', description: 'Go back to an earlier message: the conversation, the code, or both (Esc Esc)' },
     { name: 'branch', kind: 'shellby', description: 'Try again from an earlier message in a new tab, with its own copy of the files. This one stays as it is' },
     { name: 'tries', kind: 'shellby', description: 'Try a message 2, 3 or 4 ways at once, each in its own copy, then pick the best: /tries 3 fix the login. Asks first, with the cost' },
+    { name: 'btw', kind: 'shellby', description: 'Ask a quick side question, even while Claude works. It sees the conversation but stays out of it' },
     { name: 'export', kind: 'shellby', description: 'Save this conversation as Markdown (/export clipboard copies it)' },
-    { name: 'effort', kind: 'shellby', description: 'How hard Claude thinks: low, medium, high, xhigh, max or auto' },
+    { name: 'effort', kind: 'shellby', description: 'How hard Claude thinks here: low, medium, high, xhigh, max or auto. /effort new <level|pick> for new conversations' },
     { name: 'permissions', kind: 'shellby', description: 'The allow, ask and deny rules Claude Code follows' },
     { name: 'mcp', kind: 'shellby', description: 'MCP servers: add, remove, reconnect, turn on or off' },
     { name: 'model', kind: 'shellby', description: 'Pick the model for new conversations' },
@@ -233,6 +234,7 @@
     // Try it N ways (tries.js): main asks first, with what it usually costs.
     tries: (tab, arg) => startTries(tab, arg),
     try: (tab, arg) => startTries(tab, arg),
+    btw: (tab, arg) => askBtw(tab, arg),
     export: async (tab, arg) => {
       if (!tab.saved) return SB.toast('Send it something first: there is nothing to export yet.');
       const to = /^clip/i.test(arg) ? 'clipboard' : 'file';
@@ -241,9 +243,11 @@
       else if (!r?.cancelled) SB.toast(r?.error || "Couldn't export it.");
     },
     effort: (tab, arg) => {
-      const want = arg.toLowerCase().replace(/^extra[\s-]?high$/, 'xhigh').replace(/^(auto|default)$/, '');
-      if (arg && EFFORTS.some(x => x.id === want)) return SB.chooseEffort(want);
-      if (arg) return SB.toast('Effort is one of: auto, low, medium, high, xhigh, max.');
+      const fresh = /^new\s+/i.test(arg);
+      const want = arg.replace(/^new\s+/i, '').toLowerCase().replace(/^extra[\s-]?high$/, 'xhigh').replace(/^(auto|default)$/, '');
+      if (fresh && want === 'pick') return SB.chooseNewEffort(true);
+      if (arg && EFFORTS.some(x => x.id === want)) return fresh ? SB.chooseNewEffort(false, want) : SB.chooseEffort(want);
+      if (arg) return SB.toast(fresh ? 'New conversations take: pick, auto, low, medium, high, xhigh or max.' : 'Effort is one of: auto, low, medium, high, xhigh, max.');
       SB.openMenu($('effortMenu'), $('effortChip'), effortItems);
     },
     permissions: () => SB.showToolbox?.('permissions'),
@@ -277,6 +281,16 @@
     SB.startTries?.(tab, { arg, attachments: [...(tab.attachments || [])] });
   }
 
+  // /btw what was that file called?: answered in a card of its own (feed-notes.js),
+  // from a fork of the conversation that Claude never sees (btw.js).
+  async function askBtw(tab, question) {
+    if (!question) return SB.toast('Ask something after /btw, like: /btw what was that file called?');
+    const card = tab.renderBtw(question);
+    const r = await api.askBtw(tab.id, question);
+    if (r?.ok) card.answer(r.answer);
+    else card.fail(r?.error || "Couldn't ask that.");
+  }
+
   // The last thing you asked Claude, kept as a snippet: "that worked, keep it".
   const lastSent = () => [...sent].reverse().find(s => !/^[/!]/.test(s));
   async function saveLastAsSnippet(name) {
@@ -305,28 +319,62 @@
 
   // ------------------------------------------------------------ effort chip
 
+  // Each conversation has its own effort (main's sessions.js). New ones start
+  // on the default; on Auto with picking on, Shellby sizes each from its first
+  // message (effort-pick.js), so a quick question doesn't think and fill its
+  // context like a build.
+  const picking = () => !state.settings?.effort && state.settings?.effortPick !== false;
+  const tabEffort = tab => (tab && typeof tab.effort === 'string' ? tab.effort : state.settings?.effort || '');
+
   function effortItems() {
-    const cur = state.settings?.effort || '';
+    const tab = SB.activeTab();
+    const cur = tabEffort(tab);
+    const pick = picking();
     return [
-      h('div', { class: 'menu-label', text: 'How hard Claude thinks' }),
+      h('div', { class: 'menu-label', text: 'How hard Claude thinks here' }),
       ...EFFORTS.map(x => h('button', { class: 'menu-item', role: 'menuitemradio', 'aria-checked': String(cur === x.id), onclick: () => { SB.closeMenus(); SB.chooseEffort(x.id); } },
         h('span', { class: 'mi-check', text: cur === x.id ? '●' : '' }),
         h('span', {}, h('div', { class: 'mi-title', text: x.title }), h('div', { class: 'mi-sub', text: x.sub })))),
+      h('div', { class: 'menu-sep' }),
+      h('div', { class: 'menu-label', text: 'New conversations' }),
+      h('button', { class: 'menu-item', role: 'menuitemcheckbox', 'aria-checked': String(pick), onclick: () => { SB.closeMenus(); SB.chooseNewEffort(!pick); } },
+        h('span', { class: 'mi-check', text: pick ? '✓' : '' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Pick to fit each one' }),
+          h('div', { class: 'mi-sub', text: pick ? 'Low for a quick question, high for a big job, from its first message'
+            : `Off: they start on ${effortName(state.settings?.effort).toLowerCase()}` }))),
     ];
   }
 
   SB.applyEffort = () => {
-    const id = state.settings?.effort || '';
-    $('effortLabel').textContent = id ? effortName(id).toLowerCase() : 'auto';
+    const tab = SB.activeTab();
+    const id = tabEffort(tab);
+    const by = tab?.effortBy || null;
+    const waiting = !by && !id && picking();
+    $('effortLabel').textContent = id ? effortName(id).toLowerCase() : waiting ? 'fits' : 'auto';
     $('effortChip').classList.toggle('on', !!id);
-    $('effortChip').title = `Effort: ${effortName(id)}. How hard Claude thinks, in every open conversation (/effort)`;
+    $('effortChip').title = waiting
+      ? 'Effort: picked from your first message, to fit the job. Click to choose it yourself (/effort)'
+      : `Effort: ${effortName(id)}${by === 'picked' ? ', picked to fit your first message' : ''}. How hard Claude thinks in this conversation (/effort)`;
   };
 
+  // This conversation only. With none open yet, it's what new ones start on.
   SB.chooseEffort = async (id) => {
-    const r = await api.setSettings({ effort: id });
+    const tab = SB.activeTab();
+    if (!tab) return SB.chooseNewEffort(false, id);
+    const r = await api.setTabEffort(tab.id, id);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't change the effort.");
+    Object.assign(tab, { effort: id, effortBy: 'you' }); // main's next summary says the same
+    SB.applyEffort();
+    SB.toast(`Effort: ${effortName(id)}, for this conversation`);
+  };
+
+  // pick: size each new conversation from its first message (on Auto).
+  // Otherwise they start on `id` ('' is Auto), or the default as it is.
+  SB.chooseNewEffort = async (pick, id = state.settings?.effort || '') => {
+    const r = await api.setSettings(pick ? { effortPick: true, effort: '' } : { effortPick: false, effort: id });
     state.settings = r.settings;
     SB.applyEffort();
-    SB.toast(`Effort: ${effortName(state.settings.effort)} (all open conversations)`);
+    SB.toast(pick ? 'New conversations get an effort picked to fit their first message.' : `New conversations start on ${effortName(state.settings.effort).toLowerCase()} effort.`);
   };
 
   $('effortChip').addEventListener('click', () => SB.openMenu($('effortMenu'), $('effortChip'), effortItems));

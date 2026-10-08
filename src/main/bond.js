@@ -43,7 +43,7 @@ const EARN = Object.freeze({
 });
 
 const DAY_MILESTONES = Object.freeze([7, 30, 50, 100, 200, 365, 500, 730, 1000]);
-const JOURNAL_MAX = 200;
+const JOURNAL_MAX = 200;                 // repeatable moments kept; firsts are never let go
 const RECALL_AFTER = 2 * DAY;            // a memory has to be a couple of days old to bring up
 const MAX_LINE = 24;                     // voice.js MAX_LINE
 
@@ -89,6 +89,22 @@ const MEMORIES = Object.freeze({
   'board-month': { icon: '🥇', text: d => `${d.place || 'On'} the friends' board in ${d.month || 'a month'}` },
 });
 
+const FIRSTS = new Set(Object.keys(MEMORIES).filter(k => MEMORIES[k].first));
+
+// Newest first, as the journal is kept. Firsts always stay (there are only a
+// handful, each written once, oldest copy kept); the rest stop at JOURNAL_MAX.
+function trim(journal) {
+  const seen = new Set();
+  let kept = 0;
+  const out = [];
+  for (let i = journal.length - 1; i >= 0; i--) { // oldest first, so a first keeps its real date
+    const e = journal[i];
+    if (FIRSTS.has(e.kind)) { if (!seen.has(e.kind)) { seen.add(e.kind); out.push(e); } } else out.push(e);
+  }
+  out.reverse();
+  return out.filter(e => FIRSTS.has(e.kind) || ++kept <= JOURNAL_MAX);
+}
+
 const fmtTime = ms => { const s = Math.max(0, Math.round((ms || 0) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 const cleanData = d => {
@@ -108,6 +124,9 @@ function normalize(raw) {
   for (const k of Object.keys(EARN)) today[k] = Math.floor(pos(t[k]));
   today.date = typeof t.date === 'string' ? t.date : null;
   const bd = r.birthday && typeof r.birthday === 'object' ? r.birthday : null;
+  const journal = trim((Array.isArray(r.journal) ? r.journal : [])
+    .filter(e => e && MEMORIES[e.kind] && pos(e.at))
+    .map(e => ({ kind: e.kind, at: e.at, data: cleanData(e.data) })));
   const birthday = bd && Number.isInteger(bd.m) && Number.isInteger(bd.d) && bd.m >= 1 && bd.m <= 12 && bd.d >= 1 && bd.d <= 31 ? { m: bd.m, d: bd.d } : null;
   return {
     hatchedAt: pos(r.hatchedAt),
@@ -118,10 +137,10 @@ function normalize(raw) {
     today,
     birthday,
     celebrated: (Array.isArray(r.celebrated) ? r.celebrated : []).filter(s => typeof s === 'string' && /^[a-z]+:\d{4}$/.test(s)).slice(-10),
-    journal: (Array.isArray(r.journal) ? r.journal : [])
-      .filter(e => e && MEMORIES[e.kind] && pos(e.at))
-      .map(e => ({ kind: e.kind, at: e.at, data: cleanData(e.data) }))
-      .slice(0, JOURNAL_MAX),
+    journal,
+    // Every first he's written down, even one a journal from before firsts were
+    // kept for good has lost: seeded from the journal, so it's never written twice.
+    firsts: [...new Set([...(Array.isArray(r.firsts) ? r.firsts : []).filter(k => FIRSTS.has(k)), ...journal.filter(e => FIRSTS.has(e.kind)).map(e => e.kind)])],
     recalled: (Array.isArray(r.recalled) ? r.recalled : []).filter(n => Number.isFinite(n)).slice(-12),
   };
 }
@@ -137,7 +156,7 @@ function levelFor(points) {
 }
 
 /**
- * Write a moment down. Firsts are written once. Returns the new state (the old
+ * Write a moment down. Firsts are written once, ever. Returns the new state (the old
  * one is never mutated) and whether anything was added.
  */
 function remember(stateIn, kind, now, data = {}) {
@@ -145,9 +164,10 @@ function remember(stateIn, kind, now, data = {}) {
   const rule = MEMORIES[kind];
   const t = Number(now);
   if (!rule || !Number.isFinite(t)) return { state, added: false };
-  if (rule.first && state.journal.some(e => e.kind === kind)) return { state, added: false };
+  if (rule.first && state.firsts.includes(kind)) return { state, added: false };
   const entry = { kind, at: t, data: cleanData(data) };
-  return { state: { ...state, journal: [entry, ...state.journal].slice(0, JOURNAL_MAX) }, added: true };
+  const firsts = rule.first ? [...state.firsts, kind] : state.firsts;
+  return { state: { ...state, journal: trim([entry, ...state.journal]), firsts }, added: true };
 }
 
 /**
@@ -302,6 +322,6 @@ function view(stateIn, now = Date.now()) {
 }
 
 module.exports = {
-  LEVELS, UNLOCKS, EARN, DAY_MILESTONES, MEMORIES, RECALL_AFTER,
+  LEVELS, UNLOCKS, EARN, DAY_MILESTONES, MEMORIES, RECALL_AFTER, JOURNAL_MAX,
   normalize, levelFor, remember, earn, hatch, setBirthday, specialDay, celebrate, celebrationLine, recall, view, fmtTime,
 };

@@ -70,12 +70,33 @@
         h('span', { class: 'queue-tag', text: L.queueTag(m, i) }),
         h('button', { class: 'queue-text', type: 'button', disabled: !!m.taken, title: m.taken ? 'Claude is reading this now' : 'Edit (puts it back in the box)', onclick: () => editQueued(tab, i) },
           L.queueText(m)),
-        m.taken ? null : h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Remove from queue', onclick: () => { tab.queue.splice(i, 1); syncBusyUi(); } },
+        m.taken ? null : h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Remove from queue', onclick: () => removeQueued(tab, m.id) },
           SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })))),
       ...later,
     ].filter(Boolean));
   }
   SB.renderQueue = renderQueue;
+
+  // × on a chip. While a turn runs, main may have handed it to Claude a moment
+  // ago (sessions.js takeSteers), so main takes it off by id and says if it's
+  // too late. Focus goes to the chip now in its place, or back to the box.
+  async function removeQueued(tab, id) {
+    const at = tab.queue.findIndex(m => m.id === id);
+    if (at < 0 || tab.queue[at].taken) return;
+    const r = tab.busy ? await api.unsteerTask(tab.id, id).catch(() => ({ ok: true })) : { ok: true };
+    if (r?.taken) {
+      SB.toast('Too late: Claude already has that one.', { ms: 3500 });
+      return;
+    }
+    const i = tab.queue.findIndex(m => m.id === id);
+    if (i >= 0) tab.queue.splice(i, 1);
+    if (!tab.isActive) return syncSteers(tab); // you've moved to another tab meanwhile
+    syncBusyUi();
+    const chips = $('queued').querySelectorAll('.queue-item');
+    const next = chips[Math.min(at, chips.length - 1)];
+    (next?.querySelector('.queue-x') || next?.querySelector('.queue-text:not([disabled])') || input).focus();
+  }
+  SB.removeQueued = removeQueued;
 
   // Pull a queued message back into the box to edit (whatever was typed there is queued in its place).
   function editQueued(tab, i) {

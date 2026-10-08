@@ -1,3 +1,4 @@
+// ci: prompt snippets: the Toolbox tab, /name in the box, pinned chips, shellby do @name
 // End-to-end check of prompt snippets against the dev app over CDP, driven by
 // the fake Claude CLI (test/fixtures/fake-claude.js), which echoes what it's
 // sent. Toolbox -> Snippets lists the starters and saves a new one; /name in the

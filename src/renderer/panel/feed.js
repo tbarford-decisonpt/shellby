@@ -19,6 +19,10 @@
   const FORK = 'M5 4.5v7M6.5 3a1.5 1.5 0 1 1-3 0a1.5 1.5 0 1 1 3 0M6.5 13a1.5 1.5 0 1 1-3 0a1.5 1.5 0 1 1 3 0M12.5 5a1.5 1.5 0 1 1-3 0a1.5 1.5 0 1 1 3 0M11 6.5c0 2.5-6 2-6 5';
   SB.forkIcon = () => SB.icon(FORK, { width: 1.3 });
 
+  // Edit rows whose diff isn't built yet -> { text (lower case), build() }, for find.js.
+  const unbuiltDiffs = new WeakMap();
+  SB.unbuiltDiffs = unbuiltDiffs;
+
   const SUGGESTIONS = [
     'Tidy my Downloads folder into subfolders by file type',
     "What's eating the most disk space on C:?",
@@ -163,7 +167,7 @@
       switch (item.kind) {
         case 'user':
           // Something you just sent always comes into view, even if you'd scrolled up.
-          if (!replay) this.stuck = true;
+          if (!replay) { this.stuck = true; this.dropCutOff(); }
           return this.renderUser(item);
         case 'text': {
           const el = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text));
@@ -200,6 +204,7 @@
           h('span', {}, h('b', { text: item.title || (item.what === 'landing' ? 'Clean landing' : 'Critical hit!') }), ` ${item.text || ''}`)));
         case 'suggest': return this.renderSuggestion(item, replay); // feed-asks.js
         case 'handoff': return this.renderHandoff(item, replay);
+        case 'cutoff': return this.renderCutOff(item, replay);
         case 'branched': return this.renderBranched(item);
         case 'branched-off': return this.renderBranchedOff(item);
         case 'checkpoint': return; // where the files stood, for branching: nothing to show
@@ -265,9 +270,16 @@
         this.lastTurnId = item.turnId || null;
         this.lastAsk = item.text || ''; // for Try again, after something goes wrong
       }
-      const back = item.turnId ? h('button', { class: 'msg-rewind', type: 'button', title: 'Rewind to just before this message', 'aria-label': 'Rewind to just before this message', onclick: () => SB.openRewind(this, item.turnId) }) : null;
+      // A steer has no point of its own to go back to (Shellby keeps the code
+      // as it was between turns, not mid-turn), so it says so, and its ↶ goes
+      // back to before the message whose turn it joined.
+      const turnOf = item.steerId && !item.turnId ? item.turnOf || this.lastTurnId : null;
+      const steerTip = 'Sent while Claude was working, so it rewinds with the message before it: back to just before that one';
+      const back = item.turnId ? h('button', { class: 'msg-rewind', type: 'button', title: 'Rewind to just before this message', 'aria-label': 'Rewind to just before this message', onclick: () => SB.openRewind(this, item.turnId) })
+        : turnOf ? h('button', { class: 'msg-rewind', type: 'button', title: steerTip, 'aria-label': steerTip, onclick: () => SB.openRewind(this, turnOf) }) : null;
       const fork = item.turnId ? h('button', { class: 'msg-branch', type: 'button', title: 'Try again from here, in a new tab', 'aria-label': 'Try again from here, in a new tab', onclick: () => SB.openBranch(this, item.turnId, 'before') }, SB.forkIcon()) : null;
-      this.append(h('div', { class: 'msg user' }, back, fork, routine, item.text || '',
+      const steered = item.steerId ? h('div', { class: 'routine-tag', title: 'Claude read this between two steps of the turn before it' }, '↪ sent mid-turn') : null;
+      this.append(h('div', { class: 'msg user' }, back, fork, routine || steered, item.text || '',
         item.attachments?.length ? h('div', { class: 'att-list' }, SB.attachmentChips(item.attachments)) : null));
     }
 
@@ -286,17 +298,22 @@
       el.dataset.toolId = item.id; // so trim() can forget it with the element
       if (edits) {
         el.dataset.edit = '1';
-        // Built on first open: a long conversation has hundreds of these.
-        el.addEventListener('toggle', () => {
-          if (!el.open || el.querySelector('.ediff')) return;
-          el.querySelector('summary').after(SB.diffView(edits, { line: item.line }));
-        });
+        // Built on first open: a long conversation has hundreds of these. Until
+        // then Ctrl+F looks in its text here, and builds it on a match (find.js).
+        const build = () => {
+          unbuiltDiffs.delete(el);
+          if (!el.querySelector('.ediff')) el.querySelector('summary').after(SB.diffView(edits, { line: item.line }));
+        };
+        unbuiltDiffs.set(el, { text: edits.map(e => `${e.old || ''}\n${e.new || ''}`).join('\n').toLowerCase(), build });
+        el.addEventListener('toggle', () => { if (el.open) build(); });
       }
       this.tools.set(item.id, el);
       this.append(el, item.parent);
-      if (!replay && !item.sub) this.setStatus(`${item.label} ${item.detail}`.trim());
+      // In plain words when there are some (plain-words.js), else the step as Claude Code names it.
+      const now = state.settings.plainCards !== false && item.doing ? `${item.doing}…` : `${item.label} ${item.detail}`.trim();
+      if (!replay && !item.sub) this.setStatus(now);
       const lane = item.parent && this.lanes.get(item.parent);
-      if (lane && !replay) lane.setActivity(`${item.label} ${item.detail}`);
+      if (lane && !replay) lane.setActivity(now);
     }
 
     renderToolResult(item) {
@@ -339,8 +356,10 @@
         h('span', { text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }), fork));
       // What the turn cost (src/main/turncost.js): the context chip's menu scrolls back to it.
       if (cost) this.append(h('div', { class: 'turn-cost', title: cost.detail || null, dataset: turnId ? { turn: turnId } : {}, text: cost.line }));
-      if (!item.ok && !item.interrupted && item.error) this.append(this.troubleBlock(item.trouble, item.error));
-      if (item.interrupted) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });
+      // A turn whose process went (main's session.js ended()): its error block is just above.
+      if (!item.ok && !item.interrupted && item.error && !item.crashed) this.append(this.troubleBlock(item.trouble, item.error));
+      // ...and its helpers went with it.
+      if (item.interrupted || item.crashed) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });
     }
 
     destroy() {

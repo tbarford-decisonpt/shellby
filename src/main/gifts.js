@@ -38,7 +38,8 @@ const MAX_SPARKLE_BOOST = 4;
 // Each find: pixel art (one character per pixel, '.' is empty), a line for the
 // shelf, and where it belongs. `season` finds only turn up in that season
 // (src/main/wardrobe/seasons.js), `event` ones only during their tide event
-// (events.js), `night` ones only after dark, `special` ones only on their day.
+// (events.js), `night` ones only after dark, `moon` ones only after dark under
+// a full or a new moon (moon.js), `special` ones only on their day.
 const FINDS = Object.freeze([
   // ---- the beach
   { id: 'pebble', name: 'Smooth pebble', rarity: 'common', set: 'beach', blurb: 'Perfectly round. He checked.', palette: { a: '#8d99ae', b: '#b8c2d1', c: '#dfe5ec' }, pixels: ['.bbb.', 'bcbba', 'bbbba', '.aaa.'] },
@@ -140,6 +141,12 @@ const FINDS = Object.freeze([
   { id: 'lolly-stick', name: 'Lolly stick', rarity: 'uncommon', season: 'summer', blurb: 'Half a joke on it. He\'s still wondering.', palette: { a: '#e9d8a6' }, pixels: ['aa', 'aa', 'aa', 'aa', 'aa'] },
   { id: 'red-leaf', name: 'Red maple leaf', rarity: 'uncommon', season: 'autumn', blurb: 'The reddest one. Took him ages.', palette: { r: '#d62828', b: '#9d0208' }, pixels: ['..r..', 'r.r.r', 'rrrrr', '.rrr.', '..b..'] },
 
+  // ---- by moonlight: only after dark, under the right moon (moon.js)
+  { id: 'moon-pearl', name: 'Moon pearl', rarity: 'rare', set: 'moonlight', night: true, moon: 'full', blurb: 'Only comes up at full moon. Glows a little in the dark.', palette: { a: '#e8ecff', b: '#b8c4ff', c: '#ffffff' }, pixels: ['.aa.', 'acab', 'aabb', '.bb.'] },
+  { id: 'silver-sand', name: 'Silver sand', rarity: 'uncommon', set: 'moonlight', night: true, moon: 'full', blurb: 'A pinch of sand that caught the full moon and kept it.', palette: { a: '#c9d1e0', b: '#eef2fa' }, pixels: ['..b..', '.aba.', 'aabaa', 'aaaaa'] },
+  { id: 'new-moon-stone', name: 'New moon stone', rarity: 'rare', set: 'moonlight', night: true, moon: 'new', blurb: 'Black as a sky with no moon in it. Warm, somehow.', palette: { a: '#1d2333', b: '#3a4560', c: '#8c9eff' }, pixels: ['.aa.', 'abca', 'aaba', '.aa.'] },
+  { id: 'moonless-glass', name: 'Moonless glass', rarity: 'uncommon', set: 'moonlight', night: true, moon: 'new', blurb: 'Sea glass from a night with no moon. He found it by feel.', palette: { a: '#2f4858', b: '#86bbd8' }, pixels: ['.ab.', 'aaab', '.aa.'] },
+
   // ---- all year round: one per season
   { id: 'candy-corn', name: 'Candy corn', rarity: 'uncommon', set: 'seasons', season: 'halloween', blurb: 'Divisive. He likes it.', palette: { w: '#fff4e4', o: '#ff9f1c', y: '#ffd23f' }, pixels: ['..w..', '.ooo.', 'ooooo', 'yyyyy'] },
   { id: 'snowflake', name: 'Snowflake ornament', rarity: 'uncommon', set: 'seasons', season: 'winter', blurb: 'Doesn\'t melt. He tried.', palette: { a: '#e0fbfc' }, pixels: ['a.a.a', '.aaa.', 'aa.aa', '.aaa.', 'a.a.a'] },
@@ -165,7 +172,7 @@ const FINDS = Object.freeze([
   // ---- keepsakes: only on their day
   { id: 'cake-slice', name: 'Birthday cake', rarity: 'special', special: 'birthday', blurb: 'Dug up on your birthday. Still fresh, somehow.', palette: { r: '#e63946', w: '#fff4e4', p: '#f4a261' }, pixels: ['...r.', '..www', '.wwwp', 'wwwpp', 'ppppp'] },
   { id: 'hatch-candle', name: 'Hatch-day candle', rarity: 'special', special: 'hatchday', blurb: 'From the anniversary of the day he moved in.', palette: { y: '#ffd23f', o: '#ff9f1c', w: '#fff4e4', p: '#ff8fab' }, pixels: ['..y..', '..o..', '.www.', '.wpw.', '.www.'] },
-].map(f => Object.freeze({ set: null, season: null, event: null, night: false, special: null, ...f, pixels: Object.freeze([...f.pixels]), palette: Object.freeze({ ...f.palette }) })));
+].map(f => Object.freeze({ set: null, season: null, event: null, night: false, moon: null, special: null, ...f, pixels: Object.freeze([...f.pixels]), palette: Object.freeze({ ...f.palette }) })));
 
 const SETS = Object.freeze([
   { id: 'beach', name: 'Beach day', icon: '🏖️' },
@@ -178,6 +185,7 @@ const SETS = Object.freeze([
   { id: 'garden', name: 'Back garden', icon: '🌿' },
   { id: 'dig-site', name: 'Dig site', icon: '🦴' },
   { id: 'night', name: 'After dark', icon: '🌙' },
+  { id: 'moonlight', name: 'By moonlight', icon: '🌕' },
   { id: 'seasons', name: 'All year round', icon: '🗓️' },
   { id: 'tides', name: 'Tide chest', icon: '🧭' },
 ].map(s => Object.freeze({ ...s, members: Object.freeze(FINDS.filter(f => f.set === s.id).map(f => f.id)) })));
@@ -220,13 +228,14 @@ const total = state => Object.values(state.items).reduce((n, it) => n + it.n, 0)
 const kinds = state => Object.keys(state.items).length;
 
 /** Every find that could turn up right now, given the moment. */
-function eligible(state, { seasons = [], night = false, special = null, event = null } = {}) {
+function eligible(state, { seasons = [], night = false, moon = null, special = null, event = null } = {}) {
   if (special) return FINDS.filter(f => f.special === special);
   const legendaryOk = total(state) >= LEGENDARY_AFTER;
   return FINDS.filter(f => !f.special
     && (!f.season || seasons.includes(f.season))
     && (!f.event || f.event === event)
     && (!f.night || night)
+    && (!f.moon || f.moon === moon)
     && (f.rarity !== 'legendary' || legendaryOk));
 }
 
@@ -261,7 +270,7 @@ function add(state, find, t, shiny = false) {
  * `find` is a FINDS entry or null, `isNew` whether it's the first of its kind,
  * `completed` the sets this find just finished, `shiny` whether it sparkles
  * (`firstShiny`: the first sparkly one of that find).
- *   ctx: { seasons: ['autumn'], night, manual, event, digBoost, shinyBoost }
+ *   ctx: { seasons: ['autumn'], night, moon: 'full' | 'new' | null, manual, event, digBoost, shinyBoost }
  *   `manual` is "Dig for treasure" from his menu: it always finds something, on
  *   its own cooldown. `event` is the tide event going on; its boosts raise
  *   the odds of a find (at most 2×) and of a sparkly (at most 4×).
@@ -369,7 +378,7 @@ function view(stateIn, now = Date.now(), { seasons = [], event = null, back = {}
       const it = state.items[f.id];
       return {
         id: f.id, rarity: f.rarity, rarityLabel: RARITY[f.rarity].label, set: f.set,
-        season: f.season, inSeason: (!f.season || seasons.includes(f.season)) && (!f.event || f.event === event), night: f.night, special: f.special,
+        season: f.season, inSeason: (!f.season || seasons.includes(f.season)) && (!f.event || f.event === event), night: f.night, moon: f.moon, special: f.special,
         event: f.event, back: f.event && Number.isFinite(back[f.event]) ? back[f.event] : 0,
         owned: !!it, count: it?.n || 0, first: it?.first || 0,
         shiny: it?.shiny || 0, shinyFirst: it?.shinyFirst || 0, held: it?.held || 0,
@@ -393,6 +402,7 @@ function hintFor(f) {
   if (f.special === 'hatchday') return 'Turns up on the anniversary of the day he moved in.';
   if (f.season) return `Only turns up in ${{ halloween: 'Spooky Season', winter: 'the winter holidays', valentine: 'Valentine’s week', spring: 'spring', summer: 'summer', autumn: 'autumn' }[f.season]}.`;
   if (f.event) return `Only turns up during ${EVENT_NAMES[f.event] || 'a tide event'}.`;
+  if (f.moon) return `Only turns up after dark, under a ${f.moon} moon.`;
   if (f.night) return 'Only turns up after dark.';
   if (f.rarity === 'legendary') return 'Legendary. Keep digging.';
   return 'Not found yet.';

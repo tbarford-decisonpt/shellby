@@ -1,3 +1,4 @@
+// ci: rooms: a newcomer's short bar, rooms opening as they're earned, Show every screen
 // End-to-end check of rooms (main/rooms.js, panel/rooms.js) against the dev app
 // over CDP, driven by the fake Claude CLI (test/fixtures/fake-claude.js):
 //   1. Someone new: only Shellby, Chat and "More" are on the bar

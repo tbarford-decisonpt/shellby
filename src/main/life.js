@@ -12,6 +12,7 @@
 const surroundings = require('./surroundings');
 const scenes = require('./scenes');
 const gifts = require('./gifts');
+const moon = require('./moon');
 const bond = require('./bond');
 const banter = require('./banter');
 const voice = require('./voice');
@@ -233,7 +234,9 @@ function createLife(d) {
   }
 
   async function micCheck() {
-    if (!d.enabled() || !d.readMic || d.calm()) return; // locked: nobody's on a call at this desk
+    // Locked: nobody's on a call at this desk. Only covered or away, a call may
+    // well be going on (Discord over him, a long listen), so the check goes on.
+    if (!d.enabled() || !d.readMic || (d.locked ? d.locked() : d.calm())) return;
     try {
       const out = await d.readMic(MIC_KEY);
       micBusy = surroundings.micUsers(out, { own: d.ownExes?.() || [], now: now(), bootAt: d.bootAt?.() ?? null }).length > 0;
@@ -262,6 +265,8 @@ function createLife(d) {
   }
 
   // ---------------------------------------------------------------- his eyes on your cursor
+  // Not while he's calm (covered, hidden under a game, nobody at the desk, the
+  // screen locked): nobody sees where his eyes go, and it's a poll every 280 ms.
   function lookTick() {
     if (!d.enabled() || d.calm()) return;
     const eye = d.eyePoint();
@@ -390,7 +395,7 @@ function createLife(d) {
     care.wear('dig'); // sand in places sand shouldn't be
     const t = now();
     const tide = d.tide?.() || {};
-    const r = gifts.dig(getFinds(), { seasons: d.seasons(), night: isNight(t), manual, event: tide.event || null, digBoost: tide.digBoost, shinyBoost: tide.shinyBoost }, t);
+    const r = gifts.dig(getFinds(), { seasons: d.seasons(), night: isNight(t), moon: moon.special(t), manual, event: tide.event || null, digBoost: tide.digBoost, shinyBoost: tide.shinyBoost }, t);
     if (r.shiny) r.odds = Math.round(1 / (gifts.SPARKLE_CHANCE * Math.max(1, Math.min(4, tide.shinyBoost || 1))));
     setFinds(r.state);
     if (!r.find) { if (manual) changed(); return null; }
@@ -669,6 +674,7 @@ function createLife(d) {
     event: onEvent,
     newDayForTest: () => { lastDay = null; newDay(); },
     callForTest: on => { forcedCall = on == null ? null : !!on; setCall(!!on); },
+    napForTest: ms => { napFor(ms); return napping(); }, // down now for ms (beats.js: dozing off and waking)
   };
 }
 

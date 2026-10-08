@@ -4,6 +4,7 @@
 // Moved out of main.js; the limit and forecast it waits on are usage-service.js.
 const path = require('path');
 const held = require('./held');
+const recap = require('./recap');
 const { isModel } = require('./models');
 const worktrees = require('./worktrees');
 
@@ -26,7 +27,7 @@ const pause = ms => new Promise(r => setTimeout(r, ms));
  *   config, panel, manager, history, claudeStatus: getters
  *   tabWindow(tabId): optional, the window a tab is shown in (the panel, or its own: wiring/popouts.js)
  *   CAPTURE, graceMs (how long after the reset held work goes),
- *   log, send, notify, showPanel, tellChannel, wake, openTab, sendToTab,
+ *   log, send, notify, showPanel, tellChannel, wake, openTab, sendToTab, noteRecap (away-service.js),
  *   currentCwd, isFolder, isStr, dialogLook, confirm ({ ask }), randomUUID,
  *   powerSaveBlocker (Electron's), worktreeHome, adoptPhoneTab (wiring/phone-tasks.js),
  *   from usage-service.js: limitWait, resetTarget, clockTime, sendOutlook,
@@ -183,6 +184,7 @@ function createHeldQueue(d) {
     if (!went.length) return;
     const what = held.summary(went);
     d.log.info('Held work released', what);
+    d.noteRecap?.(recap.heldEvent(went)); // "sent … after the reset" in the while-you-were-away card
     if (!went.some(h => h.kind === 'task')) return d.notify('Your usage window reset', `Shellby sent ${what}.`, () => d.showPanel());
     const left = heldList().filter(h => h.kind === 'task').length;
     d.notify(left ? 'Shellby got through part of your queue' : 'Your reset queue is done',
@@ -330,8 +332,12 @@ function createHeldQueue(d) {
         tabId: h.tabId, entry: d.history.get(h.tabId), items: d.history.load(h.tabId), background: true, busy: r.ok,
         ...(r.ok ? {} : { draft: h.text, attachments: h.attachments }),
       });
-    } else if (r.ok) { const win = d.tabWindow?.(h.tabId) || d.panel; d.send(win, 'tab:sent', { tabId: h.tabId, item: r.item }); }
-    else d.send(d.panel, 'held:returned', { tabId: h.tabId, text: h.text, attachments: h.attachments, error: r.error });
+    } else {
+      // The window it's shown in: a popped-out conversation isn't in the panel to take it back.
+      const win = d.tabWindow?.(h.tabId) || d.panel;
+      if (r.ok) d.send(win, 'tab:sent', { tabId: h.tabId, item: r.item });
+      else d.send(win, 'held:returned', { tabId: h.tabId, text: h.text, attachments: h.attachments, error: r.error });
+    }
     if (!r.ok) d.notify("A held message couldn't be sent", `${r.error} It's back in its conversation's box.`, () => d.showPanel());
     return r.ok ? 'sent' : 'failed';
   }

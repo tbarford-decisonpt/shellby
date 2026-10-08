@@ -15,9 +15,13 @@
     layout: pref(PREF.layout, 'map'), // 'map' or 'list'
     sel: null,                        // the map node the inspector shows: 's<n>', 't<n>', 'manual', 'settings'
     map: null,                        // the map on screen, while there is one
-    chat: null,                       // Build it with Claude (wf-chat.js), one per editor session
+    chat: null,                       // Build it with Claude (wf-chat.js), one per workflow (chats)
     trial: false,                     // saved only by Claude's test runs so far: kept switched off until you Save
   };
+  // Each saved workflow's chat, by id, while the panel is open: leaving the editor
+  // (Save takes you to the list) and coming back carries the conversation on.
+  const chats = new Map();
+  const keepChat = id => { if (id && ed.chat) chats.set(id, ed.chat); };
   const mapOn = () => !ed.json && ed.layout === 'map';
   const stepSel = s => `s${keyOf(s)}`;
   const trigSel = t => `t${keyOf(t)}`;
@@ -126,12 +130,20 @@
       title: title || (d.id ? `Edit “${d.name || 'workflow'}”` : 'New workflow'), sel: null, map: null, trial: false,
     });
     W.forgetMcp(); // read again: one may have been added since
-    const host = W.chatHost();
-    ed.chat = SB.wfChat.create(host, { greeting: note || '' });
-    host.bind(ed.chat);
+    const kept = d.id && chats.get(d.id);
+    if (kept) {
+      ed.chat = kept;
+      if (note) kept.tell(note);
+    } else {
+      const host = W.chatHost();
+      ed.chat = SB.wfChat.create(host, { greeting: note || '' });
+      host.bind(ed.chat);
+      keepChat(d.id);
+    }
     if (d.steps.length === 1) openSteps.add(d.steps[0]);
     if (current().name === 'editor') nav.pop();
     go('editor');
+    if (kept) kept.resume();
     // What's on disk, to tell a real change from one that was typed and then put back.
     // Nothing to compare against when it opens with changes already in it.
     ed.saved = ed.dirty ? null : JSON.stringify(ed.def);
@@ -274,7 +286,7 @@
   }
 
   Object.assign(W, {
-    leaveEditor, ed, openEditor, blankWorkflow, unsaved, normErrors, slots, changed, walk, rebuild, keyOf,
+    leaveEditor, ed, openEditor, keepChat, blankWorkflow, unsaved, normErrors, slots, changed, walk, rebuild, keyOf,
     waitUnits, openAdvanced, normalise, validateSoon, mapOn, selFor, within, openSteps, paintErrors, stepFk,
     cards, TRIGGER_DEFAULTS, trigSel, trigFk, countSteps, newStep, stepSel, copyStep,
   });

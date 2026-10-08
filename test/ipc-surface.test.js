@@ -46,8 +46,10 @@ const handlers = uniq(all(mainJs, /ipcMain\.(?:handle|on)\('([a-z0-9:_-]+)'/g));
 const pushes = uniq([
   // send(win, 'channel', …) in main.js, service.toPanel('channel', …) elsewhere,
   // and the occasional raw webContents.send.
-  ...all(mainFiles, /\bsend\([A-Za-z_$][\w.$?]*,\s*'([a-z0-9:_-]+)'/g),
+  ...all(mainFiles, /\bsend\([A-Za-z_$][\w.$?]*(?:\([^()]*\))?,\s*'([a-z0-9:_-]+)'/g),
   ...all(mainFiles, /\btoPanel\('([a-z0-9:_-]+)'/g),
+  // Popped-out windows too: toEveryWindow / sendEveryWindow('channel', …).
+  ...all(mainFiles, /\b(?:toEveryWindow|sendEveryWindow)\('([a-z0-9:_-]+)'/g),
   // life.js and playtime.js reach the crab's window through d.toCrab('channel', …).
   ...all(mainFiles, /\btoCrab\('([a-z0-9:_-]+)'/g),
   ...all(mainFiles, /webContents\.send\('([a-z0-9:_-]+)'/g),

@@ -1,6 +1,8 @@
 // Shellby's face in Claude Code's status line. Shellby keeps one ready-made line
 // in a temp file; Claude Code's statusLine command just prints it (no network,
 // no Node, ~10 ms). When Shellby quits the file goes away and the line is empty.
+// A crash can't remove it, so Shellby touches it every minute while he runs and
+// the command ignores one older than two: a frozen line goes blank instead.
 //
 // formatStatus() is pure (test/statusline.test.js); the rest is small file I/O.
 const fs = require('fs');
@@ -11,11 +13,12 @@ const STATUS_FILE = path.join(os.tmpdir(), 'shellby-status.txt');
 // The classic Windows console (cmd.exe) can't draw emoji or ▰▱, so Shellby also
 // writes an all-ASCII twin, and the command picks it there.
 const plainFile = file => file.replace(/\.txt$/, '-plain.txt');
-// The statusLine command: print the file if it's there, else nothing. Pure bash
-// (Claude Code runs it through Git Bash on Windows), no other dependencies.
+// The statusLine command: print the file if it's there and fresh, else nothing.
+// Bash and find (Claude Code runs it through Git Bash on Windows), nothing else.
 // Windows Terminal (WT_SESSION) and VS Code (TERM_PROGRAM) get the emoji line;
-// the classic Windows console gets the plain one.
-const COMMAND = 'bash -c \'d="${TEMP:-${TMPDIR:-/tmp}}"; f="$d/shellby-status.txt"; if [ "$OS" = Windows_NT ] && [ -z "$WT_SESSION$TERM_PROGRAM" ]; then f="$d/shellby-status-plain.txt"; fi; [ -f "$f" ] && cat "$f"; exit 0\'';
+// the classic Windows console gets the plain one. A find that can't run at all
+// (some other find.exe first on PATH) trusts the file, as before.
+const COMMAND = 'bash -c \'d="${TEMP:-${TMPDIR:-/tmp}}"; f="$d/shellby-status.txt"; if [ "$OS" = Windows_NT ] && [ -z "$WT_SESSION$TERM_PROGRAM" ]; then f="$d/shellby-status-plain.txt"; fi; [ -f "$f" ] && [ -n "$(find "$f" -mmin -2 2>/dev/null || echo y)" ] && cat "$f"; exit 0\'';
 const MARK = 'shellby-status.txt'; // how we recognise our own statusLine
 
 const C = { reset: '\x1b[0m', dim: '\x1b[2m', gold: '\x1b[38;5;221m', coral: '\x1b[38;5;209m', glass: '\x1b[38;5;116m', amber: '\x1b[38;5;214m', red: '\x1b[38;5;203m' };
@@ -109,23 +112,48 @@ function healthLabel(h) {
 
 // ------------------------------------------------------------------ the file
 
+const FRESH_EVERY_MS = 60 * 1000; // the command ignores a file untouched for two minutes
+
 let lastWritten = null;
+let written = [];       // the files the last write made, which keepFresh touches
+let freshTimer = null;
 /** Write the emoji line, and the plain twin when given. */
 function writeStatus(line, file = STATUS_FILE, plain = null) {
   const key = `${line}\n${plain}`;
   if (key === lastWritten) return;
   try {
+    const files = [];
     for (const [f, text] of [[file, line], [plainFile(file), plain]]) {
       if (text == null) continue;
       const tmp = `${f}.tmp`;
       fs.writeFileSync(tmp, text);
       fs.renameSync(tmp, f); // never let the status line read a half-written file
+      files.push(f);
     }
     lastWritten = key;
+    written = files;
+    keepFresh();
   } catch { /* best effort */ }
 }
+
+// The line can sit unchanged for hours, and an unchanged line is never
+// rewritten: touch it instead, so "old" only ever means Shellby isn't running.
+function keepFresh() {
+  if (freshTimer) return;
+  freshTimer = setInterval(touchStatus, FRESH_EVERY_MS);
+  freshTimer.unref?.(); // never what keeps Shellby (or a test) running
+}
+
+/** Mark the status files as current. */
+function touchStatus(now = new Date()) {
+  for (const f of written) { try { fs.utimesSync(f, now, now); } catch { /* gone: the next write puts it back */ } }
+}
+
 function clearStatus(file = STATUS_FILE) {
   lastWritten = null;
+  written = [];
+  clearInterval(freshTimer);
+  freshTimer = null;
   for (const f of [file, plainFile(file)]) { try { fs.rmSync(f, { force: true }); } catch { /* ignore */ } }
 }
 
@@ -164,7 +192,7 @@ const PLUGIN_ID = 'shellby@shellby';
 // test/statusline.test.js keeps them equal). Claude Code doesn't update plugins
 // from other marketplaces by itself, so an install can sit on a version from
 // before the features this app relies on, its MCP server among them.
-const PLUGIN_VERSION = '1.6.0';
+const PLUGIN_VERSION = '1.6.1';
 const PLUGIN_SOURCE = 'x-salmon/shellby';
 
 const versionParts = v => (typeof v === 'string' && /^\d{1,9}\.\d{1,9}\.\d{1,9}$/.test(v) ? v.split('.').map(Number) : null);
@@ -224,4 +252,4 @@ function writeJson(file, obj) {
   fs.renameSync(tmp, file);
 }
 
-module.exports = { writeJson, PLUGIN_ID, PLUGIN_VERSION, PLUGIN_SOURCE, isOlderVersion, pluginStatus, inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, plainFile, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, settingsPath, STATUS_FILE, COMMAND };
+module.exports = { writeJson, PLUGIN_ID, PLUGIN_VERSION, PLUGIN_SOURCE, isOlderVersion, pluginStatus, inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, plainFile, writeStatus, touchStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, settingsPath, STATUS_FILE, COMMAND };

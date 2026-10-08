@@ -1,3 +1,4 @@
+// ci: a very long conversation stops growing the DOM
 // Regression check: a very long conversation can't grow the panel without
 // bound. The oldest blocks are dropped once there are more than MAX_BLOCKS of
 // them, the tool and lane maps let go with the elements, a notice says what

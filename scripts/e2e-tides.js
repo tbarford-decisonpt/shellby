@@ -1,3 +1,4 @@
+// ci: tide events pinned to The Haunting: the banner, the event bug and finds, the sparkly reveal, shiny and medal cards
 // End-to-end check of tide events, sparklies and their cards against the dev
 // app over CDP, with the date pinned inside The Haunting (SHELLBY_TODAY) and a
 // throwaway profile. The Us page's banner (countdown, four goals, its bug and

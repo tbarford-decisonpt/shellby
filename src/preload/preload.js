@@ -78,6 +78,8 @@ contextBridge.exposeInMainWorld('shellby', {
   updateClaude: invoke('claude:update'),
   setClaudeUpdateMode: mode => ipcRenderer.invoke('claude:update-mode', String(mode)),
   onClaudeUpdate: on('claude:update'),
+  dismissClaudeTricks: invoke('claude:tricks-dismiss'),
+  onClaudeTricks: on('claude:tricks'), // what a newer Claude Code can do (claude-tricks.js)
 
   // tabs + tasks
   newTab: invoke('tab:new'),
@@ -89,16 +91,19 @@ contextBridge.exposeInMainWorld('shellby', {
   popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
   shownTab: fire('tab:shown'), // the Stream Deck's Stop and Bring it home follow it
+  setTabEffort: (tabId, effort) => ipcRenderer.invoke('tab:effort', { tabId, effort }), // the effort chip, for one conversation
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
   steerTask: (tabId, turnId, items) => ipcRenderer.send('task:steer', { tabId, turnId, items }),
+  unsteerTask: (tabId, id) => ipcRenderer.invoke('task:unsteer', { tabId, id }), // a queued message taken back, unless Claude has it
   freshTab: invoke('tab:fresh'),
   tabCost: invoke('tab:cost'),
   // the terminal's conveniences (parity.js)
   suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
   promptHistory: invoke('prompt:history'),
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
+  askBtw: (tabId, question) => ipcRenderer.invoke('btw:ask', { tabId, question }),
   rewindPoints: invoke('rewind:points'),
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
@@ -126,6 +131,8 @@ contextBridge.exposeInMainWorld('shellby', {
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
   undoChanges: invoke('changes:undo'),
+  startQuiz: invoke('quiz:start'),                 // three questions on a turn's diff (quiz.js)
+  pickQuiz: invoke('quiz:pick'),                   // { tabId, after, question, choice } -> right or not, and why
   runChecks: invoke('checks:run'),                 // the project's tests on a turn's diff (checks.js)
   onChecksRunning: on('checks:running'),           // { tabId, after, running, commands? }
   openInEditor: invoke('changes:open-editor'),     // one file of a turn in VS Code's diff (editor.js)
@@ -251,7 +258,8 @@ contextBridge.exposeInMainWorld('shellby', {
   setVoice: invoke('wardrobe:set-voice'),
   markSeen: fire('wardrobe:seen'),
   installPack: invoke('wardrobe:install'),
-  removePack: invoke('wardrobe:remove-pack'),
+  removePack: invoke('wardrobe:remove-pack'), // -> { ok, view }: it goes in the trash for a week
+  restorePack: invoke('wardrobe:restore-pack'), // ...and Undo brings it back
   outfitCode: invoke('wardrobe:code'),
   previewOutfitCode: invoke('wardrobe:code-preview'),
   wearOutfitCode: invoke('wardrobe:code-wear'),
@@ -426,6 +434,7 @@ contextBridge.exposeInMainWorld('shellby', {
   useTankLayout: invoke('tank:layout-use'),
   removeTankLayout: invoke('tank:layout-remove'),
   seasonTankLayout: invoke('tank:layout-season'),
+  undoTankLayout: invoke('tank:layout-undo'), // the last put up, replace or remove, taken back
   tankTidy: invoke('tank:tidy'),       // he moves a find now and then (tank-tidy.js)
   undoTankTidy: invoke('tank:tidy-undo'),
   setTankTidy: invoke('tank:tidy-set'),
@@ -517,6 +526,7 @@ contextBridge.exposeInMainWorld('shellby', {
   finishProjectTodo: invoke('projects:todo-done'),
   pinToJournal: invoke('projects:journal-pin'),
   removeFromJournal: invoke('projects:journal-remove'),
+  restoreToJournal: invoke('projects:journal-restore'), // Undo: the pin or note just taken off, back
   onProjectsChanged: on('projects:changed'),
   onProjectsShow: on('projects:show'),
   onCloneProgress: on('projects:clone-progress'),

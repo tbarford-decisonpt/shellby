@@ -36,8 +36,9 @@ function registerGithubIpc(ipcMain, d) {
   ipcMain.on('github:open-code', openDeviceCode);
   ipcMain.on('github:cancel', () => d.github.cancel());
   ipcMain.handle('github:sign-out', async () => {
-    // The calling card is public: take it down while there's still a sign-in to do it with.
-    const down = d.friends?.enabled ? await d.friends.takeDown() : { ok: true };
+    // The calling card is public: take it down while there's still a sign-in to do it with,
+    // even if turning Visiting crabs off earlier couldn't delete it.
+    const down = d.friends?.enabled || d.friends?.isUp ? await d.friends.takeDown() : { ok: true };
     // Its gist too, even if turning it off earlier couldn't delete it.
     const cardDown = d.github.can('profileCard') || d.profileCard.isUp ? await d.profileCard.takeDown() : { ok: true };
     d.github.signOut();

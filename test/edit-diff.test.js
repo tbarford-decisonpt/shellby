@@ -24,24 +24,24 @@ test('edit tool calls and their permission requests carry the change', () => {
   assert.equal(bash.edits, undefined);
 });
 
-test('an Edit gets the line it lands on', () => {
+test('an Edit gets the line it lands on', async () => {
   const file = path.join(tmp(), 'a.txt');
   fs.writeFileSync(file, 'first\r\nsecond\r\nthird\r\n');
   const item = { kind: 'tool', name: 'Edit', filePath: file, edits: [{ old: 'second\nthird', new: 'x' }] };
-  placeEdit(item);
+  await placeEdit(item);
   assert.equal(item.line, 2);
 });
 
-test('a Write over an existing file is diffed against what it replaces; a new file is all additions', () => {
+test('a Write over an existing file is diffed against what it replaces; a new file is all additions', async () => {
   const cwd = tmp();
   const file = path.join(cwd, 'old.txt');
   fs.writeFileSync(file, 'keep\r\ndrop\r\n');
   const over = { kind: 'tool', name: 'Write', filePath: file, edits: [{ old: null, new: 'keep\nadd\n' }] };
-  placeEdit(over);
+  await placeEdit(over);
   assert.deepEqual(over.edits, [{ old: 'keep\ndrop\n', new: 'keep\nadd\n' }]);
   assert.equal(over.line, 1);
   const fresh = { kind: 'permission', toolName: 'Write', filePath: path.join(cwd, 'new.txt'), edits: [{ old: null, new: 'x' }] };
-  placeEdit(fresh);
+  await placeEdit(fresh);
   assert.deepEqual(fresh.edits, [{ old: null, new: 'x' }]);
   assert.equal(fresh.line, undefined);
 });

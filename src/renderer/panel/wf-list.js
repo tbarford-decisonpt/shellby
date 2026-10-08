@@ -5,7 +5,7 @@
   const W = SB.wfKit;
   const {
     clone, setMapMode, fill, screen, openEditor, blankWorkflow, current, throttle, editing, keepFocus, uid,
-    unsaved, TRIGGER_INFO, icon, ICON, iconBtn, go, normErrors, popup, menuItem, focusFk,
+    unsaved, TRIGGER_INFO, icon, ICON, iconBtn, go, normErrors, popup, menuItem, focusFk, openFileBtn,
   } = W;
 
   // ================================================================ the list
@@ -218,7 +218,7 @@
         h('div', { class: 'row wrap' }, choices.map(c => h('button', {
           type: 'button', class: 'btn slim-btn',
           onclick: async ev => { ev.currentTarget.disabled = true; await answer(last.id, wt.key, c); },
-        }, c))));
+        }, c)), wt.file ? openFileBtn(wt.file) : null));
     }
     return h('div', { class: 'wf-waiting quiet' }, h('span', { text: wt.until ? `Waiting until ${SB.untilTime(wt.until)}` : 'Waiting for your OK in its conversation' }),
       h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => go('run', { runId: last.id }) }, 'Open the run'));
@@ -243,14 +243,21 @@
     }
   }
 
+  const ROW_ICONS = {
+    runs: 'M3 4h10M3 8h10M3 12h6',
+    duplicate: 'M5.5 5.5h7v7h-7zM3.5 10.5v-7h7',
+    export: 'M8 2.5v7M5 5.5l3-3 3 3M3.5 9.5v3h9v-3',
+  };
+  const glyph = d => ({ glyph: SB.icon(d, { width: 1.4 }) });
+
   function rowMenu(w, anchor) {
     popup(anchor, () => [
-      menuItem('Edit', null, () => openEditor(toDef(w))),
-      menuItem('Runs', w.lastRun ? `Last ${SB.relTime(w.lastRun.startedAt)}` : 'None yet', () => go('runs', { id: w.id, name: w.name })),
-      menuItem('Duplicate', 'Opens a copy in the editor', () => openEditor(duplicateOf(w), { title: 'Copy of a workflow' })),
-      menuItem('Export', 'Copies it as JSON', () => exportWorkflow(w)),
+      menuItem('Edit', null, () => openEditor(toDef(w)), glyph(SB.ICONS.edit)),
+      menuItem('Runs', w.lastRun ? `Last ${SB.relTime(w.lastRun.startedAt)}` : 'None yet', () => go('runs', { id: w.id, name: w.name }), glyph(ROW_ICONS.runs)),
+      menuItem('Duplicate', 'Opens a copy in the editor', () => openEditor(duplicateOf(w), { title: 'Copy of a workflow' }), glyph(ROW_ICONS.duplicate)),
+      menuItem('Export', 'Copies it as JSON', () => exportWorkflow(w), glyph(ROW_ICONS.export)),
       h('div', { class: 'menu-sep' }),
-      menuItem('Delete', null, () => deleteWorkflow(w)),
+      menuItem('Delete', null, () => deleteWorkflow(w), glyph(SB.ICONS.trash)),
     ]);
   }
 

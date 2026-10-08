@@ -14,10 +14,12 @@ const { troubleOf } = require('./trouble');
 const { weightOf } = require('./spend');
 const ctx = require('./context');
 const turncost = require('./turncost');
+const planPace = require('./plan-pace');
 const eff = require('./efficiency');
 const { claudeEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
+const { plainPermission } = require('./plain-words');
 const { lineOf, MAX_TEXT } = require('../renderer/shared/diff');
 const crabmcp = require('./crabmcp');
 const processJob = require('./process-job');
@@ -37,14 +39,15 @@ const PLACE_MAX_BYTES = 2 * 1024 * 1024;
 // a link can open the file at that line; and for a Write over a file that's
 // already there, what it's replacing, so that's a diff too rather than a wall
 // of green. Read before the edit runs: the CLI reports a tool call before it
-// executes it.
-function placeEdit(item) {
+// executes it. Off the main thread, which a 2 MB file would hold up: the
+// session keeps the items after it waiting meanwhile (inOrder()).
+async function placeEdit(item) {
   const first = item.edits?.[0];
   if (!item.filePath || !first) return;
   let text;
   try {
-    if (fs.statSync(item.filePath).size > PLACE_MAX_BYTES) return;
-    text = fs.readFileSync(item.filePath, 'utf8').replace(/\r\n/g, '\n');
+    if ((await fs.promises.stat(item.filePath)).size > PLACE_MAX_BYTES) return;
+    text = (await fs.promises.readFile(item.filePath, 'utf8')).replace(/\r\n/g, '\n');
   } catch { return; } // a new file: nothing to compare with
   if (item.name === 'Write' || item.toolName === 'Write') {
     item.edits = [{ old: text.slice(0, MAX_TEXT), new: first.new }];
@@ -131,7 +134,14 @@ class ClaudeSession extends EventEmitter {
     this.takeSteers = null;
     this.steered = [];
     this.openTools = new Set();
+    // The main thread's newest tool call while it runs, null between tools, and
+    // when that last changed: which way the crab works (work-pose.js).
+    this.tool = null;
+    this.toolAt = null;
     this.interrupting = false;
+    // While an edit's file is being read (placeEdit), what came after it waits
+    // here, so items still reach listeners in the order Claude Code sent them.
+    this.held = null;
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
     this.counted = new Map();      // message id -> weight already reported as 'spend'
@@ -142,6 +152,7 @@ class ClaudeSession extends EventEmitter {
     // before: context tokens when it began }. Its result carries it (turncost.js).
     this.turn = null;
     this.growths = [];             // how much the last few turns grew the context, for the crowded nudge
+    this.plan = null;              // Claude's own to-do list, statuses only (plan-pace.js); the turn keeps its pace
   }
 
   buildArgs() {
@@ -187,7 +198,9 @@ class ClaudeSession extends EventEmitter {
     const configFile = this.mcpConfig ? writeConfig(this.fullMcpConfig()) : null;
     this.mcpConfigFile = configFile;
     const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
-      cwd: this.cwd, env: { ...claudeEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      // SHELLBY_CRAB_TOOLS: the crab's tools are served from here, so the plugin's
+      // MCP server leaves its copies of them out of every request.
+      cwd: this.cwd, env: { ...claudeEnv(), ...(this.mcp ? { SHELLBY_CRAB_TOOLS: '1' } : {}), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
     this.proc = proc;
     // Everything Claude starts joins this job, so ending the conversation can
@@ -219,9 +232,11 @@ class ClaudeSession extends EventEmitter {
         this.write({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Not supported by Shellby' } });
       }
       for (const item of items) this.handle(item);
-      this.countSpend(spendFrom(event));
-      this.countCall(event);
-      this.measure(event);
+      this.inOrder(() => {
+        this.countSpend(spendFrom(event));
+        this.countCall(event);
+        this.measure(event);
+      });
     });
     proc.stderr.on('data', d => { stderr = (stderr + d).slice(-4000); });
     proc.stdin.on('error', () => { /* process gone; 'close' reports it */ });
@@ -229,7 +244,7 @@ class ClaudeSession extends EventEmitter {
     proc.on('error', err => {
       removeFile(configFile);
       const text = `Couldn't start Claude Code: ${err.message}`;
-      this.emit('item', { kind: 'error', text, trouble: troubleOf(text, { start: true }) });
+      this.emitItem({ kind: 'error', text, trouble: troubleOf(text, { start: true }) });
     });
     // 'exit', not 'close': a leftover holding one of claude's pipes would hold
     // 'close' back until it ended on its own, which is what this is here to stop.
@@ -241,33 +256,81 @@ class ClaudeSession extends EventEmitter {
     proc.on('close', code => { if (this.proc === proc) this.ended(code, stderr); });
   }
 
-  // The process is gone (or let go of): nothing it had going can finish.
+  // The process is gone (or let go of): nothing it had going can finish. What
+  // it said before it went is told first (inOrder), and so is its turn's end.
   ended(code, stderr = '') {
     // A stop() asked for isn't a crash, and the tab stays busy for whoever asked.
-    const wasBusy = this.busy && !this.stopping;
+    const stopping = this.stopping;
     this.stopping = false;
     this.proc = null;
     this.setupChars = null; // a first prompt that never got its call can't size the next one
     this.waiting = null;
     this.steered = [];
     this.openTools.clear();
-    this.cancelPending();
     for (const id of [...this.requests.keys()]) this.answered({ request_id: id, subtype: 'error', error: 'Claude Code stopped.' });
-    let crewChanged = false;
-    for (const [id, t] of this.tasks) {
-      if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped' }); crewChanged = true; }
-    }
-    if (crewChanged) this.emit('crew', this.crew);
-    if (wasBusy) {
-      const text = stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).`;
-      const trouble = troubleOf(text, { exited: true });
-      // Its history is gone (or never was): resuming it again would only fail
-      // again, so the next message here starts a new conversation.
-      if (trouble.kind === 'resume-failed') { this.sessionId = null; this.resumeAt = null; }
-      this.emit('item', { kind: 'error', text, trouble });
-      this.setBusy(false);
-    }
-    this.emit('exit', code);
+    this.inOrder(() => {
+      const wasBusy = this.busy && !stopping;
+      this.cancelPending();
+      let crewChanged = false;
+      for (const [id, t] of this.tasks) {
+        if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped' }); crewChanged = true; }
+      }
+      if (crewChanged) this.emit('crew', this.crew);
+      // You pressed Stop and it didn't wind down in time (interrupt() killed it),
+      // or it went on its own meanwhile: a stop either way, not a crash.
+      const stopped = this.interrupting;
+      this.interrupting = false;
+      if (wasBusy) {
+        // Everything that waits for a turn to end (the panel's queue, the turn's
+        // diff and Undo, the tab's unread mark, a workflow's step) waits for its
+        // result, and a process that's gone never sends one: this stands in for it.
+        // `error` is the sentence, for whatever reports the turn; the panel has
+        // already shown the error item's block, so it doesn't show this one again.
+        const result = { kind: 'result', ok: false, interrupted: stopped, error: null, durationMs: this.busySince ? Date.now() - this.busySince : 0 };
+        if (!stopped) {
+          const text = stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).`;
+          const trouble = troubleOf(text, { exited: true });
+          // Its history is gone (or never was): resuming it again would only fail
+          // again, so the next message here starts a new conversation.
+          if (trouble.kind === 'resume-failed') { this.sessionId = null; this.resumeAt = null; }
+          this.emit('item', { kind: 'error', text, trouble });
+          Object.assign(result, { crashed: true, error: trouble.message || text });
+        }
+        this.closeTurn(result); // what it spent before it went is still spent
+        this.setBusy(false);
+        this.emit('item', result);
+      }
+      this.emit('exit', code);
+    });
+  }
+
+  // Run fn now, or once the edit being placed (and all that came before) has
+  // been told. Everything that emits an item goes through here.
+  inOrder(fn) {
+    if (this.held) this.held.push(fn);
+    else fn();
+  }
+
+  emitItem(item) { this.inOrder(() => this.emit('item', item)); }
+
+  // Read where an edit lands, then tell it, then whatever waited behind it.
+  placeThenEmit(item) {
+    this.held = [];
+    placeEdit(item).catch(() => {}).then(() => {
+      try {
+        this.emit('item', item); // still held: what its listeners emit goes after what came before
+      } finally {
+        const rest = this.held;
+        this.held = null;
+        // One of these may be another edit, which holds the rest again.
+        while (rest.length && !this.held) {
+          const fn = rest.shift();
+          // A listener that throws mustn't strand the rest (it's still reported, as before).
+          try { fn(); } catch (err) { setImmediate(() => { throw err; }); }
+        }
+        if (this.held) this.held.push(...rest);
+      }
+    });
   }
 
   // End the process and let go of it at once, not when it has wound down: the
@@ -283,7 +346,9 @@ class ClaudeSession extends EventEmitter {
     this.write({ type: 'control_response', response: { subtype: 'success', request_id: event.request_id, response: { mcp_response: response } } });
   }
 
-  handle(item) {
+  handle(item) { this.inOrder(() => this.handleNow(item)); }
+
+  handleNow(item) {
     switch (item.kind) {
       case 'init':
         if (item.sessionId) this.sessionId = item.sessionId;
@@ -291,15 +356,16 @@ class ClaudeSession extends EventEmitter {
         break;
       case 'tool':
         if (item.filePath) this.createdFiles.add(item.filePath);
-        if (item.edits?.length) placeEdit(item);
+        if (item.edits?.length) return this.placeThenEmit(item);
         break;
       case 'task':
         this.trackTask(item);
         break;
       case 'permission':
         Object.assign(item, annotatePermission(item, { createdFiles: this.createdFiles, tasks: this.tasks }));
-        if (item.edits?.length) placeEdit(item);
+        Object.assign(item, plainPermission(item, { cwd: this.cwd, inCopy: !!this.inCopy?.(), originalCwd: this.copyOf?.() || null }));
         this.pending.set(item.requestId, item);
+        if (item.edits?.length) return this.placeThenEmit(item);
         break;
       case 'result':
         if (item.sessionId) this.sessionId = item.sessionId;
@@ -455,6 +521,8 @@ class ClaudeSession extends EventEmitter {
     if (this.busy === b) return;
     this.busy = b;
     this.busySince = b ? Date.now() : null;
+    this.tool = null;
+    this.toolAt = null;
     this.emit('busy', b);
   }
 
@@ -513,7 +581,7 @@ class ClaudeSession extends EventEmitter {
       if (decision === 'always' && item.suggestions.length) response.updatedPermissions = item.suggestions;
     }
     this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
-    this.emit('item', { kind: 'decision', requestId, decision, toolName: item.toolName, ...(via === 'phone' || via === 'deck' ? { via } : {}) });
+    this.emitItem({ kind: 'decision', requestId, decision, toolName: item.toolName, ...(via === 'phone' || via === 'deck' ? { via } : {}) });
     return true;
   }
 
@@ -527,7 +595,7 @@ class ClaudeSession extends EventEmitter {
       // Claude never saw it, so there's nothing to interrupt: the turn just ends.
       this.waiting = null;
       this.setBusy(false);
-      this.emit('item', { kind: 'result', ok: false, interrupted: true, error: null, durationMs: 0 });
+      this.emitItem({ kind: 'result', ok: false, interrupted: true, error: null, durationMs: 0 });
       return;
     }
     if (!this.proc || !this.busy) return;
@@ -593,15 +661,34 @@ class ClaudeSession extends EventEmitter {
   // A turn's first message is echoed too, but nothing is steered by then.
   trackSteps(event) {
     if (event.type === 'user' && event.isReplay) {
-      if (this.steered.length) this.emit('item', this.steered.shift());
+      if (this.steered.length) this.emitItem(this.steered.shift());
       return;
     }
     const content = event.message?.content;
     if (!Array.isArray(content)) return;
+    if (event.type === 'assistant') this.trackPlan(content);
     for (const b of content) {
-      if (event.type === 'assistant' && b.type === 'tool_use') this.openTools.add(b.id);
-      if (event.type === 'user' && b.type === 'tool_result') this.openTools.delete(b.tool_use_id);
+      if (event.type === 'assistant' && b.type === 'tool_use') { this.openTools.add(b.id); this.setTool(b.name); }
+      if (event.type === 'user' && b.type === 'tool_result') { this.openTools.delete(b.tool_use_id); if (!this.openTools.size) this.setTool(null); }
     }
+  }
+
+  setTool(name) {
+    const tool = typeof name === 'string' ? name.slice(0, 80) : null;
+    if (tool === this.tool) return;
+    this.tool = tool;
+    this.toolAt = Date.now();
+    this.emit('tool', tool);
+  }
+
+  // Claude's to-do list moved: the running turn's step and pace, beside its clock.
+  trackPlan(content) {
+    const plan = planPace.read(this.plan, content);
+    if (plan === this.plan) return;
+    this.plan = plan;
+    if (!this.turn) return;
+    this.turn.plan = planPace.track(this.turn.plan, planPace.counts(plan), Date.now());
+    this.emit('plan');
   }
 
   // A tool call on the main thread has finished (or failed). What you queued

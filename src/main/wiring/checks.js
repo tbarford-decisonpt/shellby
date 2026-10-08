@@ -67,6 +67,9 @@ function wireChecks(d) {
     } finally { asking = null; }
   }
 
+  // The panel, or the conversation's own window (wiring/popouts.js).
+  const windowOf = tabId => d.tabWindow?.(tabId) || d.panel;
+
   function snapshotWithin(dir) {
     let late = false;
     const taken = changes.snapshot(dir).catch(() => null).then(s => (late ? null : s));
@@ -101,7 +104,7 @@ function wireChecks(d) {
     watchCloses();
     running.set(tabId, entry);
     try {
-      d.send(d.panel, 'checks:running', { tabId, after, running: true, commands });
+      d.send(windowOf(tabId), 'checks:running', { tabId, after, running: true, commands });
       const snap = await snapshotWithin(cwd);
       if (entry.cancelled) return { cancelled: true };
       entry.handle = checks.runAll(commands, cwd, { timeoutMs: limitMs() });
@@ -116,7 +119,7 @@ function wireChecks(d) {
       const now = running.get(tabId);
       if (now === entry) running.delete(tabId);
       // A newer run for the same turn has already said "Checking…": leave that be.
-      if (now === entry || now?.after !== after) d.send(d.panel, 'checks:running', { tabId, after, running: false });
+      if (now === entry || now?.after !== after) d.send(windowOf(tabId), 'checks:running', { tabId, after, running: false });
     }
   }
 

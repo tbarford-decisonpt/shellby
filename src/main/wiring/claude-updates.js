@@ -21,6 +21,7 @@ function wireClaudeUpdates(d) {
         d.claudeStatus = await checkStatus({ configured: d.claudePath() });
         d.refreshStatusLine();
         d.send(d.panel, 'claude:status', d.claudeStatus);
+        d.noteClaudeVersion?.(); // new tricks, now it's updated
         return d.claudeStatus;
       },
       notify: (title, body) => d.notify(title, body, showClaudeSetting),

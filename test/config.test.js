@@ -91,3 +91,15 @@ test('a rename that stays blocked still saves, by writing in place', () => {
   try { c.set({ routines: [{ id: 'r3' }] }); } finally { fs.renameSync = realRename; }
   assert.deepEqual(new Config(dir).get('routines'), [{ id: 'r3' }]);
 });
+
+// With Windows' animation effects off he only strolls if you switched it on
+// yourself (motion.js wanders), and every save writes wander: true by default.
+test('setting wander yourself is remembered apart from the default', () => {
+  const dir = tempDir();
+  const c = new Config(dir);
+  c.set({ mode: 'plan' });
+  assert.equal(new Config(dir).get('wander'), true);
+  assert.equal(new Config(dir).get('wanderChosen'), false, 'the default saved is not a choice');
+  c.set({ wander: true });
+  assert.equal(new Config(dir).get('wanderChosen'), true);
+});

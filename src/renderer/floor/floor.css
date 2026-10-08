@@ -81,7 +81,7 @@ html, body {
 
 @keyframes bob { 50% { transform: scaleX(var(--dir, 1)) translateY(-1px); } }
 @keyframes hop { 0%, 100% { transform: scaleX(var(--dir, 1)); } 50% { transform: scaleX(var(--dir, 1)) translateY(-2px); } }
-@keyframes leg { 0% { transform: translateY(0); } 50% { transform: translateY(-1px) translateX(1px); } }
+@keyframes leg { 0% { transform: translateY(0); } 50%, 100% { transform: translateY(-1px) translateX(1px); } }
 @keyframes wave { 50% { transform: rotate(-30deg); } }
 @keyframes dig-claw { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(-26deg) translateY(2px); } }
 @keyframes dig-bob { 0%, 100% { transform: scaleX(var(--dir, 1)); } 50% { transform: scaleX(var(--dir, 1)) translateY(1px); } }

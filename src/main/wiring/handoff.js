@@ -18,10 +18,12 @@ function wireHandoff(d) {
 
   // Windows Terminal's own launcher, where the Store and winget both put it.
   // Not on PATH lookup: Shellby works in project folders (see system32.js).
+  // lstat, not existsSync: wt.exe is an app execution alias, a reparse point
+  // Node can't follow, so existsSync calls it missing.
   function wtPath() {
     const local = process.env.LOCALAPPDATA;
     const wt = local && path.join(local, 'Microsoft', 'WindowsApps', 'wt.exe');
-    return wt && fs.existsSync(wt) ? wt : null;
+    try { return wt && fs.lstatSync(wt) ? wt : null; } catch { return null; }
   }
 
   // Claude Code looks for a conversation under the folder it's resumed in. One

@@ -52,6 +52,8 @@ function registerCritterIpc(ipcMain, d) {
     d.saveCritterPos();
     d.settleCritter();
   });
+  // Windows' animation effects, as his page sees them (wiring/windows.js setReducedMotion).
+  ipcMain.on('critter:reduced-motion', (_e, on) => d.setReducedMotion?.(on === true));
   // Perched, his window lets the mouse through except over the crab himself.
   ipcMain.on('critter:hit', (_e, over) => d.perching?.hover(!!over));
   // The floor strip lets the mouse through except over a pal (floor.js).
@@ -101,6 +103,7 @@ function registerCritterIpc(ipcMain, d) {
       if (what === 'day') return d.life.newDayForTest(), true;
       if (what === 'call') return d.life.callForTest(args.on), true;
       if (what === 'needs') return d.life.needsForTest(args); // { meters, pantry }
+      if (what === 'nap') return d.life.napForTest(Math.min(Math.max(Number(args.ms) || 4000, 500), 60000));
       return d.life.view();
     });
     ipcMain.handle('dev:quest', (_e, id) => (d.questDone(String(id || '')), d.questsPanelView()));

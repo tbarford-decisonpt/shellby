@@ -413,6 +413,34 @@ test('offline keeps last week\'s results and tries again tomorrow; no npm says s
   }
 });
 
+test("errors that aren't the network are saved, each on its own row, not blamed on the registries", async () => {
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'depwatch-')));
+  try {
+    const old = [{ key: dir, name: 'shellby', ok: true }];
+    const gone = path.join(dir, 'gone');
+    // A folder that's gone, and a check that took too long: real answers.
+    const config = fakeConfig({ enabled: true, lastScanAt: 8 * WEEK, results: old });
+    const w = watch({ config, projects: [{ key: gone, name: 'old' }, { key: dir, name: 'slow' }], run: async () => ({ stdout: '', timedOut: true }) });
+    await w.scan({ scheduled: true });
+    assert.equal(w.view().error, null);
+    assert.equal(config.get('depWatch').lastScanAt, 10 * WEEK);
+    assert.deepEqual(w.view().results.map(r => r.summary), ["The folder isn't there any more", "npm's check took too long"]);
+
+    // A check that threw says so on its row too.
+    const boom = watch({ config: fakeConfig({ enabled: true, lastScanAt: 8 * WEEK, results: old }), projects: [{ key: dir, name: 'x' }], run: async () => { throw new Error('spawn EPERM'); } });
+    await boom.scan();
+    assert.equal(boom.view().error, null);
+    assert.match(boom.view().results[0].summary, /spawn EPERM/);
+
+    // Offline alongside a gone folder: not every row is the network, so both are saved.
+    const mixed = watch({ config: fakeConfig({ enabled: true, results: old }), projects: [{ key: gone, name: 'old' }, { key: dir, name: 'net' }], run: async () => ({ stdout: '' }) });
+    await mixed.scan();
+    assert.deepEqual(mixed.view().results.map(r => r.summary), ["The folder isn't there any more", "npm's check didn't answer (offline?)"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('one folder, two managers: both checked, and each is found by its manager', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'depwatch-'));
   try {

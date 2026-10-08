@@ -112,7 +112,8 @@ function dueRoutines(routines, sinceMs, nowMs) {
 
 // Should this routine get one catch-up run at startup? Only if a slot was missed
 // since it last ran, and recently enough that running it now still makes sense.
-function missedOnStartup(routine, nowMs, windowMs = 12 * HOUR) {
+const CATCH_UP_WINDOW_MS = 12 * HOUR;
+function missedOnStartup(routine, nowMs, windowMs = CATCH_UP_WINDOW_MS) {
   if (!usable(routine) || routine.catchUp !== true) return false;
   const prev = previousRun(routine, nowMs);
   if (prev === null) return false;
@@ -218,13 +219,16 @@ function describeSchedule(schedule) {
   return `${days.map(d => DAY_NAMES[d]).join(', ')} at ${at}`;
 }
 
-// Polls routines and emits 'due' (routine) once per routine per slot.
+// Polls routines and emits 'due' (routine, { order, late }) once per routine
+// per slot. order: its place among the routines due on the same tick (0 for
+// the first), so the caller can space them out.
 class Scheduler extends EventEmitter {
-  constructor({ getRoutines, tickMs = 30000, now = () => Date.now() } = {}) {
+  constructor({ getRoutines, tickMs = 30000, now = () => Date.now(), catchUpWindowMs = CATCH_UP_WINDOW_MS } = {}) {
     super();
     if (typeof getRoutines !== 'function') throw new Error('getRoutines is required');
     this.getRoutines = getRoutines;
     this.tickMs = tickMs;
+    this.catchUpWindowMs = catchUpWindowMs;
     this.now = now;
     this.lastTick = null;   // null -> next tick only sets the baseline
     this.fired = new Map(); // routine id -> last slot emitted
@@ -258,6 +262,7 @@ class Scheduler extends EventEmitter {
     try { routines = this.getRoutines(); } catch { return; }
     if (!Array.isArray(routines)) return;
 
+    let order = 0;
     for (const r of routines) {
       // Only the latest slot in (since, now] is considered, so a long sleep or
       // hibernate yields one 'due' per routine rather than a burst of them.
@@ -266,7 +271,11 @@ class Scheduler extends EventEmitter {
       const last = this.fired.get(r.id);
       if (last !== undefined && slot <= last) continue; // already fired (clock went back)
       this.fired.set(r.id, slot);
-      try { this.emit('due', r); } catch { /* a bad listener must not stop the others */ }
+      // A slot well behind (the PC slept through it) is a missed run, like one
+      // at startup: it runs only if the routine catches up, and not too late.
+      const late = now - slot > 2 * this.tickMs;
+      if (late && !missedOnStartup(r, now, this.catchUpWindowMs)) continue;
+      try { this.emit('due', r, { order: order++, late }); } catch { /* a bad listener must not stop the others */ }
     }
   }
 }

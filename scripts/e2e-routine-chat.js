@@ -1,3 +1,4 @@
+// ci: Build it with Claude on routines: fill the form, test in a tab, read it, Save switches it on; the workflow chat too
 // End-to-end check of Build it with Claude on the routine editor, against the
 // dev app over CDP, driven by the fake Claude CLI (test/fixtures/fake-claude.js):
 // no account, no usage. Says what it wants in the chat, watches Claude fill in

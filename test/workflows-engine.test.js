@@ -151,6 +151,24 @@ test('the run is "waiting" while an ask is open', async () => {
   assert.ok(seen.includes('waiting'));
 });
 
+test('an ask can name a file to open while it waits', async () => {
+  let release;
+  const w = wf([
+    { id: 'draft', type: 'file', action: 'write', path: 'C:\\notes\\{{ trigger.name }}.md', content: 'hi' },
+    { id: 'q', type: 'ask', question: 'Edit it, then carry on', path: '{{ draft.path }}' },
+  ]);
+  const { effects } = fx({ ask: () => new Promise(r => { release = r; }) });
+  const eng = new Engine({ workflow: w, record: record({ trigger: { type: 'manual', data: { name: 'plan' } } }), effects });
+  const done = eng.run();
+  while (!release) await new Promise(r => setImmediate(r));
+  assert.equal(eng.record.waiting.file, 'C:\\notes\\plan.md');
+  assert.equal(eng.record.steps.q.file, 'C:\\notes\\plan.md');
+  release('Continue');
+  const r = await done;
+  assert.equal(r.status, 'ok');
+  assert.equal(r.steps.q.file, undefined);
+});
+
 test('replay: recorded steps are not run again', async () => {
   const w = wf([{ id: 'a', type: 'run', command: 'one' }, { id: 'b', type: 'run', command: 'two {{ a.output }}' }]);
   const first = fx({ run: a => (shell(a).startsWith('two') ? { output: 'x', code: 1 } : { output: 'A', code: 0 }) });

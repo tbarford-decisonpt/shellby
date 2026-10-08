@@ -18,7 +18,8 @@ const ALL_EDGES = Object.freeze({ left: true, right: true, ceiling: true });
  *   motion(), screen, config, capture, geo() -> { width, height, foot, half, body },
  *   getPos(), place(x, y), temperament(), speak(occasion, opts), stat(event, payload),
  *   toRenderer(kind, info), surface(name), bit(name, ms), dragging(), crew(),
- *   perchingAway(), walkHome()
+ *   perchingAway(), walkHome(),
+ *   wanders() -> whether he goes off on his own (motion.js wanders; config wander without it)
  * }
  */
 function createClimbing(d) {
@@ -27,7 +28,8 @@ function createClimbing(d) {
   let lastEnd = Date.now(); // so he doesn't head straight for a wall at startup
 
   const setting = () => climb.settingOf(d.config.get('climb'));
-  const allowed = () => !d.capture && setting() !== 'off' && d.config.get('wander') !== false && d.crew() === 0;
+  const wanders = () => (d.wanders ? d.wanders() : d.config.get('wander') !== false);
+  const allowed = () => !d.capture && setting() !== 'off' && wanders() && d.crew() === 0;
   const display = () => {
     const p = d.getPos(), g = d.geo();
     return d.screen.getDisplayNearestPoint({ x: Math.round(p.x + g.width / 2), y: Math.round(p.y + g.height / 2) });

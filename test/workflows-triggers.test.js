@@ -110,6 +110,10 @@ test('draft replies are parsed, and Autonomous never survives', () => {
   assert.equal(draft.checkDescription('  ').ok, false);
   assert.match(draft.args().join(' '), /--tools {2}--strict-mcp-config/);
   assert.ok(!draft.args().some(a => a.length > 2000), 'long text goes on stdin');
+  const at = (args, flag) => args[args.indexOf(flag) + 1];
+  assert.match(at(draft.args(), '--system-prompt'), /structured output/, "not Claude Code's own, about tools it hasn't got");
+  assert.equal(at(draft.args(), '--model'), 'sonnet');
+  assert.equal(at(draft.args(undefined, { model: 'haiku' }), '--model'), 'haiku');
 });
 
 test('file effects refuse network paths and relative paths', async () => {

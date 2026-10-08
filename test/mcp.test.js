@@ -33,7 +33,7 @@ function talk(messages, { timeoutMs = 10000, env = {} } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [SERVER], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, SHELLBY_PORT: '1', TEMP: path.join(__dirname, 'no-shellby-here'), TMPDIR: path.join(__dirname, 'no-shellby-here'), ...env },
+      env: { ...process.env, SHELLBY_PORT: '1', TEMP: path.join(__dirname, 'no-shellby-here'), TMPDIR: path.join(__dirname, 'no-shellby-here'), SHELLBY_CRAB_TOOLS: '', ...env },
     });
     const replies = [];
     let out = '';
@@ -76,6 +76,16 @@ test('the handshake answers with a protocol version, tools capability and a name
 test('an unknown protocol version gets ours, rather than an error', async () => {
   const { replies } = await talk([{ ...INIT, params: { protocolVersion: '1999-01-01' } }]);
   assert.equal(replies[0].result.protocolVersion, '2025-06-18');
+});
+
+test('tools/list leaves out the crab tools in a Shellby conversation, which has them from the app', async () => {
+  const { replies } = await talk([INIT, { jsonrpc: '2.0', id: 2, method: 'tools/list' }], { env: { SHELLBY_CRAB_TOOLS: '1' } });
+  const names = replies[1].result.tools.map(t => t.name);
+  for (const n of ['say', 'celebrate', 'wear', 'status']) assert.ok(!names.includes(n), `${n} comes from the app there`);
+  assert.ok(names.includes('add_workflow') && names.includes('journal'), 'the rest are only here');
+  // The same four the app serves (crabmcp.js), so nothing goes missing.
+  assert.deepEqual([...require('../claude-plugin/mcp/server').CRAB_TOOLS].sort(),
+    require('../src/main/crabmcp').toolsFor({ suggestions: false }).map(t => t.name).sort());
 });
 
 test('tools/list describes every tool with a schema', async () => {

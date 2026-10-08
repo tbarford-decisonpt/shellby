@@ -14,12 +14,15 @@ const DEFAULT_VOLUME = 60;                    // the chirp's loudness before the
 const CHEERS = Object.freeze({
   deploy: 'tada',
   passed: 'tada',
+  fixed: 'tada',
+  merged: 'tada',
   milestone: 'tada',
   unlocked: 'tada',
   levelup: 'fanfare',
   crit: 'crit',         // surprises.js: rarer than any of these, so a sound of its own
   landing: 'landing',
   learned: 'sparkle',
+  newTricks: 'sparkle',
 });
 
 const SILENT = Object.freeze({ voice: false, fx: false, ambient: 'off', volume: DEFAULT_VOLUME });

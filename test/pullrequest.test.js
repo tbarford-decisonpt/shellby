@@ -8,6 +8,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const worktrees = require('../src/main/worktrees');
+const secretscan = require('../src/main/secretscan');
 const { makeCopy, openPullRequest, insideHome } = require('../src/main/github/pullrequest');
 
 function setup() {
@@ -156,6 +157,22 @@ test('the pull request step refuses anything but one of Shellby\'s copies', asyn
     assert.match((await openPullRequest({ folder: other, title: 'Y' }, prDeps(s, gh))).error, /one of Shellby's branches/);
     assert.equal(gh.posted.length, 0);
     assert.throws(() => s.g(s.bare, 'rev-parse', '--verify', '--quiet', 'refs/heads/mine'), 'nothing was pushed');
+  } finally { s.done(); }
+});
+
+test('what `git add -A` swept into the commit is scanned for secrets, and a no pushes nothing', async () => {
+  const s = setup();
+  try {
+    const gh = fakeGh();
+    const copy = await makeCopy({ repo: 'me/crab', slug: 'leaky' }, copyDeps(s, gh));
+    fs.writeFileSync(path.join(copy.path, 'config.js'), `module.exports = "${'AKIA' + 'IOSFODNN7EXAMPLE'}";\n`);
+    const seen = [];
+    const gate = async (root, o) => { seen.push({ root, ...o, files: (await secretscan.outgoing(root, undefined, o)).findings.map(f => f.file) }); return { ok: false, cancelled: true, secrets: 1, error: 'Not pushed: it had something that looks like a secret.' }; };
+    const r = await openPullRequest({ folder: copy.path, title: 'Leak', draft: true }, { ...prDeps(s, gh), gate });
+    assert.deepEqual(r, { ok: false, cancelled: true, secrets: 1, error: 'Not pushed: it had something that looks like a secret.' });
+    assert.deepEqual(seen.map(x => [x.rev, x.remote, x.files]), [[`refs/heads/${copy.branch}`, 'origin', ['config.js']]]);
+    assert.equal(gh.posted.length, 0, 'no pull request');
+    assert.throws(() => s.g(s.bare, 'rev-parse', '--verify', '--quiet', `refs/heads/${copy.branch}`), 'nothing was pushed');
   } finally { s.done(); }
 });
 

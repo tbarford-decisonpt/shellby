@@ -1,9 +1,12 @@
 // Conversation tabs: opening, ordering, compacting, and what each turn changed
 // (changes.js). Kept out of main.js, which only wires it up.
 const fs = require('fs');
+const os = require('os');
 const changes = require('../changes');
 const ctx = require('../context');
 const editor = require('../editor');
+const quiz = require('../quiz');
+const { run: runCli, skipSettings } = require('../claude-cli');
 
 // The most queued messages that go in at once, and files across all of them (as one task:send).
 const MAX_STEERS = 20;
@@ -66,6 +69,11 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:reviewed', (_e, { tabId, reviewed = true, after = null } = {}) =>
     d.isStr(tabId) && d.manager.setReviewed(tabId, reviewed !== false, d.isStr(after) ? after : null));
 
+  // The effort chip: this conversation's own effort ('' is Auto).
+  ipcMain.handle('tab:effort', (_e, { tabId, effort } = {}) => {
+    try { d.isStr(tabId) && d.manager.setTabEffort(tabId, effort); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; }
+  });
+
   ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
     text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);
     const files = (Array.isArray(attachments) ? attachments : []).filter(d.isStr).slice(0, 20);
@@ -94,6 +102,11 @@ function registerTabsIpc(ipcMain, d) {
       list.push({ id: m.id, text: text.startsWith('!!') ? text.slice(1) : text, attachments: files });
     }
     d.manager.steer(tabId, turnId, list);
+  });
+  // A queued message taken back: by its id, so one Claude already has can't be. -> { ok } | { ok: false, taken: true }.
+  ipcMain.handle('task:unsteer', (_e, { tabId, id } = {}) => {
+    if (!d.isStr(tabId) || !d.isStr(id)) return { ok: false };
+    return d.manager.unsteer(tabId, id) ? { ok: true } : { ok: false, taken: true };
   });
   ipcMain.on('task:stop', (_e, tabId) => { if (d.isStr(tabId)) d.manager.interrupt(tabId); });
   // A crowded conversation: Claude writes a summary, then onResult starts it fresh.
@@ -127,6 +140,41 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('changes:diff', (_e, raw) => {
     const ref = d.changeRef(raw);
     return ref ? changes.patchFor(ref) : { error: "That isn't a change from this conversation." };
+  });
+  // "Quiz me" on a turn's changes (quiz.js): Claude writes the questions from the
+  // diff, and the answers stay here until each one is picked.
+  ipcMain.handle('quiz:start', async (_e, raw) => {
+    const ref = d.changeRef(raw);
+    const tab = ref && d.manager.tabs.get(ref.tabId);
+    if (!ref || !tab) return { ok: false, error: "That isn't a change from this conversation." };
+    const item = d.history.load(ref.tabId).find(i => i.kind === 'changes' && i.after === ref.after && i.before === ref.before);
+    if (!quiz.worthIt(item?.added, item?.removed)) return { ok: false, error: 'That change is too small for a quiz.' };
+    if (tab.quizAsking) return { ok: false, error: 'One quiz at a time: the last one is still being written.' };
+    const p = await changes.patchFor(ref);
+    if (p.error) return { ok: false, error: p.error };
+    const s = tab.session;
+    tab.quizAsking = true;
+    let r;
+    try {
+      r = await quiz.ask({ patch: p.patch, truncated: p.truncated, cwd: s.cwd, lean: skipSettings(os.homedir()) },
+        (args, timeout, opts) => runCli(s.exe, [...(s.argsPrefix || []), ...args], timeout, opts));
+    } finally { tab.quizAsking = false; }
+    if (r.detail) d.log.warn(`quiz: ${r.detail}`);
+    if (!r.ok) return { ok: false, error: r.error };
+    tab.quiz = { after: ref.after, ...quiz.start(r.questions) };
+    return { ok: true, questions: quiz.view(r.questions) };
+  });
+  ipcMain.handle('quiz:pick', (_e, { tabId, after, question, choice } = {}) => {
+    const tab = d.isStr(tabId) && d.manager.tabs.get(tabId);
+    if (!tab?.quiz || tab.quiz.after !== after) return { error: 'That quiz has gone. Ask for a new one.' };
+    const r = quiz.pick(tab.quiz, question, choice);
+    if (r.error) return { error: r.error };
+    tab.quiz = r.state;
+    if (r.done) {
+      if (quiz.passed(r.state)) d.awardXp('quiz', { label: tab.title });
+      tab.quiz = null;
+    }
+    return { right: r.right, answer: r.answer, why: r.why, done: r.done, score: r.score };
   });
   ipcMain.handle('changes:undo', async (_e, raw) => {
     const ref = d.changeRef(raw);

@@ -17,8 +17,9 @@
   const DRAG_START = 4;      // css px before a press becomes a drag
   const THUMB = 44;          // device px, the tray's pictures
   const TALL = 10;           // pieces this tall go to the back row by default
+  const TANK_SHARE = 0.5;    // of the tab's height, the most the tank takes
 
-  const stage = $('tkStage'), canvas = $('tkCanvas'), hits = $('tkHits');
+  const view = $('tankView'), stage = $('tkStage'), canvas = $('tkCanvas'), hits = $('tkHits');
   const ctx = canvas.getContext('2d');
 
   let v = null;              // the tank, from main
@@ -40,6 +41,9 @@
   const seen = new Set();    // decor refs already reported as seen this session
 
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Nobody looking (boot.js onCalm: the panel's behind your windows, you're away,
+  // a game's up or the screen's locked): he holds still, like a hidden tab.
+  const calm = () => document.body.classList.contains('calm');
   const clone = o => JSON.parse(JSON.stringify(o));
   const plural = (n, one, many) => SB.plural(n, one, many, x => x.toLocaleString());
   const listOf = parts => (parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`);
@@ -56,8 +60,12 @@
     if (!v) return;
     const { world } = scene();
     const dpr = window.devicePixelRatio || 1;
-    const cssW = stage.clientWidth || 420;
-    K = Math.max(1, Math.floor((cssW * dpr) / world.w));
+    const pad = parseFloat(getComputedStyle(stage).paddingLeft) * 2 || 0;
+    const cssW = (stage.clientWidth || 420) - pad;
+    // Width alone made him fill a maximized panel; the tray has to stay in
+    // reach below the glass while you decorate, so he gets about half its height.
+    const cssH = (view.clientHeight || 600) * TANK_SHARE;
+    K = Math.max(1, Math.floor(Math.min((cssW * dpr) / world.w, (cssH * dpr) / world.h)));
     u = K / dpr;
     canvas.width = world.w * K;
     canvas.height = world.h * K;
@@ -187,14 +195,17 @@
   // ------------------------------------------------------------ the loop
 
   // Ten frames a second while you're looking (plants sway, bubbles rise, he
-  // walks); one still frame when the motion is turned down; nothing at all
-  // when the tab is hidden or you're somewhere else.
+  // walks); one still frame when the motion is turned down or the panel is
+  // calm (he doesn't get up to anything, so nothing counts toward his
+  // favourite); nothing at all when the tab is hidden or you're somewhere else.
   const kick = () => { if (!timer) timer = setTimeout(tick, 0); };
 
   function tick() {
     timer = 0;
     if (state.view !== 'tank' || !v || document.hidden) { flushLived(); return; }
     const now = performance.now();
+    // Calm: the frame as it stands, where he stands (no jump to his still spot).
+    if (calm() && !drag) { flushLived(); draw(now, reduced()); dirty = false; lastTick = 0; return; }
     const dt = lastTick ? Math.min(0.25, (now - lastTick) / 1000) : 0;
     lastTick = now;
     const still = reduced();
@@ -877,8 +888,13 @@
   api.onUnlocked?.(later);
   api.onLife?.(later);
   api.onSkin?.(() => { crabKey = null; if (state.view === 'tank') loadCrab(); });
-  new ResizeObserver(() => { if (state.view === 'tank' && v) { size(); keepingFocus(renderHits); kick(); } }).observe(stage);
+  const resized = new ResizeObserver(() => { if (state.view === 'tank' && v) { size(); keepingFocus(renderHits); kick(); } });
+  resized.observe(stage);
+  resized.observe(view); // a taller or shorter window changes his share, not the stage's width
   document.addEventListener('visibilitychange', kick);
+  // ...and the calm lifting (or falling) is the same: back to life, or one still frame.
+  let wasCalm = calm();
+  new MutationObserver(() => { if (calm() !== wasCalm) { wasCalm = calm(); kick(); } }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   document.addEventListener('sb:tank-gauges', () => { dirty = true; kick(); }); // live decor changed (tank-gauges.js)
   window.addEventListener('pagehide', flushLived); // what he did while you watched, before the panel goes
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', () => { dirty = true; kick(); });

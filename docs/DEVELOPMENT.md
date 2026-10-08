@@ -33,7 +33,7 @@ npm start
 
 ### Crash reports
 
-Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash-report.js` for releases, and `SHELLBY_SENTRY_DSN` for a dev run (point it at a separate Sentry project, or at a local server that records what arrives). With neither, Sentry is never loaded and the **Crash reports** row in Settings stays hidden. To see the "closed unexpectedly" path, end a run from Task Manager and start it again. The run marker is `logs\running.json` in the profile.
+Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash-report.js` for releases, and `SHELLBY_SENTRY_DSN` for a dev run (point it at a separate Sentry project, or at a local server that records what arrives). With neither, Sentry is never loaded and the **Crash reports** row in Settings stays hidden. To see the "closed unexpectedly" path, end a run from Task Manager and start it again. The run marker is `logs\running.json` in the profile. A conversation mid-turn has a mark of its own, `turnOpen` on its entry in `sessions\index.json`: written the moment the turn starts, cleared when it ends. The next start turns any left behind into a "Cut off" note with a Carry on button (`History.takeCutOff`, from wiring/profile.js). End a run from Task Manager while a `wait 30000` turn runs on the fake CLI to see it.
 
 ## Scripts
 
@@ -47,7 +47,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `npm run packs:format` | Rewrites those packs in the house style: pivot and palette on one line, one pixel row per line |
 | `npm run packs:sheet` | A contact sheet of every built-in pack worn by the crab (Python), to eyeball new art |
 | `npm run tricks` | Films the README's "Things to try" GIFs on the real desktop with a throwaway profile and its own Notepad. It moves windows and the cursor, so leave the mouse alone |
-| `npm run e2e:ci` | The end-to-end checks that need no Claude account, no GitHub and no network, one after another. This is what CI runs, and the only automated coverage the renderer has. It sets `SHELLBY_E2E=1`, so the app ignores what else is open on your desktop (src/main/test-desktop.js). Words narrow it (`npm run e2e:ci -- queue voice`); `--shard=i/n` takes every nth check, which is how CI splits them across four machines |
+| `npm run e2e:ci` | The end-to-end checks that need no Claude account, no GitHub and no network, one after another. This is what CI runs, and the only automated coverage the renderer has. It sets `SHELLBY_E2E=1`, so the app ignores what else is open on your desktop (src/main/test-desktop.js). Words narrow it (`npm run e2e:ci -- queue voice`); `--shard=i/n` takes every nth check, which is how CI splits them across four machines. A script joins the run when its first line says what it covers: `// ci: queued messages: queue, edit, drain` |
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/cli-compat.js` | Checks the installed Claude Code against what Shellby relies on: flags, permission modes, effort levels and the control protocol, with no account needed. `--real` adds one tiny Haiku turn (a Write approved over the protocol) and audits every event it sends. Nightly in CI; see [Keeping up with Claude Code](#keeping-up-with-claude-code) |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
@@ -74,6 +74,8 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-sync.js` | Your friends list and settings following you between two PCs (two profiles, one mock GitHub): PC A's settings and friends reach a fresh PC B (the Settings view shows them, the friends' crabs are fetched, start at login stays A's), a change from another PC takes effect while B is open (mode, size, the open Settings view), and a friend B removes is gone from A too |
 | `node scripts/e2e-plugin-card.js` | The plugin card (missing → Install button, installed → says so), an isolated copy on its own hook port with its marker, and the emoji + plain ASCII status files |
 | `node scripts/e2e-forecast.js` | The usage forecast with backdated readings (SHELLBY_FORECAST_TEST): the composer warning and the meter, the setting, Ctrl+Shift+Enter holding a message (edit it back, drop it), then at the limit a held message and a held routine that both go by themselves at the reset |
+| `node scripts/e2e-plain-cards.js` | Plain words with the fake CLI: a permission card says what the step does ("Delete 1 file or folder") and warns about a path outside the project, a plan card says its size, the Working bar says "Running your tests…" while they run, and with the setting off the cards use Claude Code's own names again |
+| `node scripts/e2e-claude-tricks.js` | New tricks with the fake CLI and a changelog served locally (SHELLBY_CHANGELOG_URL): Shellby last saw an older Claude Code, the card lists what's new since (new features first, no fixes or other products), Try it puts a question in a new tab's box without sending it, Got it puts the card away for good, and with the setting off the changelog is never read |
 | `node scripts/e2e-recap.js` | "While you were away" with fake idle readings: two hours away while one task finishes, one fails and one asks; the recap lists all three, a row opens its conversation, a 20-minute break or the setting turned off says nothing, and the usage block splits the window by conversation |
 | `node scripts/e2e-team.js` | Team packs in throwaway repos: opening a repo with `.shellby/team.json` says so, Toolbox → Team lists it, Use these snippets makes `/ship` work there and only there, and Make a team pack writes the file (isolated profile) |
 | `node scripts/e2e-statusline.js` | The status line: working, +XP and asking show up in the line; add it through the confirm window (isolated settings file), run the real statusLine command, remove restores the settings |
@@ -92,6 +94,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-card.js` | The crab card: Share, preview, a 1200×630 PNG in the test profile, the Show-Off trophy, junk bytes refused, his tank painted on it, and on the profile card only once you share it |
 | `node scripts/e2e-tides.js [folder]` | Tide events with the day pinned inside The Haunting (`SHELLBY_TODAY`): the Us page's banner (countdown, goals, its bug and finds, the medal), the event bug out now in the Bugdex, its finds on the shelf, the sparkly reveal (odds, the keyboard on Share), the shiny and medal cards as 1200×630 PNGs, and the switch hiding it all. Screenshots go in `[folder]` |
 | `node scripts/e2e-shellby-life.js` | Shellby's own life with the fake CLI and a mock GitHub: a level-up molts him into the Snail Shell (every beat, the Homes tab), petting, a throw that lands, an idle stroll, a focus session (helmet, countdown, XP, break), CI on a pull request going red, then fixed, then a review request, and a usage limit that's reached and then resets |
+| `node scripts/e2e-beats.js` | How he moves between moods and how he works, fed real hook events: the crouch before work, thinking between tools, a pose and a held thing for each tool (scroll, pencil, wrench, magnifying glass, spyglass, checklist, a wave), the scuttle for a tool with no pose, every loop on him one framecap can read, a question that gets a claw tap after 20 s and a nod when answered, the breath after a turn, and a nap he nods off into in stages and wakes from eyes first |
 | `node scripts/e2e-voice.js` | His voice and his little habits with the fake CLI: Quiet says nothing at all, Normal puts words in his bubble (and clears them), the bubble never clips or resizes his window, he remarks on a test run and a push, each idle habit plays, he keeps quiet on guard, a health warning outranks him, and he's the same crab after a restart |
 | `node scripts/e2e-push-to-talk.js` | Push-to-talk, pressing the real hotkey through Windows with a recording in place of the microphone: the Settings switch, a tap still opens and closes the panel, a hold shows *listening…* and puts the words in the box after what's typed (not sent), and switched off a hold is just a tap |
 | `node scripts/e2e-updates.js` | The update button with a scripted updater (`SHELLBY_FAKE_UPDATE=1`, `=fail` or `=current`): the download and its progress, "Restart and update" and the dot on the gear, the toast, the route the tray and the notification take, and a failed check offering another go |
@@ -155,8 +158,8 @@ interleaved runs on a shared, busy desktop: expect ±1 point):
 
 The first row was ~3.4–4.2% before the bats flew in flights and the idle went
 to pixel-art frames (interleaved with the same build minus those, same hour).
-Of what's left, about half is his idle (about one frame a second: the breathe,
-a blink, the snap) and half is life: a habit (dig, polish, peek...) about once
+Of what's left, about half is his idle (about 1.4 frames a second: the breathe,
+his blinks and glances, the snap) and half is life: a habit (dig, polish, peek...) about once
 a minute at 12 fps for two or three seconds, a stroll, and a bat flight every
 three minutes. Under 1% would mean fewer of those, which is a call about how
 alive he looks rather than a fix. `--unfocused` on a busy desktop may leave the
@@ -181,6 +184,20 @@ the work is in drawing fewer frames, not cheaper ones:
   tick; one that steps (the idle breathe, blink and claw snap) draws a few
   frames a cycle. Prefer `steps()` for anything that runs all day. A step at
   the start of a hold changes nothing, so `steps(n)` (jump-end) isn't moved there.
+- **It can only skip what it can read.** A keyframe list with no 0% or 100%,
+  or `steps(n)` applied across many intervals, and it moves the animation every
+  tick. `leg` and `snap` had no 100% and the working "..." in his bubble jumped
+  sixteen times a lap, so the scuttle drew all 12 frames a second.
+  e2e-beats checks that every loop on him is readable.
+- **The work beat.** Everything he does while he works (the scuttle, every
+  .work-<pose> in critter.css, the helpers, the "...") steps on 166 ms, a hair under
+  two ticks. Steps of different loops then fall on the same ticks, so the
+  scuttle draws 6 frames a second where it drew 12, and the poses 2 to 6
+  (reading is 2). Exactly a sixth of a second splits them: some steps land
+  just after a tick and move one late.
+- **His idle eyes** run on 24 s with uneven blinks and a glance each way, about
+  1.4 frames a second for all of his idle where the fixed 6 s blink made 1.1:
+  the price of not looking like a metronome.
 - **Particle effects** (the seasonal bats are on by default in October) cost
   ~2 points while they play, so on the crab's window they come in flights
   (effects.js `FLIGHT`: 8 s every 3 min, fading in and out) and the particles
@@ -305,10 +322,14 @@ src/main/        Electron main process
   deck.js          the Stream Deck keys (pure: what each shows, what a press does) and the token-guarded 127.0.0.1 server
                    the plugin listens to; deck-pack.js zips src/streamdeck/ into a .streamDeckPlugin; wiring/deck.js ties it in
   handoff.js       a conversation to a terminal and back (pure): the launch command per shell, ids, folders
+  btw.js           /btw side questions: a tool-less -p on a fork of the conversation that saves nothing
+  quiz.js          "Quiz me" on a turn's changes: Claude's questions from the diff (tool-less -p, --json-schema); main keeps the answers
   xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
   bounties.js      the day's three bounties, picked from the date alone
   shells.js        the shells he grows into as he levels up (molting)
+  moon.js          the real moon's phase from the clock alone (pure): moonlit finds and the beach's night sky
   motion.js        throws (release velocity, flight, landing) and idle strolls
+  work-pose.js     how he works (pure): the pose for the tool Claude has running, and which tab or outside session moved last
   voice.js         what he says and when (pure): line pools, cooldowns, temperament, idle habits
   dictation.js     push-to-talk: tap-or-hold on the hotkey, and Windows' offline speech recognizer in one warm PowerShell
   focus.js         focus sessions: focus, break, and what a restart picks up
@@ -358,10 +379,10 @@ src/main/        Electron main process
   capture.js       `npm run screenshots`; reel.js records the README demo
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
-  critter/         the desktop crab: critter.js (moods, bubble, habits) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
+  critter/         the desktop crab: critter.js (moods, bubble, habits, how he works: src/main/work-pose.js picks the pose) · beats.js (the beats between moods, nodding off and waking, a question left waiting) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
   panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · files (file links, an edit's diff, zoom) · find (Ctrl+F) · feed (crew lanes) · tabs · tab-panes (split and pop-out) · notes · bugdex · bugdex-battle · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · moment-card (one 1200×630 card per moment) · sparkle (the sparkly reveal) · tide (tide events) · social (swaps and eggs) · celebrate · crabonly · workmode · outfitcode · github · boot
                    a big screen is a file per part (tab-strip, tab-send, feed-asks, settings-account, health-gauges…), and its words and decisions live in a pure module beside it with node:test coverage (tab-logic, feed-logic, settings-text, health-logic, projects-logic, tab-sort)
-  shared/          used by more than one window or by tests too: framecap, diff (an edit's red and green lines), panes (the split grid; pure)
+  shared/          used by more than one window or by tests too: framecap, workposes (what he holds for each work pose, and how long a pose stays up; the OBS overlay uses it too), diff (an edit's red and green lines), panes (the split grid; pure)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 src/streamdeck/  the Stream Deck plugin (Node 24, no packages): Stream Deck's websocket on one side, deck.js on the other, keys drawn as SVG

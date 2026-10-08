@@ -1,3 +1,4 @@
+// ci: screenshots as tasks: paste a snip, drop a picture, Claude sees it
 // End-to-end check of screenshots as tasks against the dev app over CDP, driven
 // by the fake Claude CLI (test/fixtures/fake-claude.js): no account, no usage.
 // A Win+Shift+S snip pasted into the composer, or a picture with no file behind

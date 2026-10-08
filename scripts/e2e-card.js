@@ -1,3 +1,4 @@
+// ci: the crab card: Share, the preview, the 1200x630 PNG, the Show-Off trophy
 // End-to-end check of the shareable crab card against the dev app over CDP
 // (throwaway profile: the card is saved inside it and the clipboard is left alone).
 // Dresses Shellby, clicks "Share" in the Wardrobe, and checks the preview, the saved

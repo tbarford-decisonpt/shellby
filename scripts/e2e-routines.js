@@ -1,3 +1,4 @@
+// ci: Fix with Claude on a failed routine, and a request that needs a workflow handed to the workflow builder
 // End-to-end check of Claude's other help with routines, against the dev app
 // over CDP, driven by the fake Claude CLI (test/fixtures/fake-claude.js): no
 // account, no usage. Describe it fills the editor; a routine whose run failed

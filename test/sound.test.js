@@ -69,3 +69,31 @@ test('sound: a cue in the moment the device is being rested still wakes it', asy
   assert.equal(ac.state, 'running', 'woken once the rest went through, not left asleep with the cue on it');
   assert.deepEqual(ac.calls, ['suspend', 'resume']);
 });
+
+// Windows' "Animation effects" off is about motion, not sound: the effects, his
+// chirp and his feet all still play (main simply doesn't move him, so there's
+// no hop or scuttle to hear unless he really moves).
+test('sound: animations off still plays the effects, his chirp and his feet', t => {
+  globalThis.matchMedia = q => ({ matches: q.includes('prefers-reduced-motion: reduce') });
+  t.after(() => { delete globalThis.matchMedia; delete globalThis.ShellbyChirp; });
+  const sound = loadSound(t, FakeAudioContext);
+  assert.equal(sound.cue('hop'), true);
+  assert.equal(sound.cue('tada'), true);
+
+  delete require.cache[require.resolve('../src/renderer/critter/chirp.js')];
+  require('../src/renderer/critter/chirp.js');
+  const tones = [];
+  const tone = sound.tone;
+  globalThis.ShellbySound = { ...sound, audio: sound.audio, calm: false, tone: (...a) => { tones.push(a); return tone(...a); } };
+  globalThis.ShellbyChirp.play('success');
+  assert.ok(tones.length > 0, 'the chirp plays');
+
+  let steps = 0;
+  const step = FakeAudioContext.prototype.createBufferSource; // each footstep is a click of noise
+  FakeAudioContext.prototype.createBufferSource = function () { steps++; return step.call(this); };
+  t.after(() => { FakeAudioContext.prototype.createBufferSource = step; });
+  sound.scuttle(38);
+  t.mock.timers.tick(1000);
+  sound.scuttle(0);
+  assert.ok(steps > 0, 'his feet patter while he walks');
+});

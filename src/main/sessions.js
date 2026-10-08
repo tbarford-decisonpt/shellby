@@ -3,10 +3,13 @@
 // up into one state for the desktop critter.
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
-const { ClaudeSession } = require('./session');
+const { ClaudeSession, EFFORTS } = require('./session');
+const { pickEffort } = require('./effort-pick');
+const workPose = require('./work-pose');
 const { cleanTitle } = require('./history');
 const review = require('./review-inbox');
 const turncost = require('./turncost');
+const planPace = require('./plan-pace');
 const mods = require('./mods');
 
 // Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
@@ -26,9 +29,11 @@ class SessionManager extends EventEmitter {
   //   getSelfAware() -> { note, tools } | null, read when a tab's process is made
   //   onTool(tab, name, args) -> Promise<{ text, isError? }>, a crab tool was called
   //   decorate(tab, prompt) -> the prompt Claude actually receives
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null }) {
+  // getEffort() is the effort new conversations start on; with it on Auto ('')
+  // and getEffortPick() true, each one is sized from its first message instead (effort-pick.js).
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getEffortPick = () => false, getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getEffortPick, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate });
     this.tabs = new Map();
   }
 
@@ -43,12 +48,14 @@ class SessionManager extends EventEmitter {
     if (!exe) throw new Error('Claude Code is not installed.');
     const aware = this.getSelfAware();
     let tab = null; // the tools are only ever called once it exists
+    // Its own effort, kept in History: you chose it, or Shellby picked it.
+    const ownEffort = ['you', 'picked'].includes(historyEntry?.effortBy) && (historyEntry.effort === '' || EFFORTS.includes(historyEntry.effort)) ? historyEntry.effort : null;
     const session = new ClaudeSession({
       exe, argsPrefix: this.argsPrefix,
       cwd: historyEntry?.cwd || cwd,
       mode: mode || this.getMode(),
       model: this.getModel() || null,
-      effort: this.getEffort() || '',
+      effort: ownEffort ?? (this.getEffort() || ''),
       outputStyle: this.getOutputStyle() || '',
       resumeId: historyEntry?.claudeSessionId || null,
       resumeAt: historyEntry?.resumeAt || null,
@@ -65,7 +72,9 @@ class SessionManager extends EventEmitter {
       title: historyEntry?.title || title || 'New task',
       saved: !!historyEntry,       // has a history entry (created on first send)
       named: false,                // renamed before its first send: keep that name
-      outcome: null,               // 'ok' | 'error' | 'stopped' after the last turn
+      // 'ok' | 'error' | 'stopped' after the last turn; 'cut' when Shellby went
+      // down mid-turn (history.takeCutOff), until a turn here finishes.
+      outcome: historyEntry?.lastOutcome === 'cut' ? 'cut' : null,
       unread: false,
       worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees.js)
       // A branch of another conversation (branch.js): where it came from, the
@@ -84,11 +93,17 @@ class SessionManager extends EventEmitter {
       steeredIds: new Set(),       // ...and what of it has gone in already
       usageTold: 0,                // the usage level Claude was last told about (selfaware.usageNote)
       offered: new Set(),          // features suggested in this conversation
+      // Who set its effort: 'you' (the chip), 'picked' (Shellby, from its first
+      // message) or null, following the default for new conversations.
+      effortBy: ownEffort === null ? null : historyEntry.effortBy,
     };
     // A reopened conversation remembers what it already offered.
     if (historyEntry) for (const i of this.history.load?.(tabId) || []) if (i?.kind === 'suggest') tab.offered.add(i.feature);
     this.tabs.set(tabId, tab);
     session.takeSteers = () => this.takeSteers(tab);
+    // Where it works, for the plain words on its permission cards (plain-words.js).
+    session.inCopy = () => !!tab.worktree;
+    session.copyOf = () => tab.worktree?.originalCwd || null;
 
     session.on('item', item => this.onItem(tab, item));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));
@@ -97,7 +112,9 @@ class SessionManager extends EventEmitter {
     session.on('context', (now, before) => { this.emit('context', tab.id, now, before, tab); this.changed(); });
     session.on('busy', () => this.changed());
     session.on('tokens', () => this.changed());
+    session.on('plan', () => this.changed());
     session.on('crew', () => this.changed());
+    session.on('tool', () => this.changed());
     session.on('exit', () => {
       // Its mods ended with it: their status lines go too (plugin null: all of them).
       this.emit('item', tab.id, { kind: 'modstatus', plugin: null, text: null }, tab);
@@ -137,7 +154,10 @@ class SessionManager extends EventEmitter {
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
-      if (tab.saved) this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
+      if (tab.saved) {
+        this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
+        this.history.markTurn?.(tab.id, null);
+      }
     }
     if (tab.saved) this.history.append(tab.id, item);
     const ready = review.next(tab.ready, item);
@@ -178,6 +198,7 @@ class SessionManager extends EventEmitter {
       if (tab.worktree) this.history.update(tab.id, { worktree: tab.worktree });
       tab.title = this.history.get(tab.id).title;
       tab.saved = true;
+      if (tab.effortBy) this.keepEffort(tab); // chosen on the chip before its first message
     } else if (this.history.get(tab.id)?.done) {
       // You've just given it more to do, so it plainly isn't done any more.
       this.history.setDone(tab.id, false);
@@ -202,7 +223,10 @@ class SessionManager extends EventEmitter {
       tab.preambleSent = true;
     }
     if (this.decorate) prompt = this.decorate(tab, prompt);
+    this.maybePickEffort(tab, userItem);
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
+    // On disk at once, so a power cut mid-turn still leaves it marked unfinished.
+    this.history.markTurn?.(tab.id, { turnId: userItem.turnId, at: Date.now() });
     this.changed();
     return userItem.turnId;
   }
@@ -221,16 +245,33 @@ class SessionManager extends EventEmitter {
     return true;
   }
 
+  /**
+   * Take a queued message back before Claude has it (the panel's × on its chip).
+   * By id, here, where takeSteers() runs: the panel's own list can be a step
+   * behind. -> false when it's too late (it went in this turn), else true.
+   */
+  unsteer(tabId, id) {
+    const tab = this.tabs.get(tabId);
+    if (!tab) return true; // nothing of it can reach Claude
+    if (tab.steeredIds.has(id)) return false;
+    tab.steers = tab.steers.filter(m => m.id !== id);
+    return true;
+  }
+
   // What the session hands Claude now, taken off the list ('steering' tells the
   // panel, so its chip can't be edited any more). The chip goes once Claude has
   // read it: the 'user' item carries its steerId. One that can't be put
   // together stays queued, and so does all after it.
+  //
+  // It has no rewind point of its own: Shellby keeps the code as it stood
+  // between turns, not mid-turn, so "just before it" can't be put back. turnOf
+  // is the message whose turn it went into, which the panel offers instead.
   takeSteers(tab) {
     const taken = [];
     for (const m of tab.steers) {
       let content;
       try { content = this.compose(m.text, m.attachments); } catch { break; }
-      taken.push({ content, item: { kind: 'user', text: m.text, attachments: m.attachments, steerId: m.id } });
+      taken.push({ content, item: { kind: 'user', text: m.text, attachments: m.attachments, steerId: m.id, turnOf: tab.turnId || null } });
     }
     tab.steers = tab.steers.slice(taken.length);
     for (const t of taken) tab.steeredIds.add(t.item.steerId);
@@ -300,6 +341,9 @@ class SessionManager extends EventEmitter {
   close(tabId, { kill = false } = {}) {
     const tab = this.tabs.get(tabId);
     if (!tab) return;
+    // Closed by hand mid-turn: no result is coming, and it wasn't cut off either.
+    // Quitting (kill) leaves the mark, so the next start says what didn't finish.
+    if (!kill && tab.saved && tab.session.busy) this.history.markTurn?.(tab.id, null);
     tab.session.removeAllListeners();
     if (kill) tab.session.kill();
     tab.session.close();
@@ -343,8 +387,35 @@ class SessionManager extends EventEmitter {
     for (const tab of this.tabs.values()) if (!tab.pinnedMode) tab.session.setMode(mode);
   }
 
+  // The default changed: the conversations following it follow it now. One
+  // with its own (chosen or picked) keeps that.
   setEffort(effort) {
-    for (const tab of this.tabs.values()) tab.session.setEffort(effort);
+    for (const tab of this.tabs.values()) if (!tab.effortBy) tab.session.setEffort(effort);
+  }
+
+  /** This conversation's own effort ('' is Auto), from the chip. From its next turn, or this one's next step. */
+  setTabEffort(tabId, effort) {
+    const tab = this.require(tabId);
+    if (effort !== '' && !EFFORTS.includes(effort)) throw new Error('bad effort');
+    tab.effortBy = 'you';
+    tab.session.setEffort(effort);
+    this.keepEffort(tab);
+    this.changed();
+  }
+
+  // Sized from what it was asked, once: only while it follows a default of
+  // Auto with picking on. A /command waits for the next real message.
+  maybePickEffort(tab, userItem) {
+    if (tab.effortBy || this.getEffort() || !this.getEffortPick()) return;
+    const level = pickEffort(userItem.text, Array.isArray(userItem.attachments) ? userItem.attachments.length : 0);
+    if (!level) return;
+    tab.effortBy = 'picked';
+    tab.session.setEffort(level);
+    this.keepEffort(tab);
+  }
+
+  keepEffort(tab) {
+    if (tab.saved) this.history.update(tab.id, { effort: tab.session.effort, effortBy: tab.effortBy });
   }
 
   require(tabId) {
@@ -359,6 +430,7 @@ class SessionManager extends EventEmitter {
     return [...this.tabs.values()].map(t => ({
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
       turnTokens: t.session.turn?.tokens || 0, // the running turn's so far, beside its clock
+      plan: planPace.outlook(t.session.turn?.plan), // its step through Claude's to-do list and when that ends
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
       nudge: turncost.nudge(t.session.context, t.session.growths),
@@ -369,21 +441,24 @@ class SessionManager extends EventEmitter {
       // Its latest changes and whether you've reviewed them (review-inbox.js): the panel's review inbox.
       ready: t.ready ? { ...t.ready, paths: [...t.ready.paths] } : null,
       inTerminal: t.inTerminal || null,
+      effort: t.session.effort || '', effortBy: t.effortBy || null, // the effort chip
     }));
   }
 
   // One state for the critter: asking beats working beats idle.
   get aggregate() {
     let pending = 0, busy = 0;
-    const crew = [];
+    const crew = [], tools = [];
     for (const t of this.tabs.values()) {
       pending += t.session.pending.size;
-      if (t.session.busy) busy++;
+      if (t.session.busy) { busy++; tools.push({ tool: t.session.tool, toolAt: t.session.toolAt }); }
       for (const c of t.session.runningCrew()) {
         crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'general-purpose' }); // Claude Code's own default
       }
     }
-    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew };
+    // What the busy tab that moved last is doing, for how the crab works (work-pose.js).
+    const latest = workPose.latest(tools);
+    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, tool: latest?.tool || null, toolAt: latest?.toolAt || null };
   }
 
   changed() {

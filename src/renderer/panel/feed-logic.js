@@ -142,15 +142,49 @@
     return bits.join(' · ');
   }
 
+  // ------------------------------------------------------------ cut off mid-turn
+
+  // A turn that never finished, because Shellby went down (crashed: the PC died
+  // or he closed unexpectedly) or was quit while Claude was working (main's
+  // history.takeCutOff). The line its note shows.
+  const cutOffLine = item => (item.crashed
+    ? 'Cut off: Shellby closed unexpectedly before Claude finished this. Some changes may be half done.'
+    : 'Cut off: Shellby was quit before Claude finished this. Some changes may be half done.');
+
+  // What Carry on sends. Claude Code still has everything up to the cut, so it
+  // only needs telling that the turn stopped partway.
+  const CARRY_ON = 'Your last turn was cut off partway (Shellby closed before you finished). Check where things stand, since some changes may be half done, then carry on with the task.';
+
+  // The panel's word when it starts, for cut-off conversations (cut: [{ title, crashed }]).
+  function cutOffToast(cut) {
+    const crashed = cut.some(c => c.crashed);
+    const why = crashed ? 'Shellby closed unexpectedly' : 'Shellby was quit';
+    const what = cut.length === 1 ? `"${cut[0].title}" didn't finish` : `${cut.length} conversations didn't finish`;
+    return `${what}: ${why} while Claude was working. ${cut.length === 1 ? "It's" : "They're"} marked cut off, and everything else had finished.`;
+  }
+
   // A finished helper's summary, as the one line its lane shows.
   function laneFirstLine(text) {
     const first = text.replace(/[#*`_>]/g, '').split('\n').find(l => l.trim());
     return first ? first.trim().slice(0, 120) : null;
   }
 
+  // "Quiz me" on a turn's changes (src/main/quiz.js, which checks the size again):
+  // offered once the turn added and removed at least this many lines.
+  const QUIZ_MIN_LINES = 30;
+  const quizWorthy = item => (Number(item?.added) || 0) + (Number(item?.removed) || 0) >= QUIZ_MIN_LINES;
+
+  // The line under a finished quiz.
+  function quizResult(score, total) {
+    if (score === total) return `All ${total} right. You know this change.`;
+    if (score >= Math.min(2, total)) return `${score} of ${total} right. Worth a look at the one you missed.`;
+    return `${score} of ${total} right. Have a read through the diff before it ships.`;
+  }
+
   const api = {
     files, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, suggestionLabel, modeAfterPlan,
     decisionVerdict, questionVerdict, resultLabel, diffRows, laneMeta, laneFirstLine,
+    cutOffLine, cutOffToast, CARRY_ON, quizWorthy, quizResult, QUIZ_MIN_LINES,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyFeedLogic = api;

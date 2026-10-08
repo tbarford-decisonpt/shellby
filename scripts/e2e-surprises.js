@@ -1,3 +1,4 @@
+// ci: crit hits: red, a fix and green in one turn; the badge, the note, the trophy; cooldown; off
 // Crit hits and small surprises, end to end against the fake CLI: a turn that
 // runs the tests red, edits a file and runs them green is a critical hit, and
 // the crab shows it (his line, the CRIT! badge, the jump), the conversation

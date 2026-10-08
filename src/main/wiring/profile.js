@@ -29,6 +29,13 @@ function wireProfile(d) {
     // files nothing lists; see History.sweep().
     const swept = history.sweep();
     if (swept) log.info(`cleared ${swept} orphaned transcript${swept > 1 ? 's' : ''}`);
+    // Turns the last run started and never finished (the PC died, or he was quit
+    // mid-task): marked cut off before any tab opens, and told to the panel once.
+    const cut = history.takeCutOff({ crashed: !!d.lastRun?.unclean });
+    if (cut.length) {
+      log.warn(`${cut.length} conversation${cut.length > 1 ? 's were' : ' was'} cut off mid-turn`, d.lastRun?.unclean ? 'the last run ended without quitting' : 'quit while working');
+      d.cutOff = cut.map(e => ({ id: e.id, title: e.title, crashed: !!d.lastRun?.unclean }));
+    }
     // Recently deleted empties itself: at boot, and daily for a PC that never restarts.
     const purgeBin = () => {
       const n = history.purgeExpired();

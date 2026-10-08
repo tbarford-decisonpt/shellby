@@ -24,6 +24,7 @@
         }
       };
 
+      const plain = state.settings.plainCards !== false;
       const edits = !isPlan && item.filePath && item.edits?.length ? item.edits : null;
       const body = isPlan
         ? h('div', { class: 'ask-body' }, SB.renderMarkdownInto(h('div', { class: 'ask-plan msg assistant' }), item.plan || 'No plan text.'))
@@ -38,7 +39,7 @@
               item.description ? h('p', { class: 'ask-desc', text: item.description }) : null)
           : h('div', { class: 'ask-body' },
             h('code', { class: 'ask-cmd', text: item.detail || item.toolName }),
-            item.description && item.description !== item.detail ? h('p', { class: 'ask-desc', text: item.description }) : null);
+            item.description && item.description !== item.detail && !(plain && item.plain?.ask.toLowerCase() === item.description.toLowerCase()) ? h('p', { class: 'ask-desc', text: item.description }) : null);
 
       // Extra context when Claude is building tools for itself.
       const flags = [];
@@ -47,6 +48,8 @@
           item.runsCreated.map(f => h('code', { text: SB.basename(f), title: f })).reduce((acc, el, i) => (i ? [...acc, ', ', el] : [el]), []),
           '. Check what it does before allowing.'));
       }
+      // Plain words (plain-words.js): what deserves a second look before saying yes.
+      if (plain) for (const w of item.warnings || []) flags.push(h('div', { class: 'ask-flag warn' }, h('b', {}, 'Heads up: '), `${w}.`));
       if (item.selfConfig) {
         flags.push(h('div', { class: 'ask-flag info' }, h('b', {}, 'Changes Claude Code itself: '), `this touches ${item.selfConfig}, which affects future sessions too.`));
       }
@@ -67,7 +70,7 @@
           h('span', { class: 'ask-crab' }, SB.sprite()),
           h('div', {},
             h('div', { class: 'ask-title', text: isPlan ? "Here's my plan" : item.agent ? 'A helper wants to do this' : 'Can I do this?' }),
-            h('div', { class: 'ask-sub' }, isPlan ? 'Nothing changes until you approve.' : `${item.label} · ${item.toolName}`, who ? [' · ', who] : null))),
+            h('div', { class: 'ask-sub' }, isPlan ? `${plain && item.planSummary ? `${item.planSummary}. ` : ''}Nothing changes until you approve.` : plain && item.plain ? item.plain.ask : `${item.label} · ${item.toolName}`, who ? [' · ', who] : null))),
         flags.length ? h('div', { class: 'ask-flags' }, flags) : null,
         body,
         h('div', { class: 'ask-actions' }, actions),

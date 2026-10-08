@@ -123,6 +123,26 @@ test('outgoing: a key added and then deleted before the push still goes out in h
   } finally { r.done(); }
 });
 
+test('outgoing: a named branch and remote; another remote having it is not this one having it', async () => {
+  const r = repo();
+  try {
+    r.g(r.dir, 'checkout', '-q', '-b', 'side');
+    r.commit('side.js', `x = "${AWS}"\n`);
+    r.g(r.dir, 'checkout', '-q', 'main');
+    assert.deepEqual((await scan.outgoing(r.dir)).findings, [], 'HEAD is main, which is pushed');
+    const side = await scan.outgoing(r.dir, undefined, { rev: 'refs/heads/side', remote: 'origin' });
+    assert.deepEqual(side.findings.map(f => f.file), ['side.js']);
+    // A fork that has it doesn't make it safe to send to origin.
+    const fork = path.join(r.base, 'fork.git');
+    r.g(r.base, 'init', '-q', '--bare', fork);
+    r.g(r.dir, 'remote', 'add', 'fork', fork);
+    r.g(r.dir, 'push', '-q', 'fork', 'side');
+    assert.deepEqual((await scan.outgoing(r.dir, undefined, { rev: 'refs/heads/side' })).findings, [], 'any remote');
+    assert.deepEqual((await scan.outgoing(r.dir, undefined, { rev: 'refs/heads/side', remote: 'origin' })).findings.map(f => f.file), ['side.js']);
+    assert.equal((await scan.outgoing(r.dir, undefined, { rev: '--all' })).ok, false, 'an option is not a revision');
+  } finally { r.done(); }
+});
+
 test('atRisk: an untracked .env and an edited file are found; an ignored one is not', async () => {
   const r = repo();
   try {

@@ -111,9 +111,11 @@ function fresh(atMs, { since = 0, now = Date.now() } = {}) {
 }
 
 /**
- * One Telegram update -> { text, at, messageId } | null.
+ * One Telegram update -> { text, at, messageId } | { late, minutes, at, messageId } | null.
  * Only a new message, typed by you, in your own private chat with the bot:
  * not an edit, a forward, a channel post, a bot, or anyone in a group.
+ * late: yours, sent after you turned it on, but too long ago to start now (the
+ * PC was off or asleep); the wiring says so once instead of starting it.
  */
 function parseTelegramMessage(update, chatId, { since = 0, now = Date.now() } = {}) {
   const m = update?.message;
@@ -125,8 +127,12 @@ function parseTelegramMessage(update, chatId, { since = 0, now = Date.now() } = 
   if (m.forward_origin || m.forward_from || m.forward_from_chat || m.forward_date || m.forward_sender_name) return null;
   if (m.via_bot || m.is_automatic_forward) return null;
   const at = Number(m.date) * 1000;
-  if (!fresh(at, { since, now })) return null;
-  return { text: m.text, at, messageId: Number.isSafeInteger(m.message_id) ? m.message_id : null };
+  const messageId = Number.isSafeInteger(m.message_id) ? m.message_id : null;
+  if (!fresh(at, { since, now })) {
+    if (Number.isFinite(at) && at >= since && now - at > MAX_AGE_MS) return { late: true, minutes: Math.round((now - at) / 60000), at, messageId };
+    return null;
+  }
+  return { text: m.text, at, messageId };
 }
 
 /**
@@ -243,6 +249,13 @@ function titleFor(prompt) {
   return `${TITLE_PREFIX} ${t.length > 50 ? `${t.slice(0, 49).trimEnd()}…` : t}`;
 }
 
+/** Said back to a Telegram message that arrived too late to start. */
+function lateReply(minutes) {
+  const m = Math.max(1, Math.round(Number(minutes) || 0));
+  const late = m < 120 ? `${m} minutes` : `${Math.round(m / 60)} hours`;
+  return `This came in ${late} late, so it didn't start. Send it again if you still want it.`;
+}
+
 function helpReply({ provider, folderName, projects = [] } = {}) {
   const pass = provider === 'ntfy' ? 'Start each message with your passphrase, then a space. ' : '';
   return [
@@ -272,5 +285,5 @@ module.exports = {
   MAX_TEXT, MAX_AGE_MS, MAX_STARTS_PER_HOUR, MAX_OPEN, MAX_MESSAGES_PER_HOUR, TITLE_PREFIX, MODE, PASSPHRASE,
   cleanText, consentKey, fingerprint, isPrivateChatId, tasksProblem, ntfyTasksUrl, newPassphrase, samePassphrase,
   fresh, parseTelegramMessage, parseNtfyTask, matchProject, parseCommand, startGate, messageGate, recent,
-  titleFor, helpReply, statusReply,
+  titleFor, helpReply, lateReply, statusReply,
 };

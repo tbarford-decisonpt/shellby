@@ -209,6 +209,25 @@ test('settingsSynced: settings from another PC take effect, and a hotkey taken h
   assert.ok(rec.of('send').some(([, channel]) => channel === 'settings'), 'the panel hears about it');
 });
 
+test('settingsSynced says once what came across, by the names Settings uses', () => {
+  const { config, d, rec } = setup({ config: { chatter: 'normal', sounds: false } });
+  Object.defineProperty(config, 'data', { get: () => config.all() });
+  const before = config.all();
+  config.set({ chatter: 'quiet', sounds: true, syncStamps: { prefs: { chatter: 9, sounds: 9 } } });
+  d.settingsSynced(before);
+  const toasts = rec.of('send').filter(([, channel]) => channel === 'github:error');
+  assert.deepEqual(toasts.map(t => t[2]), ['Synced from your other PC: his voice, chatter.']);
+});
+
+test('settingsSynced says nothing when the only change was a hotkey taken here', () => {
+  const { config, d, rec } = setup({ hotkeyOk: false });
+  Object.defineProperty(config, 'data', { get: () => config.all() });
+  const before = config.all();
+  config.set({ hotkey: 'Ctrl+Q', syncStamps: { prefs: { hotkey: 9 } } });
+  d.settingsSynced(before);
+  assert.equal(rec.of('send').filter(([, channel]) => channel === 'github:error').length, 0);
+});
+
 test('settingsSynced with nothing synced changed does nothing', () => {
   const { config, d, rec } = setup();
   Object.defineProperty(config, 'data', { get: () => config.all() });

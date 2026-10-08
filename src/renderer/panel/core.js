@@ -189,6 +189,7 @@ function toastSlot() {
   t.addEventListener('focusin', () => clearTimeout(toastTimer));
   t.addEventListener('pointerleave', linger);
   t.addEventListener('focusout', linger);
+  t.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); dismissToasts(); } });
   const movedOn = e => { if (toastHolds && !t.contains(e.target)) toastHolds = false; };
   document.addEventListener('pointerdown', movedOn, true);
   document.addEventListener('keydown', e => { if (e.key === 'Enter') movedOn(e); }, true);
@@ -211,6 +212,11 @@ function endToast() {
   if (next) showToast(next.msg, { ...next.opts, ms: Math.min(next.opts.ms ?? TOAST_MS, next.until - now) });
 }
 
+function dismissToasts() {
+  toastWaiting = [];
+  endToast();
+}
+
 function showToast(msg, { title, note, action, onAction, actions, ms = TOAST_MS } = {}) {
   const t = toastSlot();
   const offers = (actions || (action ? [{ label: action, onAction }] : [])).filter(a => a?.label);
@@ -228,8 +234,12 @@ function showToast(msg, { title, note, action, onAction, actions, ms = TOAST_MS 
     a.onAction();
     if (!t.children.length) endToast();
   };
+  // ✕ clears it and whatever was waiting behind it: you want them out of the way.
+  const dismiss = SB.h('button', { class: 'toast-close', type: 'button', title: 'Dismiss', 'aria-label': 'Dismiss', onclick: dismissToasts },
+    SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.6 }));
   t.replaceChildren(body,
-    ...offers.map(a => SB.h('button', { class: 'toast-action', type: 'button', onclick: () => pick(a) }, a.label)));
+    ...offers.map(a => SB.h('button', { class: 'toast-action', type: 'button', onclick: () => pick(a) }, a.label)),
+    dismiss);
   toastHolds = offers.length > 0;
   armToast(offers.length ? ms + TOAST_OFFER_EXTRA_MS : ms);
 }

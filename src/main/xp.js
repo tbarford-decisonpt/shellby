@@ -23,6 +23,7 @@ const AWARDS = Object.freeze({
   hatch: { xp: 100, perHour: 2, label: 'An egg hatched', way: 'A crab egg you gave someone hatches, or you hatch one' },
   trick: { xp: 150, perHour: 3, label: 'Wrote himself a new trick', way: 'Writes himself a new skill or agent', claude: true },
   deploy: { xp: 50, perHour: 4, label: 'Deployed', way: 'Deploys or publishes', claude: true },
+  merged: { xp: 50, perHour: 4, label: 'Pull request merged', way: 'Gets one of your pull requests merged', claude: true },
   bond: { xp: 50, perHour: 1, label: 'Grew closer', way: 'The two of you grow closer' },
   // A sparkly find or bug (gifts.js, bugdex.js): rare, so the roll is the limit.
   sparkle: { xp: 50, perHour: 3, label: 'Found a sparkly one', way: 'Now and then a find or a catch comes up sparkly' },
@@ -30,6 +31,7 @@ const AWARDS = Object.freeze({
   crit: { xp: 60, perHour: 3, label: 'Critical hit', way: 'Now and then, when one turn takes a red suite to green', claude: true },
   landing: { xp: 40, perHour: 3, label: 'Clean landing', way: 'Now and then, when a copy comes home green on the first try', claude: true },
   fixed: { xp: 40, perHour: 6, label: 'Tests green again', way: 'Turns failing tests green', claude: true },
+  cifix: { xp: 40, perHour: 3, label: 'CI back to green', way: 'Gets a red CI build on your pull request green again', claude: true },
   flakefix: { xp: 40, perHour: 2, label: 'Fixed a flaky test', way: 'Fixes a flaky test for good', claude: true },
   quest: { xp: 40, perHour: 4, label: 'Finished a quest', way: 'Finishes a quest (each one teaches a hidden trick)', claude: true },
   issue: { xp: 40, perHour: 3, label: 'Turned an issue into a pull request', way: 'Takes an issue all the way to a pull request', claude: true },
@@ -43,8 +45,11 @@ const AWARDS = Object.freeze({
   tidy: { xp: 30, perHour: 6, label: 'Tidied his toolbox', way: 'Turns off a plugin or MCP server that sits idle', claude: true },
   treasure: { xp: 30, perHour: 2, label: 'He dug up something rare', way: 'Digs up something rare' },
   tests: { xp: 25, perHour: 6, label: 'Tests passed', way: 'Tests pass', claude: true },
+  home: { xp: 20, perHour: 6, label: 'Brought work home green', way: "Brings a copy's work home with its tests passing", claude: true },
+  helped: { xp: 15, perHour: 6, label: "Put a helper's find to use", way: 'Acts on what one of his helper agents found', claude: true },
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy', way: 'Earns a trophy' },
   fresh: { xp: 20, perHour: 2, label: 'Started a crowded chat fresh', way: 'Starts a crowded conversation fresh with a summary', claude: true },
+  quiz: { xp: 15, perHour: 3, label: "Passed a quiz on Claude's work", way: 'You pass a quiz on a change Claude made', claude: true },
   focus: { xp: 15, perHour: 3, label: 'Finished a focus session', way: 'Finishes a focus session' },
   // Swaps with friends (swaps.js).
   swap: { xp: 15, perHour: 3, label: 'Swapped finds with a friend', way: 'Swaps a find with a friend' },
@@ -275,6 +280,7 @@ function addTo(map, key, n) { return n > 0 ? { ...map, [key]: own(map, key) + n 
  * never mutated).
  *   kind: one of AWARDS ('tests' becomes 'fixed' after a failure in that project)
  *   meta: { label?, project?, streak? (current streak in days),
+ *           sameCode? (a test pass on the very code that failed: a flake, so not 'fixed'),
  *           boost?: { by: 1.5, label: 'Harvest Moon' } (a tide event's, events.js; at most 2×) }
  */
 function award(stateIn, kindIn, now, meta = {}) {
@@ -289,7 +295,8 @@ function award(stateIn, kindIn, now, meta = {}) {
 
   const next = { ...state };
   let kind = kindIn;
-  if (kind === 'tests' && project && next.red[project] && t - next.red[project] < RED_FOR) {
+  // A pass on the very code that failed (meta.sameCode) is a flake, not a fix: it stays red.
+  if (kind === 'tests' && project && next.red[project] && t - next.red[project] < RED_FOR && !meta.sameCode) {
     kind = 'fixed';
     const { [project]: _, ...rest } = next.red;
     next.red = rest;

@@ -1,3 +1,4 @@
+// ci: Work mode: the tools first, a quiet crab, your own settings back when you leave
 // End-to-end check of Work mode (src/main/workmode.js) against the dev app over
 // CDP with the fake CLI, as a brand-new user whose settings already have a
 // lively crab in them (pals, chatty, climbing your windows):

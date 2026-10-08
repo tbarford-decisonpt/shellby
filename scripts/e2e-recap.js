@@ -1,3 +1,4 @@
+// ci: While you were away, from scripted idle readings: finished, failed and asking
 // End-to-end check of "While you were away" against the dev app over CDP, with
 // the fake CLI. Idle readings come from dev:away (SHELLBY_RECAP_TEST) instead of
 // Windows: two hours away, during which one task finishes, one fails and one

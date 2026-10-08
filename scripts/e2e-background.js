@@ -1,3 +1,4 @@
+// ci: work a turn left running: the badge, the list, clearing it
 // End-to-end check of the one thing Shellby shows while he looks idle: work a
 // turn started in the background and never came back to. Drives the real app
 // over CDP and feeds it real hook events on the real port.

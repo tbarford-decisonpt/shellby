@@ -99,11 +99,13 @@ function registerSettingsIpc(ipcMain, d) {
     applied(allowed, { ...allowed, ...(allowed.workOverrides || {}) }, before);
     d.send(d.panel, 'settings', d.panelSettings());
     if ('snippets' in allowed || 'pinnedTools' in allowed) d.send(d.panel, 'snippets', d.snippetsView());
+    // One quiet word per sync, so a setting doesn't change under you unexplained.
+    if (Object.keys(allowed).length) d.send(d.panel, 'github:error', `Synced from your other PC: ${syncPrefs.describe(Object.keys(allowed))}.`);
   };
 
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'workMode', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'tideEvents', 'signCommits', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'checkTimeoutMin', 'turnShots', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'holdBigTasks', 'crashReports', 'selfAware', 'suggestions', 'editor']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'workMode', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effort', 'effortPick', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'tideEvents', 'signCommits', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'checkTimeoutMin', 'turnShots', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'holdBigTasks', 'crashReports', 'selfAware', 'suggestions', 'editor', 'claudeTricks', 'plainCards']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -143,7 +145,7 @@ function registerSettingsIpc(ipcMain, d) {
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'workMode', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'tideEvents', 'signCommits', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'turnShots', 'spendGuard', 'holdBigTasks', 'selfAware', 'suggestions']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'workMode', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effortPick', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'tideEvents', 'signCommits', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'turnShots', 'spendGuard', 'holdBigTasks', 'selfAware', 'suggestions', 'claudeTricks', 'plainCards']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('checkTimeoutMin' in allowed && !TIMEOUTS_MIN.includes(allowed.checkTimeoutMin)) delete allowed.checkTimeoutMin;
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
     if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;

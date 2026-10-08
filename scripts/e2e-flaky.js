@@ -1,3 +1,4 @@
+// ci: flaky tests: fail then pass on the same code, the list, his line, Fix it in a copy
 // The flaky test detective, end to end against the fake CLI: a test that fails
 // and then passes with the code unchanged lands on the Routines page; the
 // second time this week he says so; an edit between runs is not a flake; a

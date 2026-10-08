@@ -322,3 +322,68 @@ test('an inbox that throws never stops the presses being read', async () => {
   await spin(r, () => !r.polling);
   assert.deepEqual(answered, [{ tabId: 't1', requestId: 'req1', decision: 'deny' }]);
 });
+
+// ------------------------------------------------------------------ when Telegram says no
+
+// Telegram answering getUpdates with each of replies in turn (then nothing new).
+function saysNo(replies, { token = () => 'TOKEN' } = {}) {
+  const reads = [];
+  const sleeps = [];
+  const r = new RemoteAnswers({
+    getChannel: () => ({ settings: channels.normalizeChannelSettings(null, { enabled: true, provider: 'telegram', target: '123', replies: true }), secret: token() }),
+    onAnswer: () => true,
+    fetchImpl: async (url, opts = {}) => {
+      if (opts.method === 'POST') return { ok: true, json: async () => ({ ok: true }) };
+      reads.push(url);
+      const next = replies.length ? replies.shift() : { ok: true, result: [] };
+      return { ok: next.ok === true, json: async () => next };
+    },
+    now: () => 1_000_000, ntfyPollMs: 5000, maxBackoffMs: 40_000,
+  });
+  r.sleep = async ms => { sleeps.push(ms); await settle(); };
+  return { r, reads, sleeps };
+}
+
+test('a bot token Telegram turns down stops the polling and says so', async () => {
+  let token = 'OLD';
+  const { r, reads } = saysNo([{ ok: false, error_code: 401, description: 'Unauthorized' }], { token: () => token });
+  const nonce = r.register({ tabId: 't1', requestId: 'req1', provider: 'telegram' });
+  r.sent(nonce, {});
+  await spin(r, () => !r.polling);
+  assert.equal(r.polling, false, 'stopped, though a prompt is still out');
+  assert.equal(reads.length, 1, 'asked once, not every 5 seconds');
+  assert.match(r.trouble(), /^Telegram turned down the bot token/);
+  r.listen();
+  await settle();
+  assert.equal(reads.length, 1, 'the same token is never tried again');
+  token = 'NEW';
+  assert.equal(r.trouble(), null, 'about the old token, not this one');
+  r.listen();
+  await spin(r, () => reads.length > 1);
+  assert.ok(reads.length > 1, 'a new token starts it again');
+  r.shutdown();
+  await spin(r, () => !r.polling);
+});
+
+test('another reader of the same bot is named, and failures back off, then reset', async () => {
+  const conflict = { ok: false, error_code: 409, description: 'Conflict: terminated by other getUpdates request' };
+  const { r, sleeps } = saysNo([conflict, conflict, conflict, conflict, conflict, conflict]);
+  const nonce = r.register({ tabId: 't1', requestId: 'req1', provider: 'telegram' });
+  r.sent(nonce, {});
+  try {
+    await spin(r, () => sleeps.length >= 2);
+    assert.match(r.trouble() || '', /Another Shellby \(or app\) is reading this bot/);
+    await spin(r, () => sleeps.length >= 7);
+    assert.deepEqual(sleeps.slice(0, 6), [5000, 10_000, 20_000, 40_000, 40_000, 40_000], 'doubling, up to the cap');
+    assert.equal(sleeps[6], 5000, 'a good read goes back to the usual pace');
+    assert.equal(r.trouble(), null, 'and clears what Settings says');
+  } finally {
+    r.shutdown();
+    await spin(r, () => !r.polling);
+  }
+});
+
+test('the back-off is five minutes at most by default', () => {
+  const { MAX_BACKOFF_MS } = require('../src/main/replies');
+  assert.equal(MAX_BACKOFF_MS, 5 * 60 * 1000);
+});

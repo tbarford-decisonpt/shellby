@@ -51,6 +51,7 @@
     ask: (s, c) => [
       txt('Question', s.question, v => { s.question = v; }, { at: `${c.at}.question`, insert: ins(c), attrs: { maxlength: 300, placeholder: 'Push the fix?' } }),
       choicesField(s, c),
+      txt('File to open (optional)', s.path, v => putOrDrop(s, 'path', v), { at: `${c.at}.path`, insert: ins(c), attrs: { placeholder: '{{ draft.path }}', class: 'field wf-mono' }, hint: 'A full path. While it waits, an Open button opens it in your editor, so you can change it before you answer.' }),
     ],
     tell: (s, c) => [
       sel('Send to', TELL_TO, s.to || 'notification', v => { s.to = v; if (v !== 'file') delete s.path; rebuild(`tt-${keyOf(s)}`); }, { at: `${c.at}.to`, attrs: { 'data-fk': `tt-${keyOf(s)}` } }),

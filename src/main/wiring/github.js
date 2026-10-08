@@ -12,6 +12,7 @@ const swaps = require('../swaps');
 const eggs = require('../eggs');
 const events = require('../events');
 const gifts = require('../gifts');
+const recap = require('../recap');
 const { TokenStore } = require('../github/auth');
 const { CiHub } = require('../ci-hub');
 const { CiWatcher } = require('../github/ci');
@@ -21,6 +22,7 @@ const { ProfileCard } = require('../github/profile-card');
 const { UPSTREAM: PACKS_REPO, publishPack } = require('../github/publish');
 const issueWork = require('../github/pullrequest');
 const { GitHubService } = require('../github/service');
+const { secretGate } = require('../secret-gate');
 const { SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('../marketplace');
 const shells = require('../shells');
 const stickers = require('../stickers');
@@ -69,8 +71,9 @@ function wireGithub(d) {
       let changed = false;
       if ('skin' in patch && patch.skin !== prev.skin) { stamps.skinAt = Date.now(); changed = true; }
       if (patch.wardrobe && JSON.stringify(patch.wardrobe.outfit) !== JSON.stringify(prev.wardrobe?.outfit)) { stamps.outfitAt = Date.now(); changed = true; }
-      const prefsChanged = syncPrefs.changedKeys(patch, prev);
-      if (prefsChanged.length) { stamps.prefs = { ...stamps.prefs }; for (const k of prefsChanged) stamps.prefs[k] = Date.now(); changed = true; }
+      // Snippets and pins are stamped one by one, with a marker for each one deleted.
+      const prefStamps = syncPrefs.restamp(patch, prev, stamps.prefs, Date.now());
+      if (prefStamps) { stamps.prefs = prefStamps; changed = true; }
       if (changed) d.config.set({ syncStamps: stamps });
       const stickersMoved = 'stickers' in patch && JSON.stringify(stickers.syncable(patch.stickers)) !== JSON.stringify(stickers.syncable(prev.stickers));
       const tankMoved = 'tank' in patch && JSON.stringify(tankShare.syncable(patch.tank)) !== JSON.stringify(tankShare.syncable(prev.tank));
@@ -165,6 +168,7 @@ function wireGithub(d) {
     const body = badge ? prBadges.withBadge(asked, badge) : asked;
     const r = await issueWork.openPullRequest({ folder, title, body, draft }, {
       gh: d.github.gh(), git: worktrees.git, home: d.worktreeHome(), env: d.github.claudeEnv(), web: githubEndpoints().web,
+      gate: (root, o) => secretGate(d, root, o), // what it pushes is looked over for secrets first
     });
     if (!r.ok || r.existing) return r; // a retried step found its pull request already open: paid already
     // Shipping it pays now; the sticker comes when it merges (ci.js sees it, shippedMerge).
@@ -278,7 +282,24 @@ function wireGithub(d) {
     const follow = () => { if (d.github.can('friends')) { if (!d.friends.timer) d.friends.start(); } else if (d.friends.timer) d.friends.stop(); };
     d.github.on('change', follow);
     follow();
+    // Turned off, but the card couldn't be deleted then: try again soon after
+    // starting and on later GitHub changes (a sign-in, coming back online),
+    // every few minutes at most, and say so once if it still can't.
+    let triedAt = 0;
+    let told = false;
+    const retry = () => setImmediate(() => {
+      if (Date.now() - triedAt < CARD_RETRY_MS) return;
+      // Turning it off takes it down itself, and says so if that fails.
+      if (d.friends.takingDown) { triedAt = Date.now(); return; }
+      const p = d.friends.retryTakeDown();
+      if (!p) return;
+      triedAt = Date.now();
+      p.then(r => { if (!r.ok && !told) { told = true; d.send(d.panel, 'github:error', `Your calling card is still up. ${r.error}`); } }).catch(() => {});
+    });
+    d.github.on('change', retry);
+    setTimeout(retry, 30 * 1000);
   }
+  const CARD_RETRY_MS = 10 * 60 * 1000;
 
   function onCiEvent({ type, pr }) {
     if (!pr) return;
@@ -287,6 +308,7 @@ function wireGithub(d) {
     if (type !== 'comment') d.workflows?.event('ci', { event: type, forge: pr.forge || 'github', ref: where, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
     const open = () => openPrUrl(pr);
     if (type === 'failed') d.noteRed(`ci:${where}`);
+    d.noteRecap?.(recap.ciEvent(type, where, pr.title)); // red or back to green, in the while-you-were-away card
     if (type === 'fixed') d.noteFix(`ci:${where}`);
     // A Red Tide (or a Kraken...) on the loose; caught when it goes green with Shellby's help.
     if (type === 'failed') d.bugdex?.ciFailed(pr);
@@ -300,6 +322,7 @@ function wireGithub(d) {
         canFix ? () => d.showBuildFix(pr.key) : open, { tone: 'problem', action: canFix ? 'Fix this build' : null });
     } else if (type === 'fixed') {
       d.stat('ci-fixed');
+      d.awardXp('cifix', { project: pr.repo, label: `CI back to green on ${where}` });
       d.flashState('cheer', 6500);
       d.tellChannel({ kind: 'ci', project: where, passing: true, body: `${pr.title}. Every check passes now.`, url: pr.url });
       d.send(d.critter, 'critter:burst', d.outfit().confetti);
@@ -314,6 +337,10 @@ function wireGithub(d) {
       const who = pr.talk?.people?.length ? pr.talk.people.join(', ') : 'Someone';
       d.notify(`New on ${where}`, `${who} on "${pr.title}"`.slice(0, 160), () => { d.ci?.markSeen(pr.key); open(); });
     } else if (type === 'merged') {
+      // Your pull request is in: XP, a line and a little dance.
+      d.awardXp('merged', { project: pr.repo, label: `Merged ${where}` });
+      d.flashState('success', 4500);
+      d.speak('merged');
       d.stickerService.shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
       d.backlogMerged?.(pr); // one opened from Next up: offer to tick its task off (wiring/backlog.js)
     }

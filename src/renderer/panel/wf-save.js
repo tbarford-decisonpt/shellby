@@ -5,7 +5,7 @@
   const W = SB.wfKit;
   const {
     ed, rebuild, screen, normalise, changed, validateSoon, uid, current, normErrors, mapOn, selFor, applyView,
-    loadView, home, within, openSteps, openAdvanced, CONTAINERS, nav, clone, paintErrors, go, walk, stepFk,
+    loadView, home, within, openSteps, openAdvanced, CONTAINERS, nav, clone, paintErrors, go, walk, stepFk, keepChat,
   } = W;
 
   // ------------------------------------------------------------ JSON
@@ -83,6 +83,7 @@
       return;
     }
     ed.dirty = false;
+    keepChat(res.workflow?.id);
     if (res.view) applyView(res.view); else loadView();
     SB.toast(`Saved “${res.workflow?.name || ed.def.name}”`);
     home();
@@ -158,6 +159,7 @@
             }
           };
           fillIn(ed.def);
+          keepChat(res.workflow.id);
           // What's on disk now, for "changes that aren't saved": a new one tested switched off
           // still differs from yours (it's on), so leaving it still warns until you Save.
           fillIn(sent);

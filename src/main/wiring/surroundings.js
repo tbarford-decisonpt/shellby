@@ -246,7 +246,8 @@ function wireSurroundings(d) {
         for (const ev of tideEvents.EVENTS) { const at = tideEvents.backOn(ev.id, day, where); if (at) back[ev.id] = at.getTime(); }
         return { event: a ? a.ev.id : null, back };
       },
-      calm: () => d.calmReason === 'locked',
+      calm: () => !!d.crabCalm?.().calm, // covered, under a game, away or locked (wiring/windows.js)
+      locked: () => d.calmReason === 'locked',
       // Where his eyes are on screen: 4 cells right of centre and about 12 up from his feet.
       eyePoint: () => {
         if (!d.critter || d.critter.isDestroyed()) return null;
