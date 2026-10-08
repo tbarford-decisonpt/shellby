@@ -13,9 +13,10 @@ const os = require('os');
 const path = require('path');
 const {
   newToken, tokenMatches, cmdShim, shShim, ps1Shim,
-  isOnPath, pathWith, pathWithout, parseTaskRequest,
+  isOnPath, pathWith, pathWithout, parseTaskRequest, parseFlowRequest, settingChangeArgs,
 } = require('../src/main/clipath');
-const { parseArgs, MODES, MAX_PROMPT, EXIT } = require('../src/cli/shellby');
+const { parseArgs, projectArg, MODES, MAX_PROMPT, EXIT, INPUT_KEY, MAX_INPUTS, MAX_INPUT_VALUE, MAX_FLOW_NAME } = require('../src/cli/shellby');
+const crabtools = require('../src/main/crabtools');
 
 const CLI = path.join(__dirname, '..', 'src', 'cli', 'shellby.js');
 
@@ -115,6 +116,14 @@ test('the shims call the copy next to themselves, not a baked-in app path', () =
   assert.ok(cmdShim().includes('\r\n'), 'CRLF: a .cmd with LF endings misbehaves');
 });
 
+test('a PATH change is announced, so Start-menu terminals see it without signing out', () => {
+  const args = settingChangeArgs();
+  assert.deepEqual(args.slice(0, 3), ['-NoProfile', '-NonInteractive', '-EncodedCommand']);
+  const script = Buffer.from(args[3], 'base64').toString('utf16le');
+  assert.match(script, /SendMessageTimeout\(\[IntPtr\]0xffff, 0x1A,/, 'WM_SETTINGCHANGE to every window');
+  assert.match(script, /'Environment'/);
+});
+
 // ------------------------------------------------------------------ arguments
 
 test('parseArgs understands the commands', () => {
@@ -137,6 +146,23 @@ test('parseArgs reads the options for "do"', () => {
   assert.equal(parseArgs(['do', '--', '-q', 'is', 'part', 'of', 'it']).prompt, '-q is part of it');
 });
 
+test('parseArgs reads a snippet as the first word of "do"', () => {
+  assert.deepEqual(parseArgs(['do', '@review']),
+    { cmd: 'do', quiet: false, dir: null, mode: null, prompt: '', snippet: 'review' });
+  assert.deepEqual(parseArgs(['do', '-m', 'plan', '@tests', 'src/app.js']),
+    { cmd: 'do', quiet: false, dir: null, mode: 'plan', prompt: 'src/app.js', snippet: 'tests' });
+  // File mentions for Claude are left alone: a dot, a slash or a capital means it's not a snippet.
+  for (const word of ['@src/app.js', '@README.md', '@Makefile', '@']) {
+    const r = parseArgs(['do', word, 'explain']);
+    assert.equal(r.snippet, undefined, word);
+    assert.equal(r.prompt, `${word} explain`);
+  }
+  // Only the first word: an @name later on is part of the task.
+  assert.equal(parseArgs(['do', 'ask', '@review']).snippet, undefined);
+  assert.deepEqual(parseArgs(['snippets']), { cmd: 'snippets' });
+  assert.match(parseArgs(['snippets', 'x']).error, /takes nothing/);
+});
+
 test('parseArgs refuses what it cannot act on', () => {
   assert.match(parseArgs(['do']).error, /What should he do/);
   assert.match(parseArgs(['say']).error, /Say what/);
@@ -148,11 +174,73 @@ test('parseArgs refuses what it cannot act on', () => {
   assert.match(parseArgs(['do', 'x'.repeat(MAX_PROMPT + 1)]).error, /longer than/);
 });
 
+test('parseArgs reads "flow list" and "flow run"', () => {
+  assert.deepEqual(parseArgs(['flow', 'list']), { cmd: 'flow-list' });
+  assert.deepEqual(parseArgs(['flow', 'run', 'Deploy']), { cmd: 'flow-run', name: 'Deploy', inputs: {} });
+  // Several words before the first key=value are the name; a quoted name arrives as one word.
+  assert.deepEqual(parseArgs(['flow', 'run', 'Red', 'build', 'fixer', 'branch=main', 'note=a b=c', 'empty=']),
+    { cmd: 'flow-run', name: 'Red build fixer', inputs: { branch: 'main', note: 'a b=c', empty: '' } });
+  assert.deepEqual(parseArgs(['flow', 'run', 'Red build fixer', 'branch=main']),
+    { cmd: 'flow-run', name: 'Red build fixer', inputs: { branch: 'main' } });
+});
+
+test('parseArgs refuses bad "flow" arguments', () => {
+  for (const [argv, re] of [
+    [['flow'], /Usage: shellby flow/],
+    [['flow', 'delete', 'x'], /Unknown flow command: delete/],
+    [['flow', 'list', 'extra'], /Usage/],
+    [['flow', 'run'], /Which workflow/],
+    [['flow', 'run', 'branch=main'], /Which workflow/],
+    [['flow', 'run', 'Deploy', 'Branch=main'], /can't be an input name/],
+    [['flow', 'run', 'Deploy', '__proto__=x'], /can't be an input name/],
+    [['flow', 'run', 'Deploy', '=x'], /can't be an input name/],
+    [['flow', 'run', 'Deploy', 'my-key=x'], /can't be an input name/],
+    [['flow', 'run', 'Deploy', 'a=1', 'stray'], /Expected key=value/],
+    [['flow', 'run', 'Deploy', 'a=1', 'a=2'], /given twice/],
+    [['flow', 'run', 'Deploy', `a=${'x'.repeat(MAX_INPUT_VALUE + 1)}`], /longer than/],
+    [['flow', 'run', 'Deploy', ...Array.from({ length: MAX_INPUTS + 1 }, (_, i) => `k${i}=v`)], /At most/],
+    [['flow', 'run', 'x'.repeat(MAX_FLOW_NAME + 1)], /at most 60/],
+  ]) {
+    const r = parseArgs(argv);
+    assert.match(r.error || '', re, JSON.stringify(argv).slice(0, 80));
+  }
+});
+
+test('the CLI and the app agree on what an input name is', () => {
+  assert.equal(INPUT_KEY.source, crabtools.INPUT_KEY.source);
+  assert.equal(MAX_INPUTS, crabtools.MAX_WORKFLOW_INPUTS);
+  assert.equal(MAX_INPUT_VALUE, crabtools.MAX_INPUT_VALUE);
+  assert.equal(MAX_FLOW_NAME, crabtools.MAX_WORKFLOW_NAME);
+});
+
 // ------------------------------------------------------------------ the server side
+
+test('parseFlowRequest checks a flow request the way run_workflow does', () => {
+  assert.deepEqual(parseFlowRequest({ action: 'flow-list' }), { ok: true, request: { action: 'flow-list' } });
+  assert.deepEqual(parseFlowRequest({ action: 'flow-run', name: ' Deploy‮ ', inputs: { branch: 'main', n: 2 } }),
+    { ok: true, request: { action: 'flow-run', name: 'Deploy', inputs: { branch: 'main', n: '2' } } });
+  assert.deepEqual(parseFlowRequest({ action: 'flow-run', name: 'Deploy' }).request.inputs, {});
+  for (const body of [
+    null, 'flow-list', [], {}, { action: 'task' }, { action: 'flow-delete', name: 'x' },
+    { action: 'flow-run' }, { action: 'flow-run', name: '' }, { action: 'flow-run', name: 7 },
+    { action: 'flow-run', name: 'D', inputs: [] },
+    { action: 'flow-run', name: 'D', inputs: JSON.parse('{"__proto__": {"x": 1}}') },
+    { action: 'flow-run', name: 'D', inputs: { 'Bad Key': 'x' } },
+    { action: 'flow-run', name: 'D', inputs: { a: { b: 1 } } },
+    { action: 'flow-run', name: 'D', inputs: { a: 'x'.repeat(MAX_INPUT_VALUE + 1) } },
+  ]) {
+    const r = parseFlowRequest(body);
+    assert.equal(r.ok, false, JSON.stringify(body));
+    assert.ok(r.error.length > 4);
+  }
+  // Same rules, same answers: one helper behind both doors.
+  const args = { name: 'D', inputs: { k: 'v⁦' } };
+  assert.deepEqual(parseFlowRequest({ action: 'flow-run', ...args }).request.inputs, crabtools.parseRequest({ action: 'run_workflow', args }).intent.inputs);
+});
 
 test('parseTaskRequest checks the task before anything is started', () => {
   const ok = parseTaskRequest({ action: 'task', args: { prompt: 'tidy up', cwd: 'C:\\x', mode: 'plan' } });
-  assert.deepEqual(ok, { ok: true, task: { prompt: 'tidy up', cwd: 'C:\\x', mode: 'plan' } });
+  assert.deepEqual(ok, { ok: true, task: { prompt: 'tidy up', cwd: 'C:\\x', mode: 'plan', snippet: null } });
   assert.equal(parseTaskRequest({ action: 'task', args: { prompt: 'x', cwd: 'C:\\x' } }).task.mode, null);
 
   for (const body of [
@@ -168,6 +256,16 @@ test('parseTaskRequest checks the task before anything is started', () => {
   // A folder that isn't there is refused, which is what the app will check.
   assert.equal(parseTaskRequest({ action: 'task', args: { prompt: 'x', cwd: 'C:\\nope' } }, { isDir: () => false }).ok, false);
   assert.equal(parseTaskRequest({ action: 'task', args: { prompt: 'a\u0000b', cwd: 'C:\\x' } }).task.prompt, 'ab');
+});
+
+test('parseTaskRequest takes a snippet, with or without words to go with it', () => {
+  const bare = parseTaskRequest({ action: 'task', args: { snippet: 'review', cwd: 'C:\\x' } });
+  assert.deepEqual(bare, { ok: true, task: { prompt: '', cwd: 'C:\\x', mode: null, snippet: 'review' } });
+  assert.equal(parseTaskRequest({ action: 'task', args: { snippet: 'tests', prompt: 'src/a.js', cwd: 'C:\\x' } }).task.prompt, 'src/a.js');
+  // The port isn't only the CLI's: a name is checked the same way here.
+  for (const snippet of ['', 'Review', '../x', 'a b', 'x'.repeat(33), 7, {}, ['review']]) {
+    assert.equal(parseTaskRequest({ action: 'task', args: { snippet, prompt: 'x', cwd: 'C:\\x' } }).ok, false, JSON.stringify(snippet));
+  }
 });
 
 // ------------------------------------------------------------------ end to end
@@ -241,6 +339,34 @@ test('the CLI prints the status, and says nothing on --quiet', async t => {
   assert.equal(quiet.stdout, '', '--quiet prints nothing when it worked');
 });
 
+test('the CLI sends a snippet by name, and lists them', async t => {
+  const seen = [];
+  const server = await stubShellby((req, res) => {
+    seen.push(req);
+    if (req.body.args?.snippet === 'nope') { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'No snippet called @nope.' })); }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ text: req.body.action === 'snippets' ? 'Your snippets: @review' : 'Shellby is on it.' }));
+  });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+  const env = { SHELLBY_TOKEN: 't' };
+
+  const r = await runCli(['do', '@tests', 'src/app.js'], { port, tmp, env });
+  assert.equal(r.code, EXIT.ok, r.stderr);
+  assert.deepEqual(seen[0].body.args, { prompt: 'src/app.js', cwd: process.cwd(), mode: null, snippet: 'tests' });
+
+  const list = await runCli(['snippets'], { port, tmp, env });
+  assert.equal(list.code, EXIT.ok, list.stderr);
+  assert.deepEqual(seen[1].body, { action: 'snippets' });
+  assert.match(list.stdout, /@review/);
+
+  const missing = await runCli(['do', '@nope'], { port, tmp, env });
+  assert.equal(missing.code, EXIT.error);
+  assert.match(missing.stderr, /No snippet called @nope/);
+});
+
 test('with Shellby closed the CLI says so and exits 3, without waiting', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
   try {
@@ -252,6 +378,45 @@ test('with Shellby closed the CLI says so and exits 3, without waiting', async (
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+test('the CLI lists and runs workflows over /v1/cli with the token', async t => {
+  const seen = [];
+  const server = await stubShellby((req, res) => {
+    seen.push(req);
+    if (req.body.action === 'flow-run' && req.body.name === 'Locked') {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '"Locked" doesn\'t have the Claude Code trigger.' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ text: req.body.action === 'flow-list' ? '2 workflows.' : 'Started "Red build fixer".' }));
+  });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+
+  const list = await runCli(['flow', 'list'], { port, tmp, env: { SHELLBY_TOKEN: 'tok' } });
+  assert.equal(list.code, EXIT.ok, list.stderr);
+  assert.match(list.stdout, /2 workflows\./);
+  assert.deepEqual(seen[0].body, { action: 'flow-list' });
+  assert.equal(seen[0].url, '/v1/cli');
+  assert.equal(seen[0].headers['x-shellby-token'], 'tok');
+
+  const run = await runCli(['flow', 'run', 'Red', 'build', 'fixer', 'branch=main'], { port, tmp, env: { SHELLBY_TOKEN: 'tok' } });
+  assert.equal(run.code, EXIT.ok, run.stderr);
+  assert.match(run.stdout, /Started "Red build fixer"\./);
+  assert.deepEqual(seen[1].body, { action: 'flow-run', name: 'Red build fixer', inputs: { branch: 'main' } });
+
+  // A refusal that says why is passed on, not blamed on the token.
+  const locked = await runCli(['flow', 'run', 'Locked'], { port, tmp, env: { SHELLBY_TOKEN: 'tok' } });
+  assert.equal(locked.code, EXIT.denied);
+  assert.match(locked.stderr, /doesn't have the Claude Code trigger/);
+
+  const bad = await runCli(['flow', 'run', 'Deploy', 'Bad=x'], { port, tmp, env: { SHELLBY_TOKEN: 'tok' } });
+  assert.equal(bad.code, EXIT.usage);
+  assert.equal(seen.length, 3, 'a usage error never reaches Shellby');
 });
 
 test('a refused token is reported as something the user can fix', async t => {
@@ -285,6 +450,7 @@ test('help and version work with no Shellby running at all', async () => {
     const help = await runCli(['help'], { port: 1, tmp });
     assert.equal(help.code, EXIT.ok);
     assert.match(help.stdout, /shellby do <task\.\.\.>/);
+    assert.match(help.stdout, /shellby flow run <name\.\.\.> \[key=value \.\.\.\]/);
     const version = await runCli(['version'], { port: 1, tmp });
     assert.equal(version.code, EXIT.ok);
     assert.match(version.stdout, /^shellby /);
@@ -294,4 +460,172 @@ test('help and version work with no Shellby running at all', async () => {
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+// ------------------------------------------------------------------ projects and next
+
+test('parseArgs: shellby projects takes nothing after it', () => {
+  assert.deepEqual(parseArgs(['projects']), { cmd: 'projects' });
+  assert.match(parseArgs(['projects', 'site']).error, /takes nothing after it/);
+});
+
+test('parseArgs: shellby next is this folder, a named project, or all of them', () => {
+  assert.deepEqual(parseArgs(['next']), { cmd: 'next', project: '', all: false });
+  assert.deepEqual(parseArgs(['next', 'shellby']), { cmd: 'next', project: 'shellby', all: false });
+  assert.deepEqual(parseArgs(['next', 'x-salmon/shellby']), { cmd: 'next', project: 'x-salmon/shellby', all: false });
+  assert.deepEqual(parseArgs(['next', 'my', 'big', 'site']), { cmd: 'next', project: 'my big site', all: false });
+  assert.deepEqual(parseArgs(['next', '.']), { cmd: 'next', project: '.', all: false });
+  assert.deepEqual(parseArgs(['next', '--all']), { cmd: 'next', project: '', all: true });
+  assert.deepEqual(parseArgs(['next', '-a']), { cmd: 'next', project: '', all: true });
+  assert.deepEqual(parseArgs(['next', '-p', 'shellby']), { cmd: 'next', project: 'shellby', all: false });
+  assert.deepEqual(parseArgs(['next', '--project', 'shellby']), { cmd: 'next', project: 'shellby', all: false });
+});
+
+test('parseArgs: shellby next refuses what it cannot make sense of', () => {
+  assert.match(parseArgs(['next', '-p']).error, /-p needs a project name/);
+  assert.match(parseArgs(['next', '--project']).error, /--project needs a project name/);
+  assert.match(parseArgs(['next', '--bogus']).error, /Unknown option: --bogus\. Usage: shellby next/);
+  assert.match(parseArgs(['next', 'site', '-p', 'web']).error, /Name the project once/);
+  assert.match(parseArgs(['next', '--all', 'site']).error, /--all is every project/);
+  assert.match(parseArgs(['next', '--all', '-p', 'site']).error, /--all is every project/);
+  assert.match(parseArgs(['next', 'p'.repeat(201)]).error, /at most 200 characters/);
+  assert.match(parseArgs(['next', '-p', 'p'.repeat(201)]).error, /at most 200 characters/);
+  assert.deepEqual(parseArgs(['next', 'p'.repeat(200)]), { cmd: 'next', project: 'p'.repeat(200), all: false });
+});
+
+test('parseArgs: shellby next add takes the rest of the line as the to-do', () => {
+  assert.deepEqual(parseArgs(['next', 'add', 'write', 'the', 'release', 'notes']), { cmd: 'next-add', text: 'write the release notes', project: '' });
+  assert.deepEqual(parseArgs(['next', 'add', '  spaced   out  ', 'text']), { cmd: 'next-add', text: 'spaced out text', project: '' });
+  assert.deepEqual(parseArgs(['next', 'add', 'one\ntwo']), { cmd: 'next-add', text: 'one two', project: '' });
+  assert.deepEqual(parseArgs(['next', 'add', 'tests', '-p', 'web']), { cmd: 'next-add', text: 'tests', project: 'web' });
+  assert.deepEqual(parseArgs(['next', '-p', 'web', 'add', 'tests']), { cmd: 'next-add', text: 'tests', project: 'web' });
+  assert.deepEqual(parseArgs(['next', 'add', '--', '--all', 'is', 'a', 'word']), { cmd: 'next-add', text: '--all is a word', project: '' });
+});
+
+test('parseArgs: shellby next add needs text that fits, for one project', () => {
+  assert.match(parseArgs(['next', 'add']).error, /Add what\?/);
+  assert.match(parseArgs(['next', 'add', '   ']).error, /Add what\?/);
+  assert.match(parseArgs(['next', 'add', 'a'.repeat(201)]).error, /under 200 characters/);
+  assert.equal(parseArgs(['next', 'add', 'a'.repeat(200)]).cmd, 'next-add');
+  assert.match(parseArgs(['next', 'add', 'x', '--all']).error, /next add is for one project, not --all/);
+  assert.match(parseArgs(['next', 'add', 'x', '--nope']).error, /Unknown option/);
+});
+
+test('parseArgs: shellby next done takes a to-do number', () => {
+  assert.deepEqual(parseArgs(['next', 'done', '2']), { cmd: 'next-done', task: 2, project: '' });
+  assert.deepEqual(parseArgs(['next', 'done', '999']), { cmd: 'next-done', task: 999, project: '' });
+  assert.deepEqual(parseArgs(['next', 'done', '3', '-p', 'web']), { cmd: 'next-done', task: 3, project: 'web' });
+  assert.deepEqual(parseArgs(['next', 'done', '007']), { cmd: 'next-done', task: 7, project: '' });
+});
+
+test('parseArgs: shellby next done refuses anything but one number', () => {
+  for (const words of [[], ['0'], ['1000'], ['1.5'], ['two'], ['1', '2'], ['t-abcd1234'], ['0000']]) {
+    const r = parseArgs(['next', 'done', ...words]);
+    assert.match(r.error || '', /Which one\?/, words.join(' '));
+  }
+  assert.match(parseArgs(['next', 'done', '-1']).error, /Unknown option: -1/);
+  assert.match(parseArgs(['next', 'done', '2', '--all']).error, /next done is for one project, not --all/);
+});
+
+test('-p names a project that is itself called add or done', () => {
+  assert.deepEqual(parseArgs(['next', '-p', 'add']), { cmd: 'next', project: 'add', all: false });
+  assert.deepEqual(parseArgs(['next', '-p', 'done']), { cmd: 'next', project: 'done', all: false });
+  assert.deepEqual(parseArgs(['next', 'add', 'x', '-p', 'done']), { cmd: 'next-add', text: 'x', project: 'done' });
+});
+
+test('projectArg makes ". / .. / ./x" folders and leaves names alone', () => {
+  assert.deepEqual(projectArg(''), {});
+  assert.deepEqual(projectArg(undefined), {});
+  assert.deepEqual(projectArg('.'), { project: path.resolve('.') });
+  assert.deepEqual(projectArg('..'), { project: path.resolve('..') });
+  assert.deepEqual(projectArg('./x'), { project: path.resolve('./x') });
+  assert.deepEqual(projectArg('..\\web'), { project: path.resolve('..\\web') });
+  assert.deepEqual(projectArg('../web'), { project: path.resolve('../web') });
+  assert.ok(path.isAbsolute(projectArg('.').project));
+  for (const name of ['shellby', 'x-salmon/shellby', '.hidden', '..dots', 'a/b', 'C:\\code\\site', '...']) {
+    assert.deepEqual(projectArg(name), { project: name }, name);
+  }
+});
+
+test('the CLI asks for what is next, from the folder it was run in', async t => {
+  const seen = [];
+  const server = await stubShellby((req, res) => {
+    seen.push(req);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ text: `answer to ${req.body.action}` }));
+  });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  // A dev profile, as SHELLBY_USER_DATA names it, holding the token Shellby writes at startup.
+  fs.writeFileSync(path.join(tmp, 'crab-token'), 'crab-tok\n'); // trimmed when read
+  const env = { SHELLBY_USER_DATA: tmp };
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+
+  const next = await runCli(['next'], { port, tmp, env });
+  assert.equal(next.code, EXIT.ok, next.stderr);
+  assert.match(next.stdout, /answer to next_up/);
+  assert.equal(seen[0].url, '/v1/crab');
+  assert.equal(seen[0].headers['x-shellby-token'], 'crab-tok', 'the crab token, so other accounts on this PC are kept out');
+  assert.deepEqual(seen[0].body, { action: 'next_up', args: { via: 'cli', cwd: process.cwd() } });
+
+  await runCli(['next', '--all'], { port, tmp, env });
+  assert.deepEqual(seen[1].body.args, { via: 'cli', cwd: process.cwd(), everywhere: true });
+
+  await runCli(['next', 'x-salmon/shellby'], { port, tmp, env });
+  assert.equal(seen[2].body.args.project, 'x-salmon/shellby');
+
+  await runCli(['next', '.'], { port, tmp, env });
+  assert.equal(seen[3].body.args.project, process.cwd());
+
+  const add = await runCli(['next', 'add', 'write', 'tests', '-p', 'web'], { port, tmp, env });
+  assert.equal(add.code, EXIT.ok, add.stderr);
+  assert.deepEqual(seen[4].body, { action: 'add_task', args: { via: 'cli', cwd: process.cwd(), project: 'web', text: 'write tests' } });
+
+  await runCli(['next', 'done', '2'], { port, tmp, env });
+  assert.deepEqual(seen[5].body, { action: 'finish_task', args: { via: 'cli', cwd: process.cwd(), task: 2 } });
+
+  await runCli(['projects'], { port, tmp, env });
+  assert.deepEqual(seen[6].body, { action: 'projects', args: { via: 'cli' } });
+  assert.equal(seen[6].headers['x-shellby-token'], 'crab-tok');
+
+  await runCli(['status'], { port, tmp, env });
+  assert.equal(seen[7].headers['x-shellby-token'], undefined, 'status sends no token: it never needed one');
+});
+
+test('the CLI without the crab token says Shellby is too old, and asks nothing', async t => {
+  const seen = [];
+  const server = await stubShellby((req, res) => { seen.push(req); res.writeHead(200).end('{}'); });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+  // Nowhere to find one: not the real profile on this PC either.
+  const env = { SHELLBY_USER_DATA: tmp, APPDATA: tmp, USERPROFILE: tmp, HOME: tmp, XDG_CONFIG_HOME: tmp };
+
+  const r = await runCli(['next'], { port, tmp, env });
+  assert.equal(r.code, EXIT.error);
+  assert.match(r.stderr, /too old to answer about projects/);
+  assert.equal(seen.length, 0);
+});
+
+test('the CLI says what Shellby refused with, and exits with an error', async t => {
+  const server = await stubShellby((req, res) => {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'No project called "ghost" on Shellby\'s Projects page.' }));
+  });
+  const port = server.address().port;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cli-'));
+  fs.writeFileSync(path.join(tmp, `shellby-hooks-${port}`), 'x');
+  fs.writeFileSync(path.join(tmp, 'crab-token'), 'crab-tok');
+  t.after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+
+  const r = await runCli(['next', 'ghost'], { port, tmp, env: { SHELLBY_USER_DATA: tmp } });
+  assert.equal(r.code, EXIT.error);
+  assert.match(r.stderr, /No project called "ghost"/);
+  assert.equal(r.stdout, '');
+
+  const bad = await runCli(['next', 'done', 'two'], { port, tmp });
+  assert.equal(bad.code, EXIT.usage);
+  assert.match(bad.stderr, /Which one\?/);
 });

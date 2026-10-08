@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023", "dom"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "strictNullChecks": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "noResolve": true
+  },
+  "include": [
+    "src/preload/**/*.js",
+    "src/main/ipc/**/*.js",
+    "node_modules/@types/node/**/*.d.ts",
+    "node_modules/electron/electron.d.ts"
+  ]
+}

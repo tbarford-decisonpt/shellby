@@ -7,6 +7,7 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 const { COMMAND } = require('../src/main/statusline');
 
 const ROOT = path.join(__dirname, '..');
@@ -72,7 +73,7 @@ const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '');
     check(/Shellby/.test(await panel.ev("document.getElementById('slPreview').textContent")), 'Settings shows a live preview');
     await panel.ev("document.getElementById('slCard').scrollIntoView({ block: 'center' })");
     await wait(300);
-    if (process.argv[2]) fs.writeFileSync(process.argv[2], Buffer.from((await panel.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[2]) await savePng((m, p) => panel.send(m, p), process.argv[2]);
     panel.ev("document.getElementById('slBtn').click()");
     let dialog = null;
     for (let i = 0; i < 30 && !dialog; i++) { dialog = (await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json()).find(t => t.url.includes('dialog.html')); if (!dialog) await wait(200); }

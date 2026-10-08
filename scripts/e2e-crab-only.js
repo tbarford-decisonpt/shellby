@@ -45,9 +45,9 @@ async function launch() {
   try {
     const { panel, critter } = run;
     await wait(3000);
-    // 1. First run: onboarding with two paths, Claude steps tucked away.
+    // 1. First run: onboarding with three paths, Claude steps tucked away.
     check(await panel.ev("document.body.dataset.view") === 'onboarding', 'new user sees onboarding');
-    check(await panel.ev("document.querySelectorAll('#onboardPaths .path').length") === 2, 'two paths offered');
+    check(await panel.ev("document.querySelectorAll('#onboardPaths .path').length") === 3, 'three paths offered');
     check(await panel.ev("document.getElementById('claudeSetup').hidden"), 'Claude steps hidden until chosen');
     await shot(panel, '1-onboarding');
 

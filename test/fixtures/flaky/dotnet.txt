@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  App.Tests -> C:\code\app\App.Tests\bin\Debug\net8.0\App.Tests.dll
+Test run for C:\code\app\App.Tests\bin\Debug\net8.0\App.Tests.dll (.NETCoreApp,Version=v8.0)
+A total of 1 test files matched the specified pattern.
+  Failed App.Tests.QueueTests.DrainsInOrder [42 ms]
+  Error Message:
+   Assert.Equal() Failure
+  Stack Trace:
+     at App.Tests.QueueTests.DrainsInOrder() in C:\code\app\App.Tests\QueueTests.cs:line 22
+
+Failed!  - Failed:     1, Passed:    11, Skipped:     0, Total:    12, Duration: 310 ms - App.Tests.dll (net8.0)

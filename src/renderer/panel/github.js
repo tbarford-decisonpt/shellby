@@ -6,7 +6,7 @@
   const wanted = new Set(['sync']); // what a sign-in asks for (signed out)
 
   const ago = t => (t ? SB.relTime(t) : 'not yet');
-  const TOGGLES = [['sync', 'ghSync'], ['ci', 'ghCi'], ['publish', 'ghPublish'], ['claude', 'ghClaude'], ['workflows', 'ghWorkflows']];
+  const TOGGLES = [['sync', 'ghSync'], ['friends', 'ghFriends'], ['profileCard', 'ghProfileCard'], ['prBadge', 'ghPrBadge'], ['ci', 'ghCi'], ['issues', 'ghIssues'], ['projects', 'ghProjects'], ['publish', 'ghPublish'], ['claude', 'ghClaude'], ['workflows', 'ghWorkflows']];
 
   function render(v) {
     if (!v) return;
@@ -14,7 +14,10 @@
     const signedIn = v.signedIn;
     $('ghAccount').hidden = !signedIn;
     $('ghLede').hidden = signedIn;
-    $('ghSignIn').hidden = signedIn || !!v.flow;
+    // Signed in, but GitHub has since said no (401): the same button signs in again.
+    $('ghAuthLost').hidden = !(signedIn && v.authLost) || !!v.flow;
+    $('ghSignIn').hidden = (signedIn && !v.authLost) || !!v.flow;
+    $('ghSignIn').textContent = signedIn ? 'Sign in again' : 'Sign in with GitHub';
     if (signedIn) {
       $('ghAvatar').hidden = !v.avatar;
       if (v.avatar) $('ghAvatar').src = v.avatar; // a data: URL made in main
@@ -26,9 +29,10 @@
     const claudeOn = signedIn && v.features.claude.on && v.features.claude.granted;
     for (const [f, id] of TOGGLES) {
       const el = $(id);
-      el.checked = signedIn ? v.features[f].on && v.features[f].granted : wanted.has(f);
+      // ?. : a view from before a feature existed simply has it off.
+      el.checked = signedIn ? !!(v.features[f]?.on && v.features[f]?.granted) : wanted.has(f);
       // Pushing workflow files is only meaningful once tasks can push at all.
-      el.disabled = !!v.flow || (f === 'claude' && !signedIn) || (f === 'workflows' && !claudeOn);
+      el.disabled = !!v.flow || ((f === 'claude' || f === 'friends' || f === 'profileCard' || f === 'prBadge') && !signedIn) || (f === 'workflows' && !claudeOn);
     }
     $('ghClaudeNote').textContent = signedIn
       ? 'Shellby tabs get your GitHub sign-in (git push, gh). Claude Code in your terminal is unchanged.'
@@ -49,6 +53,9 @@
     if (v.flow) $('ghCodeText').textContent = v.flow.code;
     $('ghNoCrypto').hidden = v.encryption !== false;
     SB.views.wardrobe?.refreshPublish?.();
+    SB.friends?.load();
+    SB.profileCard?.load();
+    SB.prBadge?.load();
     api.getCi().then(renderCi);
   }
 
@@ -68,8 +75,11 @@
       h('button', { type: 'button', class: 'gh-ci-link', title: `Open ${pr.repo}#${pr.number} on GitHub`, onclick: () => api.openPr(pr.key) },
         h('b', { text: `${pr.repo}#${pr.number}` }), h('span', { text: pr.title })),
       review ? h('span', { class: 'gh-ci-tag', text: 'Review' })
-        : pr.state === 'failing' ? h('button', { type: 'button', class: 'btn ghost slim-btn', title: pr.failing.join(', '), onclick: () => askWhy(pr) }, 'Ask Shellby why')
-          : h('span', { class: 'gh-ci-tag', text: CI_LABEL[pr.state] || '' }));
+        : h('span', { class: 'gh-ci-acts' },
+          pr.state === 'failing' && h('button', { type: 'button', class: 'btn slim-btn', title: `Failing: ${pr.failing.join(', ')}`, onclick: () => SB.startFrom.open('build', pr.key) }, 'Fix this build'),
+          pr.state === 'failing' && h('button', { type: 'button', class: 'btn ghost slim-btn', title: pr.failing.join(', '), onclick: () => askWhy(pr) }, 'Ask Shellby why'),
+          pr.reviewComments > 0 && h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => SB.startFrom.open('review', pr.key) }, 'Address the review'),
+          pr.state !== 'failing' && h('span', { class: 'gh-ci-tag', text: CI_LABEL[pr.state] || '' })));
     $('ghCiList').replaceChildren(...v.prs.map(pr => row(pr, false)), ...v.reviews.map(pr => row(pr, true)));
   }
   async function askWhy(pr) {

@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
 <title>Shellby</title>
+<link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="panel.css">
 <link rel="stylesheet" href="components.css">
@@ -12,12 +13,31 @@
 <link rel="stylesheet" href="shop.css">
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
+<link rel="stylesheet" href="stickers.css">
+<link rel="stylesheet" href="together.css">
+<link rel="stylesheet" href="bugdex.css">
+<link rel="stylesheet" href="crew.css">
+<link rel="stylesheet" href="needs.css">
+<link rel="stylesheet" href="beach.css">
+<link rel="stylesheet" href="tank.css">
+<link rel="stylesheet" href="tank-layouts.css">
 <link rel="stylesheet" href="../shared/health.css">
 <link rel="stylesheet" href="health-view.css">
 <link rel="stylesheet" href="card.css">
 <link rel="stylesheet" href="crabonly.css">
 <link rel="stylesheet" href="github.css">
 <link rel="stylesheet" href="nav.css">
+<link rel="stylesheet" href="composer.css">
+<link rel="stylesheet" href="line-comments.css">
+<link rel="stylesheet" href="turn-checks.css">
+<link rel="stylesheet" href="review.css">
+<link rel="stylesheet" href="lessons.css">
+<link rel="stylesheet" href="hooks.css">
+<link rel="stylesheet" href="workflows.css">
+<link rel="stylesheet" href="workflow-canvas.css">
+<link rel="stylesheet" href="wf-chat.css">
+<link rel="stylesheet" href="time.css">
+<link rel="stylesheet" href="projects.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -29,7 +49,7 @@
       <span class="brand-xp" aria-hidden="true"><i id="brandXp"></i></span>
     </button>
     <button type="button" class="brand-level" id="brandLevel" hidden></button>
-    <button class="mode-chip" id="modeChip" type="button" aria-haspopup="menu" title="Permission mode">
+    <button class="mode-chip" id="modeChip" type="button" aria-haspopup="menu" title="Permission mode (Shift+Tab in the message box cycles it)" aria-keyshortcuts="Shift+Tab">
       <span class="mode-dot"></span><span id="modeLabel">Ask</span>
       <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
     </button>
@@ -53,9 +73,21 @@
 
   <!-- conversation tabs -->
   <div class="tabstrip" id="tabstrip">
-    <div class="tabs" id="tabs" role="tablist" aria-label="Conversations"></div>
+    <div class="tabs-wrap">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Conversations"></div>
+      <button type="button" class="tab-edge left" id="tabEdgeLeft" hidden></button>
+      <button type="button" class="tab-edge right" id="tabEdgeRight" hidden></button>
+    </div>
     <button type="button" class="tab-add" id="newTabBtn" title="New conversation (Ctrl+T)" aria-label="New conversation">
       <svg viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+    <button type="button" class="tab-review" id="reviewBtn" aria-haspopup="dialog" aria-expanded="false" aria-keyshortcuts="Control+Shift+R" title="Ready to review (Ctrl+Shift+R)" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.4l2.8 2.8 6.2-6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="reviewCount">0</span>
+    </button>
+    <button type="button" class="tab-all" id="tabAllBtn" aria-haspopup="dialog" aria-expanded="false" title="Every open conversation (Ctrl+Shift+A)" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span id="tabAllCount">0</span>
     </button>
   </div>
 
@@ -64,20 +96,41 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6.1c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
       <span id="folderLabel">~</span>
     </button>
-    <button type="button" class="git-chip" id="gitChip" aria-haspopup="menu" hidden>
-      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="3.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="4.5" cy="12.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="11.5" cy="5.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 5.1v5.8M11.5 7.1c0 2.6-2.4 2.9-7 3.8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
-      <span id="gitBranch"></span><span class="git-changes" id="gitChanges" hidden></span>
+    <button type="button" class="folder-chip branch-chip" id="branchChip" aria-haspopup="menu" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5v11M4.5 10.5c0-3 7-2.5 7-6.5M11.5 2.5v1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="4.5" cy="12.6" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="11.5" cy="3.2" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      <span id="branchLabel">own copy</span>
     </button>
-    <div class="usage" id="usage" hidden>
-      <div class="meter" id="meter5h"><span class="meter-label">5h</span><span class="meter-track"><span class="meter-fill"></span></span></div>
-      <div class="meter" id="meter7d"><span class="meter-label">7d</span><span class="meter-track"><span class="meter-fill"></span></span></div>
-    </div>
+    <button type="button" class="folder-chip effort-chip" id="effortChip" aria-haspopup="menu" title="How hard Claude thinks (effort)">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2 9.4 6l3.9.3-3 2.5 1 3.9L8 10.6l-3.3 2.1 1-3.9-3-2.5L6.6 6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      <span id="effortLabel">auto</span>
+    </button>
+    <button type="button" class="ctx-chip" id="ctxChip" aria-haspopup="menu" hidden>
+      <span class="meter-label">ctx</span>
+      <span class="meter-track"><span class="meter-fill"></span></span>
+      <span id="ctxLabel">0%</span>
+    </button>
+    <button type="button" class="usage" id="usage" aria-haspopup="menu" aria-label="Usage limits: see what used them" hidden>
+      <span class="meter" id="meter5h"><span class="meter-label">5h</span><span class="meter-track"><span class="meter-fill"></span></span></span>
+      <span class="meter" id="meter7d"><span class="meter-label">7d</span><span class="meter-track"><span class="meter-fill"></span></span></span>
+    </button>
   </div>
 
   <div class="popover" id="modeMenu" role="menu" hidden></div>
   <div class="popover" id="folderMenu" role="menu" hidden></div>
+  <div class="popover" id="branchMenu" role="menu" hidden></div>
+  <div class="popover" id="ctxMenu" role="menu" hidden></div>
+  <div class="popover usage-menu" id="usageMenu" role="menu" hidden></div>
+  <div class="popover" id="effortMenu" role="menu" hidden></div>
+  <div class="popover rewind-menu" id="rewindMenu" role="menu" hidden></div>
+  <div class="popover" id="tabMenu" role="menu" hidden></div>
+  <div class="popover tab-list" id="tabList" role="dialog" aria-label="Open conversations" hidden></div>
+  <div class="popover review-list" id="reviewList" role="dialog" aria-label="Ready to review" hidden></div>
+  <div class="popover wf-menu" id="wfMenu" role="menu" hidden></div>
+  <div class="popover" id="pjMenu" role="menu" hidden></div>
+  <div class="popover" id="blMenu" role="menu" hidden></div>
+  <div class="popover" id="snipMenu" role="menu" hidden></div>
+  <div class="popover text-menu" id="textMenu" role="menu" aria-label="Text" hidden></div>
   <div class="popover" id="noteMenu" role="menu" hidden></div>
-  <div class="popover git-menu" id="gitMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -100,18 +153,27 @@
       <div class="status" id="status" hidden>
         <span class="status-crab" aria-hidden="true"></span>
         <span class="status-text" id="statusText">Working…</span>
+        <span class="status-time" id="statusTime" title="How long this prompt has been running, and the tokens it has used so far"></span>
         <button type="button" class="stop-btn" id="stopBtn">Stop <kbd>Esc</kbd></button>
       </div>
+      <div class="crowded" id="crowded" role="status" hidden></div>
+      <div class="mod-status" id="modStatus" role="status" aria-label="What your mods say" hidden></div>
+      <div class="outlook" id="outlook" role="status" hidden></div>
+      <div class="review-bar" id="review" role="region" aria-label="Review comments waiting to be sent" hidden></div>
       <div class="queued" id="queued" hidden></div>
       <div class="attachments" id="attachments" hidden></div>
       <form class="input-row" id="form">
-        <textarea id="input" rows="1" placeholder="Give Shellby a task… (/ for skills, @ for files)" aria-label="Task for Shellby"></textarea>
+        <button type="button" class="attach-btn" id="attachBtn" aria-label="Attach files" title="Attach files · or paste a screenshot (Ctrl+V)">
+          <svg viewBox="0 0 16 16"><path d="M13 7.6 8.1 12.5a3.2 3.2 0 0 1-4.6-4.6l5.3-5.3a2.1 2.1 0 0 1 3 3L6.6 10.8a1 1 0 0 1-1.5-1.5l4.6-4.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <textarea id="input" rows="1" placeholder="Give Shellby a task… (/ for commands, @ for files, ! to run one yourself)" aria-label="Task for Shellby"></textarea>
         <button type="submit" class="send-btn" id="sendBtn" aria-label="Send">
           <svg viewBox="0 0 16 16"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </form>
       <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
-      <div class="input-hint"><span id="modeHint"></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
+      <div class="slash-menu pick-menu" id="pickMenu" role="listbox" hidden></div>
+      <div class="input-hint"><span id="modeHint"></span><span id="costHint" class="cost-hint" hidden></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
     </footer>
   </main>
 
@@ -124,8 +186,9 @@
         <div class="row-label">Your tricks</div>
         <div class="pinned-chips"></div>
       </div>
+      <section class="quest-card" aria-label="Your next quest" hidden></section>
       <div class="suggestions"></div>
-      <p class="empty-hint"><kbd class="hotkey-hint">Ctrl+Alt+Space</kbd> opens me anywhere · drop files on me · <kbd>/</kbd> for skills · <kbd>Ctrl+K</kbd> jumps anywhere</p>
+      <p class="empty-hint"><kbd class="hotkey-hint">Ctrl+Alt+Space</kbd> opens me anywhere · drop files or paste a screenshot · <kbd>/</kbd> for skills · <kbd>Ctrl+K</kbd> jumps anywhere · <kbd>Shift+Tab</kbd> switches mode</p>
     </div>
   </template>
 
@@ -136,17 +199,37 @@
       <button type="button" class="btn ghost slim-btn" id="rescanBtn" title="Scan again">Rescan</button>
       <button type="button" class="btn primary slim-btn" id="shopBtn" title="Browse and install skills from Claude Code plugin marketplaces">Get more</button>
     </div>
-    <p class="view-lede">Everything Claude Code can use: your skills, helper agents, commands and MCP servers. When Shellby builds itself a new one, it shows up here with a <span class="new-pill">new</span> tag.</p>
-    <div class="learned" id="learnedBox" hidden></div>
+    <p class="view-lede">What Claude Code can use, and the setup behind every conversation. Anything Shellby builds for itself comes first, tagged <span class="new-pill">new</span>.</p>
     <div class="toolbox-controls">
-      <input type="search" id="toolSearch" class="field" placeholder="Search tools…" aria-label="Search tools">
-      <div class="seg" id="toolTabs" role="tablist">
-        <button type="button" role="tab" data-kind="skill" aria-selected="true">Skills <span class="n"></span></button>
+      <div class="seg tool-groups" id="toolGroups" role="tablist" aria-label="Section" data-roving>
+        <button type="button" role="tab" data-group="tools" aria-selected="true">Tools</button>
+        <button type="button" role="tab" data-group="setup" title="Hooks, permission rules and memory files">Setup</button>
+        <button type="button" role="tab" data-group="lean" title="What every conversation carries before your first word, and what sits idle">Lean <span class="n"></span></button>
+        <button type="button" role="tab" data-group="team" title="This repo's team pack: .shellby/team.json">Team <span class="n"></span></button>
+      </div>
+      <div class="kind-chips" id="toolTabs" role="tablist" aria-label="Kind" data-roving>
+        <button type="button" role="tab" data-kind="tool" aria-selected="true">All <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="skill">Skills <span class="n"></span></button>
         <button type="button" role="tab" data-kind="agent">Agents <span class="n"></span></button>
         <button type="button" role="tab" data-kind="command">Commands <span class="n"></span></button>
         <button type="button" role="tab" data-kind="mcp">MCP <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="mod" title="Code that runs inside every Claude Code conversation">Mods <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="snippet" title="Saved prompts: /name here, shellby do @name in a terminal">Snippets <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="hook" hidden>Hooks <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="rule" title="Permission rules: allow, ask, deny" hidden>Rules <span class="n"></span></button>
+        <button type="button" role="tab" data-kind="memory" hidden>Memory <span class="n"></span></button>
+      </div>
+      <div class="tool-find">
+        <input type="search" id="toolSearch" class="field" placeholder="Search skills…" aria-label="Search skills">
+        <select class="field" id="toolSource" aria-label="Where they come from"></select>
+        <select class="field" id="toolSort" aria-label="Order">
+          <option value="name">A to Z</option>
+          <option value="used">Most used</option>
+          <option value="unused">Unused first</option>
+        </select>
       </div>
     </div>
+    <div class="setup-pane" id="setupPane" hidden></div>
     <ul class="tool-list" id="toolList"></ul>
   </main>
 
@@ -161,7 +244,7 @@
     <div class="shop-suggest" id="shopSuggest" hidden></div>
     <div class="toolbox-controls">
       <input type="search" id="shopSearch" class="field" placeholder="Search plugins…" aria-label="Search plugins">
-      <div class="seg" id="shopTabs" role="tablist">
+      <div class="seg" id="shopTabs" role="tablist" aria-label="Show" data-roving>
         <button type="button" role="tab" data-filter="all" aria-selected="true">Browse <span class="n"></span></button>
         <button type="button" role="tab" data-filter="installed">Installed <span class="n"></span></button>
       </div>
@@ -178,15 +261,40 @@
     </details>
   </main>
 
+  <!-- ====================== WORKFLOWS (workflows.js) ====================== -->
+  <main class="view view-workflows" id="workflowsView">
+    <nav class="seg auto-switch" aria-label="Automate">
+      <button type="button" data-goto-workflows aria-current="page">Workflows</button>
+      <button type="button" data-view-btn="routines">Routines</button>
+    </nav>
+    <div id="wfScreen"></div>
+  </main>
+
   <!-- ====================== ROUTINES ====================== -->
   <main class="view view-routines" id="routinesView">
+    <nav class="seg auto-switch" aria-label="Automate">
+      <button type="button" data-goto-workflows>Workflows</button>
+      <button type="button" aria-current="page">Routines</button>
+    </nav>
     <div class="view-head">
       <h2>Routines</h2>
       <button type="button" class="btn primary slim-btn" id="newRoutineBtn">New routine</button>
     </div>
     <p class="view-lede">Tasks Shellby runs on a schedule while your PC is on. Each run opens its own tab, and if it needs you, you'll get a notification.</p>
-    <form class="routine-editor" id="routineEditor" hidden novalidate>
+    <form class="routine-ask" id="routineAsk" novalidate>
+      <label class="field-label" for="routineAskText">Describe a routine</label>
+      <div class="row">
+        <input class="field" id="routineAskText" name="text" maxlength="500" autocomplete="off" placeholder="Every weekday at 8:30, list what changed in my Documents">
+        <button type="submit" class="btn slim-btn" id="routineAskBtn">Draft it</button>
+      </div>
+      <p class="routine-ask-note" id="routineAskNote" aria-live="polite">Claude fills in the form for you to check before anything is saved.</p>
+      <button type="button" class="btn ghost slim-btn routine-as-workflow" id="routineAsWorkflow" hidden>Build it as a workflow instead</button>
+    </form>
+    <!-- The editor, with Build it with Claude (wf-chat.js) beside it once there's room. -->
+    <div class="wf-work routine-work" id="routineWork" hidden>
+    <form class="routine-editor" id="routineEditor" novalidate>
       <h3 id="routineEditorTitle">New routine</h3>
+      <p class="routine-tpl-note" id="routineTplNote" hidden></p>
       <label class="field-label">Name<input class="field" name="name" maxlength="60" placeholder="Friday Downloads tidy" required></label>
       <label class="field-label">What should Shellby do?
         <textarea class="field area" name="prompt" rows="4" maxlength="8000" placeholder="Sort ~/Downloads into subfolders by type and tell me what moved." required></textarea>
@@ -225,6 +333,12 @@
           <div class="row"><code class="path" id="routineFolder">Default folder</code><button type="button" class="btn slim-btn" id="routineFolderBtn">Change</button></div>
         </div>
       </div>
+      <label class="field-label">Model
+        <select class="field" name="model" aria-describedby="routineModelHint"></select>
+      </label>
+      <p class="muted small routine-model-hint" id="routineModelHint">A lighter model is plenty for tidy-ups and summaries.</p>
+      <p class="routine-model-suggest" id="routineModelSuggest" role="status" hidden></p>
+      <div id="routineMcp"></div>
       <label class="toggle"><input type="checkbox" name="catchUp" checked><span class="switch"></span>If the PC was off, run once when Shellby starts</label>
       <p class="form-errors" id="routineErrors" role="alert" hidden></p>
       <div class="row end">
@@ -232,7 +346,67 @@
         <button type="submit" class="btn primary">Save routine</button>
       </div>
     </form>
+    </div>
+    <!-- Your routines come first; the tools below them are secondary (.rt-section). -->
     <ul class="routine-list" id="routineList"></ul>
+    <!-- The reset queue (held.js tasks, outlook.js state): heavy work for a fresh 5-hour window. -->
+    <section class="rt-section reset-queue" id="resetQueue" aria-labelledby="resetQueueTitle">
+      <div class="rq-head">
+        <h3 id="resetQueueTitle">When your limit resets</h3>
+        <span class="rq-when" id="resetQueueWhen"></span>
+      </div>
+      <p class="rq-lede">Heavy tasks wait for a fresh 5-hour window, then run one after another, overnight too.</p>
+      <ol class="rq-list" id="resetQueueList"></ol>
+      <form class="rq-add" id="resetQueueForm" novalidate>
+        <label class="sr-only" for="resetQueueText">Task to run after the reset</label>
+        <textarea class="field area" id="resetQueueText" rows="2" maxlength="50000" placeholder="Refactor the billing module into smaller files, then write tests for it"></textarea>
+        <div class="rq-controls">
+          <button type="button" class="btn ghost slim-btn rq-folder" id="resetQueueFolder" title="The folder it runs in. Click to change."></button>
+          <select class="field rq-mode" id="resetQueueMode" aria-label="Permission mode">
+            <option value="smart">Smart</option>
+            <option value="acceptEdits">Auto-edit</option>
+            <option value="ask">Ask first</option>
+            <option value="plan">Plan only</option>
+            <option value="autonomous">Autonomous</option>
+          </select>
+          <select class="field rq-mode" id="resetQueueModel" aria-label="Model" title="The model it runs on"></select>
+          <button type="submit" class="btn slim-btn" id="resetQueueAdd">Queue it</button>
+        </div>
+        <p class="rq-note" id="resetQueueNote" aria-live="polite"></p>
+      </form>
+      <div class="rq-foot">
+        <label class="toggle"><input type="checkbox" id="resetQueueAwake"><span class="switch"></span>Keep the PC awake while tasks wait or run</label>
+        <p class="rq-phone" id="resetQueuePhone"></p>
+      </div>
+    </section>
+    <section class="rt-section deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
+      <div class="deps-head">
+        <h3 id="depsTitle">Dependency health</h3>
+        <span class="deps-summary" id="depsSummary"></span>
+      </div>
+      <p class="view-lede">What the last <code>npm audit</code>, <code>pip-audit</code>, <code>cargo outdated</code> and the like found in each project. A clean audit keeps a project 🧼 fresh for 30 days.</p>
+      <ul class="deps-list" id="depsList"></ul>
+    </section>
+
+    <section class="rt-section deps-health flaky-tests" id="flakyTests" aria-labelledby="flakyTitle" hidden>
+      <div class="deps-head">
+        <h3 id="flakyTitle">Flaky tests</h3>
+        <span class="deps-summary" id="flakySummary"></span>
+      </div>
+      <p class="view-lede">Tests that failed and then passed with the code exactly the same, in Shellby's tabs. Fixing or quarantining one happens in a copy of the repository, on its own branch.</p>
+      <ul class="deps-list" id="flakyList"></ul>
+      <button type="button" class="btn ghost slim-btn flaky-forget" id="flakyForget">Forget all of this</button>
+    </section>
+
+    <section class="rt-section dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
+      <div class="dw-head">
+        <h3 id="depWatchTitle">Dependency watch</h3>
+        <button type="button" class="btn slim-btn" id="depWatchCheck" hidden>Check now</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects' packages every week</label>
+      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby asks each project's own package manager what's outdated and vulnerable (npm, pnpm and Yarn, <code>pip-audit</code>, <code>cargo-audit</code>, Go and <code>govulncheck</code>), which asks their registries about its packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
+      <ul class="dw-list" id="depWatchList"></ul>
+    </section>
   </main>
 
   <!-- ====================== NOTES ====================== -->
@@ -274,15 +448,77 @@
       </div>
     </section>
 
+    <section class="hl-block hl-hogs" id="hlHogs" hidden aria-labelledby="hlHogsTitle">
+      <div class="hl-hogs-head">
+        <h3 class="hl-h" id="hlHogsTitle">What's using it</h3>
+        <div class="seg hl-hogs-seg" id="hlHogsSeg" role="tablist" aria-label="Sort by" data-roving>
+          <button type="button" role="tab" data-metric="gpu">GPU</button>
+          <button type="button" role="tab" data-metric="cpu">CPU</button>
+          <button type="button" role="tab" data-metric="mem">Memory</button>
+        </div>
+        <div class="seg hl-hogs-seg" id="hlHogsGroup" role="tablist" aria-label="Show" data-roving>
+          <button type="button" role="tab" data-group="app" title="Add up every process of the same app">By app</button>
+          <button type="button" role="tab" data-group="proc" title="One row per process">Each</button>
+        </div>
+        <button type="button" class="btn ghost slim-btn" id="hlHogsRefresh" title="Read the process list again">Refresh</button>
+        <button type="button" class="btn ghost slim-btn" id="hlHogsClose" title="Stop reading the process list">Hide</button>
+      </div>
+      <!-- His own share, owned up to (health/footprint.js): main, renderers, GPU, all added up. -->
+      <div class="hl-self" id="hlSelf" hidden>
+        <p class="hl-self-line" id="hlSelfLine"></p>
+        <p class="hl-self-hint" id="hlSelfHint" hidden><span id="hlSelfHintText"></span> <button type="button" class="link-btn inline" id="hlSelfSettings">Moving around settings</button></p>
+      </div>
+      <button type="button" class="hl-hogs-open" id="hlHogsOpen">See what's using the CPU, GPU and memory right now</button>
+      <ol class="hl-hogs-list" id="hlHogList" aria-live="polite"></ol>
+      <div class="row wrap" id="hlHogsAskRow">
+        <button type="button" class="btn" id="hlAskProcesses">Ask Shellby what's running and what I don't need</button>
+      </div>
+      <p class="hl-fine" id="hlHogsFine">End task asks first, and won't touch Windows itself or Shellby. Processes marked "Shellby task" end on their own when that task closes. Asking Shellby goes through everything running, not just these, and changes nothing until you pick.</p>
+    </section>
+
+    <div class="hl-gauges-head">
+      <h3 class="hl-h">Vitals</h3>
+      <div class="seg hl-range" id="hlRange" role="tablist" aria-label="Graph range" data-roving>
+        <button type="button" role="tab" data-range="600000">10 min</button>
+        <button type="button" role="tab" data-range="3600000">1 hour</button>
+      </div>
+    </div>
     <div class="hl-gauges" id="hlGauges"></div>
 
-    <section class="hl-block">
+    <section class="hl-block" id="hlFansBlock" hidden>
+      <h3 class="hl-h">Fans</h3>
+      <ul class="hl-fans" id="hlFans"></ul>
+    </section>
+
+    <section class="hl-block" id="hlDrivesBlock">
       <h3 class="hl-h">Drives</h3>
       <ul class="hl-disks" id="hlDisks"></ul>
     </section>
 
+    <section class="hl-block hl-space" id="hlSpace" hidden aria-labelledby="hlSpaceTitle">
+      <div class="hl-space-head">
+        <h3 class="hl-h" id="hlSpaceTitle">Developer clutter</h3>
+        <span class="hl-space-total" id="hlSpaceTotal"></span>
+      </div>
+      <ul class="hl-space-list" id="hlSpaceList"></ul>
+      <p class="hl-fine" id="hlSpaceFine"></p>
+      <div class="row wrap">
+        <button type="button" class="btn" id="hlAskSpace">Ask Shellby what's safe to clear</button>
+      </div>
+    </section>
+
     <section class="hl-block">
-      <h3 class="hl-h">Sensors</h3>
+      <h3 class="hl-h">Starts with Windows</h3>
+      <p class="hl-startup-sum" id="hlStartupSum">Reading the startup list…</p>
+      <ul class="hl-startup" id="hlStartup"></ul>
+      <div class="row wrap">
+        <button type="button" class="btn" id="hlAskStartup" disabled>Ask Shellby which ones I need</button>
+      </div>
+      <p class="hl-fine">Switching one off works like Task Manager: the app stays installed and you can switch it back on here. Entries for everyone need an administrator, so those stay locked. The task Shellby starts only reports back.</p>
+    </section>
+
+    <details class="hl-block hl-fold" id="hlSensorsFold">
+      <summary><span class="hl-h">Sensors</span><span class="hl-fold-sum" id="hlSensorsSum"></span></summary>
       <ul class="hl-sources" id="hlSources"></ul>
       <div class="hl-setup" id="hlSetup" hidden>
         <p><b>Windows doesn't let normal apps read CPU temperature.</b> LibreHardwareMonitor can (it's free and open source), and Shellby reads it from LHM's local web server. Nothing leaves your PC.</p>
@@ -294,26 +530,30 @@
         </ol>
         <p class="hl-auth" id="hlAuth" hidden>LHM's web server is asking for a password. Turn off authentication in <b>Options → Remote Web Server</b>, then check again.</p>
         <div class="row wrap">
-          <button type="button" class="btn primary" id="hlCheckLhm">I've done it, check again</button>
+          <button type="button" class="btn primary" id="hlClaudeLhm" title="Starts a task asking Claude to install and set up LibreHardwareMonitor">Let Claude set it up</button>
+          <button type="button" class="btn" id="hlCheckLhm">I've done it, check again</button>
           <button type="button" class="btn ghost" id="hlGetLhm">Get LibreHardwareMonitor</button>
           <label class="inline-label hl-port">Port <input class="field slim" id="hlPort" type="number" min="1024" max="65535" inputmode="numeric"></label>
         </div>
       </div>
-    </section>
+    </details>
 
-    <section class="setting-group hl-settings">
-      <h3>Alerts</h3>
+    <details class="setting-group hl-settings hl-fold" id="hlSettingsFold">
+      <summary><span class="hl-h">Alert settings</span><span class="hl-fold-sum" id="hlSettingsSum"></span></summary>
       <label class="toggle"><input type="checkbox" id="hlEnabledToggle"><span class="switch"></span>Watch my PC's health</label>
       <label class="toggle"><input type="checkbox" id="hlMoodsToggle"><span class="switch"></span>Shellby reacts on the desktop (sweats, gets dizzy, overstuffs his shell)</label>
       <label class="toggle"><input type="checkbox" id="hlNotifyToggle"><span class="switch"></span>Notify me when something's off</label>
+      <label class="toggle"><input type="checkbox" id="hlSpaceToggle"><span class="switch"></span>Measure Docker, WSL and package caches (every few hours)</label>
       <div class="hl-thresholds" id="hlThresholds">
         <label class="field-label">GPU hot at<span class="hl-unit"><input class="field" type="number" data-key="gpuWarn" min="60" max="100">°C</span></label>
         <label class="field-label">CPU hot at<span class="hl-unit"><input class="field" type="number" data-key="cpuWarn" min="60" max="105">°C</span></label>
+        <label class="field-label">Drive hot at<span class="hl-unit"><input class="field" type="number" data-key="storageWarn" min="50" max="95">°C</span></label>
         <label class="field-label">Memory warning at<span class="hl-unit"><input class="field" type="number" data-key="ramWarn" min="70" max="98">%</span></label>
         <label class="field-label">Drive low under<span class="hl-unit"><input class="field" type="number" data-key="diskWarnGb" min="1" max="1000">GB</span></label>
+        <label class="field-label">Clutter warning at<span class="hl-unit"><input class="field" type="number" data-key="reclaimWarnGb" min="5" max="500">GB</span></label>
       </div>
-      <p class="muted small">"Very hot" is 8°C past the line. Shellby waits about 20 seconds before reacting, so short spikes during a game load don't count. Small drives warn at 10% free instead.</p>
-    </section>
+      <p class="muted small">"Very hot" is 8°C past the line. Shellby waits about 20 seconds before reacting, so short spikes during a game load don't count. Small drives warn at 10% free instead. Clutter is what Docker and the package caches could give back.</p>
+    </details>
 
     <section class="hl-claude" id="hlClaude" hidden>
       <div class="hl-claude-crab" aria-hidden="true">⚡</div>
@@ -336,23 +576,31 @@
       <h2 class="sr-only">Wardrobe</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" aria-current="page" data-goto="wardrobe">Outfits <span class="n" id="wdCount"></span></button>
-        <button type="button" data-goto="trophies">Trophies &amp; XP</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
+      <button type="button" class="btn ghost slim-btn" id="markSeenBtn" title="Clear every new badge in the Wardrobe" hidden>Mark all seen</button>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
     </div>
     <div class="season-banner" id="seasonBanner" hidden></div>
-    <div class="stage" id="wdStage" aria-label="Preview">
-      <div class="stage-fx" id="wdFx"></div>
-      <div class="stage-crab" id="wdCrab"></div>
+    <div class="stage" id="wdStage" role="group" aria-label="Preview">
+      <div class="stage-fx" id="wdFx" aria-hidden="true"></div>
+      <div class="stage-crab" id="wdCrab" aria-hidden="true"></div>
       <div class="stage-floor"></div>
       <div class="stage-caption" id="wdCaption"></div>
     </div>
     <div class="stage-moods" role="group" aria-label="Preview mood">
-      <button type="button" class="mood on" data-mood="idle">Idle</button>
-      <button type="button" class="mood" data-mood="working">Working</button>
-      <button type="button" class="mood" data-mood="asking">Asking</button>
-      <button type="button" class="mood" data-mood="sleeping">Sleeping</button>
-      <button type="button" class="mood random" id="randomizeBtn" title="Surprise me">🎲</button>
+      <button type="button" class="mood on" data-mood="idle" aria-pressed="true">Idle</button>
+      <button type="button" class="mood" data-mood="working" aria-pressed="false">Working</button>
+      <button type="button" class="mood" data-mood="asking" aria-pressed="false">Asking</button>
+      <button type="button" class="mood" data-mood="sleeping" aria-pressed="false">Sleeping</button>
+      <button type="button" class="mood random" id="randomizeBtn" title="Surprise me" aria-label="Random outfit">🎲</button>
     </div>
     <div class="outfit-code" id="outfitCodeRow">
       <span class="oc-label">Outfit code</span>
@@ -360,7 +608,7 @@
       <button type="button" class="btn ghost slim-btn" id="copyCodeBtn">Copy</button>
       <button type="button" class="btn slim-btn" id="wearCodeBtn">Wear a code…</button>
     </div>
-    <div class="seg wd-slots" id="wdSlots" role="tablist" aria-label="Slots">
+    <div class="seg wd-slots" id="wdSlots" role="tablist" aria-label="Slots" data-roving>
       <button type="button" role="tab" data-slot="hat" aria-selected="true">Hats</button>
       <button type="button" role="tab" data-slot="face">Face</button>
       <button type="button" role="tab" data-slot="neck">Neck</button>
@@ -369,17 +617,19 @@
       <button type="button" role="tab" data-slot="shell">Shell</button>
       <button type="button" role="tab" data-slot="effect">Effects</button>
       <button type="button" role="tab" data-slot="skin">Colors</button>
+      <button type="button" role="tab" data-slot="voice" title="How he talks. Packs can add new voices: a pirate, a grump, another language.">Voice</button>
     </div>
-    <div class="wd-grid" id="wdGrid" role="listbox" aria-label="Items"></div>
+    <div class="wd-grid" id="wdGrid" role="listbox" aria-label="Items" data-roving></div>
+    <p class="muted small wd-hint" id="wdHint" hidden>Packs can teach him new ways to talk: a pirate, a grump, another language. Find them in the community gallery below.</p>
     <section class="setting-group wd-options">
       <h3>Options</h3>
       <label class="toggle"><input type="checkbox" id="seasonalToggle"><span class="switch"></span>Seasonal outfits: dress up automatically for Halloween, winter and more</label>
-      <label class="toggle"><input type="checkbox" id="crewToggle"><span class="switch"></span>Helper crabs wear matching hats</label>
-      <label class="toggle"><input type="checkbox" id="unlockAllToggle"><span class="switch"></span>Unlock everything (skip the achievements)</label>
+      <label class="toggle"><input type="checkbox" id="crewToggle"><span class="switch"></span>Helper crabs wear hats: each crew member its own (pick them on the Crew page)</label>
+      <label class="toggle" id="unlockAllOption" hidden><input type="checkbox" id="unlockAllToggle"><span class="switch"></span>Unlock everything (skip the achievements)</label>
     </section>
     <section class="setting-group wd-packs">
       <h3>Wardrobe packs</h3>
-      <p class="muted small">Community packs add hats, effects and colors. They're pixel art and settings only and can't run code. Browse the gallery and click <b>Add to Shellby</b>, drop a pack <code>.json</code> here, or:</p>
+      <p class="muted small">Community packs add hats, effects, colors, voices and little scenes. They're pixel art, lines and settings only and can't run code. Browse the gallery and click <b>Add to Shellby</b>, drop a pack <code>.json</code> here, or:</p>
       <div class="row wrap">
         <button type="button" class="btn primary" id="browsePacksBtn">Browse community packs</button>
         <button type="button" class="btn" id="installPackBtn">Install pack…</button>
@@ -397,7 +647,14 @@
       <h2 class="sr-only">Trophies and XP</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
-        <button type="button" aria-current="page" data-goto="trophies">Trophies &amp; XP <span class="n" id="trophyCount"></span></button>
+        <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
       </nav>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Make a shareable picture of your Shellby" aria-label="Make a shareable picture of your Shellby">📸</button>
     </div>
@@ -405,34 +662,533 @@
       <div class="xp-head">
         <span class="xp-level" id="xpLevel">1</span>
         <div class="xp-titles">
-          <p class="xp-eyebrow">Level</p>
+          <p class="xp-eyebrow" id="xpEyebrow">Level</p>
           <h3 id="xpTitle">Hatchling</h3>
         </div>
         <span class="xp-total" id="xpTotal">0 XP</span>
+        <button type="button" class="xp-streak" id="xpStreak" hidden></button>
       </div>
       <div class="xp-bar" role="progressbar" aria-label="Progress to the next level" aria-valuemin="0" aria-valuemax="100" id="xpBarWrap"><i id="xpBar"></i></div>
-      <p class="xp-next" id="xpNext"></p>
-      <ul class="xp-ways" id="xpWays"></ul>
-      <ul class="xp-log" id="xpLog"></ul>
-    </section>
-    <section class="streak-card" id="streakCard" aria-label="Streaks">
-      <div class="streak-head">
-        <span class="streak-flame" id="streakFlame">🔥</span>
-        <div>
-          <p class="xp-eyebrow streak-eyebrow">Streak</p>
-          <h3 id="streakTitle">No streak yet</h3>
+      <div class="xp-meta">
+        <p class="xp-next"><span id="xpNext"></span><span class="xp-unlock" id="xpUnlock" hidden></span></p>
+        <ul class="xp-boosts" id="xpBoosts" aria-label="XP boosts" hidden></ul>
+      </div>
+      <div class="xp-section xp-bounties" id="xpBounties" aria-label="Today's bounties">
+        <p class="xp-sub">Today's bounties <span id="xpBountyBonus"></span></p>
+        <ul id="xpBountyList"></ul>
+      </div>
+      <div class="xp-section xp-quests" id="xpQuests" aria-label="Quests" hidden>
+        <div class="xp-quests-head">
+          <p class="xp-sub">Quests <span id="xpQuestCount"></span></p>
+          <button type="button" class="btn ghost slim-btn" id="xpQuestShow" hidden>Show in the chat</button>
         </div>
-        <span class="xp-total" id="streakBest"></span>
+        <ol class="quest-trail" id="xpQuestList"></ol>
       </div>
-      <p class="streak-sub" id="streakSub"></p>
-      <ul class="streak-projects" id="streakProjects"></ul>
-      <div class="streak-settings">
-        <label class="toggle"><input type="checkbox" id="nudgeToggle"><span class="switch"></span>Nudge me when a project goes quiet for</label>
-        <select class="field slim" id="nudgeDays" aria-label="Days before a nudge">
-          <option value="2">2 days</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">a week</option><option value="14">2 weeks</option>
-        </select>
+      <div class="xp-section xp-sheet" id="xpSheet" aria-label="Character sheet" hidden>
+        <div class="xp-sheet-head">
+          <p class="xp-sub">Character sheet <span id="xpSheetWeek"></span></p>
+        </div>
+        <div class="xp-class" id="xpClass">
+          <span class="xp-class-icon" id="xpClassIcon" aria-hidden="true">🐚</span>
+          <div class="xp-class-text">
+            <p class="xp-class-eyebrow">Class</p>
+            <h4 id="xpClassName">Wanderer</h4>
+            <p class="xp-class-blurb" id="xpClassBlurb"></p>
+          </div>
+        </div>
+        <ul class="xp-stats" id="xpStats" aria-label="Stats"></ul>
+        <p class="xp-classes" id="xpClasses" hidden></p>
+      </div>
+      <div class="xp-section xp-week" id="xpWeek" aria-label="This week" hidden>
+        <div class="xp-week-head">
+          <p class="xp-sub">This week <span id="xpWeekRange"></span></p>
+          <button type="button" class="btn slim-btn" data-share-week title="Make a shareable picture of your week: tasks, streak, top project and new trophies">📅 Share my week</button>
+        </div>
+        <div class="xp-week-plan" id="xpWeekPlan" role="group" aria-label="What your plan bought you" hidden>
+          <p class="xp-week-hours"><b id="xpWeekHours"></b><span id="xpWeekHoursNote"></span></p>
+          <ul class="xp-week-ledger" id="xpWeekLedger"></ul>
+        </div>
+        <p class="xp-week-line" id="xpWeekLine"></p>
+        <ul class="xp-week-work" id="xpWeekWork" aria-label="The week's work"></ul>
+        <div class="xp-week-row" id="xpWeekTrophiesRow" hidden>
+          <p class="xp-week-label">New trophies</p>
+          <ul class="xp-week-chips" id="xpWeekTrophies"></ul>
+        </div>
+        <div class="xp-week-row" id="xpWeekShippedRow" hidden>
+          <p class="xp-week-label">Shipped</p>
+          <ul class="xp-week-chips xp-week-shipped" id="xpWeekShipped"></ul>
+        </div>
+      </div>
+      <div class="xp-section xp-history">
+        <p class="xp-sub">Last 30 days <span id="xpHistoryTotal"></span></p>
+        <div class="xp-spark" id="xpSpark" role="img"></div>
+        <ul class="xp-kinds" id="xpKinds" aria-label="Where the XP came from"></ul>
+        <ul class="xp-log" id="xpLog" aria-label="Latest XP"></ul>
+      </div>
+      <details class="xp-section xp-ways-box">
+        <summary class="xp-sub">How to earn XP <span id="xpWaysCount"></span></summary>
+        <ul class="xp-ways" id="xpWays"></ul>
+      </details>
+    </section>
+    <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
+    <ul class="trophy-list" id="trophyList"></ul>
+  </main>
+
+  <!-- ====================== CREW: one lasting helper crab per agent type (crew.js, src/main/crew-roster.js) ====================== -->
+  <main class="view view-crew" id="crewView">
+    <div class="view-head">
+      <h2 class="sr-only">Crew</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" aria-current="page" data-goto="crew">Crew <span class="n" id="crewCount"></span></button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <p class="view-lede">Every agent Claude sends out gets a crab, one for each type of agent, and they keep their record. They level up with every run, and more when Claude acts on what they found.</p>
+    <div class="cr-dock" id="crewDock" role="group" aria-label="The crew" hidden></div>
+    <p class="cr-totals muted small" id="crewTotals" hidden></p>
+    <div class="cr-empty" id="crewEmpty" hidden>
+      <div class="cr-empty-crab" id="crewEmptyCrab" aria-hidden="true"></div>
+      <div>
+        <h3>No crew yet</h3>
+        <p>When Claude hands part of a task to a helper agent (Explore, a code reviewer, one you wrote yourself), that helper joins the crew here and keeps its record from then on.</p>
+      </div>
+    </div>
+    <ul class="cr-list" id="crewList" aria-label="Crew members"></ul>
+    <p class="muted small cr-note">“Acted on” means Claude went on to change files after that helper reported back, in the same turn.</p>
+  </main>
+
+  <!-- ====================== STICKERS ====================== -->
+  <main class="view view-stickers" id="stickersView">
+    <div class="view-head">
+      <h2 class="sr-only">Sticker Book</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+      <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
+    </div>
+    <section class="st-hero" aria-label="His shell">
+      <div class="st-bench" id="stBench">
+        <div class="st-crab" id="stCrab"></div>
+        <div class="st-spots" id="stSpots" role="group" aria-label="Spots on his shell"></div>
+      </div>
+      <div class="st-hero-text">
+        <p class="xp-eyebrow st-eyebrow">Sticker Book</p>
+        <h3 id="stTotal">No stickers yet</h3>
+        <p class="st-sub" id="stSub"></p>
+        <div class="st-shells" id="stShells" role="radiogroup" aria-label="Which shell to decorate" data-roving></div>
+        <div class="st-tools">
+          <button type="button" class="btn slim-btn" id="stArrange" title="Lay the stickers out again, most shipped in the middle">Tidy up</button>
+          <label class="toggle st-auto"><input type="checkbox" id="stAuto"><span class="switch"></span>New stickers go straight on</label>
+        </div>
       </div>
     </section>
+    <p class="st-hint" id="stHint" aria-live="polite"></p>
+    <section class="st-detail" id="stDetail" hidden aria-live="polite"></section>
+    <ul class="st-grid" id="stGrid" role="listbox" aria-label="Your stickers" data-roving></ul>
+    <section class="st-waiting" id="stWaitingWrap" hidden>
+      <h3>Waiting to ship</h3>
+      <p class="muted small">Projects you've worked in that haven't shipped yet. Push one to earn its sticker.</p>
+      <ul class="st-waiting-list" id="stWaiting"></ul>
+    </section>
+    <section class="setting-group st-options">
+      <h3>On your calling card</h3>
+      <p class="muted small">With Visiting crabs on, your calling card is public. Nothing about your stickers goes on it until you choose here, and projects you keep off it never leave your PC.</p>
+      <div class="seg st-card-mode" id="stCardMode" role="radiogroup" aria-label="What friends see" data-roving>
+        <button type="button" role="radio" data-card="off">Nothing</button>
+        <button type="button" role="radio" data-card="art">His shell</button>
+        <button type="button" role="radio" data-card="names">Shell and names</button>
+      </div>
+      <p class="muted small st-card-help" id="stCardHelp"></p>
+    </section>
+  </main>
+
+  <!-- ====================== FINDS: what he digs up (together.js, src/main/gifts.js) ====================== -->
+  <main class="view view-finds" id="findsView">
+    <div class="view-head">
+      <h2 class="sr-only">Finds</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <section class="fd-hero" aria-label="The shelf">
+      <div class="fd-fav" id="fdFav"></div>
+      <div class="fd-hero-text">
+        <p class="xp-eyebrow fd-eyebrow">The shelf</p>
+        <h3 id="fdTotal">Nothing on the shelf yet</h3>
+        <p class="fd-sub">When he's bored he digs at your wallpaper, and now and then he turns something up. Some only show up in their season, after dark, or on a special day.</p>
+        <div class="fd-tools">
+          <button type="button" class="btn primary slim-btn" id="fdDig">Dig for treasure</button>
+          <span class="fd-dig-note muted small" id="fdDigNote"></span>
+        </div>
+      </div>
+    </section>
+    <ul class="fd-sets" id="fdSets" aria-label="Sets"></ul>
+    <section class="fd-detail" id="fdDetail" hidden aria-live="polite"></section>
+    <ul class="fd-grid" id="fdGrid" role="list" aria-label="Every find"></ul>
+  </main>
+
+  <!-- ====================== BUGDEX: the bugs Claude has fixed for you (bugdex.js, src/main/bugdex.js) ====================== -->
+  <main class="view view-bugdex" id="bugdexView">
+    <div class="view-head">
+      <h2 class="sr-only">Bugdex</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="bugdex">Bugdex <span class="n bd-count"></span></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <section class="fd-hero bd-hero" aria-label="The Bugdex">
+      <div class="fd-fav" id="bdFav"></div>
+      <div class="fd-hero-text">
+        <p class="xp-eyebrow bd-eyebrow">The Bugdex</p>
+        <h3 id="bdTotal">No bugs in the jars yet</h3>
+        <p class="fd-sub">Every kind of bug Claude fixes for you goes in a jar. Seeing one isn't enough: it has to be fixed.</p>
+      </div>
+    </section>
+    <section class="bd-empty" id="bdEmpty" hidden>
+      <b>The jars are empty, for now.</b>
+      <p>When a command fails in one of Shellby's tabs (or in Claude Code anywhere on this PC, with the Shellby plugin), that kind of bug shows up here as a silhouette. Once Claude fixes it and the command passes, it's caught and goes in a jar, in colour. A crashed dev server, a red build and a clash bringing a copy home count too.</p>
+    </section>
+    <section class="bd-loose" id="bdLooseBox" hidden aria-labelledby="bdLooseTitle">
+      <h3 id="bdLooseTitle">On the loose</h3>
+      <ul id="bdLoose"></ul>
+    </section>
+    <ul class="fd-sets bd-habitats" id="bdHabitats" aria-label="Habitats"></ul>
+    <div class="kind-chips bd-filters" id="bdFilters" role="tablist" aria-label="Show" data-roving></div>
+    <section class="fd-detail bd-detail" id="bdDetail" hidden aria-live="polite"></section>
+    <ul class="fd-grid bd-grid" id="bdGrid" role="list" aria-label="Every kind of bug"></ul>
+    <p class="bd-over"><button type="button" class="link-btn inline" id="bdForget">Start the Bugdex over</button></p>
+  </main>
+
+  <!-- ====================== US: the two of you (together.js, src/main/bond.js, playtime.js) ====================== -->
+  <main class="view view-us" id="usView">
+    <div class="view-head">
+      <h2 class="sr-only">You and Shellby</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- The diorama is static markup: together.js patches it, so his breathing and the waves don't restart on every update. -->
+    <section class="us-hero" id="usHero" aria-labelledby="usLevelName">
+      <div class="us-stage" id="usStage" data-time="night">
+        <div class="us-sky" aria-hidden="true"><i class="us-stars"></i><span class="us-orb" id="usOrb"></span></div>
+        <div class="us-sea" aria-hidden="true"><i class="us-wave back"></i><i class="us-wave"></i></div>
+        <div class="us-sand" aria-hidden="true"></div>
+        <div class="us-props" id="usProps" aria-hidden="true"></div>
+        <button type="button" class="us-crab" id="usCrab" aria-label="Pet Shellby" title="Give him a pet"></button>
+        <div class="us-pops" id="usPops" aria-hidden="true"></div>
+        <div class="us-title">
+          <h3 id="usLevelName"></h3>
+          <p class="us-sub" id="usSub"></p>
+        </div>
+      </div>
+      <div class="us-bond">
+        <ol class="us-path" id="usPath" role="progressbar" aria-label="How close you are" aria-valuemin="0" aria-valuemax="100"></ol>
+        <p class="us-next" id="usNext"></p>
+      </div>
+      <p class="us-temper" id="usTemper"></p>
+    </section>
+
+    <!-- His needs (needs.js in panel/, src/main/needs.js, care.js). Hidden when Snacks and naps is off. -->
+    <section class="us-sec us-needs" id="usNeeds" aria-labelledby="usNeedsTitle" hidden>
+      <div class="us-h"><h3 id="usNeedsTitle">How he's doing</h3><span class="us-h-meta us-needs-mood" id="usNeedsMood"></span></div>
+      <div class="us-needs-intro" id="usNeedsIntro" hidden>
+        <p>New: he gets peckish now, and a little mopey if you're right there and ignore him. Snacks come from <span id="usNeedsIntroFrom">getting things done</span>. He never gets worse than a bit peckish, and nothing you've earned ever goes away.</p>
+        <div class="row wrap">
+          <button type="button" class="btn primary slim-btn" id="usNeedsGotIt">Got it</button>
+          <button type="button" class="btn ghost slim-btn" id="usNeedsOff">Turn this off</button>
+        </div>
+      </div>
+      <ul class="us-meters" id="usMeters"></ul>
+      <div class="us-games us-care">
+        <button type="button" class="us-game" data-care="feed" data-hue="glass"><span class="us-game-icon" aria-hidden="true">🦐</span><b>Feed him</b><span class="us-game-stat" id="usCareFeed"></span></button>
+        <button type="button" class="us-game" data-care="rinse" data-hue="surf"><span class="us-game-icon" aria-hidden="true">🧼</span><b>Give him a rinse</b><span class="us-game-stat" id="usCareRinse"></span></button>
+        <button type="button" class="us-game" data-care="tuck" data-hue="night"><span class="us-game-icon" aria-hidden="true">💤</span><b>Tuck him in</b><span class="us-game-stat" id="usCareTuck"></span></button>
+      </div>
+      <div class="us-pantry">
+        <ul class="us-pantry-list" id="usPantry" aria-label="His snacks"></ul>
+        <details class="us-sources">
+          <summary>Where snacks come from</summary>
+          <ul id="usSources"></ul>
+        </details>
+      </div>
+    </section>
+
+    <section class="us-sec us-play" aria-labelledby="usPlayTitle">
+      <div class="us-h"><h3 id="usPlayTitle">Play with him</h3><span class="us-h-meta">Right-click him on the desktop for these too</span></div>
+      <div class="us-games">
+        <button type="button" class="us-game" data-play="hide" data-hue="glass"><span class="us-game-icon" aria-hidden="true">🙈</span><b>Hide and seek</b><span class="us-game-stat" id="usStatHide"></span></button>
+        <button type="button" class="us-game" data-play="fetch" data-hue="amber"><span class="us-game-icon" aria-hidden="true">🎾</span><b>Fetch</b><span class="us-game-stat" id="usStatFetch"></span></button>
+        <button type="button" class="us-game" data-play="dig" data-hue="sand"><span class="us-game-icon" aria-hidden="true">⛏️</span><b>Dig for treasure</b><span class="us-game-stat" id="usStatDig"></span></button>
+      </div>
+      <button type="button" class="btn ghost us-stop" data-play="stop" hidden>Stop playing</button>
+    </section>
+
+    <section class="us-sec" aria-labelledby="usUnlocksTitle">
+      <div class="us-h"><h3 id="usUnlocksTitle">As you get closer</h3><span class="us-h-meta">Your bond never goes back down</span></div>
+      <ul class="us-unlocks" id="usUnlocks"></ul>
+    </section>
+
+    <section class="us-sec us-birthday" aria-labelledby="usBdTitle">
+      <div class="us-h"><h3 id="usBdTitle">Your birthday</h3><span class="us-h-meta us-bd-when" id="usBdWhen"></span></div>
+      <p class="us-lede">He'll make a fuss on the day and dig up something you can't find any other way. It stays on this PC.</p>
+      <div class="row wrap us-bd-row">
+        <select class="field slim" id="usBdMonth" aria-label="Month"></select>
+        <select class="field slim" id="usBdDay" aria-label="Day"></select>
+        <button type="button" class="btn slim-btn" id="usBdSave">Save</button>
+        <button type="button" class="btn ghost slim-btn" id="usBdForget" hidden>Forget it</button>
+      </div>
+    </section>
+
+    <section class="us-sec" aria-labelledby="usScenesTitle">
+      <div class="us-h"><h3 id="usScenesTitle">His little scenes</h3><span class="us-h-meta" id="usScenesCount"></span></div>
+      <p class="us-lede">What he gets up to when nothing's happening. Some only at night, at the weekend, or while you play music.</p>
+      <ul class="us-scenes" id="usScenes"></ul>
+    </section>
+
+    <section class="us-sec" aria-labelledby="usStoryTitle">
+      <div class="us-h"><h3 id="usStoryTitle">Our story</h3><span class="us-h-meta">Every so often he brings one up</span></div>
+      <ol class="us-story" id="usStory"></ol>
+    </section>
+  </main>
+
+  <!-- ====================== BEACH: a scene that only grows (beach.js, beach-paint.js, src/main/beach.js) ====================== -->
+  <main class="view view-beach" id="beachView">
+    <div class="view-head">
+      <h2 class="sr-only">Your beach</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" aria-current="page" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- One canvas for the scene; the buttons over it are what you can point at (and tab to). -->
+    <section class="bc-hero" aria-labelledby="bcTitle">
+      <div class="bc-stage" id="bcStage" data-time="night">
+        <canvas class="bc-canvas" id="bcCanvas" role="img" aria-label="Your beach"></canvas>
+        <div class="bc-hits" id="bcHits" role="group" aria-label="On the beach"></div>
+        <div class="bc-title">
+          <h3 id="bcTitle">Your beach</h3>
+          <p class="bc-sub" id="bcSub"></p>
+        </div>
+        <div class="bc-empty" id="bcEmpty" hidden>
+          <b>His first castle goes here</b>
+          <span>Ship a project and he builds it. A push, a deploy, a release or a merged PR all count.</span>
+        </div>
+      </div>
+      <canvas class="bc-map" id="bcMap" hidden aria-hidden="true" title="The whole beach: click or drag to look along it"></canvas>
+      <div class="bc-tools">
+        <button type="button" class="btn primary slim-btn" id="bcShare">Share a snapshot</button>
+        <span class="bc-hint muted small" id="bcHint" hidden>Drag the beach, or tab through it, to look along.</span>
+      </div>
+      <p class="sr-only" id="bcLive" aria-live="polite"></p>
+    </section>
+    <section class="bc-detail" id="bcDetail" hidden aria-live="polite"></section>
+    <section class="us-sec" aria-labelledby="bcKeyTitle">
+      <div class="us-h"><h3 id="bcKeyTitle">How it grows</h3><span class="us-h-meta">Nothing on it ever washes away</span></div>
+      <ul class="bc-key" id="bcKey"></ul>
+    </section>
+  </main>
+
+  <!-- ====================== TANK: a home you decorate (tank.js, tank-paint.js, src/main/tank.js) ====================== -->
+  <main class="view view-tank" id="tankView">
+    <div class="view-head">
+      <h2 class="sr-only">His tank</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" aria-current="page" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <!-- One canvas for the scene; the buttons over it are what you can point at (and tab to). -->
+    <section class="tk-hero" aria-labelledby="tkTitle">
+      <div class="tk-head">
+        <div>
+          <h3 id="tkTitle">His tank</h3>
+          <p class="tk-sub" id="tkSub"></p>
+        </div>
+        <div class="tk-tools">
+          <button type="button" class="btn primary slim-btn" id="tkDecorate">Decorate</button>
+          <button type="button" class="btn ghost slim-btn" id="tkUndo" hidden title="Undo (Ctrl+Z)">Undo</button>
+          <button type="button" class="btn ghost slim-btn" id="tkRedo" hidden title="Redo (Ctrl+Y)">Redo</button>
+          <button type="button" class="btn ghost slim-btn" id="tkCancel" hidden>Cancel</button>
+          <button type="button" class="btn primary slim-btn" id="tkDone" hidden>Done</button>
+        </div>
+      </div>
+      <div class="tk-stage" id="tkStage">
+        <div class="tk-frame">
+          <canvas class="tk-canvas" id="tkCanvas" role="img" aria-label="His tank"></canvas>
+          <div class="tk-hits" id="tkHits" role="group" aria-label="In the tank"></div>
+        </div>
+        <div class="tk-empty" id="tkEmpty" hidden>
+          <b>Nothing in here yet</b>
+          <span>Press Decorate to give him a castle, some plants, or the finds he’s dug up for you.</span>
+        </div>
+      </div>
+      <div class="tk-picked" id="tkPicked" hidden>
+        <span class="tk-picked-name" id="tkPickedName"></span>
+        <button type="button" class="btn ghost slim-btn" id="tkFlip" title="Flip (F)">Flip</button>
+        <button type="button" class="btn ghost slim-btn" id="tkBack" title="Send back ([)">Send back</button>
+        <button type="button" class="btn ghost slim-btn" id="tkForward" title="Bring forward (])">Bring forward</button>
+        <button type="button" class="btn ghost slim-btn" id="tkAway" title="Put away (Delete)">Put away</button>
+      </div>
+      <p class="tk-keys muted small" id="tkKeysHint" hidden><span id="tkKeys">Arrow keys move it (Shift for bigger steps), Up and Down change the row, F flips it, [ and ] send it back or bring it forward, Delete puts it away.</span></p>
+      <p class="tk-note" id="tkNote" hidden></p>
+      <p class="tk-note muted small" id="tkMissing" hidden></p>
+      <p class="sr-only" id="tkLive" aria-live="polite"></p>
+    </section>
+    <section class="tk-tray" id="tkTray" hidden aria-label="Decor">
+      <div class="seg tk-shelves" id="tkShelves" role="tablist" aria-label="Shelf" data-roving></div>
+      <div class="tk-items" id="tkItems" role="group"></div>
+      <div class="tk-settings">
+        <div class="tk-setting">
+          <span class="tk-setting-label" aria-hidden="true">Tank</span>
+          <div class="seg tk-sizes" id="tkSizes" role="radiogroup" aria-label="Tank size" data-roving></div>
+        </div>
+        <div class="tk-setting">
+          <span class="tk-setting-label" aria-hidden="true">Light</span>
+          <div class="seg tk-light" id="tkLight" role="radiogroup" aria-label="Light" data-roving>
+            <button type="button" role="radio" data-light="clock" title="Day and night follow your clock">Clock</button>
+            <button type="button" role="radio" data-light="day">Day</button>
+            <button type="button" role="radio" data-light="night">Night</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="us-sec" id="tkKeySec" aria-labelledby="tkKeyTitle">
+      <div class="us-h"><h3 id="tkKeyTitle">Where his decor comes from</h3><span class="us-h-meta" id="tkKeyMeta"></span></div>
+      <ul class="tk-key" id="tkKey"></ul>
+    </section>
+    <section class="us-sec tk-layouts" id="tkLayoutsSec" aria-labelledby="tkLayoutsTitle">
+      <div class="us-h"><h3 id="tkLayoutsTitle">Layouts</h3><span class="us-h-meta" id="tkLayoutsMeta"></span></div>
+      <p class="muted small">Keep up to three. One tagged to a season goes up when the season starts and comes down when it ends.</p>
+      <ul class="tk-layout-list" id="tkLayouts"></ul>
+      <form class="tk-layout-save" id="tkLayoutForm">
+        <label class="sr-only" for="tkLayoutName">Name this layout</label>
+        <input type="text" id="tkLayoutName" maxlength="24" placeholder="Name this layout" autocomplete="off">
+        <button type="submit" class="btn ghost slim-btn" id="tkLayoutSave">Save the tank as it is</button>
+      </form>
+    </section>
+    <section class="us-sec tk-tidy" aria-labelledby="tkTidyTitle">
+      <div class="us-h"><h3 id="tkTidyTitle">Tidying up</h3></div>
+      <label class="toggle"><input type="checkbox" id="tkTidyOn" checked><span class="switch"></span>Let him tidy up: now and then he moves one of his finds a little, never anything else</label>
+      <p class="tk-note" id="tkTidyNote" hidden><span id="tkTidyText"></span> <button type="button" class="btn ghost slim-btn" id="tkTidyUndo">Put it back</button></p>
+    </section>
+    <section class="us-sec tk-live" aria-labelledby="tkLiveTitle">
+      <div class="us-h"><h3 id="tkLiveTitle">Gauges in disguise</h3></div>
+      <p class="muted small">A few things in his tank quietly show what Shellby knows about your PC. They stay on this PC: never synced, never on a card.</p>
+      <label class="toggle"><input type="checkbox" data-live="thermometer"><span class="switch"></span>Thermometer on the glass: your GPU (or CPU) temperature, red past your Health line</label>
+      <label class="toggle"><input type="checkbox" data-live="bubbler"><span class="switch"></span>Bubblers hurry when the CPU is busy</label>
+      <label class="toggle"><input type="checkbox" data-live="lighthouse"><span class="switch"></span>The lighthouse is lit while a dev server runs, and blinks when one crashes</label>
+      <label class="toggle"><input type="checkbox" data-live="moods"><span class="switch"></span>His Health moods reach the water</label>
+      <p class="muted small" id="tkLiveNow"></p>
+    </section>
+    <section class="us-sec tk-share" aria-labelledby="tkShareTitle">
+      <div class="us-h"><h3 id="tkShareTitle">On your cards</h3></div>
+      <p class="muted small">Your calling card (Visiting crabs) and profile card are public. His tank stays off them unless you turn this on.</p>
+      <label class="toggle"><input type="checkbox" id="tkShare" aria-describedby="tkShareHelp"><span class="switch"></span>Show his tank: friends can peek at it, and it’s on your profile card</label>
+      <p class="muted small" id="tkShareHelp"></p>
+    </section>
+  </main>
+
+  <!-- ====================== HISTORY ====================== -->
+  <main class="view view-history" id="historyView">
+    <nav class="seg auto-switch" aria-label="History">
+      <button type="button" aria-current="page">Conversations</button>
+      <button type="button" data-goto-view="time">Time</button>
+    </nav>
+    <div class="view-head">
+      <h2>History</h2>
+    </div>
+    <input type="search" id="historySearch" class="field" placeholder="Search conversations…" aria-label="Search conversations">
+    <!-- Shown in place of the filter row while you're looking at Recently deleted. -->
+    <div class="history-bin-bar" id="historyBinBar" hidden>
+      <button type="button" class="btn ghost" id="historyBinBack">← Conversations</button>
+      <span class="muted small">Deleted chats go for good after 30 days.</span>
+      <button type="button" class="btn ghost deny" id="historyBinEmpty">Empty bin</button>
+    </div>
+    <!-- Hidden until you've ticked something off: nothing to filter before that. -->
+    <div class="seg history-tabs" id="historyTabs" role="tablist" aria-label="Show conversations" data-roving hidden>
+      <button type="button" role="tab" data-filter="todo" aria-selected="true">Not done <span class="n"></span></button>
+      <button type="button" role="tab" data-filter="done" aria-selected="false">Done <span class="n"></span></button>
+      <button type="button" role="tab" data-filter="all" aria-selected="false">All <span class="n"></span></button>
+    </div>
+    <ul class="history-list" id="historyList"></ul>
+    <!-- One quiet row under the list: the way into the bin, where it's kept, and the way to wipe it. -->
+    <footer class="history-foot">
+      <button type="button" class="btn ghost history-bin-open" id="historyBinOpen" hidden>Recently deleted <span class="n"></span></button>
+      <p class="muted small history-note">Stored only on this PC.</p>
+      <button type="button" class="btn ghost deny history-clear" id="historyClear" hidden>Clear all history</button>
+    </footer>
+  </main>
+
+  <!-- ====================== TIME (timetrack.js) ====================== -->
+  <main class="view view-time" id="timeView">
+    <nav class="seg auto-switch" aria-label="History">
+      <button type="button" data-goto-view="history">Conversations</button>
+      <button type="button" aria-current="page">Time</button>
+    </nav>
+    <div class="view-head">
+      <h2>Time</h2>
+      <label class="toggle tm-onoff"><input type="checkbox" id="timeToggle"><span class="switch"></span>Keep time</label>
+    </div>
+    <section class="tm-intro" id="timeIntro" hidden>
+      <p>Shellby can keep track of how long you spend on each project, for timesheets and invoices. He works it out from what he already sees:</p>
+      <ul>
+        <li><b>The window in front.</b> An editor or terminal showing a project's folder, or the project's page on GitHub.</li>
+        <li><b>Claude at work.</b> While Claude works in a project, your terminal and docs count for it.</li>
+        <li><b>Git.</b> A commit, checkout or pull says which project you're in.</li>
+      </ul>
+      <p>The clock stops when you're away from the keyboard. Window titles are read to find the project and then forgotten: only the project, the day and the minutes are kept, on this PC. Nothing is sent anywhere.</p>
+    </section>
+    <p class="tm-now" id="timeNow" aria-live="polite"></p>
     <section class="focus-card" id="focusCard" aria-label="Focus">
       <div class="focus-head">
         <span class="focus-badge" aria-hidden="true">⛑️</span>
@@ -445,24 +1201,176 @@
       <p class="streak-sub" id="focusSub"></p>
       <div class="focus-actions" id="focusActions"></div>
     </section>
-    <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
-    <ul class="trophy-list" id="trophyList"></ul>
+    <div id="timeBody">
+      <div class="seg tm-ranges" id="timeRanges" role="tablist" aria-label="Period" data-roving></div>
+      <section class="tm-overview" aria-labelledby="timeTotal">
+        <div class="tm-totals">
+          <p class="tm-total" id="timeTotal"></p>
+          <p class="tm-amount" id="timeAmount"></p>
+        </div>
+        <ul class="tm-chart" id="timeChart" aria-label="Hours each day"></ul>
+      </section>
+      <p class="tm-fill" id="timeFill" hidden></p>
+      <ul class="tm-projects" id="timeProjects"></ul>
+
+      <section class="streak-card" id="streakCard" aria-label="Streaks">
+        <div class="streak-head">
+          <span class="streak-flame" id="streakFlame">🔥</span>
+          <div>
+            <p class="xp-eyebrow streak-eyebrow">Streak</p>
+            <h3 id="streakTitle">No streak yet</h3>
+          </div>
+          <span class="xp-total" id="streakBest"></span>
+        </div>
+        <p class="streak-sub" id="streakSub"></p>
+        <ul class="streak-projects" id="streakProjects"></ul>
+        <div class="streak-settings">
+          <label class="toggle"><input type="checkbox" id="nudgeToggle"><span class="switch"></span>Nudge me when a project goes quiet for</label>
+          <select class="field slim" id="nudgeDays" aria-label="Days before a nudge">
+            <option value="2">2 days</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">a week</option><option value="14">2 weeks</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="setting-group tm-export" aria-labelledby="timeExportTitle">
+        <h3 id="timeExportTitle">Timesheet</h3>
+        <div class="row wrap">
+          <select class="field slim" id="timeOnly" aria-label="Which projects go on it"></select>
+          <button type="button" class="btn slim-btn" id="timePdf">Save PDF</button>
+          <button type="button" class="btn slim-btn" id="timeCsv">Save CSV</button>
+          <button type="button" class="btn ghost slim-btn" id="timeCopy">Copy as text</button>
+        </div>
+        <p class="muted small" id="timeExportNote">For the period above, rounded as set below. Each day's line is its note, or else your commit messages.</p>
+      </section>
+
+      <section class="setting-group" aria-labelledby="timeAddTitle">
+        <h3 id="timeAddTitle">Add time by hand</h3>
+        <form class="tm-add" id="timeAdd" novalidate>
+          <div class="grid-2">
+            <label class="field-label">Project<select class="field" id="timeAddProject" required></select></label>
+            <label class="field-label">Day<input class="field" type="date" id="timeAddDay" required></label>
+          </div>
+          <div class="tm-add-row">
+            <div class="seg tm-sign" role="radiogroup" aria-label="Add or take off">
+              <button type="button" role="radio" aria-checked="true" data-sign="1">Add</button>
+              <button type="button" role="radio" aria-checked="false" data-sign="-1">Take off</button>
+            </div>
+            <label class="field-label tm-num">Hours<input class="field" type="number" id="timeAddHours" min="0" max="24" step="1" value="0" inputmode="numeric"></label>
+            <label class="field-label tm-num">Minutes<input class="field" type="number" id="timeAddMinutes" min="0" max="59" step="5" value="30" inputmode="numeric"></label>
+          </div>
+          <label class="field-label">What it was for <span class="field-hint">(optional, goes on the timesheet)</span><input class="field" id="timeAddNote" maxlength="200" placeholder="Kickoff call with the client"></label>
+          <p class="form-errors" id="timeAddError" role="alert" hidden></p>
+          <div class="row"><button type="submit" class="btn primary slim-btn">Add time</button></div>
+        </form>
+      </section>
+
+      <section class="setting-group" aria-labelledby="timeSetTitle">
+        <h3 id="timeSetTitle">How time is kept</h3>
+        <div class="tm-settings">
+          <label class="field-label">Stop the clock after<select class="field slim" id="timeIdle"></select></label>
+          <label class="field-label">Round each day<select class="field slim" id="timeRound"></select></label>
+          <label class="field-label">Currency<input class="field slim tm-cur" id="timeCurrency" maxlength="3" spellcheck="false" autocomplete="off" aria-describedby="timeCurHint"></label>
+        </div>
+        <p class="muted small" id="timeCurHint">Three letters, like USD, EUR or GBP.</p>
+        <div class="row wrap">
+          <button type="button" class="btn ghost slim-btn" id="timeAddFolder">Add a project folder…</button>
+        </div>
+        <p class="muted small">Projects show up on their own once Shellby sees you in them. Add one here if he hasn't yet.</p>
+        <p class="muted small" id="timeIgnored" hidden></p>
+      </section>
+    </div>
+    <p class="muted small history-note">Hours are kept only on this PC, never synced or sent anywhere.</p>
   </main>
 
-  <!-- ====================== HISTORY ====================== -->
-  <main class="view view-history" id="historyView">
+  <!-- ====================== PROJECTS (projects.js) ====================== -->
+  <main class="view view-projects" id="projectsView">
     <div class="view-head">
-      <h2>History</h2>
+      <h2>Projects</h2>
+      <button type="button" class="btn ghost slim-btn" id="pjRefresh">Refresh</button>
     </div>
-    <input type="search" id="historySearch" class="field" placeholder="Search conversations…" aria-label="Search conversations">
-    <!-- Hidden until you've ticked something off: nothing to filter before that. -->
-    <div class="seg history-tabs" id="historyTabs" role="tablist" aria-label="Show conversations" hidden>
-      <button type="button" role="tab" data-filter="todo" aria-selected="true">Not done <span class="n"></span></button>
-      <button type="button" role="tab" data-filter="done" aria-selected="false">Done <span class="n"></span></button>
-      <button type="button" role="tab" data-filter="all" aria-selected="false">All <span class="n"></span></button>
+
+    <!-- The list -->
+    <div id="pjListScreen">
+      <p class="pj-summary" id="pjSummary"></p>
+      <!-- Shown while servers run: how many, what happens to them when Shellby quits. -->
+      <section class="pj-quit" id="pjQuit" aria-label="Dev servers running" hidden>
+        <span class="pj-dot up" aria-hidden="true"></span>
+        <span class="pj-quit-count" id="pjQuitCount"></span>
+        <label class="pj-quit-when">On quit
+          <select class="field slim" id="pjOnQuit" aria-label="When Shellby quits">
+            <option value="keep">keep running</option>
+            <option value="stop">stop them</option>
+          </select>
+        </label>
+        <button type="button" class="btn ghost slim-btn" id="pjStopAll">Stop all</button>
+      </section>
+      <!-- What's waiting on you across every repo (inbox.js) -->
+      <section class="pj-panel pj-inbox" id="pjInbox" aria-label="Inbox" hidden></section>
+      <div class="pj-tools">
+        <input type="search" id="pjSearch" class="field" placeholder="Search projects…" aria-label="Search projects">
+        <div class="pj-tools-row">
+          <div class="seg pj-sort" id="pjSort" role="tablist" aria-label="Order" data-roving>
+            <button type="button" role="tab" data-sort="recent" aria-selected="true">Recent</button>
+            <button type="button" role="tab" data-sort="attention" aria-selected="false">Needs you</button>
+            <button type="button" role="tab" data-sort="name" aria-selected="false">A–Z</button>
+          </div>
+          <select class="field slim pj-scope" id="pjScope" aria-label="Show which projects">
+            <option value="all">All</option>
+            <option value="local">On this PC</option>
+            <option value="running">Running</option>
+            <option value="github">GitHub only</option>
+          </select>
+        </div>
+      </div>
+      <ul class="pj-list" id="pjProjects"></ul>
+      <div class="pj-empty" id="pjEmpty" hidden>
+        <p class="muted" id="pjEmptyText"></p>
+        <div class="row wrap" id="pjEmptyActions">
+          <button type="button" class="btn primary slim-btn" id="pjEmptyScan">Scan a folder…</button>
+          <button type="button" class="btn ghost slim-btn" id="pjEmptyAdd">Add a repo…</button>
+        </div>
+      </div>
+      <div class="row wrap pj-add" id="pjAddRow">
+        <button type="button" class="btn slim-btn" id="pjAdd">Add a repo…</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScan">Scan a folder…</button>
+      </div>
+      <p class="muted small" id="pjGitHubNote"></p>
     </div>
-    <ul class="history-list" id="historyList"></ul>
-    <p class="muted small history-note">Stored only on this PC. To clear it, open <b>Settings → About → Data folder</b>.</p>
+
+    <!-- One project -->
+    <div id="pjDetailScreen" hidden></div>
+
+    <!-- Scan a folder: pick which of the repos it found to add -->
+    <section class="pj-sheet" id="pjScanSheet" aria-labelledby="pjScanTitle" hidden>
+      <h3 id="pjScanTitle">Add repositories</h3>
+      <p class="muted small" id="pjScanLede"></p>
+      <ul class="pj-checks" id="pjScanList"></ul>
+      <div class="row wrap">
+        <button type="button" class="btn primary slim-btn" id="pjScanAdd" disabled>Add selected</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScanAll">Select all</button>
+        <button type="button" class="btn ghost slim-btn" id="pjScanCancel">Cancel</button>
+      </div>
+    </section>
+
+    <!-- Clone a GitHub repository into a folder you choose -->
+    <section class="pj-sheet" id="pjCloneSheet" aria-labelledby="pjCloneTitle" hidden>
+      <h3 id="pjCloneTitle">Clone</h3>
+      <p class="muted small">Nothing is downloaded until you've chosen where it goes. Nothing is installed or run afterwards.</p>
+      <p class="field-label">Where</p>
+      <div class="row wrap">
+        <code class="path" id="pjCloneWhere">No folder chosen</code>
+        <button type="button" class="btn slim-btn" id="pjCloneChoose">Choose folder…</button>
+        <button type="button" class="btn ghost slim-btn" id="pjCloneAgain" hidden></button>
+      </div>
+      <p class="muted small" id="pjCloneDest"></p>
+      <div class="pj-progress" id="pjCloneProgress" hidden><span class="pj-progress-bar" id="pjCloneBar"></span></div>
+      <p class="muted small" id="pjCloneStatus" role="status"></p>
+      <p class="form-errors" id="pjCloneError" role="alert" hidden></p>
+      <div class="row wrap">
+        <button type="button" class="btn primary slim-btn" id="pjCloneGo" disabled>Clone</button>
+        <button type="button" class="btn ghost slim-btn" id="pjCloneCancel">Cancel</button>
+      </div>
+    </section>
   </main>
 
   <!-- ====================== SETTINGS ====================== -->
@@ -470,259 +1378,641 @@
     <div class="view-head">
       <h2>Settings</h2>
     </div>
-    <nav class="settings-jump" id="settingsJump" aria-label="Settings sections"></nav>
+    <nav class="seg settings-tabs" id="settingsTabs" role="tablist" aria-label="Settings">
+      <button type="button" role="tab" id="setTab-shellby" data-tab="shellby" aria-controls="setPanel-shellby" aria-selected="false" tabindex="-1">Shellby</button>
+      <button type="button" role="tab" id="setTab-claude" data-tab="claude" aria-controls="setPanel-claude" aria-selected="false" tabindex="-1">Claude</button>
+      <button type="button" role="tab" id="setTab-connect" data-tab="connect" aria-controls="setPanel-connect" aria-selected="false" tabindex="-1">Connections</button>
+      <button type="button" role="tab" id="setTab-general" data-tab="general" aria-controls="setPanel-general" aria-selected="false" tabindex="-1">General<span class="dot-badge tab-dot" id="updateTabDot" hidden></span></button>
+    </nav>
 
-    <section class="setting-group" data-nav="Mode">
-      <h3>How much can Shellby do?</h3>
-      <div class="mode-cards" id="modeCards"></div>
-      <div class="danger-confirm" id="autonomousConfirm" hidden>
-        <p><b>Autonomous mode skips every permission check.</b> Shellby and its helper agents can edit, run or delete anything your Windows account can, without asking. That includes running scripts it writes for itself. Use it only for tasks you'd trust to an unsupervised script.</p>
+    <div class="settings-panel" role="tabpanel" id="setPanel-shellby" data-tab="shellby" aria-labelledby="setTab-shellby" hidden>
+      <section class="setting-group" data-nav="Look">
+        <h3>Look</h3>
+        <div class="skins" id="skinGrid"></div>
+        <div class="row wrap">
+          <label class="inline-label">Size
+            <select id="scaleSelect" class="field slim">
+              <option value="0.75">Small</option><option value="1">Medium</option>
+              <option value="1.5">Large</option><option value="2">Huge</option>
+            </select>
+          </label>
+          <button type="button" class="btn ghost" id="resetPosBtn">Find Shellby</button>
+          <button type="button" class="btn ghost" id="openSkinsBtn">Open skins folder</button>
+          <button type="button" class="btn ghost" id="reloadSkinsBtn">Reload</button>
+        </div>
+      </section>
+
+      <section class="setting-group" id="moveGroup" data-nav="Moving around">
+        <h3>Moving around</h3>
+        <label class="toggle"><input type="checkbox" id="wanderToggle"><span class="switch"></span>Let him stroll around a little when he's idle</label>
+        <label class="toggle"><input type="checkbox" id="onTopToggle"><span class="switch"></span>Keep him on top of your apps instead of on the desktop</label>
+        <div class="row wrap">
+          <label class="inline-label" for="perchSelect">Climbing onto your windows
+            <select id="perchSelect" class="field slim">
+              <option value="off">Never</option>
+              <option value="sometimes">Sometimes</option>
+              <option value="often">Often</option>
+            </select>
+          </label>
+        </div>
+        <div class="perch-ignore" id="perchIgnoreRow" hidden>
+          <span class="small muted">He stays off:</span>
+          <span id="perchIgnoreList"></span>
+        </div>
+        <div class="row wrap">
+          <label class="inline-label" for="climbSelect">Climbing the edges of the screen
+            <select id="climbSelect" class="field slim">
+              <option value="off">Never</option>
+              <option value="sometimes">Sometimes</option>
+              <option value="often">Often</option>
+            </select>
+          </label>
+          <label class="inline-label" for="colonySelect">Pals on the floor
+            <select id="colonySelect" class="field slim">
+              <option value="0">Just him</option>
+              <option value="1">1 pal</option>
+              <option value="2">2 pals</option>
+              <option value="3">3 pals</option>
+              <option value="4">4 pals</option>
+              <option value="5">5 pals</option>
+            </select>
+          </label>
+        </div>
+        <p class="small muted">Rub the mouse over him to pet him. Right-click him for more.</p>
+      </section>
+
+      <section class="setting-group" id="personalityGroup" data-nav="Personality">
+        <h3>Personality</h3>
+        <div class="work-mode-row" id="workModeRow">
+          <label class="toggle"><input type="checkbox" id="workModeToggle" aria-describedby="workModeNote"><span class="switch"></span>Work mode</label>
+          <p class="small muted" id="workModeNote">Your tools first on the bar, and a quiet crab: no pals, pranks or climbing, and his needs rest. Anything you change below while it's on wins. Off, everything's as you left it.</p>
+        </div>
+        <div class="row wrap">
+          <label class="inline-label" for="chatterSelect">How much he talks
+            <select id="chatterSelect" class="field slim">
+              <option value="quiet">Quiet</option>
+              <option value="work">Just about work</option>
+              <option value="normal">Normal</option>
+              <option value="chatty">Chatty</option>
+            </select>
+          </label>
+        </div>
+        <p class="small muted" id="chatterNote">Quiet: just a mark in his bubble. Just about work: done, failed or broken. Chatty: talks and plays more.</p>
+        <p class="small temper-note" id="temperNote" hidden></p>
+        <label class="toggle"><input type="checkbox" id="needsToggle"><span class="switch"></span>Snacks and naps</label>
+        <p class="small muted">He gets peckish, sandy, sleepy or mopey, never worse. Snacks come from getting things done.</p>
+      </section>
+
+      <section class="setting-group" id="soundGroup" data-nav="Sound">
+        <h3>Sound</h3>
+        <div class="row wrap">
+          <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
+          <label class="toggle"><input type="checkbox" id="soundFxToggle"><span class="switch"></span>Footsteps, bumps and ta-das</label>
+        </div>
+        <div class="row wrap">
+          <label class="inline-label" for="ambientSelect">Background
+            <select id="ambientSelect" class="field slim">
+              <option value="off">Silence</option>
+              <option value="surf">Rolling surf</option>
+              <option value="tidepool">Rock pool</option>
+            </select>
+          </label>
+          <label class="inline-label" for="soundVolumeSelect">Volume
+            <select id="soundVolumeSelect" class="field slim">
+              <option value="25">Soft</option>
+              <option value="60">Normal</option>
+              <option value="100">Loud</option>
+            </select>
+          </label>
+        </div>
+        <p class="small muted">He goes quiet during focus, calls and when the screen is locked.</p>
+      </section>
+
+      <p class="settings-sub" id="extrasLabel">Extras <span>Off until you turn them on</span></p>
+      <details class="setting-group setting-fold mischief-group" id="mischiefGroup" data-nav="Mischief" data-fold-on="mischiefPranks">
+        <summary><h3>Mischief</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Off unless you turn it on. A cheeky crab gets up to a little harmless trouble now and then, Desktop Goose style. He never does it while you're clicking, on a call, guarding your focus, gaming or presenting, or while a task is running.</p>
+        <div class="row wrap">
+          <label class="inline-label" for="mischiefSelect">How cheeky
+            <select id="mischiefSelect" class="field slim">
+              <option value="off">Off, he behaves</option>
+              <option value="cheeky">Cheeky (now and then)</option>
+              <option value="gremlin">Gremlin (every few minutes)</option>
+            </select>
+          </label>
+        </div>
+        <fieldset class="mischief-pranks" id="mischiefPranks" hidden>
+          <legend class="small muted">What he gets up to</legend>
+          <label class="toggle"><input type="checkbox" data-prank="pinch"><span class="switch"></span>Pinch the cursor for half a second when it hangs about near him</label>
+          <label class="toggle"><input type="checkbox" data-prank="nudge"><span class="switch"></span>Give the window he's sitting on a shove (only when you're not using it)</label>
+          <label class="toggle"><input type="checkbox" data-prank="tracks"><span class="switch"></span>Leave sandy footprints where he walks</label>
+          <label class="toggle"><input type="checkbox" data-prank="notes"><span class="switch"></span>Drag little notes onto your desktop (click one to throw it away)</label>
+        </fieldset>
+        <p class="small muted" id="mischiefNote" hidden>Right-click him for <b>Do something cheeky</b> to see it now, or <b>Behave for an hour</b> when you need him to.</p>
+      </details>
+
+      <details class="setting-group setting-fold" id="musicGroup" data-nav="Music" data-fold-on="npBody">
+        <summary><h3>Listening along</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Shellby notices what's playing on this PC — Spotify, a browser tab, anything that shows up in the volume flyout — and puts his headphones on. Read from Windows itself: no account, and nothing leaves the PC.</p>
+        <label class="toggle"><input type="checkbox" id="npEnabled"><span class="switch"></span>Notice what I'm listening to</label>
+        <div class="np-body" id="npBody" hidden>
+          <label class="toggle"><input type="checkbox" id="npHeadphones"><span class="switch"></span>Put his headphones on while it plays</label>
+          <label class="toggle"><input type="checkbox" id="npRemarks"><span class="switch"></span>Let him remark on it now and then</label>
+          <p class="small ext-status" id="npStatus"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="typingGroup" data-nav="Typing along" data-fold-on="typingBody">
+        <summary><h3>Typing along</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">While you type, in any app, he taps along on a little keyboard, bobs to keep up when you're quick, and watches a long fast burst with stars in his eyes. He hears <em>that</em> a key was pressed, never which one, and none of it leaves the PC.</p>
+        <label class="toggle"><input type="checkbox" id="typingEnabled"><span class="switch"></span>Tap along while I type</label>
+        <div id="typingBody" hidden>
+          <label class="toggle"><input type="checkbox" id="typingRemarks"><span class="switch"></span>Tell me how fast a burst was</label>
+          <p class="small ext-status" id="typingStatus"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="weatherGroup" data-nav="Weather" data-fold-on="weatherBody">
+        <summary><h3>The weather outside</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Pick your town and he dresses for the real weather: a sou'wester and umbrella in the rain, a bobble hat in the snow, shades on a hot afternoon. Every 30 minutes Shellby asks <a data-href="https://open-meteo.com" href="#">Open-Meteo</a> (free, no account) about your town's rough position, to within about 11 km. It also tells him which half of the world you're in, so spring comes when yours does.</p>
+        <label class="toggle"><input type="checkbox" id="weatherEnabled"><span class="switch"></span>Dress him for the weather</label>
+        <div id="weatherBody" hidden>
+          <form class="row wrap" id="weatherSearch">
+            <input type="search" class="field" id="weatherQuery" placeholder="Your town" aria-label="Your town" maxlength="80" autocomplete="off" spellcheck="false">
+            <button type="submit" class="btn slim-btn" id="weatherFind">Find</button>
+          </form>
+          <div class="row wrap" id="weatherPlaces" role="group" aria-label="Towns found" hidden></div>
+          <label class="toggle"><input type="checkbox" id="weatherRemarks"><span class="switch"></span>Let him say so when the weather turns</label>
+          <p class="small ext-status" id="weatherStatus" aria-live="polite"></p>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="rgbGroup" data-nav="Desk lighting" data-fold-on="rgbBody">
+        <summary><h3>Desk lighting</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Put his mood on your keyboard and fans through <a data-href="https://openrgb.org" href="#">OpenRGB</a>: coral while he works, amber when he needs you, red when a build goes red or something overheats. Shellby can install it for you and starts it in the tray whenever the lighting is on.</p>
+        <label class="toggle"><input type="checkbox" id="rgbEnabled"><span class="switch"></span>Follow his mood with my lighting</label>
+        <div class="rgb-body" id="rgbBody" hidden>
+          <div class="row wrap">
+            <button type="button" class="btn slim-btn" id="rgbInstall" hidden>Install OpenRGB for me</button>
+            <button type="button" class="btn slim-btn" id="rgbTest">Find my devices</button>
+            <p class="small ext-status" id="rgbStatus"></p>
+          </div>
+          <ul class="ext-sessions" id="rgbList"></ul>
+        </div>
+      </details>
+
+      <details class="setting-group setting-fold" id="obsGroup" data-nav="On a stream" data-fold-on="obsBody">
+        <summary><h3>On a stream</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Serve Shellby as a browser source, on a transparent background, so he can sit in the corner of a stream and react while you work. It's the same crab, in the same outfit, on 127.0.0.1 only.</p>
+        <label class="toggle"><input type="checkbox" id="obsEnabled"><span class="switch"></span>Serve the overlay</label>
+        <div class="obs-body" id="obsBody" hidden>
+          <div class="cmd-row"><code id="obsUrl">—</code><button type="button" class="btn ghost slim-btn" data-copy="obsUrl">Copy</button></div>
+          <p class="small muted">In OBS: <b>+</b> → <b>Browser</b>, paste that URL, and tick <b>Shutdown source when not visible</b>.</p>
+          <p class="small ext-status" id="obsStatus"></p>
+        </div>
+      </details>
+      </div>
+
+    <div class="settings-panel" role="tabpanel" id="setPanel-claude" data-tab="claude" aria-labelledby="setTab-claude" hidden>
+      <section class="setting-group" id="claudeModeGroup" data-nav="Claude Code">
+        <h3>Claude Code</h3>
+        <p class="small" id="claudeModeText"></p>
+        <div class="row wrap">
+          <button type="button" class="btn" id="claudeModeBtn"></button>
+        </div>
+        <div class="gh-account" id="claudeAccount" hidden>
+          <div class="gh-who"><b id="claudeWho"></b><span class="small muted" id="claudePlan"></span></div>
+          <button type="button" class="btn ghost slim-btn" id="claudeSwitch" title="Sign out, then sign in with a different Claude account">Switch account</button>
+          <button type="button" class="btn ghost slim-btn" id="claudeSignOut">Sign out</button>
+          <button type="button" class="btn primary slim-btn" id="claudeSignIn" hidden>Sign in</button>
+        </div>
+        <div class="update-head claude-update-hint" id="claudeUpdateHint" hidden>
+          <p class="small ext-status"><b id="claudeUpdateHintText"></b> <button type="button" class="link-btn inline" id="claudeUpdateHintMore">Update options</button></p>
+          <button type="button" class="btn primary slim-btn" id="claudeUpdateHintBtn">Update</button>
+        </div>
+        <div class="billing-guard" id="billingGuard" data-state="off">
+          <div class="billing-guard-head">
+            <span class="billing-guard-icon" aria-hidden="true"></span>
+            <b id="billingGuardTitle">Billing</b>
+            <span class="billing-guard-pill" id="billingGuardPill"></span>
+          </div>
+          <label class="toggle"><input type="checkbox" id="planOnlyToggle" aria-describedby="billingGuardText billingEnvNote"><span class="switch"></span>Always use my Claude plan</label>
+          <p class="small" id="billingGuardText">If an API key or another provider (Bedrock, Vertex, Foundry) is set on this PC, Claude Code bills that, per token, instead of your Pro or Max plan. Turn this on and Shellby leaves them out, so every conversation runs on your plan. Applies to new conversations.</p>
+          <p class="small" id="billingEnvNote" hidden></p>
+        </div>
+        <label class="toggle"><input type="checkbox" id="selfAwareToggle"><span class="switch"></span>Tell Claude it's running in Shellby</label>
+        <label class="toggle"><input type="checkbox" id="suggestToggle"><span class="switch"></span>Let Claude offer Shellby features</label>
+        <p class="small muted">Claude gets a short note about Shellby and can make him talk, celebrate or dress up. The note never changes, so Claude Code caches it and it costs very little of your plan. When your usage passes 80%, Claude is told so it can keep things lean. Offers show up as cards and nothing happens unless you tap them. Changes apply to new conversations.</p>
+        <div class="row wrap" id="mutedSuggestRow" hidden>
+          <span class="small muted" id="mutedSuggestText"></span>
+          <button type="button" class="btn slim-btn" id="unmuteSuggestBtn">Offer them again</button>
+        </div>
+      </section>
+
+      <section class="setting-group" data-nav="Mode">
+        <h3>How much can Shellby do?</h3>
+        <div class="mode-cards" id="modeCards"></div>
+        <div class="danger-confirm" id="autonomousConfirm" hidden>
+          <p><b>Autonomous mode skips every permission check.</b> Shellby and its helper agents can edit, run or delete anything your Windows account can, without asking. That includes running scripts it writes for itself. Use it only for tasks you'd trust to an unsupervised script.</p>
+          <div class="row">
+            <button type="button" class="btn danger" id="autonomousYes">I understand, enable it</button>
+            <button type="button" class="btn ghost" id="autonomousNo">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="setting-group" data-nav="Model">
+        <h3>Model</h3>
         <div class="row">
-          <button type="button" class="btn danger" id="autonomousYes">I understand, enable it</button>
-          <button type="button" class="btn ghost" id="autonomousNo">Cancel</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="setting-group" data-nav="Folder">
-      <h3>Working folder</h3>
-      <div class="row"><code class="path" id="settingsFolder">~</code><button type="button" class="btn" id="changeFolderBtn">Change…</button></div>
-      <p class="muted small">New conversations start here and load any CLAUDE.md they find.</p>
-    </section>
-
-    <section class="setting-group" data-nav="Look">
-      <h3>Look</h3>
-      <div class="skins" id="skinGrid"></div>
-      <div class="row wrap">
-        <label class="inline-label">Size
-          <select id="scaleSelect" class="field slim">
-            <option value="0.75">Small</option><option value="1">Medium</option>
-            <option value="1.5">Large</option><option value="2">Huge</option>
+          <label class="inline-label" for="modelSelect">Model</label>
+          <select id="modelSelect" class="field slim">
+            <option value="">Claude Code default</option>
           </select>
-        </label>
-        <button type="button" class="btn ghost" id="resetPosBtn">Find Shellby</button>
-        <button type="button" class="btn ghost" id="openSkinsBtn">Open skins folder</button>
-        <button type="button" class="btn ghost" id="reloadSkinsBtn">Reload</button>
-      </div>
-      <label class="toggle"><input type="checkbox" id="wanderToggle"><span class="switch"></span>Let him stroll around a little when he's idle</label>
-      <div class="row wrap">
-        <label class="inline-label" for="chatterSelect">Personality
-          <select id="chatterSelect" class="field slim">
-            <option value="quiet">Quiet</option>
-            <option value="normal">Normal</option>
-            <option value="chatty">Chatty</option>
+        </div>
+        <p class="muted small">Applies to new conversations.</p>
+        <div class="row">
+          <label class="inline-label" for="styleSelect">Output style</label>
+          <select id="styleSelect" class="field slim">
+            <option value="">Default</option>
           </select>
-        </label>
-        <label class="toggle"><input type="checkbox" id="soundsToggle"><span class="switch"></span>Chirp when he speaks</label>
-      </div>
-      <p class="small muted" id="chatterNote">Quiet keeps him to a single mark in his bubble. Normal lets him say a few words about what he's up to; Chatty lets him mutter to himself as well. He always keeps quiet while he's guarding your focus.</p>
-      <p class="small muted">Rub the mouse back and forth over him to pet him. Flick him while dragging and he goes flying.</p>
-    </section>
-
-    <section class="setting-group" data-nav="Shortcut">
-      <h3>Shortcut &amp; model</h3>
-      <div class="row">
-        <span class="inline-label">Open Shellby</span>
-        <button type="button" class="hotkey" id="hotkeyBtn" title="Click, then press a new shortcut">Ctrl+Alt+Space</button>
-      </div>
-      <p class="muted small" id="hotkeyMsg"></p>
-      <div class="row">
-        <label class="inline-label" for="modelSelect">Model</label>
-        <select id="modelSelect" class="field slim">
-          <option value="">Claude Code default</option>
-          <option value="opus">Opus</option><option value="sonnet">Sonnet</option><option value="haiku">Haiku</option>
-        </select>
-      </div>
-      <p class="muted small">Applies to new conversations.</p>
-    </section>
-
-    <section class="setting-group" id="editorGroup" data-nav="Editor">
-      <h3>Editor</h3>
-      <div class="row">
-        <label class="inline-label" for="editorSelect">Open files in</label>
-        <select id="editorSelect" class="field slim">
-          <option value="auto" data-label="Automatic">Automatic</option>
-          <option value="vscode" data-label="VS Code">VS Code</option>
-          <option value="cursor" data-label="Cursor">Cursor</option>
-          <option value="windsurf" data-label="Windsurf">Windsurf</option>
-          <option value="insiders" data-label="VS Code Insiders">VS Code Insiders</option>
-          <option value="system" data-label="Windows' default app">Windows' default app</option>
-        </select>
-      </div>
-      <p class="muted small" id="editorNote"></p>
-      <p class="muted small">In a conversation: <kbd>@</kbd> picks a file, <kbd>Ctrl</kbd>+<kbd>F</kbd> finds text, <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> zoom, and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> opens the palette too.</p>
-    </section>
-
-    <section class="setting-group" id="claudeModeGroup" data-nav="Claude Code">
-      <h3>Claude Code</h3>
-      <p class="small" id="claudeModeText"></p>
-      <div class="row wrap">
-        <button type="button" class="btn" id="claudeModeBtn"></button>
-      </div>
-    </section>
-
-    <section class="setting-group" id="externalGroup" data-nav="Everywhere">
-      <h3>Claude Code everywhere</h3>
-      <p class="small muted ext-lede">Shellby can react to Claude Code in your terminal or editor too: he works while Claude works, raises a claw when it needs permission, celebrates finished turns, and sends out helper crabs for subagents. That needs the Shellby plugin in Claude Code on this PC.</p>
-      <div class="sl-card" id="pluginCard">
-        <div class="sl-head">
-          <b>Shellby plugin</b>
-          <button type="button" class="btn primary slim-btn" id="pluginBtn">Install the plugin</button>
         </div>
-        <p class="small muted" id="pluginText">Checking…</p>
-      </div>
-      <p class="small muted ext-lede">Or add it yourself from inside Claude Code:</p>
-      <div class="cmd-row"><code id="cmdMarket">/plugin marketplace add x-salmon/shellby</code><button type="button" class="btn ghost slim-btn" data-copy="cmdMarket">Copy</button></div>
-      <div class="cmd-row"><code id="cmdInstall">/plugin install shellby@shellby</code><button type="button" class="btn ghost slim-btn" data-copy="cmdInstall">Copy</button></div>
-      <label class="toggle"><input type="checkbox" id="externalToggle"><span class="switch"></span>React to Claude Code sessions outside Shellby</label>
-      <p class="small ext-status" id="externalStatus"></p>
-      <ul class="ext-sessions" id="externalList"></ul>
-      <div class="bg-left" id="bgLeft" hidden>
-        <div class="bg-head">
-          <b>Left running</b>
-          <button type="button" class="btn ghost slim-btn" id="bgClear">I've checked</button>
-        </div>
-        <p class="small muted">Commands a turn put in the background. Shellby hears when they start, never when they stop, so these are worth a look rather than a promise.</p>
-        <ul class="bg-list" id="bgList"></ul>
-      </div>
-      <div class="sl-card" id="slCard">
-        <div class="sl-head">
-          <b>Status line</b>
-          <button type="button" class="btn slim-btn" id="slBtn">Add to Claude Code</button>
-        </div>
-        <p class="small muted" id="slText">Show Shellby's mood, level and XP under Claude Code's prompt, in the terminal and VS Code.</p>
-        <code class="sl-preview" id="slPreview"></code>
-      </div>
-      <div class="sl-card" id="cliCard">
-        <div class="sl-head">
-          <b>The <code>shellby</code> command</b>
-          <button type="button" class="btn slim-btn" id="cliBtn">Add to my PATH</button>
-        </div>
-        <p class="small muted" id="cliText">Hand Shellby a task from any terminal: <code>shellby do "tidy my Downloads"</code>. He asks before starting it, the same as always.</p>
-        <p class="small ext-status" id="cliStatus"></p>
-      </div>
-    </section>
+        <p class="muted small" id="styleNote">How Claude talks while it works. Applies to new conversations.</p>
+      </section>
 
+      <section class="setting-group" data-nav="Folder">
+        <h3>Working folder</h3>
+        <div class="row"><code class="path" id="settingsFolder">~</code><button type="button" class="btn" id="changeFolderBtn">Change…</button></div>
+        <p class="muted small">New conversations start here and load any CLAUDE.md they find.</p>
+        <label class="toggle"><input type="checkbox" id="worktreeToggle"><span class="switch"></span>Give a conversation its own copy of a git project when it starts changing things</label>
+        <p class="muted small">Tabs in the same repository stop stepping on each other. The first time a conversation changes a file, it moves into its own copy (a git worktree) on a new branch; your checkout stays as it is. <b>Bring it home</b>, on the branch chip above the chat, merges it back. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
+        <label class="toggle"><input type="checkbox" id="clashToggle"><span class="switch"></span>Warn me when two copies change the same file</label>
+        <p class="muted small">Two copies (or a copy and your own uncommitted work) that both change a file will clash when they come home. Shellby looks after each turn, marks both tabs with ⚠ and says so once, so you can sort it out early.</p>
+      </section>
 
-    <section class="setting-group" id="channelsGroup" data-nav="Elsewhere">
-      <h3>Tell me when I'm away</h3>
-      <p class="small muted ext-lede">Shellby can send a line to your phone when he needs permission, when a long task finishes, when your usage limit resets, or when something is overheating. One pasted address — no account, no app to install, and nothing goes through a server of ours.</p>
-      <label class="toggle"><input type="checkbox" id="chEnabled"><span class="switch"></span>Send me these when I'm not at the desk</label>
-      <div class="ch-body" id="chBody" hidden>
-        <label class="field"><span>Where</span>
-          <select id="chProvider"></select>
-        </label>
-        <p class="small muted" id="chHint"></p>
-        <label class="field"><span id="chTargetLabel">Topic</span>
-          <input type="text" id="chTarget" spellcheck="false" autocomplete="off">
-        </label>
-        <label class="field" id="chSecretField" hidden><span id="chSecretLabel">Token</span>
-          <input type="password" id="chSecret" spellcheck="false" autocomplete="off" placeholder="unchanged">
-        </label>
-        <p class="small muted">Which ones:</p>
-        <div class="ch-events" id="chEvents"></div>
-        <label class="toggle"><input type="checkbox" id="chWhileFocused"><span class="switch"></span>Send them even while he's guarding my focus</label>
+      <section class="setting-group" id="editorGroup" data-nav="Editor">
+        <h3>Editor</h3>
+        <div class="row">
+          <label class="inline-label" for="editorSelect">Open file links in</label>
+          <select id="editorSelect" class="field slim">
+            <option value="auto" data-label="Automatic">Automatic</option>
+            <option value="vscode" data-label="VS Code">VS Code</option>
+            <option value="cursor" data-label="Cursor">Cursor</option>
+            <option value="windsurf" data-label="Windsurf">Windsurf</option>
+            <option value="insiders" data-label="VS Code Insiders">VS Code Insiders</option>
+            <option value="system" data-label="Windows' default app">Windows' default app</option>
+          </select>
+        </div>
+        <p class="muted small" id="editorNote"></p>
+      </section>
+
+      <section class="setting-group" id="devServersGroup" data-nav="Dev servers">
+        <h3>Dev servers</h3>
+        <p class="muted small">The servers you start from the Projects page. Shellby watches each one and holds up a sign if it crashes.</p>
+        <p class="field-label" id="setOnQuitLabel">When Shellby quits</p>
+        <div class="pj-quit-choices" role="group" aria-labelledby="setOnQuitLabel">
+          <label class="pj-radio"><input type="radio" name="setOnQuit" value="keep"> Leave dev servers running</label>
+          <label class="pj-radio"><input type="radio" name="setOnQuit" value="stop"> Stop them</label>
+        </div>
+        <p class="muted small">Left running, they carry on after Shellby closes, and Shellby picks them back up, log and all, when it starts again.</p>
+        <label class="toggle"><input type="checkbox" id="srvCrabToggle"><span class="switch"></span>Show running servers on the crab (":5173")</label>
+        <label class="toggle"><input type="checkbox" id="srvSignToggle"><span class="switch"></span>Hold up a sign when one crashes</label>
+        <label class="toggle"><input type="checkbox" id="srvToastToggle"><span class="switch"></span>Notify me when one crashes</label>
+      </section>
+
+      <section class="setting-group" id="externalGroup" data-nav="Everywhere">
+        <h3>Claude Code everywhere</h3>
+        <p class="small muted ext-lede">Shellby can react to Claude Code in your terminal or editor too: he works while Claude works, raises a claw when it needs permission, celebrates finished turns, and sends out helper crabs for subagents. That needs the Shellby plugin in Claude Code on this PC.</p>
+        <div class="sl-card" id="pluginCard">
+          <div class="sl-head">
+            <b>Shellby plugin</b>
+            <button type="button" class="btn primary slim-btn" id="pluginBtn">Install the plugin</button>
+          </div>
+          <p class="small muted" id="pluginText">Checking…</p>
+        </div>
+        <p class="small muted ext-lede">Or add it yourself from inside Claude Code:</p>
+        <div class="cmd-row"><code id="cmdMarket">/plugin marketplace add x-salmon/shellby</code><button type="button" class="btn ghost slim-btn" data-copy="cmdMarket">Copy</button></div>
+        <div class="cmd-row"><code id="cmdInstall">/plugin install shellby@shellby</code><button type="button" class="btn ghost slim-btn" data-copy="cmdInstall">Copy</button></div>
+        <label class="toggle"><input type="checkbox" id="externalToggle"><span class="switch"></span>React to Claude Code sessions outside Shellby</label>
+        <p class="small ext-status" id="externalStatus"></p>
+        <ul class="ext-sessions" id="externalList"></ul>
+        <div class="bg-left" id="bgLeft" hidden>
+          <div class="bg-head">
+            <b>Left running</b>
+            <button type="button" class="btn ghost slim-btn" id="bgClear">I've checked</button>
+          </div>
+          <p class="small muted">Commands a turn put in the background. Shellby hears when they start, never when they stop, so these are worth a look rather than a promise.</p>
+          <ul class="bg-list" id="bgList"></ul>
+        </div>
+        <div class="sl-card" id="slCard">
+          <div class="sl-head">
+            <b>Status line</b>
+            <button type="button" class="btn slim-btn" id="slBtn">Add to Claude Code</button>
+          </div>
+          <p class="small muted" id="slText">Show Shellby's mood, level and XP under Claude Code's prompt, in the terminal and VS Code.</p>
+          <code class="sl-preview" id="slPreview"></code>
+        </div>
+        <div class="sl-card" id="cliCard">
+          <div class="sl-head">
+            <b>The <code>shellby</code> command</b>
+            <button type="button" class="btn slim-btn" id="cliBtn">Add to my PATH</button>
+          </div>
+          <p class="small muted" id="cliText">Hand Shellby a task from any terminal: <code>shellby do "tidy my Downloads"</code>. He asks before starting it, the same as always.</p>
+          <p class="small ext-status" id="cliStatus"></p>
+        </div>
+      </section>
+      </div>
+
+    <div class="settings-panel" role="tabpanel" id="setPanel-connect" data-tab="connect" aria-labelledby="setTab-connect" hidden>
+      <section class="setting-group" id="channelsGroup" data-nav="Elsewhere">
+        <h3>Tell me when I'm away</h3>
+        <p class="small muted ext-lede">Shellby can send a line to your phone when he needs permission, when a long task finishes, when your usage limit resets, or when something is overheating. Usually it's one scan of a QR code: no account, and nothing goes through a server of ours.</p>
+        <label class="toggle"><input type="checkbox" id="chEnabled"><span class="switch"></span>Send me these when I'm not at the desk</label>
+        <div class="ch-body" id="chBody" hidden>
+          <label class="field-label"><span>Where</span>
+            <select class="field" id="chProvider"></select>
+          </label>
+          <p class="small muted" id="chHint"></p>
+          <div class="ch-qr" id="chQr" hidden>
+            <canvas id="chQrCanvas" role="img" aria-label="QR code that subscribes your phone to Shellby's topic"></canvas>
+            <ol class="small">
+              <li>Install <b>ntfy</b> on your phone (free, Android or iPhone).</li>
+              <li>Point your camera at the code and open the link, or add the topic in the app by hand.</li>
+              <li>Press <b>Send a test</b> below.</li>
+            </ol>
+          </div>
+          <label class="field-label"><span id="chTargetLabel">Topic</span>
+            <input type="text" class="field" id="chTarget" spellcheck="false" autocomplete="off">
+          </label>
+          <div class="row wrap" id="chFindRow" hidden>
+            <button type="button" class="btn ghost slim-btn" id="chFind">Find my chat</button>
+            <p class="small ext-status" id="chFindStatus"></p>
+          </div>
+          <label class="field-label" id="chSecretField" hidden><span id="chSecretLabel">Token</span>
+            <input type="password" class="field" id="chSecret" spellcheck="false" autocomplete="off" placeholder="unchanged">
+          </label>
+          <p class="small muted">Which ones:</p>
+          <div class="ch-events" id="chEvents"></div>
+          <label class="toggle"><input type="checkbox" id="chWhileFocused"><span class="switch"></span>Send them even while he's guarding my focus</label>
+          <div id="chRepliesRow" hidden>
+            <label class="toggle"><input type="checkbox" id="chReplies"><span class="switch"></span>Let me answer Allow or Deny from my phone</label>
+            <p class="small muted ext-status" id="chRepliesHint"></p>
+          </div>
+          <div id="ptRow" hidden>
+            <label class="toggle"><input type="checkbox" id="ptEnabled"><span class="switch"></span>Let my phone start tasks</label>
+            <p class="small muted ext-status" id="ptHint"></p>
+            <div class="row wrap">
+              <span class="small">Phone tasks go to</span>
+              <code class="path" id="ptFolder">nowhere yet</code>
+              <button type="button" class="btn ghost slim-btn" id="ptFolderBtn">Choose…</button>
+            </div>
+            <div id="ptNtfy" hidden>
+              <p class="small">Post tasks to <code id="ptTopic"></code>, starting with your passphrase and a space.</p>
+              <div class="row wrap" id="ptPassBox" hidden>
+                <code id="ptPass"></code>
+                <button type="button" class="btn ghost slim-btn" id="ptCopyPass">Copy</button>
+                <p class="small warn">Shown once: keep it somewhere safe on your phone.</p>
+              </div>
+              <button type="button" class="btn ghost slim-btn" id="ptNewPass">New passphrase</button>
+            </div>
+            <p class="small ext-status" id="ptStatus"></p>
+          </div>
+          <div class="row wrap">
+            <button type="button" class="btn slim-btn" id="chTest">Send a test</button>
+            <p class="small ext-status" id="chStatus"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="setting-group" id="githubGroup" data-nav="GitHub">
+        <h3>GitHub</h3>
+        <div class="gh-account" id="ghAccount" hidden>
+          <img class="gh-avatar" id="ghAvatar" alt="" width="40" height="40" hidden>
+          <div class="gh-who"><b id="ghName"></b><span class="small muted" id="ghLogin"></span></div>
+          <button type="button" class="btn ghost slim-btn" id="ghSignOut">Sign out</button>
+        </div>
+        <p class="small muted ext-lede" id="ghLede">Sync your progress between PCs, watch CI on your pull requests and let Claude tasks push code. Shellby shows a short code and you approve it on github.com; no password is ever typed into Shellby. Tick what you want below and one sign-in asks for all of it.</p>
+        <p class="small ext-status bad" id="ghNoCrypto" hidden>Windows can't encrypt a sign-in on this PC, so GitHub sign-in is unavailable.</p>
+        <p class="small ext-status bad" id="ghAuthLost" hidden>GitHub turned down Shellby's sign-in (it expired, or was revoked on github.com). Sign in again to carry on where you left off.</p>
+        <button type="button" class="btn primary gh-signin" id="ghSignIn">Sign in with GitHub</button>
+        <div class="gh-code" id="ghCode" hidden>
+          <p class="small">Enter this code on github.com/login/device:</p>
+          <code class="gh-code-text" id="ghCodeText"></code>
+          <div class="gh-code-actions">
+            <button type="button" class="btn primary slim-btn" id="ghOpenCode">Copy code and open GitHub</button>
+            <button type="button" class="btn ghost slim-btn" id="ghCancel">Cancel</button>
+          </div>
+          <p class="small muted gh-wait"><span class="gh-dot"></span>Waiting for you to approve it on GitHub…</p>
+        </div>
+        <label class="toggle"><input type="checkbox" id="ghSync"><span class="switch"></span>Sync trophies, XP, outfit, streak, friends and settings between PCs (a private gist)</label>
+        <div class="gh-sync" id="ghSyncRow" hidden>
+          <p class="small ext-status" id="ghSyncStatus"></p>
+          <button type="button" class="btn ghost slim-btn" id="ghSyncNow">Sync now</button>
+        </div>
+        <h4 class="gh-sub">Show off your crab</h4>
+        <label class="toggle"><input type="checkbox" id="ghFriends"><span class="switch"></span>Visiting crabs: friends' crabs drop by, wave and leave souvenirs (a public gist)</label>
+        <div class="gh-friends" id="ghFriendsRow" hidden>
+          <div class="gh-ci-head"><p class="small ext-status" id="frStatus"></p><button type="button" class="btn ghost slim-btn" id="frRefresh">Check now</button></div>
+          <form class="fr-add" id="frAddForm">
+            <input type="text" class="field" id="frAddInput" placeholder="Friend's GitHub username" aria-label="Friend's GitHub username" spellcheck="false" autocomplete="off" maxlength="60">
+            <button type="submit" class="btn slim-btn" id="frAdd">Add friend</button>
+          </form>
+          <ul class="fr-list" id="frList" aria-label="Friends"></ul>
+          <h4 class="fr-head" id="frInboxHead" hidden>Waves</h4>
+          <ul class="fr-inbox" id="frInbox"></ul>
+          <h4 class="fr-head">Guestbook</h4>
+          <div class="fr-souvenirs" id="frSouvenirs" aria-label="Souvenirs"></div>
+          <ul class="fr-guestbook" id="frGuestbook"></ul>
+        </div>
+        <label class="toggle"><input type="checkbox" id="ghProfileCard"><span class="switch"></span>Profile card: your crab, level, streak and latest stickers on your GitHub profile (a public gist)</label>
+        <div class="gh-profile-card" id="ghProfileCardRow" hidden>
+          <img class="pc-preview" id="pcPreview" alt="Preview of your profile card" width="480" height="200">
+          <div class="gh-ci-head"><p class="small ext-status" id="pcStatus"></p><button type="button" class="btn ghost slim-btn" id="pcPublish">Update now</button></div>
+          <section class="pc-setup" id="pcSteps" aria-labelledby="pcSetupTitle" hidden>
+            <div class="pc-setup-head">
+              <h4 id="pcSetupTitle">Put him on your profile</h4>
+              <span class="pc-count" id="pcSetupCount" aria-live="polite"></span>
+              <button type="button" class="btn ghost slim-btn" id="pcCheck">Check again</button>
+            </div>
+            <p class="small pc-setup-note" id="pcSetupNote" hidden></p>
+            <ol class="pc-steps">
+              <li class="pc-step" data-step="repo">
+                <span class="pc-tick" aria-hidden="true">1</span>
+                <div class="pc-step-body">
+                  <b>Create your profile repository</b>
+                  <p class="small" id="pcRepoText">A public repository with the same name as your username. GitHub shows its README at the top of your profile.</p>
+                  <div class="pc-step-actions"><button type="button" class="btn slim-btn" id="pcRepoGo">Create it on GitHub</button></div>
+                </div>
+              </li>
+              <li class="pc-step" data-step="action">
+                <span class="pc-tick" aria-hidden="true">2</span>
+                <div class="pc-step-body">
+                  <b>Add the card Action</b>
+                  <p class="small">GitHub opens with the file already filled in. Press <b>Commit changes</b>.</p>
+                  <div class="pc-step-actions"><button type="button" class="btn slim-btn" id="pcActionGo">Add it on GitHub</button><button type="button" class="link-btn inline" id="pcCopyWorkflow">or copy the file</button></div>
+                </div>
+              </li>
+              <li class="pc-step" data-step="card">
+                <span class="pc-tick" aria-hidden="true">3</span>
+                <div class="pc-step-body">
+                  <b>Run it once</b>
+                  <p class="small">Press <b>Run workflow</b>. It copies your crab into the repository, then checks for a new one every six hours.</p>
+                  <div class="pc-step-actions"><button type="button" class="btn slim-btn" id="pcRunGo">Open Actions</button></div>
+                </div>
+              </li>
+              <li class="pc-step" data-step="readme">
+                <span class="pc-tick" aria-hidden="true">4</span>
+                <div class="pc-step-body">
+                  <b>Show him in your README</b>
+                  <p class="small" id="pcReadmeText">Shellby copies the line for you. Paste it where you want the crab, then commit.</p>
+                  <div class="pc-step-actions"><button type="button" class="btn slim-btn" id="pcReadmeGo">Copy line and open README</button></div>
+                </div>
+              </li>
+            </ol>
+            <div class="pc-done" id="pcDone" hidden>
+              <p class="small"><b>He's on your profile.</b> From now on he updates by himself.</p>
+              <button type="button" class="btn ghost slim-btn" id="pcProfileGo">See your profile</button>
+            </div>
+          </section>
+        </div>
+        <label class="toggle"><input type="checkbox" id="ghPrBadge"><span class="switch"></span>Built with Shellby: your crab and a link at the bottom of pull requests your tabs open (his picture lives in a public repo)</label>
+        <div class="gh-pr-badge" id="ghPrBadgeRow" hidden>
+          <img class="pb-preview" id="pbPreview" alt="Your crab as he'll appear on pull requests" width="72" height="48">
+          <div class="gh-ci-head"><p class="small ext-status" id="pbStatus"></p><button type="button" class="btn ghost slim-btn" id="pbOpenRepo">Open his repo</button></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="ghPublish"><span class="switch"></span>Publish my Wardrobe packs to the community gallery</label>
+        <h4 class="gh-sub">Work with your code</h4>
+        <label class="toggle"><input type="checkbox" id="ghCi"><span class="switch"></span>Watch CI on my pull requests: he worries when a build goes red and dances when it's fixed</label>
+        <div class="gh-ci" id="ghCiRow" hidden>
+          <div class="gh-ci-head"><p class="small ext-status" id="ghCiStatus"></p><button type="button" class="btn ghost slim-btn" id="ghCiCheck">Check now</button></div>
+          <ul class="gh-ci-list" id="ghCiList"></ul>
+        </div>
+        <label class="toggle"><input type="checkbox" id="ghIssues"><span class="switch"></span>Offer to take on issues assigned to me or labelled <code>shellby</code> (needs an Issue workflow, like the Issue helper template on Automate)</label>
+        <label class="toggle"><input type="checkbox" id="ghProjects"><span class="switch"></span>Show my repositories on the Projects page (private ones also need "Let Claude tasks push")</label>
+        <label class="toggle"><input type="checkbox" id="ghClaude"><span class="switch"></span>Let Claude tasks push code and open pull requests</label>
+        <p class="small muted gh-note" id="ghClaudeNote"></p>
+        <label class="toggle"><input type="checkbox" id="ghWorkflows"><span class="switch"></span>…including changes to CI workflows</label>
+        <p class="small muted gh-note" id="ghWorkflowsNote"></p>
+      </section>
+      </div>
+
+    <div class="settings-panel" role="tabpanel" id="setPanel-general" data-tab="general" aria-labelledby="setTab-general" hidden>
+      <section class="setting-group" data-nav="System">
+        <h3>System</h3>
+        <label class="toggle"><input type="checkbox" id="loginToggle"><span class="switch"></span>Start with Windows</label>
+        <p class="muted small" id="loginNote" hidden>Available in the installed app.</p>
+        <label class="toggle"><input type="checkbox" id="notifyToggle"><span class="switch"></span>Notify me when a task finishes, needs approval, or Shellby learns a trick</label>
+        <label class="toggle"><input type="checkbox" id="recapToggle"><span class="switch"></span>When I'm back after an hour away, sum up what happened</label>
+        <p class="muted small">What finished, what failed, what's waiting on you, and roughly where your 5-hour usage window went.</p>
+      </section>
+
+      <section class="setting-group" id="limitGroup" data-nav="Usage limit">
+        <h3>Your 5-hour limit</h3>
+        <label class="toggle"><input type="checkbox" id="forecastToggle"><span class="switch"></span>Warn me when I'm on pace to hit my 5-hour limit before it resets</label>
+        <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
+        <label class="toggle"><input type="checkbox" id="spendGuardToggle"><span class="switch"></span>Stop routines and workflows before they use up my 5-hour limit</label>
+        <div class="row wrap" id="spendGuardOptions">
+          <label class="inline-label" for="spendReserveSelect">Keep for me
+            <select id="spendReserveSelect" class="field slim">
+              <option value="10">10%</option>
+              <option value="25">25%</option>
+              <option value="50">50%</option>
+            </select>
+          </label>
+          <label class="inline-label" for="spendMaxSelect">Stop a routine after
+            <select id="spendMaxSelect" class="field slim">
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="120">2 hours</option>
+              <option value="240">4 hours</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small">A routine due past that point waits for the reset; one already running stops, and its conversation is kept so you can carry on. Autonomous tabs stop too, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back.</p>
+        <label class="toggle"><input type="checkbox" id="holdBigToggle"><span class="switch"></span>Hold big tasks for the reset when I'm close to the limit</label>
+        <p class="muted small">Shellby learns what tasks like yours usually take. When a message would carry you past the line (the share you keep, or the limit with the guard off), it waits for the reset instead, with a "Send now" if you change your mind. It needs a few similar tasks to go on first, and it's all worked out on this PC.</p>
+      </section>
+
+      <section class="setting-group" id="safetyGroup" data-nav="Safety nets">
+        <h3>Safety nets</h3>
+        <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
+        <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
+        <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
+        <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
+        <label class="toggle"><input type="checkbox" id="catchBugsToggle"><span class="switch"></span>Catch bugs for the Bugdex</label>
+        <p class="muted small">When Claude fixes a failing command in Shellby's tabs, that kind of bug goes in a jar. Keeps only which kind it was and the project, never the error text.</p>
+        <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
+        <div class="row wrap" id="checkEachTurnOptions">
+          <label class="inline-label" for="checkTimeoutSelect">Give up after
+            <select id="checkTimeoutSelect" class="field slim">
+              <option value="2">2 minutes</option>
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="20">20 minutes</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small">This runs the project's own scripts on this PC: its test script, and a typecheck or build if it has one. He asks once per project before the first run, and keeps sign-in tokens and keys out of their environment. The verdict is stamped on the turn's changes. It also checks a copy before bringing it home, and won't merge red without asking. Off by default: tests use your CPU. "Run checks" on any turn works either way.</p>
+        <label class="toggle"><input type="checkbox" id="surprisesToggle"><span class="switch"></span>Small surprises for real wins: a critical hit, a clean landing</label>
+        <p class="muted small">Now and then, when one turn takes failing tests all the way to green, or a copy comes home with its checks green on the first try, he makes a little fuss. Rare on purpose, and only for the real thing: never for being quick, and never when tests were skipped or deleted to get there. Clean landings need the checks above.</p>
+        <label class="toggle"><input type="checkbox" id="turnShotsToggle"><span class="switch"></span>Before/after pictures of your dev server</label>
+        <p class="muted small">When a conversation works in a folder Shellby is running a dev server from, he photographs the page as the turn starts and again if it changed anything you'd see. Kept on this PC: the last 50 per conversation, for two weeks.</p>
+      </section>
+
+      <section class="setting-group" data-nav="Shortcut">
+        <h3>Shortcut</h3>
+        <div class="row">
+          <span class="inline-label">Open Shellby</span>
+          <button type="button" class="hotkey" id="hotkeyBtn" title="Click, then press a new shortcut">Ctrl+Alt+Space</button>
+        </div>
+        <p class="muted small" id="hotkeyMsg"></p>
+        <label class="toggle"><input type="checkbox" id="pushToTalkToggle"><span class="switch"></span>Hold it to dictate a task</label>
+        <p class="small muted" id="pushToTalkMsg">Tap the shortcut to open Shellby; hold it and say what you need. Windows' own speech recognition does the listening, on this PC. What you said waits in the box for you to send.</p>
+      </section>
+
+      <section class="setting-group about" data-nav="About">
+        <h3>About</h3>
+        <dl class="facts" id="facts"></dl>
+        <div class="update" id="updateRow" hidden>
+          <div class="update-head">
+            <p class="small ext-status" id="updateStatus"></p>
+            <button type="button" class="btn ghost slim-btn" id="updateBtn">Check for updates</button>
+          </div>
+          <div class="update-bar" id="updateBar" hidden><i></i></div>
+        </div>
+        <div class="update" id="claudeUpdateRow" hidden>
+          <div class="update-head">
+            <p class="small ext-status"><b id="claudeUpdateTitle"></b> <span class="muted" id="claudeUpdateNote"></span></p>
+            <button type="button" class="btn ghost slim-btn" id="claudeUpdateCheck">Check now</button>
+            <button type="button" class="btn primary slim-btn" id="claudeUpdateBtn" hidden>Update</button>
+          </div>
+          <label class="inline-label update-mode" for="claudeUpdateMode">When Claude Code has a new version
+            <select id="claudeUpdateMode" class="field slim">
+              <option value="tell">Tell me</option>
+              <option value="auto">Update it for me</option>
+              <option value="off">Leave it to me</option>
+            </select>
+          </label>
+        </div>
+        <div id="crashReportsRow" hidden>
+          <div class="row wrap">
+            <label class="inline-label" for="crashReportsSelect">Crash reports
+              <select id="crashReportsSelect" class="field slim">
+                <option value="ask">Ask me each time</option>
+                <option value="always">Always send</option>
+                <option value="never">Never send</option>
+              </select>
+            </label>
+          </div>
+          <p class="small muted">When Shellby crashes or closes unexpectedly, a report helps get it fixed. It has the error, versions and the log's last lines, with your home folder and anything token-shaped removed, and goes to Sentry. Nothing is sent without your say-so.</p>
+        </div>
         <div class="row wrap">
-          <button type="button" class="btn slim-btn" id="chTest">Send a test</button>
-          <p class="small ext-status" id="chStatus"></p>
+          <button type="button" class="btn ghost" id="githubBtn">GitHub</button>
+          <button type="button" class="btn ghost" id="dataBtn">Data folder</button>
         </div>
+        <p class="muted small">Shellby is an independent open-source project. It is not affiliated with or endorsed by Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic, PBC.</p>
+      </section>
       </div>
-    </section>
-
-    <section class="setting-group" id="obsGroup" data-nav="On a stream">
-      <h3>On a stream</h3>
-      <p class="small muted ext-lede">Serve Shellby as a browser source, on a transparent background, so he can sit in the corner of a stream and react while you work. It's the same crab, in the same outfit, on 127.0.0.1 only.</p>
-      <label class="toggle"><input type="checkbox" id="obsEnabled"><span class="switch"></span>Serve the overlay</label>
-      <div class="obs-body" id="obsBody" hidden>
-        <div class="cmd-row"><code id="obsUrl">—</code><button type="button" class="btn ghost slim-btn" data-copy="obsUrl">Copy</button></div>
-        <p class="small muted">In OBS: <b>+</b> → <b>Browser</b>, paste that URL, and tick <b>Shutdown source when not visible</b>.</p>
-        <p class="small ext-status" id="obsStatus"></p>
-      </div>
-    </section>
-
-    <section class="setting-group" id="rgbGroup" data-nav="Desk lighting">
-      <h3>Desk lighting</h3>
-      <p class="small muted ext-lede">Put his mood on your keyboard and fans through <a href="https://openrgb.org" target="_blank" rel="noreferrer">OpenRGB</a>: coral while he works, amber when he needs you, red when a build goes red or something overheats. OpenRGB has to be running with its SDK server on.</p>
-      <label class="toggle"><input type="checkbox" id="rgbEnabled"><span class="switch"></span>Follow his mood with my lighting</label>
-      <div class="rgb-body" id="rgbBody" hidden>
-        <div class="row wrap">
-          <button type="button" class="btn slim-btn" id="rgbTest">Find my devices</button>
-          <p class="small ext-status" id="rgbStatus"></p>
-        </div>
-        <ul class="ext-sessions" id="rgbList"></ul>
-      </div>
-    </section>
-
-    <section class="setting-group" id="musicGroup" data-nav="Music">
-      <h3>Listening along</h3>
-      <p class="small muted ext-lede">Shellby notices what's playing on this PC — Spotify, a browser tab, anything that shows up in the volume flyout — and puts his headphones on. Read from Windows itself: no account, and nothing leaves the PC.</p>
-      <label class="toggle"><input type="checkbox" id="npEnabled"><span class="switch"></span>Notice what I'm listening to</label>
-      <div class="np-body" id="npBody" hidden>
-        <label class="toggle"><input type="checkbox" id="npHeadphones"><span class="switch"></span>Put his headphones on while it plays</label>
-        <label class="toggle"><input type="checkbox" id="npRemarks"><span class="switch"></span>Let him remark on it now and then</label>
-        <p class="small ext-status" id="npStatus"></p>
-      </div>
-    </section>
-
-    <section class="setting-group" id="githubGroup" data-nav="GitHub">
-      <h3>GitHub</h3>
-      <div class="gh-account" id="ghAccount" hidden>
-        <img class="gh-avatar" id="ghAvatar" alt="" width="40" height="40" hidden>
-        <div class="gh-who"><b id="ghName"></b><span class="small muted" id="ghLogin"></span></div>
-        <button type="button" class="btn ghost slim-btn" id="ghSignOut">Sign out</button>
-      </div>
-      <p class="small muted ext-lede" id="ghLede">Sign in to sync your progress between PCs, have Shellby watch CI on your pull requests, publish Wardrobe packs to the gallery, and let Claude tasks push code. Shellby shows a short code and you approve it on github.com; no password is ever typed into Shellby.</p>
-      <label class="toggle"><input type="checkbox" id="ghSync"><span class="switch"></span>Sync trophies, XP, outfit and streak between PCs (a private gist)</label>
-      <div class="gh-sync" id="ghSyncRow" hidden>
-        <p class="small ext-status" id="ghSyncStatus"></p>
-        <button type="button" class="btn ghost slim-btn" id="ghSyncNow">Sync now</button>
-      </div>
-      <label class="toggle"><input type="checkbox" id="ghCi"><span class="switch"></span>Watch CI on my pull requests: he worries when a build goes red and dances when it's fixed</label>
-      <div class="gh-ci" id="ghCiRow" hidden>
-        <div class="gh-ci-head"><p class="small ext-status" id="ghCiStatus"></p><button type="button" class="btn ghost slim-btn" id="ghCiCheck">Check now</button></div>
-        <ul class="gh-ci-list" id="ghCiList"></ul>
-      </div>
-      <label class="toggle"><input type="checkbox" id="ghPublish"><span class="switch"></span>Publish my Wardrobe packs to the community gallery</label>
-      <label class="toggle"><input type="checkbox" id="ghClaude"><span class="switch"></span>Let Claude tasks push code and open pull requests</label>
-      <p class="small muted gh-note" id="ghClaudeNote"></p>
-      <label class="toggle"><input type="checkbox" id="ghWorkflows"><span class="switch"></span>…including changes to CI workflows</label>
-      <p class="small muted gh-note" id="ghWorkflowsNote"></p>
-      <p class="small ext-status bad" id="ghNoCrypto" hidden>Windows can't encrypt a sign-in on this PC, so GitHub sign-in is unavailable.</p>
-      <button type="button" class="btn primary" id="ghSignIn">Sign in with GitHub</button>
-      <div class="gh-code" id="ghCode" hidden>
-        <p class="small">Enter this code on github.com/login/device:</p>
-        <code class="gh-code-text" id="ghCodeText"></code>
-        <div class="gh-code-actions">
-          <button type="button" class="btn primary slim-btn" id="ghOpenCode">Copy code and open GitHub</button>
-          <button type="button" class="btn ghost slim-btn" id="ghCancel">Cancel</button>
-        </div>
-        <p class="small muted gh-wait"><span class="gh-dot"></span>Waiting for you to approve it on GitHub…</p>
-      </div>
-    </section>
-
-    <section class="setting-group" data-nav="System">
-      <h3>System</h3>
-      <label class="toggle"><input type="checkbox" id="loginToggle"><span class="switch"></span>Start with Windows</label>
-      <p class="muted small" id="loginNote" hidden>Available in the installed app.</p>
-      <label class="toggle"><input type="checkbox" id="notifyToggle"><span class="switch"></span>Notify me when a task finishes, needs approval, or Shellby learns a trick</label>
-    </section>
-
-    <section class="setting-group about" data-nav="About">
-      <h3>About</h3>
-      <dl class="facts" id="facts"></dl>
-      <div class="update" id="updateRow" hidden>
-        <div class="update-head">
-          <p class="small ext-status" id="updateStatus"></p>
-          <button type="button" class="btn ghost slim-btn" id="updateBtn">Check for updates</button>
-        </div>
-        <div class="update-bar" id="updateBar" hidden><i></i></div>
-      </div>
-      <div class="row wrap">
-        <button type="button" class="btn ghost" id="githubBtn">GitHub</button>
-        <button type="button" class="btn ghost" id="dataBtn">Data folder</button>
-      </div>
-      <p class="muted small">Shellby is an independent open-source project. It is not affiliated with or endorsed by Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic, PBC.</p>
-    </section>
   </main>
 
   <!-- ====================== ONBOARDING ====================== -->
@@ -742,6 +2032,11 @@
         <span class="path-icon" aria-hidden="true">⚡</span>
         <span class="path-title">Crab + Claude Code</span>
         <span class="path-sub">Everything above, plus give me tasks and I'll do them on your PC with helper crabs, using your Claude Pro or Max plan.</span>
+      </button>
+      <button type="button" class="path" data-path="work">
+        <span class="path-icon" aria-hidden="true">🛠️</span>
+        <span class="path-title">Work mode</span>
+        <span class="path-sub">The tools, and a quiet crab. Chat, Projects and the Toolbox come first, and I only speak up when something's done, broken or needs you. <b>Switch any time in Settings.</b></span>
       </button>
     </div>
     <div id="claudeSetup" hidden>
@@ -773,9 +2068,9 @@
       <span>Toolbox</span>
       <i class="dot-badge" id="toolboxBadge" hidden></i>
     </button>
-    <button type="button" class="dock-btn" data-view-btn="routines" aria-keyshortcuts="Control+4">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2M13.4 2.6v2.8h-2.8M8 5.2V8l2 1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>Routines</span>
+    <button type="button" class="dock-btn" data-view-btn="workflows" aria-keyshortcuts="Control+4">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.8L3.6 9h4l-1 5.2L12.4 7h-4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Automate</span>
     </button>
     <button type="button" class="dock-btn" data-view-btn="health" aria-keyshortcuts="Control+5">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8.6h2.8l1.6-4.4 3 7.8 1.8-5 1 1.6h2.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -786,9 +2081,19 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <span>History</span>
     </button>
-    <button type="button" class="dock-btn" data-view-btn="notes" aria-keyshortcuts="Control+7">
+    <button type="button" class="dock-btn" data-view-btn="projects" aria-keyshortcuts="Control+7">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.3c0-.6.5-1.1 1.1-1.1h3.2l1.4 1.6h5.2c.6 0 1.1.5 1.1 1.1v6.3c0 .6-.5 1.1-1.1 1.1H3.1c-.6 0-1.1-.5-1.1-1.1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <span>Projects</span>
+      <i class="dot-badge" id="projectsBadge" hidden></i>
+    </button>
+    <button type="button" class="dock-btn" data-view-btn="notes" aria-keyshortcuts="Control+8">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4zM10 2.5V5h2.5M6 8h4.5M6 10.5h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>Notes</span>
+    </button>
+    <!-- Someone new: the rooms still to open (rooms.js) -->
+    <button type="button" class="dock-btn dock-more" id="dockMore" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v9.6M3.2 8h9.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span id="dockMoreLabel">More</span>
     </button>
   </nav>
 
@@ -798,7 +2103,21 @@
       <input type="text" class="palette-input" id="paletteInput" placeholder="Jump to a screen, setting, skill or conversation…" autocomplete="off" spellcheck="false"
         role="combobox" aria-expanded="true" aria-controls="paletteList" aria-autocomplete="list">
       <ul class="palette-list" id="paletteList" role="listbox" aria-label="Results"></ul>
-      <p class="palette-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span><kbd>Enter</kbd> go</span><span><kbd>Esc</kbd> close</span></p>
+      <p class="palette-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span><kbd>Enter</kbd> go</span><span><kbd>Esc</kbd> close</span><span><kbd>Ctrl+/</kbd> every shortcut</span></p>
+    </div>
+  </div>
+
+  <!-- ====================== EVERY SHORTCUT (Ctrl+/ or ?) ====================== -->
+  <div class="card-sheet" id="shortcutsSheet" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle" hidden>
+    <div class="card-box keys-box">
+      <div class="card-head">
+        <h2 id="shortcutsTitle">Keyboard shortcuts</h2>
+        <button type="button" class="icon-btn" id="shortcutsClose" aria-label="Close" title="Close (Esc)">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="keys-list" id="shortcutsList" tabindex="0" role="region" aria-label="Every shortcut"></div>
+      <p class="keys-foot muted small">Or press <kbd>Ctrl+K</kbd> and type what you want to do.</p>
     </div>
   </div>
 
@@ -868,34 +2187,157 @@
     </div>
   </div>
 
-  <div class="toast" id="toast" role="status" hidden></div>
+  <!-- a red build or a review on your pull request: exactly what goes to Claude, before it goes (startfrom.js) -->
+  <div class="card-sheet" id="sfSheet" role="dialog" aria-modal="true" aria-labelledby="sfTitle" hidden>
+    <div class="card-box sf-box">
+      <div class="card-head">
+        <h2 id="sfTitle">Fix this build</h2>
+        <button type="button" class="icon-btn" id="sfClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="small sf-lede" id="sfLede" role="status"></p>
+      <pre class="pj-prompt sf-prompt" id="sfPrompt" tabindex="0" aria-label="What will be sent to Claude" hidden></pre>
+      <textarea class="field pj-note" id="sfNote" rows="2" maxlength="500" placeholder="Anything to add? (optional)" aria-label="A note for Claude" hidden></textarea>
+      <p class="muted small pj-where" id="sfWhere" hidden></p>
+      <section class="sf-risk" id="sfRisk" aria-labelledby="sfRiskTitle" hidden>
+        <p class="sf-risk-title" id="sfRiskTitle">Look at these before Claude works in it</p>
+        <div class="small" id="sfRiskBody"></div>
+        <label class="pj-check sf-risk-ack"><input type="checkbox" id="sfAck"><span>I've looked at these</span></label>
+      </section>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="sfGitHub">Open on GitHub</button>
+        <button type="button" class="btn ghost" id="sfCancel">Not now</button>
+        <button type="button" class="btn primary" id="sfSend" disabled>Send to Claude</button>
+      </div>
+    </div>
+  </div>
 
+  <div class="toast" id="toast" role="status"></div>
+  <p class="sr-only" id="announcer" role="status" aria-live="polite"></p>
+
+<script src="../shared/framecap.js"></script>
 <script src="../shared/sprite.js"></script>
 <script src="../shared/minishell.js"></script>
 <script src="../shared/markdown.js"></script>
 <script src="../shared/diff.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
+<script src="../shared/outlook-format.js"></script>
+<script src="../shared/time-format.js"></script>
+<script src="../shared/streaks-format.js"></script>
+<script src="shortcuts.js"></script>
 <script src="core.js"></script>
+<script src="a11y.js"></script>
 <script src="files.js"></script>
 <script src="find.js"></script>
+<script src="textmenu.js"></script>
+<script src="feed-logic.js"></script>
 <script src="feed.js"></script>
+<script src="feed-notes.js"></script>
+<script src="feed-asks.js"></script>
+<script src="feed-changes.js"></script>
+<script src="feed-lanes.js"></script>
+<script src="line-comments.js"></script>
+<script src="line-comments-ui.js"></script>
+<script src="turn-checks.js"></script>
+<script src="lessons.js"></script>
+<script src="tab-logic.js"></script>
 <script src="tabs.js"></script>
+<script src="tab-strip.js"></script>
+<script src="tab-send.js"></script>
+<script src="tab-queue.js"></script>
+<script src="slash-menu.js"></script>
+<script src="tab-chips.js"></script>
+<script src="tab-git.js"></script>
+<script src="tab-meters.js"></script>
+<script src="clash-text.js"></script>
+<script src="clashes.js"></script>
+<script src="tab-sort.js"></script>
+<script src="tab-overview.js"></script>
+<script src="review-queue.js"></script>
+<script src="review-view.js"></script>
+<script src="composer.js"></script>
+<script src="tries.js"></script>
+<script src="toolbox-setup.js"></script>
+<script src="toolbox-hooks.js"></script>
+<script src="lean.js"></script>
+<script src="toolbox-snippets.js"></script>
+<script src="toolbox-team.js"></script>
+<script src="toolbox-mods.js"></script>
 <script src="toolbox.js"></script>
 <script src="shop.js"></script>
+<script src="mcp-picker.js"></script>
 <script src="routines.js"></script>
+<script src="reset-queue.js"></script>
+<script src="depwatch.js"></script>
+<script src="wf-graph.js"></script>
+<script src="workflow-canvas.js"></script>
+<script src="wf-chat.js"></script>
+<script src="wf-kit.js"></script>
+<script src="wf-model.js"></script>
+<script src="wf-list.js"></script>
+<script src="wf-fields.js"></script>
+<script src="wf-steps.js"></script>
+<script src="wf-runs.js"></script>
+<script src="wf-save.js"></script>
+<script src="workflows.js"></script>
+<script src="settings-text.js"></script>
 <script src="notes.js"></script>
 <script src="settings.js"></script>
+<script src="settings-account.js"></script>
+<script src="settings-everywhere.js"></script>
+<script src="settings-channels.js"></script>
+<script src="settings-desk.js"></script>
+<script src="history.js"></script>
+<script src="onboarding.js"></script>
 <script src="wardrobe.js"></script>
+<script src="stickers.js"></script>
+<script src="crew.js"></script>
+<script src="together.js"></script>
+<script src="bugdex.js"></script>
+<script src="needs.js"></script>
+<script src="health-logic.js"></script>
 <script src="health.js"></script>
+<script src="health-gauges.js"></script>
+<script src="health-drives.js"></script>
+<script src="health-hogs.js"></script>
 <script src="card.js"></script>
+<script src="beach-paint.js"></script>
+<script src="beach.js"></script>
+<script src="tank-paint.js"></script>
+<script src="tank-gauges.js"></script>
+<script src="tank-life.js"></script>
+<script src="tank.js"></script>
+<script src="tank-layouts.js"></script>
+<script src="tank-tidy.js"></script>
 <script src="celebrate.js"></script>
+<script src="recap.js"></script>
+<script src="outlook.js"></script>
 <script src="crabonly.js"></script>
+<script src="rooms.js"></script>
+<script src="quests.js"></script>
+<script src="workmode.js"></script>
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>
+<script src="week-card.js"></script>
+<script src="time.js"></script>
 <script src="streaks.js"></script>
 <script src="focus.js"></script>
+<script src="startfrom.js"></script>
+<script src="backlog.js"></script>
+<script src="project-facts.js"></script>
+<script src="inbox.js"></script>
+<script src="releases.js"></script>
+<script src="project-report.js"></script>
+<script src="projects-logic.js"></script>
+<script src="projects.js"></script>
+<script src="projects-servers.js"></script>
+<script src="projects-add.js"></script>
+<script src="profile-card.js"></script>
+<script src="pr-badge.js"></script>
 <script src="github.js"></script>
+<script src="friends.js"></script>
 <script src="nav.js"></script>
 <script src="boot.js"></script>
 </body>

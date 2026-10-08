@@ -8,7 +8,7 @@ const { clampToDisplays, panelPosition } = require('../src/main/placement');
 const { validate, loadSkins, BUILTIN_DIR } = require('../src/main/skins');
 const { Config, CLI_MODE, MODES } = require('../src/main/config');
 const { History } = require('../src/main/history');
-const { subscriptionEnv, findClaude } = require('../src/main/claude-cli');
+const { claudeEnv, billingEnv, findClaude } = require('../src/main/claude-cli');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 
@@ -91,10 +91,19 @@ test('history refuses path-traversal ids', () => {
   assert.throws(() => h.file('..\\..\\evil'), /bad session id/);
 });
 
-// ---- billing safety
-test('subscriptionEnv strips every variable that would switch to API billing', () => {
-  const env = subscriptionEnv({ PATH: 'x', ANTHROPIC_API_KEY: 'sk', ANTHROPIC_AUTH_TOKEN: 't', ANTHROPIC_BASE_URL: 'u', CLAUDE_CODE_USE_BEDROCK: '1' });
-  assert.deepEqual(env, { PATH: 'x', SHELLBY_OWNED: '1' }); // the marker tells the plugin's hooks to skip our own sessions
+// ---- billing
+const BILLING = { ANTHROPIC_API_KEY: 'sk', ANTHROPIC_AUTH_TOKEN: 't', ANTHROPIC_BASE_URL: 'u', CLAUDE_CODE_USE_BEDROCK: '1' };
+test('claudeEnv leaves API keys and providers alone by default', () => {
+  const env = claudeEnv({ PATH: 'x', ...BILLING }, { onlyPlan: false });
+  assert.deepEqual(env, { PATH: 'x', ...BILLING, SHELLBY_OWNED: '1' }); // the marker tells the plugin's hooks to skip our own sessions
+});
+test('claudeEnv strips every variable that would switch to API billing when asked to use the plan', () => {
+  const env = claudeEnv({ PATH: 'x', ...BILLING }, { onlyPlan: true });
+  assert.deepEqual(env, { PATH: 'x', SHELLBY_OWNED: '1' });
+});
+test('billingEnv names only the billing variables that are actually set', () => {
+  assert.deepEqual(billingEnv({ PATH: 'x', ANTHROPIC_API_KEY: 'sk', CLAUDE_CODE_USE_VERTEX: '' }), ['ANTHROPIC_API_KEY']);
+  assert.deepEqual(billingEnv({ PATH: 'x' }), []);
 });
 test('findClaude honours SHELLBY_CLAUDE_PATH and returns null when missing', () => {
   const dir = tmp();

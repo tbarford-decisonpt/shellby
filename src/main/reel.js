@@ -27,7 +27,10 @@ async function run({ app, critter, panel, showPanel, send, setCrewSlots, wardrob
   fs.mkdirSync(dir, { recursive: true });
   const js = code => panel.webContents.executeJavaScript(code);
   const item = it => send(panel, 'tab:item', { tabId: TAB, item: it });
-  const mood = (state, crew = []) => send(critter, 'critter:state', { state, busy: state === 'working' ? 1 : 0, crew, moreCrew: 0 });
+  // His own lines from src/main/voice.js, so the reel shows him talking.
+  let line = null;
+  const say = text => { line = text ? { text, occasion: 'reel', until: Date.now() + 60e3 } : null; };
+  const mood = (state, crew = []) => send(critter, 'critter:state', { state, busy: state === 'working' ? 1 : 0, crew, moreCrew: 0, background: 0, say: line });
   const marks = [];
   let t0 = 0;
   const mark = caption => marks.push({ t: Date.now() - t0, caption });
@@ -85,6 +88,7 @@ async function run({ app, critter, panel, showPanel, send, setCrewSlots, wardrob
       const i = SB.$('input'); i.value = ''; i.dispatchEvent(new Event('input'));
       SB.syncBusyUi(); SB.renderTabStrip();
     })()`);
+    say('claws out');
     mood('working');
     await wait(900);
     item({ kind: 'text', text: "On it. I'll send one helper per folder so they run in parallel." });
@@ -100,6 +104,8 @@ async function run({ app, critter, panel, showPanel, send, setCrewSlots, wardrob
       mood('working', CREW.slice(0, n));
       await wait(420);
     }
+    say('all claws in');
+    mood('working', CREW);
     await js("SB.activeTab().setStatus('3 helpers working…')");
     await wait(500);
     const sub = [
@@ -113,6 +119,7 @@ async function run({ app, critter, panel, showPanel, send, setCrewSlots, wardrob
       { kind: 'task', phase: 'progress', taskId: 't3', toolUseId: 'a3', description: 'Found 14 old installers (3.1 GB)', usage: { tokens: 11200, toolUses: 3 } },
     ];
     for (const s of sub) { item(s); await wait(380); }
+    say(null);
     await wait(500);
 
     // Helpers finish one by one and walk home.
@@ -135,8 +142,10 @@ async function run({ app, critter, panel, showPanel, send, setCrewSlots, wardrob
     await wait(500);
     item({ kind: 'result', ok: true, durationMs: 41200, turns: 12 });
     await js('SB.renderTabStrip()'); // the real app gets this from the tab summary
+    say('nailed it');
     mood('success');
     await wait(1500);
+    say(null);
 
     // ---------------------------------------------------------------- 3. trophy
     mark('Finish tasks, earn outfits');

@@ -1,5 +1,7 @@
 // Turns Claude Code stream-json events into a small set of UI items.
 // Pure functions: no Electron, no I/O — see test/stream.test.js.
+
+const { clean } = require('./mods');
 const { editsOf } = require('../renderer/shared/diff');
 
 const MAX_RESULT_CHARS = 8000;
@@ -10,6 +12,13 @@ const TOOL_VERBS = {
   WebFetch: 'Fetched', WebSearch: 'Searched the web', Task: 'Delegated', Agent: 'Delegated',
   TodoWrite: 'Updated plan', ExitPlanMode: 'Proposed a plan', Skill: 'Used skill',
   AskUserQuestion: 'Asked you',
+};
+
+// The crab's own tools, as served to Shellby's conversations (crabmcp.js):
+// verb, and which input field is worth showing.
+const SHELLBY_TOOLS = {
+  say: ['Shellby said', 'text'], celebrate: ['Celebrated', 'reason'], wear: ['Dressed Shellby', 'item'],
+  status: ['Checked on Shellby', null], suggest: ['Suggested', 'feature'],
 };
 
 /**
@@ -39,6 +48,11 @@ function describeTool(name = '', input = {}) {
   if (name === 'AskUserQuestion') {
     const qs = questionsOf(i);
     return { label: TOOL_VERBS.AskUserQuestion, detail: qs.map(q => q.question).join(' · ').slice(0, 400) || 'a question' };
+  }
+  const own = /^mcp__shellby__(\w+)$/.exec(name);
+  if (own && SHELLBY_TOOLS[own[1]]) {
+    const [label, field] = SHELLBY_TOOLS[own[1]];
+    return { label, detail: field && typeof i[field] === 'string' ? i[field].replace(/\s+/g, ' ').trim().slice(0, 400) : '' };
   }
   let detail =
     i.command ?? i.file_path ?? i.notebook_path ??
@@ -70,6 +84,23 @@ function usageFrom(ev) {
   return { kind: 'usage', status: info.status || null, fiveHour: win(w.five_hour), sevenDay: win(w.seven_day) };
 }
 
+// A result's token counts for the whole turn, or null when it has none.
+function tokensOf(u) {
+  if (!u || typeof u !== 'object') return null;
+  const n = v => (Number.isFinite(v) && v > 0 ? v : 0);
+  const t = { input: n(u.input_tokens), output: n(u.output_tokens), cacheRead: n(u.cache_read_input_tokens), cacheWrite: n(u.cache_creation_input_tokens) };
+  return t.input + t.output + t.cacheRead + t.cacheWrite ? t : null;
+}
+
+// What one API call cost, for the usage-by-project ledger (spend.js). Claude Code
+// sends one assistant event per content block, each repeating the message's id
+// and usage, so callers count each id once (session.js).
+function spendFrom(ev) {
+  const m = ev?.type === 'assistant' ? ev.message : null;
+  if (!m || typeof m.id !== 'string' || !m.usage || typeof m.usage !== 'object') return null;
+  return { messageId: m.id, model: typeof m.model === 'string' ? m.model : null, usage: m.usage };
+}
+
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const AGENT_TOOLS = new Set(['Agent', 'Task']);
 
@@ -96,6 +127,8 @@ function toolItem(b, sub) {
   const input = b.input || {};
   const item = { kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, input), ...sub };
   if (b.name === 'ExitPlanMode') item.plan = input.plan;
+  // Its result only says it started: not a finished run (flaky.js).
+  if ((b.name === 'Bash' || b.name === 'PowerShell') && input.run_in_background === true) item.background = true;
   const fp = writtenPath(b.name, input);
   if (fp) { item.filePath = fp; item.writeChars = writeChars(b.name, input); item.edits = editsOf(b.name, input); }
   if (AGENT_TOOLS.has(b.name)) {
@@ -126,6 +159,29 @@ function taskItem(ev) {
   return item;
 }
 
+// What a mod shows (mods.js): $.ui.log is a line in the conversation, $.ui.toast
+// a toast, $.ui.status its line under the box (empty clears it). Claude Code
+// sends each with the plugin's name, which is shown with it, so a mod can't
+// pass its words off as Claude's or Shellby's.
+const MOD_UI = { ui_log: 'modlog', ui_toast: 'modtoast', ui_status: 'modstatus' };
+const MAX_MOD_TEXT = 500;
+const MAX_COMMANDS = 1000;
+// What the / menu can show as a command: no spaces, no line breaks, nothing that hides.
+const COMMAND_NAME = /^[\w:.-]{1,120}$/;
+// One line: no control, bidi-override or zero-width characters (mods.js).
+const oneLine = clean;
+
+function modItem(ev) {
+  const plugin = oneLine(ev.plugin, 80);
+  if (!plugin) return [];
+  const text = oneLine(ev.text, MAX_MOD_TEXT);
+  const kind = MOD_UI[ev.subtype];
+  if (kind === 'modstatus') return [{ kind, plugin, text: text || null }];
+  if (!text) return [];
+  if (kind === 'modtoast') return [{ kind, plugin, text, ms: Number.isFinite(ev.timeout_ms) ? Math.min(Math.max(ev.timeout_ms, 1500), 15000) : 4000 }];
+  return [{ kind, plugin, text }];
+}
+
 // Returns an array of UI items for one parsed stream-json event.
 function toItems(ev) {
   if (!ev || typeof ev !== 'object') return [];
@@ -144,6 +200,20 @@ function toItems(ev) {
         }];
       }
       if (/^task_(started|progress|updated|notification)$/.test(ev.subtype)) return [taskItem(ev)];
+      // /compact, or Claude Code doing it by itself when the window is nearly full.
+      if (ev.subtype === 'compact_boundary') {
+        const m = ev.compact_metadata || {};
+        return [{ kind: 'compacted', trigger: m.trigger === 'auto' ? 'auto' : 'manual', preTokens: Number.isFinite(m.pre_tokens) ? m.pre_tokens : null }];
+      }
+      if (MOD_UI[ev.subtype]) return modItem(ev);
+      // Every command the conversation has now, with what each one does: how a
+      // command a mod registers after the session started becomes known.
+      if (ev.subtype === 'commands_changed') {
+        const commands = (Array.isArray(ev.commands) ? ev.commands : []).slice(0, MAX_COMMANDS)
+          .filter(c => c && typeof c.name === 'string' && COMMAND_NAME.test(c.name))
+          .map(c => ({ name: c.name, description: oneLine(c.description, 300) }));
+        return [{ kind: 'commands', commands }];
+      }
       return [];
     case 'assistant': {
       const out = [];
@@ -155,16 +225,17 @@ function toItems(ev) {
       return out;
     }
     case 'user': {
-      // Our own message, echoed back (--replay-user-messages) with the id Claude
-      // Code's file checkpoints are keyed by: what "Rewind files" goes back to.
-      if (ev.isReplay && ev.uuid && !ev.parent_tool_use_id) return [{ kind: 'checkpoint', uuid: String(ev.uuid) }];
       const content = ev.message?.content;
       if (!Array.isArray(content)) return [];
       return content.filter(b => b.type === 'tool_result').map(b => {
+        const full = resultText(b.content);
         const item = {
           kind: 'tool_result', id: b.tool_use_id, isError: !!b.is_error,
-          text: truncate(resultText(b.content), MAX_RESULT_CHARS), ...sub,
+          text: truncate(full, MAX_RESULT_CHARS), ...sub,
         };
+        // Test runners print their failures last: main reads the end of a
+        // long result for the flaky test detective (flaky.js), then drops it.
+        if (full.length > MAX_RESULT_CHARS) item.tail = full.slice(-MAX_RESULT_CHARS);
         // Subagent results carry run stats alongside the text.
         const r = ev.tool_use_result;
         if (r && typeof r === 'object' && r.agentId) {
@@ -179,6 +250,9 @@ function toItems(ev) {
         durationMs: ev.duration_ms ?? null, turns: ev.num_turns ?? null,
         error: ev.is_error ? (ev.result || (ev.errors || []).join('\n') || null) : null,
         sessionId: ev.session_id || null,
+        // What the whole turn used, for the per-turn ledger (usage-ledger.js).
+        tokens: tokensOf(ev.usage),
+        costUsd: Number.isFinite(ev.total_cost_usd) ? ev.total_cost_usd : null,
       }];
     case 'rate_limit_event':
       return [usageFrom(ev)];
@@ -201,6 +275,20 @@ function toItems(ev) {
   }
 }
 
+// The events Shellby knows, including the ones it reads past on purpose. Anything
+// else is new from Claude Code: session.js logs it once, and the nightly CLI
+// check (cli-contract.js, scripts/cli-compat.js) flags it before a user meets it.
+const KNOWN = Object.freeze({
+  // control_response is read by session.js (answers to Shellby's own requests).
+  types: new Set(['system', 'assistant', 'user', 'result', 'rate_limit_event', 'control_request', 'control_response']),
+  // init, task_*, compact_boundary, a mod's ui_* and commands_changed become items; the rest is progress chatter.
+  system: new Set(['init', 'task_started', 'task_progress', 'task_updated', 'task_notification', 'compact_boundary',
+    'ui_log', 'ui_toast', 'ui_status', 'commands_changed',
+    'hook_started', 'hook_progress', 'hook_response', 'status', 'api_retry', 'thinking_tokens']),
+  // can_use_tool becomes a permission card; hook_callback is answered by session.js.
+  control: new Set(['can_use_tool', 'hook_callback']),
+});
+
 // Line-oriented parser: feed raw stdout lines, get items back.
 function parseLine(line) {
   const t = line.trim();
@@ -210,4 +298,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS };
+module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };

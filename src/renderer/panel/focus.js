@@ -1,4 +1,4 @@
-/* Shellby panel — focus sessions: the Focus card on Trophies & XP, and the
+/* Shellby panel — focus sessions: the Focus card on Time, and the
    Ctrl+K commands. Main owns the timer (src/main/focus.js); this only shows it. */
 'use strict';
 (function () {
@@ -19,7 +19,7 @@
     $('focusClock').hidden = !v.phase;
     clearInterval(ticker);
     if (v.phase) {
-      const tick = () => { $('focusClock').textContent = clock(v.endsAt - Date.now()); };
+      const tick = () => { if (!document.hidden) $('focusClock').textContent = clock(v.endsAt - Date.now()); };
       tick();
       ticker = setInterval(tick, 1000);
     }
@@ -49,7 +49,7 @@
   function apply(v) {
     if (!v) return;
     state.focus = v;
-    if (state.view === 'trophies') render();
+    if (state.view === 'time') render();
   }
 
   // Ctrl+K: start a session, or stop the one that's running.
@@ -60,7 +60,7 @@
   };
 
   api.onFocus(apply);
-  const renderTrophies = SB.views.trophies.render;
-  SB.views.trophies.render = () => { renderTrophies(); render(); };
+  const renderTime = SB.views.time.render;
+  SB.views.time.render = () => { renderTime(); render(); };
   api.getFocus().then(apply);
 })();

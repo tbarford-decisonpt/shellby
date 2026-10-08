@@ -1,6 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const voice = require('../src/main/voice');
+const fs = require('fs');
+const path = require('path');
 
 const T0 = new Date(2026, 9, 1, 12, 0, 0).getTime();
 const SECOND = 1000;
@@ -45,6 +47,19 @@ test("'quiet' never says anything at all", () => {
   }
 });
 
+test("'work' only speaks up about the work, and has no idle habits", () => {
+  for (const occasion of Object.keys(voice.OCCASIONS)) {
+    const r = voice.say(null, occasion, T0, { chatter: 'work', rand: first, force: true });
+    assert.equal(!!r, voice.WORK_OCCASIONS.has(occasion), occasion);
+  }
+  assert.equal(voice.say(null, 'memory', T0, { chatter: 'work', text: 'hi', force: true }), null);
+  assert.equal(voice.hasHabits('work'), false);
+  assert.equal(voice.hasHabits('quiet'), false);
+  assert.equal(voice.hasHabits('normal'), true);
+  assert.equal(voice.hasHabits('chatty'), true);
+  assert.equal(voice.hasHabits(undefined), true, 'unset is normal');
+});
+
 test('a line comes back with a ttl, and the state remembers it', () => {
   const r = voice.say(null, 'success', T0, { rand: first });
   assert.equal(r.occasion, 'success');
@@ -70,9 +85,33 @@ test("'chatty' shortens the gap and the cooldowns; 'normal' holds them", () => {
 });
 
 test("occasions marked chatty-only stay quiet at 'normal'", () => {
-  assert.equal(voice.say(null, 'idle', T0, { chatter: 'normal', rand: first }), null);
-  assert.ok(voice.say(null, 'idle', T0, { chatter: 'chatty', rand: first }));
   assert.equal(voice.say(null, 'searching', T0, { chatter: 'normal', rand: first }), null);
+  assert.ok(voice.say(null, 'searching', T0, { chatter: 'chatty', rand: first }));
+});
+
+test("idle mutters reach 'normal' too, just less often than 'chatty'", () => {
+  const r = voice.say(null, 'idle', T0, { chatter: 'normal', rand: first });
+  assert.ok(r, 'a crab-only user on Normal hears him now and then');
+  assert.equal(voice.say(r.state, 'idle', T0 + 15 * MINUTE, { chatter: 'normal', rand: first }), null);
+  assert.ok(voice.say(r.state, 'idle', T0 + 15 * MINUTE, { chatter: 'chatty', rand: first }));
+  assert.ok(voice.say(r.state, 'idle', T0 + 26 * MINUTE, { chatter: 'normal', rand: first }));
+});
+
+test('a line made elsewhere passes the same rules and must fit', () => {
+  const r = voice.say(null, 'memory', T0, { text: 'remember Chrome?' });
+  assert.equal(r.text, 'remember Chrome?');
+  assert.equal(r.state.said.memory, T0);
+  assert.equal(voice.say(r.state, 'memory', T0 + HOUR, { text: 'remember Edge?' }), null, 'its cooldown holds');
+  assert.equal(voice.say(null, 'memory', T0, { text: 'x'.repeat(voice.MAX_LINE + 1) }), null);
+  assert.equal(voice.say(null, 'memory', T0, { text: '   ' }), null);
+  assert.equal(voice.say(null, 'memory', T0, { text: 'hi', chatter: 'quiet' }), null);
+});
+
+test('every temperament describes itself', () => {
+  for (const t of voice.TEMPERAMENTS) {
+    const info = voice.TEMPERAMENT_INFO[t];
+    assert.ok(info?.name && info.emoji && info.blurb, t);
+  }
 });
 
 test('he never repeats a line while another one is unused', () => {
@@ -213,4 +252,11 @@ test("a seed carried in state picks that crab's flavoured lines", () => {
   // Over a full pool he uses the flavoured lines too, not just the base ones.
   assert.ok([...texts].every(t => pool.includes(t)));
   assert.ok([...texts].some(t => voice.FLAVOR.cocky.success.includes(t)));
+});
+
+test('every idle habit has an animation, and the clumsy ones are habits', () => {
+  const dir = path.join(__dirname, '..', 'src', 'renderer', 'critter');
+  const css = ['critter.css', 'charm.css'].map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
+  for (const bit of voice.BITS) assert.ok(css.includes(`body.bit-${bit} `), `no animation for bit-${bit}`);
+  for (const bit of voice.CLUMSY_BITS) assert.ok(voice.BITS.includes(bit), `${bit} is clumsy but never picked`);
 });

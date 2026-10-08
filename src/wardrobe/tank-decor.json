@@ -1,0 +1,1165 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "tank-decor",
+  "name": "Tank Decor",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Castles, plants, rocks and treasures for his tank. Most are his from the start; the rest are earned along the way.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "decor": [
+    {
+      "id": "castle-keep",
+      "name": "Sandcastle Keep",
+      "category": "structure",
+      "description": "Two towers, a keep and a door just his size. He checks it for intruders daily.",
+      "palette": {
+        "s": "#e6d3a0",
+        "S": "#b39a6a",
+        "w": "#4a3a28",
+        "d": "#3b2e20",
+        "p": "#6b5640",
+        "f": "#ff7a5c"
+      },
+      "pixels": [
+        ".......pff......",
+        ".......pfff.....",
+        ".......p........",
+        ".....s.ss.s.....",
+        ".....sssssS.....",
+        ".....sswwsS.....",
+        "s.s.ssssssss.s.s",
+        "ssssSsssssSssssS",
+        "sswsSsssssSswssS",
+        "ssssSsssssSssssS",
+        "ssssSssddsSssssS",
+        "ssssSssddsSssssS",
+        "SSSSSSSSSSSSSSSS"
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            7,
+            11
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rock-cave",
+      "name": "Rock Cave",
+      "category": "structure",
+      "description": "Dark, cosy and exactly crab-shaped inside. Where he goes to think.",
+      "palette": {
+        "r": "#7d8597",
+        "R": "#5c6373",
+        "k": "#141b20"
+      },
+      "pixels": [
+        "....rrrrr.....",
+        "..rrRrrrrrr...",
+        ".rrRrrrrrrrrr.",
+        "rrRrrkkkkrrrrr",
+        "rRrrkkkkkkrrrr",
+        "rRrkkkkkkkkrrr",
+        "rrrkkkkkkkkrrR",
+        "RRRkkkkkkkkRRR"
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            7,
+            7
+          ]
+        },
+        {
+          "kind": "sleep",
+          "at": [
+            7,
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "id": "driftwood",
+      "name": "Driftwood Arch",
+      "category": "structure",
+      "description": "Washed up from somewhere far away, then up and over by one small crab.",
+      "palette": {
+        "w": "#b89470",
+        "W": "#8a6a4a"
+      },
+      "pixels": [
+        "......wwwww.......",
+        "...wwwWWWWWww.....",
+        "..wW.......Www....",
+        ".wW..........Ww...",
+        ".w............Ww..",
+        "wW.............Ww.",
+        "WW..............WW"
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            8,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kelp",
+      "name": "Kelp",
+      "category": "plant",
+      "layer": "back",
+      "description": "Tall, swaying and slightly nibbled. He says the nibbling was already there.",
+      "palette": {
+        "g": "#2a9d8f",
+        "G": "#57cc99"
+      },
+      "pixels": [
+        ".g..",
+        ".gG.",
+        "gg..",
+        ".gG.",
+        "..g.",
+        ".gG.",
+        "gg..",
+        ".g..",
+        ".gG.",
+        "..g.",
+        ".gG.",
+        "gg..",
+        ".g..",
+        ".gg.",
+        "..gG",
+        ".g..",
+        ".gG.",
+        "gg..",
+        ".g..",
+        ".g.."
+      ],
+      "frames": [
+        [
+          "..g.",
+          "..gG",
+          ".gg.",
+          "..gG",
+          "...g",
+          "..gG",
+          ".gg.",
+          "..g.",
+          ".gG.",
+          "..g.",
+          ".gG.",
+          "gg..",
+          ".g..",
+          ".gg.",
+          "..gG",
+          ".g..",
+          ".gG.",
+          "gg..",
+          ".g..",
+          ".g.."
+        ]
+      ],
+      "fps": 1,
+      "spots": [
+        {
+          "kind": "nibble",
+          "at": [
+            1,
+            10
+          ]
+        }
+      ]
+    },
+    {
+      "id": "java-fern",
+      "name": "Java Fern",
+      "category": "plant",
+      "description": "Hard to kill, easy to love. A bit like him.",
+      "palette": {
+        "g": "#3a7d44",
+        "G": "#6bbf59",
+        "b": "#5c4a32"
+      },
+      "pixels": [
+        "..G...G..",
+        ".Gg..gG..",
+        "..gG.Gg.G",
+        "G..gGg.gG",
+        "gG..g.Gg.",
+        ".gGgggG..",
+        "...ggg...",
+        "...bbb..."
+      ],
+      "frames": [
+        [
+          "...G...G.",
+          "..Gg..gG.",
+          "...gG.Gg.",
+          "G..gGg.gG",
+          "gG..g.Gg.",
+          ".gGgggG..",
+          "...ggg...",
+          "...bbb..."
+        ]
+      ],
+      "fps": 1,
+      "spots": [
+        {
+          "kind": "nibble",
+          "at": [
+            4,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sea-grass",
+      "name": "Sea Grass",
+      "category": "plant",
+      "description": "Good for hiding behind, if you are very small and very still.",
+      "palette": {
+        "g": "#4f8a66",
+        "G": "#8fe388"
+      },
+      "pixels": [
+        "G.....G",
+        "g..G..g",
+        "g..g.gG",
+        ".g.g.g.",
+        ".gGg.g.",
+        "..ggg..",
+        ".gGgGg.",
+        "..ggg..",
+        "..ggg.."
+      ],
+      "frames": [
+        [
+          ".G.....",
+          ".g..G..",
+          ".g..g.g",
+          "..g.g.g",
+          ".gGg.g.",
+          "..ggg..",
+          ".gGgGg.",
+          "..ggg..",
+          "..ggg.."
+        ]
+      ],
+      "fps": 1
+    },
+    {
+      "id": "moss-ball",
+      "name": "Moss Ball",
+      "category": "plant",
+      "description": "A ball of moss. That is the whole thing. He adores it.",
+      "palette": {
+        "g": "#3a7d44",
+        "G": "#7fc97f",
+        "k": "#24543a"
+      },
+      "pixels": [
+        ".gGg.",
+        "gGggg",
+        "ggggk",
+        ".gkk."
+      ],
+      "spots": [
+        {
+          "kind": "nibble",
+          "at": [
+            2,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rock-round",
+      "name": "Round Rock",
+      "category": "rock",
+      "description": "Smooth, warm and good for sitting on.",
+      "palette": {
+        "r": "#8d99ae",
+        "R": "#6c7689",
+        "h": "#b8c2d1"
+      },
+      "pixels": [
+        ".hrrr.",
+        "hrrrrR",
+        "rrrrRR",
+        ".RRRR."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            2,
+            -1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rock-flat",
+      "name": "Flat Rock",
+      "category": "rock",
+      "description": "A stage, a table or a bed, depending on his mood.",
+      "palette": {
+        "r": "#8d99ae",
+        "R": "#6c7689",
+        "h": "#b8c2d1"
+      },
+      "pixels": [
+        "..hhhrrr..",
+        ".hrrrrrrR.",
+        "rrrrrrRRRR"
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            4,
+            -1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rock-stack",
+      "name": "Rock Stack",
+      "category": "rock",
+      "description": "Balanced very carefully. Please do not tap the glass.",
+      "palette": {
+        "r": "#8d99ae",
+        "R": "#6c7689",
+        "h": "#b8c2d1"
+      },
+      "pixels": [
+        "..hr...",
+        ".hrrR..",
+        "..RR...",
+        ".hrrrr.",
+        "hrrrrRR",
+        ".RRRR..",
+        "hhrrrr.",
+        "rrrrrRR",
+        ".RRRRR."
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            3,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "air-stone",
+      "name": "Air Stone",
+      "category": "bubbler",
+      "description": "A little stone that breathes out bubbles. He tries to catch them.",
+      "palette": {
+        "s": "#9aa5b1",
+        "S": "#6c7689"
+      },
+      "pixels": [
+        ".sss.",
+        "sSSSs"
+      ]
+    },
+    {
+      "id": "amphora",
+      "name": "Amphora",
+      "category": "treasure",
+      "description": "Very old, very empty. He looked.",
+      "palette": {
+        "a": "#c97b4a",
+        "A": "#8d4f2b"
+      },
+      "pixels": [
+        ".a..a.",
+        ".aaaa.",
+        "..aa..",
+        ".aAAa.",
+        "aAaaAa",
+        "aaAAaa",
+        "aAaaAa",
+        ".aaaa.",
+        "..aa.."
+      ],
+      "spots": [
+        {
+          "kind": "peek",
+          "at": [
+            2,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "soft-sand",
+      "name": "Soft Sand",
+      "category": "substrate",
+      "description": "Fine and warm, the floor he grew up on.",
+      "palette": {
+        "a": "#c9b48a",
+        "b": "#e6d4a2",
+        "c": "#a8946c"
+      },
+      "pixels": [
+        "aaaaaaaa",
+        "abaaaaca",
+        "aaaacaaa",
+        "acaaaaab"
+      ]
+    },
+    {
+      "id": "gravel",
+      "name": "Aquarium Gravel",
+      "category": "substrate",
+      "description": "Crunchy underfoot. All eight of his feet.",
+      "palette": {
+        "a": "#8d99ae",
+        "b": "#b8c2d1",
+        "c": "#5c6373"
+      },
+      "pixels": [
+        "abcaabca",
+        "cabbcaab",
+        "bcaabcca",
+        "aabcabbc"
+      ]
+    },
+    {
+      "id": "plain-water",
+      "name": "Clear Water",
+      "category": "backdrop",
+      "description": "Nothing on the back glass but the deep blue.",
+      "palette": {
+        "a": "#0b2c36"
+      },
+      "pixels": [
+        "a"
+      ]
+    },
+    {
+      "id": "rock-wall",
+      "name": "Rock Wall",
+      "category": "backdrop",
+      "description": "A rocky reef along the back glass, like the tide pool he came from.",
+      "palette": {
+        "a": "#1d5763",
+        "b": "#164552",
+        "c": "#0f3039"
+      },
+      "pixels": [
+        "aabbaaaabbbaaaab",
+        "abbbbaabbbbbaabb",
+        "bbccbbbbbccbbbbb",
+        "bcccbbbbcccbbbcb",
+        "bbcbbaabbcbbaabb",
+        "abbbaaaabbbaaaab",
+        "aabaaaaaabaaaaaa",
+        "aaaaabbaaaaaabba"
+      ]
+    },
+    {
+      "id": "sunken-chest",
+      "name": "Sunken Chest",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "He sits on it, it creaks, there is nothing inside. He checks anyway.",
+      "palette": {
+        "w": "#8a5a2b",
+        "W": "#5e3b1a",
+        "g": "#ffd23f",
+        "k": "#2b2d42"
+      },
+      "pixels": [
+        ".wwwwwww.",
+        "wWWWgWWWw",
+        "wwwwkwwww",
+        "wWWWWWWWw",
+        "wwwwwwwww",
+        "WWWWWWWWW"
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            4,
+            -1
+          ]
+        },
+        {
+          "kind": "open",
+          "at": [
+            4,
+            1
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "moving-in"
+      }
+    },
+    {
+      "id": "coral-fan",
+      "name": "Coral Fan",
+      "category": "plant",
+      "rarity": "rare",
+      "description": "A fan of coral for a tank that has really come together.",
+      "palette": {
+        "c": "#ff7a5c",
+        "C": "#ffb199",
+        "r": "#8d99ae"
+      },
+      "pixels": [
+        "c.c..c..c.c",
+        ".c.c.c.c.c.",
+        "c.cCcCcCc.c",
+        ".ccCcCcCcc.",
+        "..cCcCcCc..",
+        "...cCcCc...",
+        "....cCc....",
+        ".....c.....",
+        ".....c.....",
+        "....rrr...."
+      ],
+      "unlock": {
+        "achievement": "interior-designer"
+      }
+    },
+    {
+      "id": "guest-bench",
+      "name": "Guest Bench",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "A bench with a cushion, for when a friend's crab drops by. He sits on it while he waits.",
+      "palette": {
+        "w": "#a0703a",
+        "W": "#6b4423",
+        "c": "#ff7a5c",
+        "C": "#ffb199"
+      },
+      "pixels": [
+        ".wwwwwwwwww.",
+        ".WWWWWWWWWW.",
+        ".w........w.",
+        "wwCcCcCcCcww",
+        "WWWWWWWWWWWW",
+        ".W........W.",
+        ".W........W."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            6,
+            2
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "house-guest"
+      }
+    },
+    {
+      "id": "lighthouse",
+      "name": "Lighthouse",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "For fixing a failing build: a light that brings things home safe.",
+      "palette": {
+        "w": "#f3e6cc",
+        "r": "#e63946",
+        "y": "#ffd23f",
+        "Y": "#fff2b8",
+        "k": "#2b2d42",
+        "s": "#6c7689"
+      },
+      "pixels": [
+        "...r...",
+        "..rrr..",
+        "..yyy..",
+        ".kkkkk.",
+        "..www..",
+        "..rrr..",
+        "..www..",
+        "..rrr..",
+        ".wwwww.",
+        ".rrrrr.",
+        ".wwwww.",
+        ".rrrrr.",
+        ".wwwww.",
+        "rrrrrrr",
+        "sssssss"
+      ],
+      "frames": [
+        [
+          "...r...",
+          "..rrr..",
+          "..YYY..",
+          ".kkkkk.",
+          "..www..",
+          "..rrr..",
+          "..www..",
+          "..rrr..",
+          ".wwwww.",
+          ".rrrrr.",
+          ".wwwww.",
+          ".rrrrr.",
+          ".wwwww.",
+          "rrrrrrr",
+          "sssssss"
+        ]
+      ],
+      "fps": 1,
+      "unlock": {
+        "achievement": "green-light"
+      }
+    },
+    {
+      "id": "diver",
+      "name": "Deep-Sea Diver",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Five focus sessions deep. He salutes it every morning.",
+      "palette": {
+        "c": "#c99700",
+        "g": "#9fc4ff",
+        "k": "#2b2d42",
+        "y": "#e9a23b"
+      },
+      "pixels": [
+        "..ccc..",
+        ".cgggc.",
+        ".cgkgc.",
+        ".cgggc.",
+        "..ccc..",
+        ".yyyyy.",
+        "yyyyyyy",
+        "y.yyy.y",
+        "..yyy..",
+        "..y.y..",
+        "..y.y..",
+        ".kk.kk."
+      ],
+      "unlock": {
+        "achievement": "deep-focus"
+      }
+    },
+    {
+      "id": "pebble-floor",
+      "name": "Pebble Floor",
+      "category": "substrate",
+      "rarity": "rare",
+      "description": "Every pebble picked by hand. Well, by claw.",
+      "palette": {
+        "a": "#7a6a4b",
+        "b": "#b8c2d1",
+        "c": "#c97b4a"
+      },
+      "pixels": [
+        "aabbaacc",
+        "abbbacca",
+        "ccaabbaa",
+        "caabbbac"
+      ],
+      "unlock": {
+        "achievement": "beachcomber"
+      }
+    },
+    {
+      "id": "jelly-lamp",
+      "name": "Jellyfish Lamp",
+      "category": "bubbler",
+      "layer": "float",
+      "rarity": "epic",
+      "description": "A soft glow for best friends. It drifts. It does not sting.",
+      "palette": {
+        "p": "#c77dff",
+        "P": "#e0aaff",
+        "w": "#ffffff"
+      },
+      "pixels": [
+        "..ppp..",
+        ".pPPPp.",
+        "pPPwPPp",
+        "ppppppp",
+        ".p.p.p.",
+        ".p.p.p.",
+        "p..p..p",
+        ".p...p.",
+        "..p.p.."
+      ],
+      "frames": [
+        [
+          "..ppp..",
+          ".pPPPp.",
+          "pPPwPPp",
+          "ppppppp",
+          ".p.p.p.",
+          "p..p..p",
+          ".p.p.p.",
+          "..p.p..",
+          ".p...p."
+        ]
+      ],
+      "fps": 1,
+      "unlock": {
+        "achievement": "best-friends"
+      }
+    },
+    {
+      "id": "sunken-ship",
+      "name": "Sunken Ship",
+      "category": "structure",
+      "rarity": "epic",
+      "description": "Level ten, and a shipwreck all his own. The porthole is the best seat in the tank.",
+      "palette": {
+        "w": "#8a6a4a",
+        "W": "#5e4a35",
+        "k": "#141b20",
+        "p": "#6b5640",
+        "f": "#2b2d42",
+        "m": "#8a6a4a",
+        "s": "#4a3a28"
+      },
+      "pixels": [
+        "..........p.............",
+        "..........pff...........",
+        "..........pfff..........",
+        "..........p.............",
+        "....m.....p.............",
+        "....m.....p......m......",
+        "....m.....p......m......",
+        "wwwwwwwwwwwwwwwwwwwwww..",
+        ".wWWWkWWWWWWWkWWWWWWWw..",
+        "..wwwwwwwwwwwwwwwwwwwww.",
+        "...WWWWWWWWWWWWWWWWWWWw.",
+        "....wwwwwwkkwwwwwwwwww..",
+        ".....WWWWWkkWWWWWWWW....",
+        "......ssssssssssssss...."
+      ],
+      "spots": [
+        {
+          "kind": "peek",
+          "at": [
+            5,
+            8
+          ]
+        },
+        {
+          "kind": "hide",
+          "at": [
+            10,
+            12
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "double-digits"
+      }
+    },
+    {
+      "id": "starry-night",
+      "name": "Starry Night",
+      "category": "backdrop",
+      "rarity": "rare",
+      "description": "For the night owls: a sky full of stars on the back glass.",
+      "palette": {
+        "a": "#f3e6cc",
+        "b": "#9fc4ff",
+        "n": "#08202a"
+      },
+      "pixels": [
+        "nnnnannnnnnnnnnn",
+        "nnnnnnnnnnbnnnnn",
+        "annnnnnnnnnnnnnn",
+        "nnnnnnbnnnnnnnan",
+        "nnnnnnnnnnnnnnnn",
+        "nnnannnnnnnnbnnn",
+        "nnnnnnnnnnnnnnnn",
+        "bnnnnnnnannnnnnn"
+      ],
+      "unlock": {
+        "achievement": "night-owl"
+      }
+    },
+    {
+      "id": "carved-pumpkin",
+      "name": "Carved Pumpkin",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Glows after dark. He carved the face himself, which explains the face.",
+      "palette": {
+        "o": "#ff9f1c",
+        "O": "#c96f00",
+        "s": "#3a7d44",
+        "y": "#ffd23f",
+        "Y": "#fff2b8"
+      },
+      "pixels": [
+        "...s...",
+        ".oOoOo.",
+        "oyoOoyo",
+        "oOoOoOo",
+        "oyyyyyo",
+        ".oOoOo."
+      ],
+      "frames": [
+        [
+          "...s...",
+          ".oOoOo.",
+          "oYoOoYo",
+          "oOoOoOo",
+          "oYYYYYo",
+          ".oOoOo."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "season": "halloween"
+      }
+    },
+    {
+      "id": "snow-globe",
+      "name": "Snow Globe",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "A tiny winter inside his tiny sea. Shake gently.",
+      "palette": {
+        "g": "#cdeafe",
+        "b": "#9fc4ff",
+        "w": "#ffffff",
+        "t": "#2a9d8f",
+        "r": "#b5523b"
+      },
+      "pixels": [
+        ".ggggg.",
+        "gwbbbwg",
+        "gbbwbbg",
+        "gbtttbg",
+        "gbbtbbg",
+        ".ggggg.",
+        "..rrr..",
+        ".rrrrr."
+      ],
+      "frames": [
+        [
+          ".ggggg.",
+          "gbbwbbg",
+          "gwbbbwg",
+          "gbtttbg",
+          "gbbtbwg",
+          ".ggggg.",
+          "..rrr..",
+          ".rrrrr."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "season": "winter"
+      }
+    },
+    {
+      "id": "anubias",
+      "name": "Anubias",
+      "category": "plant",
+      "rarity": "common",
+      "description": "Broad leaves, slow growth, very patient. He sits under it to think.",
+      "palette": {
+        "g": "#2f6b3a",
+        "G": "#58a85a",
+        "s": "#7a5c3a"
+      },
+      "pixels": [
+        ".GG...GG.",
+        "GggG.GggG",
+        ".GgG.GgG.",
+        "..Gg.gG..",
+        "GG.ggg.GG",
+        "GggGsGggG",
+        ".GG.s.GG.",
+        "...sss..."
+      ],
+      "spots": [
+        {
+          "kind": "nibble",
+          "at": [
+            4,
+            3
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "aquascaper"
+      }
+    },
+    {
+      "id": "display-plinth",
+      "name": "Display Plinth",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "For the finest finds. He stands on it to be admired.",
+      "palette": {
+        "w": "#e9e4d8",
+        "W": "#b8b1a0",
+        "g": "#e2b13c"
+      },
+      "pixels": [
+        "wwwwwwwwww",
+        ".WWWWWWWW.",
+        "..wwwwww..",
+        "..wWwwWw..",
+        "..wWwwWw..",
+        "..wWwwWw..",
+        ".wwwwwwww.",
+        "gWWWWWWWWg"
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            5,
+            -1
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "on-display"
+      }
+    },
+    {
+      "id": "old-anchor",
+      "name": "Old Anchor",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "From a ship far bigger than his tank. He climbs it anyway.",
+      "palette": {
+        "a": "#5c6b73",
+        "A": "#8d9ba3",
+        "r": "#9c5a3c"
+      },
+      "pixels": [
+        "....aAa....",
+        "....a.a....",
+        "....aAa....",
+        "..aaaAaaa..",
+        ".....A.....",
+        ".....A.....",
+        ".....A.....",
+        "a....A....a",
+        "aA...A...Aa",
+        ".aAr.A.rAa.",
+        "..aaaAaaa.."
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            5,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "upsized"
+      }
+    },
+    {
+      "id": "moon-lamp",
+      "name": "Moon Lamp",
+      "category": "bubbler",
+      "layer": "float",
+      "rarity": "epic",
+      "description": "A little moon for the nights he sleeps in. It glows when the room goes dark.",
+      "palette": {
+        "m": "#fff3b0",
+        "M": "#e9d77a",
+        "c": "#d4c06a"
+      },
+      "pixels": [
+        "..mmm..",
+        ".mmMmm.",
+        "mmmmmcm",
+        "mMmmmmm",
+        "mmmcmMm",
+        ".mmmmm.",
+        "..mmm.."
+      ],
+      "frames": [
+        [
+          "..mmm..",
+          ".mmmmm.",
+          "mmmMmcm",
+          "mMmmmmm",
+          "mmmcmmm",
+          ".mmmMm.",
+          "..mmm.."
+        ]
+      ],
+      "fps": 1,
+      "unlock": {
+        "achievement": "night-light"
+      }
+    },
+    {
+      "id": "heart-shell",
+      "name": "Heart Shell",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "A shell shaped like a heart. He found it first, but it’s yours.",
+      "palette": {
+        "r": "#e5383b",
+        "p": "#ff8fa3",
+        "w": "#fff0f3"
+      },
+      "pixels": [
+        ".rr.rr.",
+        "rpwrppr",
+        "rpppppr",
+        ".rpppr.",
+        "..rpr..",
+        "...r..."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            3,
+            -1
+          ]
+        }
+      ],
+      "unlock": {
+        "season": "valentine"
+      }
+    },
+    {
+      "id": "cherry-blossom",
+      "name": "Cherry Blossom",
+      "category": "plant",
+      "rarity": "rare",
+      "description": "A sprig of spring, somehow underwater. The petals never quite fall.",
+      "palette": {
+        "p": "#ffafcc",
+        "P": "#ffc8dd",
+        "b": "#6b4f3a"
+      },
+      "pixels": [
+        ".pP..Pp.",
+        "PpPpPpPp",
+        ".pPbbPp.",
+        "..Pb.p..",
+        "...b....",
+        "...bb...",
+        "....b...",
+        "...bbb.."
+      ],
+      "frames": [
+        [
+          ".Pp..pP.",
+          "pPpPpPpP",
+          ".Ppbbpp.",
+          "..pb.P..",
+          "...b....",
+          "...bb...",
+          "....b...",
+          "...bbb.."
+        ]
+      ],
+      "fps": 1,
+      "spots": [
+        {
+          "kind": "nibble",
+          "at": [
+            3,
+            2
+          ]
+        }
+      ],
+      "unlock": {
+        "season": "spring"
+      }
+    },
+    {
+      "id": "beach-ball",
+      "name": "Beach Ball",
+      "category": "treasure",
+      "rarity": "common",
+      "description": "Summer, in a tank. It never rolls far. He’s tried.",
+      "palette": {
+        "r": "#ef476f",
+        "y": "#ffd166",
+        "b": "#118ab2",
+        "w": "#ffffff"
+      },
+      "pixels": [
+        "..rry..",
+        ".rrwyy.",
+        "bbwwwyy",
+        "bbbwrrr",
+        ".bbyrr.",
+        "..byr.."
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            3,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "season": "summer"
+      }
+    },
+    {
+      "id": "maple-leaves",
+      "name": "Pile of Leaves",
+      "category": "plant",
+      "rarity": "common",
+      "description": "Autumn drifted in. He hides in it and thinks nobody can see him.",
+      "palette": {
+        "o": "#e76f51",
+        "y": "#f4a261",
+        "r": "#9b2226",
+        "b": "#6b4f3a"
+      },
+      "pixels": [
+        "....o.y....",
+        "..yoyrooy..",
+        ".oryooyoro.",
+        "yooryoyryoo",
+        "robyoroyoby"
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            5,
+            2
+          ]
+        }
+      ],
+      "unlock": {
+        "season": "autumn"
+      }
+    }
+  ]
+}

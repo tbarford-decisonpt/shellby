@@ -14,6 +14,8 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
+const { BITS } = require('../src/main/voice');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9363;
@@ -29,7 +31,7 @@ async function connect(url) {
   ws.onmessage = e => { const m = JSON.parse(e.data); p.get(m.id)?.(m); };
   const send = (method, params = {}) => new Promise(r => { const i = ++id; p.set(i, m => r(m.result)); ws.send(JSON.stringify({ id: i, method, params })); });
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }))?.result?.value;
-  const shot = async name => fs.writeFileSync(path.join(OUT, `${name}.png`), Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+  const shot = async name => await savePng(send, path.join(OUT, `${name}.png`));
   return { send, ev, shot, close: () => ws.close() };
 }
 
@@ -71,6 +73,9 @@ async function windows() {
     const until = async (c, expr, ms = 8000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await c.ev(expr)) return true; await wait(120); } return false; };
     const bubble = () => critter.ev("document.getElementById('bubbleText').textContent");
     await wait(3000);
+    // Any app holding the microphone (Discord, a game recorder) reads as a call,
+    // and on a call he says nothing; pin it off so the run doesn't depend on the PC.
+    await panel.ev("shellby.dev.life({ what: 'call', on: false })");
     // Record every class the critter shows, so short beats aren't missed.
     await critter.ev("window.__cls = new Set(); new MutationObserver(() => document.body.className.split(' ').forEach(c => window.__cls.add(c))).observe(document.body, { attributes: true, attributeFilter: ['class'] }); true");
     const seen = cls => critter.ev(`window.__cls.has(${JSON.stringify(cls)})`);
@@ -167,11 +172,12 @@ async function windows() {
       if (on) await critter.shot(`5-bit-${bit}`);
     }
     check(await until(critter, "!/\\bbit-/.test(document.body.className)", 4000), '...and each one ends on its own');
-    check(await panel.ev("shellby.dev.bit('nonsense').then(b => ['dig','polish','peek','stretch','flop'].includes(b))"), 'an unknown habit falls back to a real one');
+    check(await panel.ev(`shellby.dev.bit('nonsense').then(b => ${JSON.stringify(BITS)}.includes(b))`), 'an unknown habit falls back to a real one');
 
     // --------------------------------------------- 7. on guard he keeps quiet
-    const chirpsBefore = await chirps();
     await panel.ev("shellby.setSettings({ sounds: true })");
+    await wait(400); // switching sounds on plays a taste of the chirp; count from after it
+    const chirpsBefore = await chirps();
     await panel.ev('shellby.startFocus(25)');
     await wait(800);
     check(await panel.ev('shellby.dev.say("success").then(s => s === null)'), 'guarding your focus: he says nothing');

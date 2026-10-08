@@ -8,6 +8,7 @@ const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9356;
@@ -18,7 +19,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
 
   // A repo whose newest commit is 6 days old.
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'streak-repo-'));
+  // The long path: CI's temp folder is an 8.3 name (RUNNER~1), and git reports the long one.
+  const repo = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'streak-repo-')));
   const when = new Date(Date.now() - 6 * 24 * 3600e3).toISOString();
   const env = { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
   execFileSync('git', ['init', '-q', repo]);
@@ -59,15 +61,19 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(proj.quietDays === 6, `real last-commit time read with git (${proj.quietDays} days)`);
     check(v.current === 1 && v.today, `a 1-day streak started (${v.current})`);
 
-    // 2. The Streaks card in Trophies.
+    // 2. The Streaks card on Time, and its badge on Trophies.
     await ev("SB.setView('trophies')");
     await wait(600);
-    check(/1-day streak/.test(await ev("document.getElementById('streakTitle').textContent")), 'Trophies shows the streak');
+    check(await ev("!document.getElementById('xpStreak').hidden && /🔥 1/.test(document.getElementById('xpStreak').textContent)"), 'Trophies shows the streak badge');
+    await ev("document.getElementById('xpStreak').click()");
+    await wait(600);
+    check(await ev('SB.state.view') === 'time', 'the badge opens Time');
+    check(/1-day streak/.test(await ev("document.getElementById('streakTitle').textContent")), 'Time shows the streak');
     const row = await ev("document.querySelector('#streakProjects .streak-project')?.textContent || ''");
     check(row.includes(name) && /6 days since a commit/.test(row), `project row: "${row}"`);
     check(await ev("document.querySelector('#streakProjects .streak-project').classList.contains('late')"), 'a quiet project is highlighted');
     await ev("document.getElementById('streakCard').scrollIntoView({ block: 'start' })");
-    if (process.argv[2]) fs.writeFileSync(process.argv[2], Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[2]) await savePng(send, process.argv[2]);
 
     // 3. A nudge, then "Pick it up".
     await ev('window.__nudges = 0; shellby.onNudge(() => { window.__nudges++; }); true');

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('events');
-const { Updates, trayLabel } = require('../src/main/updates');
+const { Updates, trayLabel, installedBy } = require('../src/main/updates');
 
 // Stands in for electron-updater: emits what it's told to, records the rest.
 class FakeUpdater extends EventEmitter {
@@ -80,15 +80,46 @@ test('progress only wakes the panel when the rounded percent moves', () => {
 });
 
 test('a ready update is announced once, however often the check finds it again', async () => {
+  const { u, updater, views } = make();
+  const ready = [];
+  u.on('ready', v => ready.push(v.version));
+  u.start();
+  updater.emit('update-downloaded', { version: '0.19.0' });
+  const before = views.length;
+  await u.check();
+  // electron-updater re-finds the cached file: available, progress, downloaded.
+  updater.emit('checking-for-update');
+  updater.emit('update-available', { version: '0.19.0' });
+  updater.emit('download-progress', { percent: 100 });
+  updater.emit('update-downloaded', { version: '0.19.0' });
+  assert.deepEqual(ready, ['0.19.0'], 'one notification, not one per check');
+  assert.equal(updater.checks, 2, 'the check still asks GitHub');
+  assert.ok(views.slice(before).every(v => v.state === 'ready'), 'the install button never flickers away');
+});
+
+test('a release that lands after one is ready replaces it without a restart', async () => {
   const { u, updater } = make();
   const ready = [];
   u.on('ready', v => ready.push(v.version));
   u.start();
   updater.emit('update-downloaded', { version: '0.19.0' });
   await u.check();
+  updater.emit('update-available', { version: '0.20.0' });
+  assert.deepEqual([u.view().state, u.view().version], ['downloading', '0.20.0']);
+  updater.emit('update-downloaded', { version: '0.20.0' });
+  assert.deepEqual([u.view().state, u.view().version], ['ready', '0.20.0']);
+  assert.deepEqual(ready, ['0.19.0', '0.20.0'], 'the newer one is announced too');
+  assert.equal(trayLabel(u.view()), 'Update to 0.20.0 and restart');
+});
+
+test('a failed or empty re-check keeps the downloaded update installable', async () => {
+  const { u, updater } = make();
+  u.start();
   updater.emit('update-downloaded', { version: '0.19.0' });
-  assert.deepEqual(ready, ['0.19.0'], 'one notification, not one per check');
-  assert.equal(updater.checks, 1, 'and no pointless re-download once it is on disk');
+  updater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
+  updater.emit('update-not-available', { version: '0.18.0' });
+  assert.deepEqual([u.view().state, u.view().version, u.view().error], ['ready', '0.19.0', null]);
+  assert.equal(u.install(), true);
 });
 
 test('a failed check says so, and the next one clears it', async () => {
@@ -115,4 +146,30 @@ test('pressing check twice only asks once', async () => {
   await u.check();
   await first;
   assert.equal(updater.checks, 1);
+});
+
+test('a Scoop install is spotted by its path, under the default root or a custom one', () => {
+  const p = String.raw;
+  assert.equal(installedBy(p`C:\Users\a\scoop\apps\shellby\current\Shellby.exe`, {}), 'scoop');
+  assert.equal(installedBy(p`C:\Users\a\scoop\apps\shellby\0.66.0\Shellby.exe`, {}), 'scoop');
+  assert.equal(installedBy(p`D:\tools\apps\shellby\current\Shellby.exe`, { SCOOP: 'D:\\tools\\' }), 'scoop');
+  assert.equal(installedBy(p`C:\ProgramData\scoop\apps\shellby\current\Shellby.exe`, { SCOOP_GLOBAL: p`C:\ProgramData\scoop` }), 'scoop');
+  assert.equal(installedBy(p`D:\Tools\apps\Shellby\current\Shellby.exe`, { SCOOP: 'd:/tools/' }), 'scoop', 'forward slashes and case in the root');
+  assert.equal(installedBy('C:/Users/a/scoop/apps/shellby/current/Shellby.exe', {}), 'scoop');
+  assert.equal(installedBy(p`C:\Users\a\AppData\Local\Programs\Shellby\Shellby.exe`, {}), null, 'the NSIS install updates itself');
+  assert.equal(installedBy(p`D:\tools2\apps\shellby\current\Shellby.exe`, { SCOOP: 'D:\\tools' }), null, 'a sibling folder with the same prefix');
+  assert.equal(installedBy(p`D:\tools\apps\shellby\current\Shellby.exe`, {}), null, 'apps\\shellby alone is not enough');
+  assert.equal(installedBy(undefined, {}), null);
+});
+
+test('under Scoop the app leaves updating to Scoop: no checks, no installs, nothing in the tray', async () => {
+  const updater = new FakeUpdater();
+  const u = new Updates({ updater, managedBy: 'scoop', version: '0.66.0', timers: noTimers }).start();
+  assert.equal(u.view().state, 'scoop');
+  assert.equal(u.view().busy, false);
+  assert.equal((await u.check()).state, 'scoop');
+  assert.equal(updater.checks, 0, 'never asks GitHub');
+  assert.equal(u.install(), false);
+  assert.equal(updater.installs.length, 0);
+  assert.equal(trayLabel(u.view()), null);
 });

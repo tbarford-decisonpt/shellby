@@ -1,0 +1,31 @@
+/* The learned-rule card (lessons.js): calmer than a permission card, in sea-glass
+   rather than coral, because nothing is waiting on it. */
+.lesson {
+  margin: 10px 0 14px 16px;
+  border: 1px solid rgba(127, 214, 194, .4);
+  border-radius: var(--r);
+  background: linear-gradient(180deg, rgba(127, 214, 194, .08), rgba(127, 214, 194, .02) 60%), var(--reef);
+  overflow: hidden;
+}
+.lesson:empty { display: none; }
+.lesson-title { font: 600 var(--fs-15) var(--font-pixel); color: var(--glass); }
+.lesson-rule { margin: 0 0 8px; font-size: var(--fs-13-5); color: var(--sand); }
+.lesson-input { width: 100%; resize: vertical; margin-bottom: 4px; font-size: var(--fs-13); }
+.lesson-tools { display: flex; justify-content: flex-end; }
+.lesson-tools:has(> [hidden]:only-child) { display: none; }
+.lesson-where { margin: 6px 0 4px; }
+.lesson-preview { max-height: 120px; }
+.lesson-note:empty { display: none; }
+.lesson-note { margin: 6px 0 0; }
+.lesson.done { margin: 6px 0 10px 16px; border-color: var(--line); background: var(--reef); opacity: .8; }
+.lesson-line { display: flex; gap: 8px; align-items: baseline; padding: 7px 12px; font-size: var(--fs-12-5); color: var(--sand-dim); }
+
+/* Toolbox → Memory: what he's learned, per project (toolbox-setup.js) */
+.learned { margin-top: 12px; }
+.learned h3 { margin: 0 0 4px; font: 600 var(--fs-13) var(--font-pixel); color: var(--glass); }
+.learned-project { margin: 8px 0 0; }
+.learned-project > p { margin: 0 0 4px; }
+.learned-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.learned-row { display: flex; gap: 6px; align-items: center; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--abyss); font-size: var(--fs-12-5); }
+.learned-row > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.learned-row .field { flex: 1 1 auto; min-width: 0; }

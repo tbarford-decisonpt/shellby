@@ -12,6 +12,7 @@ const RANDOM_SKIP = 0.35; // chance a slot stays empty when randomizing
 
 const DEFAULTS = {
   outfit: { ...EMPTY_OUTFIT },
+  voice: null,           // key of the pack voice he talks in (null: his own)
   unlocked: [],          // achievement ids
   collected: [],         // seasonal item keys collected while their season was on
   newItems: [],          // item keys the user hasn't looked at yet
@@ -38,10 +39,11 @@ function windowEnd(season, date) {
 const windowKey = (season, date) => `${season.id}@${windowStart(season, date).getFullYear()}`;
 
 class Wardrobe extends EventEmitter {
-  constructor({ config, builtinDir, userDir, now = () => new Date() }) {
+  // canUnlockAll: whether "Unlock everything" is on offer (locked until it's sold).
+  constructor({ config, builtinDir, userDir, now = () => new Date(), south = () => false, canUnlockAll = () => false }) {
     super();
-    Object.assign(this, { config, builtinDir, userDir, now });
-    this.catalog = { accessories: new Map(), effects: new Map(), skins: [], packs: [], errors: [] };
+    Object.assign(this, { config, builtinDir, userDir, now, south, canUnlockAll });
+    this.catalog = { accessories: new Map(), effects: new Map(), skins: [], voices: new Map(), scenes: new Map(), decor: new Map(), packs: [], errors: [] };
   }
 
   // ------------------------------------------------------------ persistence
@@ -51,9 +53,13 @@ class Wardrobe extends EventEmitter {
     d.outfit = { ...EMPTY_OUTFIT, ...(raw.outfit || {}) };
     for (const k of ['unlocked', 'collected', 'newItems']) d[k] = Array.isArray(raw[k]) ? raw[k].filter(x => typeof x === 'string') : [];
     d.seasonOverrides = raw.seasonOverrides && typeof raw.seasonOverrides === 'object' ? { ...raw.seasonOverrides } : {};
+    d.voice = typeof raw.voice === 'string' ? raw.voice : null;
+    d.unlockAll = raw.unlockAll === true && !!this.canUnlockAll();
     return d;
   }
   save(patch) { this.config.set({ wardrobe: { ...this.data, ...patch } }); }
+  // Where you are, for the seasons: south of the equator, spring comes in September.
+  where() { return { south: !!this.south() }; }
   get stats() { return normalizeStats(this.config.get('stats')); }
 
   // ------------------------------------------------------------ catalog
@@ -63,7 +69,7 @@ class Wardrobe extends EventEmitter {
     return this.catalog;
   }
 
-  item(key) { return this.catalog.accessories.get(key) || this.catalog.effects.get(key) || this.catalog.skins.find(s => s.key === key) || null; }
+  item(key) { return this.catalog.accessories.get(key) || this.catalog.effects.get(key) || this.catalog.voices.get(key) || this.catalog.decor.get(key) || this.catalog.skins.find(s => s.key === key) || null; }
 
   // ------------------------------------------------------------ unlocking
   isUnlocked(item, d = this.data) {
@@ -71,7 +77,7 @@ class Wardrobe extends EventEmitter {
     const u = item.unlock;
     if (d.unlockAll || !u || u.default) return true;
     if (u.achievement) return d.unlocked.includes(u.achievement);
-    if (u.season) return d.collected.includes(item.key) || isActive(u.season, this.now());
+    if (u.season) return d.collected.includes(item.key) || isActive(u.season, this.now(), this.where());
     return false;
   }
 
@@ -84,7 +90,7 @@ class Wardrobe extends EventEmitter {
       return { reason: 'achievement', achievement: u.achievement, text: a ? `${a.name}: ${a.description}` : 'Earn an achievement', current: a?.current ?? 0, goal: a?.goal ?? 1 };
     }
     const season = SEASONS.find(s => s.id === u.season);
-    const back = nextStart(u.season, this.now());
+    const back = nextStart(u.season, this.now(), this.where());
     return { reason: 'season', season: u.season, text: `${season ? `${season.emoji} ${season.name}` : 'Seasonal'} collectible`, back: back ? back.getTime() : null };
   }
 
@@ -92,9 +98,9 @@ class Wardrobe extends EventEmitter {
   collectSeasonals() {
     const d = this.data;
     const fresh = [];
-    for (const item of [...this.catalog.accessories.values(), ...this.catalog.effects.values(), ...this.catalog.skins]) {
+    for (const item of [...this.catalog.accessories.values(), ...this.catalog.effects.values(), ...this.catalog.voices.values(), ...this.catalog.decor.values(), ...this.catalog.skins]) {
       const s = item.unlock?.season;
-      if (s && isActive(s, this.now()) && !d.collected.includes(item.key)) fresh.push(item.key);
+      if (s && isActive(s, this.now(), this.where()) && !d.collected.includes(item.key)) fresh.push(item.key);
     }
     if (!fresh.length) return [];
     this.save({ collected: [...d.collected, ...fresh], newItems: [...new Set([...d.newItems, ...fresh])] });
@@ -118,7 +124,7 @@ class Wardrobe extends EventEmitter {
   // The season's look wins while auto-seasonal is on and you haven't changed
   // your look during this season's window.
   seasonalActive(d = this.data) {
-    const season = featuredSeason(this.now());
+    const season = featuredSeason(this.now(), this.where());
     if (!season || !d.seasonalAuto) return null;
     return d.seasonOverrides[season.id] === windowKey(season, this.now()) ? null : season;
   }
@@ -136,7 +142,7 @@ class Wardrobe extends EventEmitter {
       if (!this.validSlotValue(slot, key, d)) return { ok: false, error: key ? 'That item is still locked.' : 'Unknown slot.' };
       next[slot] = key ?? null;
     }
-    const season = featuredSeason(this.now());
+    const season = featuredSeason(this.now(), this.where());
     const seasonOverrides = { ...d.seasonOverrides };
     if (season && d.seasonalAuto) seasonOverrides[season.id] = windowKey(season, this.now());
     const touched = Object.values(patch || {}).filter(Boolean);
@@ -200,7 +206,7 @@ class Wardrobe extends EventEmitter {
   }
 
   wearSeason() {
-    const season = featuredSeason(this.now());
+    const season = featuredSeason(this.now(), this.where());
     if (!season) return { ok: false, error: 'No season right now.' };
     const d = this.data;
     const seasonOverrides = { ...d.seasonOverrides };
@@ -226,6 +232,7 @@ class Wardrobe extends EventEmitter {
   setOptions(opts = {}) {
     const patch = {};
     for (const k of ['seasonalAuto', 'crewOutfits', 'unlockAll']) if (typeof opts[k] === 'boolean') patch[k] = opts[k];
+    if (!this.canUnlockAll()) delete patch.unlockAll;
     this.save(patch);
     this.emit('changed');
   }
@@ -233,6 +240,39 @@ class Wardrobe extends EventEmitter {
   markSeen(keys = []) {
     const d = this.data;
     this.save({ newItems: d.newItems.filter(k => !keys.includes(k)) });
+  }
+
+  // ------------------------------------------------------------ voices and scenes
+
+  /** The pack voice he's talking in, or null for his own (also when it was removed or is locked). */
+  activeVoice(d = this.data) {
+    const v = d.voice ? this.catalog.voices.get(d.voice) : null;
+    return v && this.isUnlocked(v, d) ? v : null;
+  }
+
+  /** Talk in a pack voice (its key), or his own (null). */
+  setVoice(key) {
+    const d = this.data;
+    if (key != null) {
+      const v = this.catalog.voices.get(key);
+      if (!v) return { ok: false, error: "That voice isn't installed." };
+      if (!this.isUnlocked(v, d)) return { ok: false, error: 'That voice is still locked.' };
+    }
+    this.save({ voice: key ?? null, newItems: d.newItems.filter(k => k !== key) });
+    this.emit('changed');
+    return { ok: true };
+  }
+
+  /**
+   * What he says and does, for main.js and life.js: the voice he's wearing
+   * (null for his own) and every pack scene, keyed so they can't clash with his.
+   */
+  dialogue(d = this.data) {
+    const v = this.activeVoice(d);
+    return {
+      voice: v ? { key: v.key, name: v.name, lines: v.lines, flavor: v.flavor, fallback: v.fallback } : null,
+      scenes: [...this.catalog.scenes.values()].map(s => ({ id: s.key, name: s.name, voice: s.voice, who: s.who, when: s.when, beats: s.beats })),
+    };
   }
 
   // ------------------------------------------------------------ stats + achievements
@@ -257,8 +297,11 @@ class Wardrobe extends EventEmitter {
   // First run of the Wardrobe: credit what the user already did with Shellby
   // (from conversation history) so long-time users don't start from zero.
   // Unlocks quietly and returns the achievements earned. No-op once stats exist.
-  backfill({ tasksCompleted = 0, activeDays = [] } = {}) {
+  // Takes the counts, or a function giving them: reading every conversation is
+  // slow, so boot passes a function and it only runs on the first launch.
+  backfill(counts = {}) {
     if (this.config.get('stats')) return [];
+    const { tasksCompleted = 0, activeDays = [] } = (typeof counts === 'function' ? counts() : counts) || {};
     const stats = normalizeStats({ tasksCompleted, activeDays });
     this.config.set({ stats });
     const d = this.data;
@@ -299,20 +342,27 @@ class Wardrobe extends EventEmitter {
     };
   }
 
+  // Every piece of tank decor, with whether it's unlocked and new (src/main/tank.js lays them out).
+  decorView(d = this.data, stats = this.stats) {
+    return [...this.catalog.decor.values()].map(item => ({ ...publicItem(item), locked: this.lockInfo(item, d, stats), isNew: d.newItems.includes(item.key) }));
+  }
+
   // Everything the Wardrobe screen shows.
   view() {
     const d = this.data;
     const stats = this.stats;
     const now = this.now();
     const decorate = item => ({ ...publicItem(item), locked: this.lockInfo(item, d, stats), isNew: d.newItems.includes(item.key) });
-    const featured = featuredSeason(now);
+    const featured = featuredSeason(now, this.where());
     return {
       outfit: this.effectiveOutfit(d),
-      options: { seasonalAuto: d.seasonalAuto, crewOutfits: d.crewOutfits, unlockAll: d.unlockAll },
+      options: { seasonalAuto: d.seasonalAuto, crewOutfits: d.crewOutfits, unlockAll: d.unlockAll, unlockAllOffered: !!this.canUnlockAll() },
       season: featured ? { id: featured.id, name: featured.name, emoji: featured.emoji, endsAt: windowEnd(featured, now).getTime(), wearing: !!this.seasonalActive(d), outfit: featured.outfit } : null,
-      activeSeasons: activeSeasons(now).map(s => s.id),
+      activeSeasons: activeSeasons(now, this.where()).map(s => s.id),
       accessories: [...this.catalog.accessories.values()].map(decorate),
       effects: [...this.catalog.effects.values()].map(decorate),
+      voices: [...this.catalog.voices.values()].map(decorate),
+      voice: this.activeVoice(d)?.key || null,
       skins: this.catalog.skins.map(decorate),
       achievements: progress(stats, new Set(d.unlocked)).map(p => ({ ...p, rewards: p.rewards.map(k => this.item(k)).filter(Boolean).map(publicItem) })),
       packs: this.catalog.packs.map(p => ({ id: p.id, name: p.name, author: p.author, version: p.version, description: p.description, source: p.source, counts: p.counts, warnings: (p.warnings || []).length })),
@@ -337,9 +387,18 @@ function publicItem(item) {
   if (!item) return null;
   const { key, id, packId, name, description, slot, anchor, follows, pivot, palette, pixels, rarity, unlock, source, motion, count, speed, sprites } = item;
   const out = { key, id, packId, name, description, rarity, unlock, source };
+  if (item.category) return { ...out, kind: 'decor', category: item.category, layer: item.layer, palette: { ...palette }, pixels: [...pixels], frames: item.frames.map(f => [...f]), fps: item.fps, spots: item.spots.map(s => ({ kind: s.kind, at: [...s.at] })) };
   if (pixels) Object.assign(out, { slot, anchor, follows, pivot, palette: { ...palette }, pixels: [...pixels] });
   if (sprites) Object.assign(out, { motion, count, speed, sprites: sprites.map(s => ({ palette: { ...s.palette }, pixels: [...s.pixels] })) });
+  if (item.lines) Object.assign(out, { lang: item.lang, fallback: item.fallback, sample: voiceSample(item), occasions: Object.keys(item.lines).length });
   return out;
+}
+
+// A taste of a voice for its Wardrobe tile: a few of its everyday lines.
+const SAMPLE_FROM = ['working', 'success', 'idle', 'error', 'petted'];
+function voiceSample(v, n = 3) {
+  const order = [...SAMPLE_FROM.filter(o => v.lines[o]), ...Object.keys(v.lines).filter(o => !SAMPLE_FROM.includes(o))];
+  return order.map(o => v.lines[o][0]).slice(0, n);
 }
 
 module.exports = { Wardrobe, SLOTS, EMPTY_OUTFIT, windowStart, windowEnd, windowKey, publicItem };

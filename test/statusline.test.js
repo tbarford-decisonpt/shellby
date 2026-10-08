@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { inspectPlugin, formatStatus, formatPlain, upgradeStatusLine, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, COMMAND } = require('../src/main/statusline');
+const { inspectPlugin, isOlderVersion, pluginStatus, PLUGIN_VERSION, formatStatus, formatPlain, upgradeStatusLine, writeStatus, clearStatus, inspectSettings, installStatusLine, removeStatusLine, COMMAND } = require('../src/main/statusline');
 
 const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '');
 const xp = { level: 5, title: 'Claw Coder', progress: 0.6 };
@@ -74,6 +74,41 @@ test('whether the Shellby plugin is on, from enabledPlugins', () => {
   assert.equal(inspectPlugin(file), 'off');
   fs.writeFileSync(file, '{ broken');
   assert.equal(inspectPlugin(file), 'unreadable');
+});
+
+test('the plugin version Shellby expects is the one in claude-plugin', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'claude-plugin', '.claude-plugin', 'plugin.json'), 'utf8'));
+  assert.equal(PLUGIN_VERSION, manifest.version, 'bump PLUGIN_VERSION in src/main/statusline.js with the plugin');
+});
+
+test('isOlderVersion: compares major.minor.patch as numbers, and never calls a version it cannot read older', () => {
+  assert.equal(isOlderVersion('1.1.0', '1.4.0'), true);
+  assert.equal(isOlderVersion('1.9.0', '1.10.0'), true, 'numbers, not text');
+  assert.equal(isOlderVersion('0.9.9', '1.0.0'), true);
+  assert.equal(isOlderVersion('1.4.0', '1.4.0'), false);
+  assert.equal(isOlderVersion('1.5.0', '1.4.0'), false, 'a newer plugin than this Shellby knows is fine');
+  assert.equal(isOlderVersion('abc', '1.4.0'), false);
+  assert.equal(isOlderVersion('', '1.4.0'), false);
+  assert.equal(isOlderVersion(undefined, '1.4.0'), false);
+});
+
+test('pluginStatus: an old user install is outdated; off, project, unlisted or current ones are not', () => {
+  const user = version => ({ installed: true, scope: 'user', version });
+  const ours = { name: 'shellby', source: 'X-Salmon/shellby', repo: 'X-Salmon/shellby' };
+  assert.deepEqual(pluginStatus('on', user('1.1.0'), ours), { state: 'on', outdated: { from: '1.1.0', to: PLUGIN_VERSION } });
+  assert.deepEqual(pluginStatus('on', user(PLUGIN_VERSION), ours), { state: 'on' });
+  assert.deepEqual(pluginStatus('off', user('1.1.0'), ours), { state: 'off' }, 'turned off: Settings says how to turn it on');
+  assert.deepEqual(pluginStatus('unreadable', user('1.1.0'), ours), { state: 'unreadable' });
+  assert.deepEqual(pluginStatus('on', { installed: true, scope: 'project', version: '1.1.0' }, ours), { state: 'on' });
+  assert.deepEqual(pluginStatus('on', null, ours), { state: 'on' }, 'the shop has not listed yet');
+  assert.deepEqual(pluginStatus('none', undefined, undefined), { state: 'none' });
+});
+
+test("pluginStatus: never offers an update from someone else's marketplace called shellby", () => {
+  const old = { installed: true, scope: 'user', version: '1.1.0' };
+  assert.deepEqual(pluginStatus('on', old, { name: 'shellby', source: 'mallory/shellby', repo: 'mallory/shellby' }), { state: 'on' });
+  assert.deepEqual(pluginStatus('on', old, { name: 'shellby', source: 'https://evil.example/x-salmon/shellby', repo: null }), { state: 'on' }, 'the repo, not a source that only mentions it');
+  assert.deepEqual(pluginStatus('on', old, null), { state: 'on' }, 'marketplaces unknown');
 });
 
 test('a streak of 2+ days shows as a flame', () => {

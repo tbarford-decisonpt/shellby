@@ -16,7 +16,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'inventor', name: 'Inventor', icon: '🧙', description: 'Shellby learns 5 new tricks', stat: 'tricksLearned', goal: 5, rewards: ['wizard-hat', 'bonsai'] },
   { id: 'tinkerer', name: 'Tinkerer', icon: '🔧', description: 'Approve running a script Shellby wrote', stat: 'createdScriptsRun', goal: 1, rewards: ['wrench', 'rubber-duck'] },
   { id: 'clockwork', name: 'Clockwork', icon: '⏱️', description: 'Run your first routine', stat: 'routinesRun', goal: 1, rewards: ['pocket-watch', 'pager'] },
-  { id: 'night-owl', name: 'Night Owl', icon: '🦉', description: 'Finish a task between midnight and 5 AM', stat: 'nightTasks', goal: 1, rewards: ['nightcap', 'sleep-mask'], hidden: true },
+  { id: 'night-owl', name: 'Night Owl', icon: '🦉', description: 'Finish a task between midnight and 5 AM', stat: 'nightTasks', goal: 1, rewards: ['nightcap', 'sleep-mask', 'starry-night'], hidden: true },
   { id: 'early-bird', name: 'Early Bird', icon: '☕', description: 'Finish a task between 5 and 8 AM', stat: 'earlyTasks', goal: 1, rewards: ['coffee-mug', 'eye-black'], hidden: true },
   { id: 'multitasker', name: 'Multitasker', icon: '🎧', description: 'Run 3 conversations at the same time', stat: 'maxParallel', goal: 3, rewards: ['headphones', 'cursors'] },
   { id: 'careful', name: 'Safety First', icon: '🥽', description: 'Answer 25 permission prompts', stat: 'permissionsAnswered', goal: 25, rewards: ['safety-goggles', 'face-shield'] },
@@ -29,8 +29,78 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'spring-cleaning', name: 'Spring Cleaning', icon: '🧹', description: 'Free up space after a low-disk warning', stat: 'spaceFreed', goal: 1, rewards: ['broom', 'toadstool'] },
   { id: 'good-crab', name: 'Good Crab', icon: '💕', description: 'Pet Shellby 25 times', stat: 'petsGiven', goal: 25, rewards: ['heart-shades', 'starfish'], hidden: true },
   { id: 'frequent-flyer', name: 'Frequent Flyer', icon: '🛩️', description: 'Throw Shellby across your screen', stat: 'timesThrown', goal: 1, rewards: ['aviator-cap', 'inner-tube'], hidden: true },
-  { id: 'deep-focus', name: 'Deep Focus', icon: '⛑️', description: 'Finish 5 focus sessions', stat: 'focusSessions', goal: 5, rewards: ['guard-helmet', 'welding-mask'] },
-  { id: 'green-light', name: 'Green Light', icon: '🟢', description: 'Fix a failing build on one of your pull requests', stat: 'buildsFixed', goal: 1, rewards: ['green-flag'] },
+  { id: 'deep-focus', name: 'Deep Focus', icon: '⛑️', description: 'Finish 5 focus sessions', stat: 'focusSessions', goal: 5, rewards: ['guard-helmet', 'welding-mask', 'diver'] },
+  { id: 'open-house', name: 'Open House', icon: '🏡', description: "A friend's crab drops by", stat: 'visitorsHosted', goal: 1, rewards: ['sea-glass', 'friendship-bracelet'] },
+  { id: 'pen-pals', name: 'Pen Pals', icon: '💌', description: 'Wave to friends 5 times', stat: 'wavesSent', goal: 5, rewards: ['message-bottle'] },
+  { id: 'green-light', name: 'Green Light', icon: '🟢', description: 'Fix a failing build on one of your pull requests', stat: 'buildsFixed', goal: 1, rewards: ['green-flag', 'lighthouse'] },
+  // Up on your windows (src/main/perch.js).
+  { id: 'window-sill', name: 'Window Sill', icon: '🪟', description: 'Shellby climbs up onto one of your windows', stat: 'perchesMade', goal: 1, rewards: ['spyglass'] },
+  { id: 'hang-on', name: 'Hang On!', icon: '🎢', description: 'Drag a window 2,000 px with Shellby riding it', stat: 'longestRide', goal: 2000, rewards: ['racing-goggles'] },
+  { id: 'rodeo', name: 'Rodeo', icon: '🤠', description: 'Shake Shellby off a window 10 times', stat: 'timesShaken', goal: 10, rewards: ['cowboy-hat'], hidden: true },
+  { id: 'leap-of-faith', name: 'Leap of Faith', icon: '🪂', description: 'Shellby falls off one window and lands on another', stat: 'windowLeaps', goal: 1, rewards: ['parachute'], hidden: true },
+  { id: 'trapeze', name: 'Trapeze', icon: '🎪', description: 'Throw Shellby onto a window and he catches the title bar', stat: 'windowCatches', goal: 1, rewards: ['ringmaster-collar'], hidden: true },
+  // Up the edges of the screen (src/main/climb.js) and mischief (src/main/mischief.js).
+  { id: 'spider-crab', name: 'Spider-Crab', icon: '🧗', description: 'Shellby climbs the side of your screen 10 times', stat: 'wallsClimbed', goal: 10, rewards: ['climbing-helmet'] },
+  { id: 'sticky-feet', name: 'Sticky Feet', icon: '🦎', description: 'Throw Shellby at the edge of the screen and he sticks to it', stat: 'wallsStuck', goal: 1, rewards: ['chalk-bag'], hidden: true },
+  { id: 'little-gremlin', name: 'Little Gremlin', icon: '😈', description: 'Shellby gets up to mischief 10 times', stat: 'pranksPulled', goal: 10, rewards: ['bandit-mask'], hidden: true },
+  // Shell stickers (src/main/stickers.js).
+  { id: 'tagged', name: 'Tagged', icon: '🏷️', description: 'Ship a project and earn its sticker', stat: 'stickersEarned', goal: 1, rewards: ['sticker-sheet'] },
+  { id: 'sticker-bomb', name: 'Sticker Bomb', icon: '🎨', description: 'Ship 10 different projects', stat: 'stickersEarned', goal: 10, rewards: ['paint-can'] },
+  { id: 'shiny', name: 'Shiny', icon: '✨', description: 'Ship one project often enough that its sticker goes holo', stat: 'holoStickers', goal: 1, rewards: ['holo-visor'] },
+  { id: 'liftoff', name: 'Liftoff', icon: '🚀', description: 'Release version 1.0 of something', stat: 'majorReleases', goal: 1, rewards: ['rocket'] },
+  { id: 'well-traveled', name: 'Well Traveled', icon: '🧳', description: 'Put stickers on 3 different shells', stat: 'stickeredShells', goal: 3, rewards: ['luggage-tag'] },
+  { id: 'swap-meet', name: 'Swap Meet', icon: '🤝', description: "A visiting friend's crab leaves you one of their stickers", stat: 'friendStickers', goal: 1, rewards: ['trade-binder'] },
+  // Just the two of you (src/main/life.js, gifts.js, bond.js, playtime.js). None of these need Claude.
+  { id: 'beachcomber', name: 'Beachcomber', icon: '🐚', description: 'Shellby digs you up his first gift', stat: 'findsMade', goal: 1, rewards: ['sand-pail', 'pebble-floor'] },
+  { id: 'magpie', name: 'Magpie', icon: '🐦', description: 'Shellby digs you up 25 gifts', stat: 'findsMade', goal: 25, rewards: ['metal-detector'] },
+  { id: 'curator', name: 'Curator', icon: '🏛️', description: 'Complete a set of finds on the shelf', stat: 'setsCompleted', goal: 1, rewards: ['treasure-chest'] },
+  { id: 'x-marks', name: 'X Marks the Spot', icon: '🗺️', description: 'Shellby digs up something legendary', stat: 'legendaryFinds', goal: 1, rewards: ['doubloon-medal'], hidden: true },
+  { id: 'best-friends', name: 'Best Friends', icon: '💞', description: 'Become best friends with Shellby', stat: 'bondLevel', goal: 4, rewards: ['friendship-locket', 'jelly-lamp'] },
+  { id: 'peekaboo', name: 'Peekaboo', icon: '🙈', description: 'Find Shellby in hide and seek', stat: 'hidesFound', goal: 1, rewards: ['leafy-disguise'] },
+  { id: 'good-arm', name: 'Good Arm', icon: '🎾', description: 'Play fetch with Shellby 10 times', stat: 'fetches', goal: 10, rewards: ['tennis-ball'] },
+  { id: 'player-two', name: 'Player Two', icon: '🎮', description: 'Shellby watches you finish 5 games', stat: 'gamesWatched', goal: 5, rewards: ['game-controller'], hidden: true },
+  { id: 'on-air', name: 'Quiet on Set', icon: '🤫', description: 'Shellby keeps quiet through 5 calls', stat: 'callsHushed', goal: 5, rewards: ['on-air-light'], hidden: true },
+  { id: 'storyteller', name: 'Little Scenes', icon: '🎭', description: 'Catch Shellby in 10 different little scenes', stat: 'scenesSeen', goal: 10, rewards: ['bubble-pipe'] },
+  { id: 'gossip', name: 'Gossip', icon: '💬', description: 'Your crab chats with visiting crabs 5 times', stat: 'banters', goal: 5, rewards: ['tin-can-phone'] },
+  // Snacks and naps (src/main/needs.js). Looking after him only ever adds.
+  { id: 'snack-time', name: 'Snack Time', icon: '🦐', description: 'Feed Shellby his first snack', stat: 'snacksFed', goal: 1, rewards: ['snack-bowl'] },
+  { id: 'well-fed', name: 'Well Fed', icon: '🍽️', description: 'Feed Shellby 100 snacks', stat: 'snacksFed', goal: 100, rewards: ['napkin-bib'] },
+  { id: 'squeaky-clean', name: 'Squeaky Clean', icon: '🧼', description: 'Give Shellby 25 rinses', stat: 'rinsesGiven', goal: 25, rewards: ['bath-sponge'] },
+  { id: 'night-night', name: 'Night Night', icon: '🧸', description: 'Tuck Shellby in 10 times', stat: 'tuckIns', goal: 10, rewards: ['sleepy-teddy'] },
+  { id: 'golden-tummy', name: 'Golden Tummy', icon: '✨', description: 'Share a golden plankton with Shellby', stat: 'goldenSnacks', goal: 1, rewards: ['golden-spoon'], hidden: true },
+  // The shipyard: the work XP already pays for (xp.js AWARDS), fed from awardXp in main.js.
+  { id: 'launch-day', name: 'Launch Day', icon: '🛰️', description: 'Deploy or publish something', stat: 'deploys', goal: 1, rewards: ['mission-patch'] },
+  { id: 'back-to-green', name: 'Back to Green', icon: '🧪', description: 'Turn failing tests green 10 times', stat: 'testsFixed', goal: 10, rewards: ['test-tube'] },
+  { id: 'ghostbuster', name: 'Ghostbuster', icon: '👻', description: 'Fix a flaky test for good', stat: 'flakesFixed', goal: 1, rewards: ['proton-pack'], hidden: true },
+  // Surprises (src/main/surprises.js): rare on purpose, so hidden until they happen.
+  { id: 'critical-hit', name: 'Critical Hit', icon: '🎲', description: 'One turn takes a red test suite all the way to green, and he makes a fuss', stat: 'critHits', goal: 1, rewards: ['lucky-d20'], hidden: true },
+  { id: 'natural-twenty', name: 'Natural Twenty', icon: '✨', description: 'Land 20 critical hits', stat: 'critHits', goal: 20, rewards: ['golden-d20'], hidden: true },
+  { id: 'clean-landing', name: 'Clean Landing', icon: '🛬', description: 'A copy comes home with its checks green on the first try, and he makes a fuss', stat: 'cleanLandings', goal: 1, rewards: ['pilot-wings'], hidden: true },
+  { id: 'issue-to-ship', name: 'Issue to Ship', icon: '🧭', description: 'Take an issue all the way to a pull request', stat: 'issuesShipped', goal: 1, rewards: ['ships-wheel'] },
+  { id: 'clean-bill', name: 'Clean Bill', icon: '📋', description: 'Get a clean dependency audit', stat: 'cleanAudits', goal: 1, rewards: ['clipboard'] },
+  { id: 'tidy-shell', name: 'Tidy Shell', icon: '🪶', description: 'Turn off a plugin or MCP server that sits idle', stat: 'toolsTidied', goal: 1, rewards: ['feather-duster'] },
+  { id: 'fresh-start', name: 'Fresh Start', icon: '📝', description: 'Start a crowded conversation fresh with a summary', stat: 'freshStarts', goal: 1, rewards: ['fresh-page'] },
+  { id: 'on-a-roll', name: 'On a Roll', icon: '🔥', description: 'Keep a 7-day streak going', stat: 'longestStreak', goal: 7, rewards: ['flame-scarf'] },
+  { id: 'unstoppable', name: 'Unstoppable', icon: '☄️', description: 'Keep a 30-day streak going', stat: 'longestStreak', goal: 30, rewards: ['blazing-crest'], hidden: true },
+  { id: 'double-digits', name: 'Double Digits', icon: '🪸', description: 'Reach level 10', stat: 'level', goal: 10, rewards: ['coral-laurel', 'sunken-ship'] },
+  // His tank (src/main/tank.js): the most pieces it's held at once.
+  { id: 'moving-in', name: 'Moving In', icon: '🪴', description: 'Put the first piece of decor in his tank', stat: 'tankPieces', goal: 1, rewards: ['sunken-chest'] },
+  { id: 'interior-designer', name: 'Interior Designer', icon: '🏰', description: 'Have 15 pieces in his tank at once', stat: 'tankPieces', goal: 15, rewards: ['coral-fan'] },
+  { id: 'house-guest', name: 'House Guest', icon: '🛋️', description: "A friend's crab drops by while his tank is on your calling card", stat: 'houseGuests', goal: 1, rewards: ['guest-bench'] },
+  // His life in it (src/main/tank-life.js).
+  { id: 'aquascaper', name: 'Aquascaper', icon: '🌿', description: 'Have 5 different plants in his tank at once', stat: 'tankPlants', goal: 5, rewards: ['anubias'] },
+  { id: 'on-display', name: 'On Display', icon: '🖼️', description: 'Put 3 complete sets of finds on display in his tank', stat: 'setsShown', goal: 3, rewards: ['display-plinth'] },
+  { id: 'upsized', name: 'Upsized', icon: '📦', description: 'Move him into the 30 gallon tank', stat: 'tankSize', goal: 3, rewards: ['old-anchor'] },
+  { id: 'night-light', name: 'Night Light', icon: '🌙', description: 'Watch him fall asleep in his tank', stat: 'tankNaps', goal: 1, rewards: ['moon-lamp'], hidden: true },
+  // The Bugdex (src/main/bugdex.js).
+  { id: 'gotcha', name: 'Gotcha!', icon: '🫙', description: 'Catch your first bug for the Bugdex', stat: 'bugsCaught', goal: 1, rewards: ['bug-net', 'specimen-jar'] },
+  { id: 'field-notes', name: 'Field Notes', icon: '📓', description: 'Catch 10 different kinds of bug', stat: 'bugSpecies', goal: 10, rewards: ['magnifier'] },
+  { id: 'naturalist', name: 'Naturalist', icon: '🌿', description: 'Catch every bug in one habitat of the Bugdex', stat: 'habitatsDone', goal: 1, rewards: ['bug-terrarium'] },
+  { id: 'fix-em-all', name: "Fix 'Em All", icon: '🧢', description: 'Catch 40 different kinds of bug', stat: 'bugSpecies', goal: 40, rewards: ['trainer-cap'] },
+  { id: 'exterminator', name: 'Pest Control', icon: '🧯', description: 'Catch 100 bugs', stat: 'bugsCaught', goal: 100, rewards: ['bug-sprayer-pack'] },
+  { id: 'golden-touch', name: 'Golden Touch', icon: '✨', description: 'Catch a golden bug', stat: 'goldenCatches', goal: 1, rewards: ['golden-net'], hidden: true },
+  { id: 'ghost-whisperer', name: 'Ghost Whisperer', icon: '🏮', description: 'Catch 3 different ghosts from the wreck', stat: 'ghostSpecies', goal: 3, rewards: ['ghost-jar'] },
+  { id: 'heisenberg', name: 'Uncertainty Principle', icon: '🥽', description: 'Catch a legendary bug', stat: 'legendaryBugs', goal: 1, rewards: ['quantum-goggles'], hidden: true },
 ].map(a => Object.freeze({ hidden: false, ...a, rewards: Object.freeze(a.rewards) })));
 
 const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
@@ -38,7 +108,14 @@ const KNOWN_ACHIEVEMENTS = new Set(ACHIEVEMENTS.map(a => a.id));
 const COUNTERS = [
   'tasksCompleted', 'helpersSpawned', 'maxCrew', 'tricksLearned', 'createdScriptsRun', 'routinesRun',
   'nightTasks', 'earlyTasks', 'maxParallel', 'permissionsAnswered', 'plansApproved', 'filesDropped',
-  'healthViews', 'heatCooled', 'spaceFreed', 'cardsShared', 'petsGiven', 'timesThrown', 'focusSessions', 'buildsFixed',
+  'healthViews', 'heatCooled', 'spaceFreed', 'cardsShared', 'petsGiven', 'timesThrown', 'focusSessions', 'buildsFixed', 'visitorsHosted', 'wavesSent',
+  'perchesMade', 'timesShaken', 'windowLeaps', 'windowCatches', 'longestRide', 'wallsClimbed', 'wallsStuck', 'pranksPulled',
+  'stickersEarned', 'holoStickers', 'majorReleases', 'stickeredShells', 'friendStickers',
+  'findsMade', 'setsCompleted', 'legendaryFinds', 'bondLevel', 'hidesFound', 'fetches', 'gamesWatched', 'callsHushed', 'scenesSeen', 'banters',
+  'snacksFed', 'rinsesGiven', 'tuckIns', 'goldenSnacks',
+  'deploys', 'testsFixed', 'flakesFixed', 'issuesShipped', 'cleanAudits', 'toolsTidied', 'freshStarts', 'longestStreak', 'level',
+  'tankPieces', 'houseGuests', 'tankPlants', 'setsShown', 'tankSize', 'tankNaps', 'critHits', 'cleanLandings',
+  'bugsCaught', 'habitatsDone', 'legendaryBugs', 'goldenCatches', 'bugSpecies', 'ghostSpecies',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,9 +137,61 @@ const INCREMENTS = {
   thrown: 'timesThrown',
   'focus-completed': 'focusSessions',
   'ci-fixed': 'buildsFixed',
+  'visitor-hosted': 'visitorsHosted',
+  'house-guest': 'houseGuests',
+  'tank-nap': 'tankNaps',
+  'wave-sent': 'wavesSent',
+  perched: 'perchesMade',
+  shaken: 'timesShaken',
+  'window-leap': 'windowLeaps',
+  'caught-on-window': 'windowCatches',
+  climbed: 'wallsClimbed',
+  'stuck-to-wall': 'wallsStuck',
+  pinched: 'pranksPulled',
+  nudged: 'pranksPulled',
+  'note-delivered': 'pranksPulled',
+  'find-made': 'findsMade',
+  'set-completed': 'setsCompleted',
+  'legendary-find': 'legendaryFinds',
+  'hide-found': 'hidesFound',
+  fetched: 'fetches',
+  'game-watched': 'gamesWatched',
+  'call-hushed': 'callsHushed',
+  banter: 'banters',
+  fed: 'snacksFed',
+  rinsed: 'rinsesGiven',
+  tucked: 'tuckIns',
+  'golden-snack': 'goldenSnacks',
+  deployed: 'deploys',
+  'tests-fixed': 'testsFixed',
+  'flake-fixed': 'flakesFixed',
+  'issue-shipped': 'issuesShipped',
+  'deps-clean': 'cleanAudits',
+  'toolbox-tidied': 'toolsTidied',
+  'started-fresh': 'freshStarts',
+  'crit-hit': 'critHits',
+  'clean-landing': 'cleanLandings',
+  'bug-caught': 'bugsCaught',
+  'habitat-done': 'habitatsDone',
+  'legendary-bug': 'legendaryBugs',
+  'golden-catch': 'goldenCatches',
 };
 // "Keep the high-water mark" events: payload { n }.
-const MAXIMA = { 'crew-size': 'maxCrew', parallel: 'maxParallel' };
+const MAXIMA = {
+  'crew-size': 'maxCrew', parallel: 'maxParallel', ride: 'longestRide',
+  // Shell stickers (src/main/stickers.js) report their totals.
+  'stickers-earned': 'stickersEarned', 'holo-stickers': 'holoStickers', 'one-point-oh': 'majorReleases', 'stickered-shells': 'stickeredShells', 'friend-stickers': 'friendStickers',
+  // Bond level and the number of different scenes seen (src/main/life.js) report their totals.
+  'bond-level': 'bondLevel', 'scenes-seen': 'scenesSeen',
+  // The longest streak (streaks.js) and the XP level (xp.js), reported by awardXp in main.js.
+  streak: 'longestStreak', level: 'level',
+  // The pieces in his tank (src/main/tank.js), reported when you save it.
+  'tank-pieces': 'tankPieces',
+  // ...and its life (src/main/tank-life.js): plants on show, sets on display, the biggest tank (SIZES index + 1).
+  'tank-plants': 'tankPlants', 'sets-shown': 'setsShown', 'tank-size': 'tankSize',
+  // The Bugdex (src/main/bugdex.js) reports how many kinds of bug, and of ghost, it has caught.
+  'bug-species': 'bugSpecies', 'ghost-species': 'ghostSpecies',
+};
 
 function emptyStats() {
   const s = {};

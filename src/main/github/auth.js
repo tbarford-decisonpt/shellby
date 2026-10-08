@@ -12,13 +12,21 @@ const CLIENT_ID = 'Ov23liUNwzgYRhQoado8';
 const FEATURE_SCOPES = Object.freeze({
   profile: ['read:user'],      // name + avatar
   sync: ['gist'],              // private gist with your progress
+  friends: ['gist'],           // public calling card gist; friends' crabs visit and wave
+  profileCard: ['gist'],       // public gist with an SVG of your crab, for your profile README
+  prBadge: ['public_repo'],    // "Built with Shellby" on your PRs: his picture in <you>/shellby-badge, and the PR edit
   publish: ['public_repo'],    // fork shellby-packs and open a PR
   claude: ['repo'],            // Claude Code tasks can push and open PRs (private repos too)
   ci: [],                      // watch CI on your pull requests (public repos; private ones ride on `repo`)
+  issues: [],                  // issues assigned to you or labelled shellby start workflows (same as ci)
   // GitHub refuses any push that touches .github/workflows without this, even
   // with `repo`. Kept separate from `claude` on purpose: a workflow decides what
   // runs in CI, where the repository's secrets are, so it is its own decision.
   workflows: ['workflow'],
+  // Your repositories on the Projects page (projects/github.js). Public ones
+  // need nothing more; private ones show only if `repo` is already granted
+  // for something else. Never a reason to ask for more.
+  projects: [],
 });
 
 /** The scopes needed for a set of features (repo covers public_repo). */

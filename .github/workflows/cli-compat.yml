@@ -1,0 +1,153 @@
+name: Claude Code compatibility
+
+# Every night, the newest Claude Code against what Shellby relies on: its flags,
+# permission modes, effort levels and control protocol, and (with an API key)
+# one tiny real turn whose every event must be one Shellby understands. See
+# scripts/cli-compat.js and src/main/cli-contract.js.
+#
+# The README badge reads cli-compat.json from the `badges` branch, which this
+# creates on its first run (main is protected; that branch isn't). A failure
+# opens an issue labelled cli-compat, or comments on the open one once per new
+# version; a pass closes it.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write # the badges branch
+  issues: write
+
+concurrency:
+  group: cli-compat
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      # `secrets` can't be read in an `if:`, so this says whether the real turn
+      # runs. The key itself goes only to the step that needs it, not to every
+      # npm install script before it.
+      HAS_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      # The token isn't left in .git/config, where the install scripts below
+      # could read it; the two badge steps hand it to git themselves.
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Install the newest Claude Code
+        run: |
+          npm i -g @anthropic-ai/claude-code@latest
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          # The real exe, not npm's claude.cmd shim: Shellby launches claude.exe.
+          $exe = Join-Path (npm prefix -g) 'node_modules\@anthropic-ai\claude-code\bin\claude.exe'
+          if (-not (Test-Path $exe)) { throw "No claude.exe at $exe" }
+          "SHELLBY_CLAUDE_PATH=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # The last result, so a failure can say which version last worked. The
+      # branch is created (empty, no history) the first time.
+      - name: Fetch the badge branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git fetch --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges:refs/remotes/origin/badges; then
+            git worktree add --detach badges origin/badges
+          else
+            git worktree add --detach badges
+            git -C badges switch --orphan badges
+          fi
+
+      - name: Check (no account)
+        if: env.HAS_ANTHROPIC_API_KEY != 'true'
+        continue-on-error: true
+        run: node scripts/cli-compat.js --out cli-compat/report.json --summary cli-compat/summary.md --badge-dir badges
+
+      - name: Check, with one real turn on Haiku
+        if: env.HAS_ANTHROPIC_API_KEY == 'true'
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/cli-compat.js --out cli-compat/report.json --summary cli-compat/summary.md --transcript cli-compat/transcript.jsonl --badge-dir badges
+
+      - name: Summary
+        if: always() && hashFiles('cli-compat/summary.md') != ''
+        shell: bash
+        run: cat cli-compat/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: cli-compat
+          path: cli-compat/
+          if-no-files-found: warn
+
+      - name: Publish the badge
+        if: always() && github.ref == 'refs/heads/main' && hashFiles('badges/cli-compat.json') != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd badges
+          git add cli-compat.json cli-compat-state.json
+          if git diff --cached --quiet; then echo "Badge unchanged."; exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -m "cli-compat: $(node -p "require('./cli-compat.json').message")"
+          git push -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/badges
+
+      - name: Open, update or close the issue
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const read = f => { try { return fs.readFileSync(f, 'utf8'); } catch { return null; } };
+            const raw = read('cli-compat/report.json');
+            // No report means the run broke before the check (an install, the
+            // runner): the failed run says so, and the issue is about Claude Code.
+            if (!raw) { core.warning('No report: leaving the cli-compat issue alone.'); return; }
+            const report = JSON.parse(raw);
+            const summary = read('cli-compat/summary.md') || '';
+            const { owner, repo } = context.repo;
+            const label = 'cli-compat';
+            const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const version = report.version || 'unknown';
+            const marker = `<!-- cli-compat:${version} -->`;
+
+            const open = (await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', labels: label, per_page: 100 }))
+              .filter(i => !i.pull_request);
+            const issue = open[0];
+
+            if (report.ok) {
+              if (!issue) return;
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number,
+                body: `Works again with Claude Code ${version}. Closing.\n\n[Run](${run})` });
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' });
+              return;
+            }
+
+            const body = `${marker}\n${summary}\n\n[Run log, report and transcript](${run})`;
+            if (!issue) {
+              try { await github.rest.issues.createLabel({ owner, repo, name: label, color: 'e05d44', description: 'A Claude Code release broke something Shellby relies on' }); } catch { /* already there */ }
+              await github.rest.issues.create({ owner, repo, labels: [label],
+                title: `Claude Code ${version} broke something Shellby relies on`, body });
+              return;
+            }
+            // One comment per new version, not one a night.
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue.number, per_page: 100 });
+            if ([issue.body, ...comments.map(c => c.body)].some(b => (b || '').includes(marker))) return;
+            await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+
+      - name: Fail when Claude Code is incompatible
+        if: always()
+        run: |
+          node -e "process.exit(require('./cli-compat/report.json').ok ? 0 : 1)"

@@ -16,6 +16,8 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
+const { SHELLS } = require('../src/main/shells');
 const { startMockGitHub } = require('../test/fixtures/mock-github');
 
 const ROOT = path.join(__dirname, '..');
@@ -31,7 +33,7 @@ async function connect(url) {
   ws.onmessage = e => { const m = JSON.parse(e.data); p.get(m.id)?.(m); };
   const send = (method, params = {}) => new Promise(r => { const i = ++id; p.set(i, m => r(m.result)); ws.send(JSON.stringify({ id: i, method, params })); });
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }))?.result?.value;
-  const shot = async name => fs.writeFileSync(path.join(OUT, `${name}.png`), Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+  const shot = async name => await savePng(send, path.join(OUT, `${name}.png`));
   return { send, ev, shot, close: () => ws.close() };
 }
 
@@ -100,7 +102,7 @@ async function connect(url) {
     await panel.ev("SB.clearCelebrations?.(); SB.setView('wardrobe'); document.querySelector('#wdSlots [data-slot=home]').click(); true");
     await wait(400);
     const tiles = await panel.ev("[...document.querySelectorAll('#wdGrid .wd-tile')].map(t => ({ name: t.querySelector('.wd-name').textContent, on: t.classList.contains('on'), locked: t.classList.contains('locked') }))");
-    check(tiles.length === 6 && tiles[0].name === 'His own', `Homes lists his own shell plus five (${tiles.map(t => t.name).join(', ')})`);
+    check(tiles.length === SHELLS.length + 1 && tiles[0].name === 'His own', `Homes lists his own shell plus every other (${tiles.map(t => t.name).join(', ')})`);
     check(tiles.find(t => t.name === 'Snail Shell')?.on, 'the Snail Shell is the one he wears');
     check(tiles.find(t => t.name === 'Teacup')?.locked, 'the Teacup waits for level 8');
     check(await panel.ev("!!document.querySelector('#wdCrab .part-shell rect[fill=\"#b5793f\"]')"), 'the preview wears it too');
@@ -142,7 +144,7 @@ async function connect(url) {
     check((await panel.ev('shellby.dev.critterPos()')).x !== x0, 'he moved a little');
 
     // ------------------------------------------------------------ 3. focus
-    await panel.ev("SB.setView('trophies')");
+    await panel.ev("SB.setView('time')");
     await panel.ev("[...document.querySelectorAll('#focusActions button')].find(b => b.textContent === '15 min').click()");
     check(await until(critter, "document.body.classList.contains('focus-focus')", 3000), 'focus: he stands guard');
     check(await until(critter, "document.getElementById('bubbleText').textContent === '15m'", 3000), 'the bubble counts down (15m)');

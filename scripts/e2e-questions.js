@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9355;
@@ -44,7 +45,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(!/[{}]|"question"|"options"/.test(text), 'no JSON in the card');
     check(/Quick question/.test(text) && /Which color do you like\?/.test(text) && /Calm, like the sea/.test(text), 'question, options and descriptions shown');
     check(await ev("document.getElementById('statusText').textContent") === 'Waiting for your answer…', 'status says it is waiting for your answer');
-    if (process.argv[2]) fs.writeFileSync(process.argv[2], Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[2]) await savePng(send, process.argv[2]);
     check(await ev("document.activeElement?.classList.contains('qa-opt')"), 'the first option has focus, so number keys work');
     await ev("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }))");
     check(await until("!SB.activeTab().busy"), 'pressing 2 answers it');

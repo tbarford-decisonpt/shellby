@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { savePng } = require('./lib/shot');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9357;
@@ -42,7 +43,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(/Not installed on this PC/.test(text), `plugin card says it's missing ("${text}")`);
     check(await ev("!document.getElementById('pluginBtn').hidden"), 'offers "Install the plugin"');
     await ev("document.getElementById('pluginCard').scrollIntoView({ block: 'center' })");
-    if (process.argv[2]) fs.writeFileSync(process.argv[2], Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    if (process.argv[2]) await savePng(send, process.argv[2]);
 
     // 2. Installed (as Claude Code records it) → the card says so, no button.
     const target = path.join(data, 'claude-settings.json'); // the isolated stand-in for ~/.claude/settings.json

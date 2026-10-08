@@ -14,6 +14,13 @@
   }
 
   function art(item) {
+    // Voices and scenes are words, not pixels.
+    if (item.glyph) {
+      const g = document.createElement('span');
+      g.className = 'glyph';
+      g.textContent = item.glyph;
+      return g;
+    }
     if (item.sprites) {
       const sp = [...item.sprites].sort((a, b) => b.pixels.join('').length - a.pixels.join('').length)[0];
       return window.ShellbySprite.grid(sp.pixels, sp.palette);

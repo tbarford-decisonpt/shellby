@@ -1,12 +1,26 @@
-/* Shellby panel — tabs, composer, mode/folder chips, usage meter, slash menu. */
+/* Shellby panel — tabs: opening, closing, ordering and switching between
+   conversations, and the keys that do it. The strip is drawn by tab-strip.js,
+   the box and sending by tab-send.js, the queue by tab-queue.js, the slash menu
+   by slash-menu.js and the mode and folder chips by tab-chips.js; the folder
+   chip's repository items live in tab-git.js, the context and usage meters in
+   tab-meters.js (all loaded after this). */
 'use strict';
 (function () {
-  const { h, api, state, $ } = SB;
+  const { api, state, $ } = SB;
+  const L = window.ShellbyTabLogic;
   const input = $('input');
+  // Theirs, reached when they're called (the files load after this one).
+  const syncContextUi = () => SB.syncContextUi();
+  const applyFolderLabel = (cwd, tab) => SB.applyFolderLabel(cwd, tab);
+  const syncBusyUi = () => SB.syncBusyUi();
+  const autosize = () => SB.autosize();
+  // Empty, idle and holding nothing for the reset (shared/outlook-format.js).
+  const isBlank = tab => window.ShellbyOutlookFormat.isBlank(tab, state.outlook);
+  SB.isBlankTab = isBlank;
+  const renderAttachments = () => SB.renderAttachments();
 
   // ------------------------------------------------------------ tabs
 
-  let drag = null;   // the tab being dragged along the strip (see "drag to reorder")
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
 
@@ -19,9 +33,19 @@
       state.tabs.set(summary.id, tab);
     }
     Object.assign(tab, {
-      title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy,
+      title: summary.title ?? tab.title, cwd: summary.cwd ?? tab.cwd, busy: !!summary.busy, busySince: summary.busySince ?? (summary.busy ? tab.busySince : null),
+      turnTokens: summary.turnTokens ?? tab.turnTokens ?? 0,
       pending: summary.pending || 0, crew: summary.crew || 0, outcome: summary.outcome ?? tab.outcome,
-      unread: !!summary.unread, saved: summary.saved ?? tab.saved, routineId: summary.routineId ?? tab.routineId,
+      unread: !!summary.unread, saved: summary.saved ?? tab.saved, named: summary.named ?? tab.named, routineId: summary.routineId ?? tab.routineId,
+      worktree: summary.worktree !== undefined ? summary.worktree : tab.worktree || null,
+      branchOf: summary.branchOf !== undefined ? summary.branchOf : tab.branchOf || null,
+      context: summary.context !== undefined ? summary.context : tab.context || null,
+      cache: summary.cache !== undefined ? summary.cache : tab.cache || null,
+      // The tests' last verdict and the latest changes' review (main's review-inbox.js), for the review inbox.
+      checks: summary.checks !== undefined ? summary.checks : tab.checks || null,
+      ready: summary.ready !== undefined ? summary.ready : tab.ready || null,
+      nudge: summary.nudge !== undefined ? summary.nudge : tab.nudge || null,
+      inTerminal: summary.inTerminal !== undefined ? summary.inTerminal : tab.inTerminal || null,
     });
     return tab;
   };
@@ -36,13 +60,14 @@
     input.value = tab.draft || '';
     autosize();
     renderAttachments();
-    applyFolderLabel(tab.cwd || state.cwd);
+    applyFolderLabel(tab.cwd || state.cwd, tab);
+    syncContextUi();
     syncBusyUi();
     if (tab.unread) api.seenTab(tabId);
     tab.unread = false;
     SB.renderTabStrip();
     requestAnimationFrame(() => { tab.el.scrollTop = tab.el.scrollHeight; });
-    if (prev !== tab) { SB.refreshGit(); SB.find.refresh(); }
+    if (prev !== tab) SB.find.refresh(); // an open Ctrl+F searches the conversation you switched to
     if (state.view !== 'chat') SB.setView('chat'); else if (!SB.find.isOpen) input.focus();
   };
 
@@ -58,13 +83,9 @@
   // the same order and writes it to disk, so a reorder outlives the session.
   SB.moveTab = (tabId, beforeId = null) => {
     if (!state.tabs.has(tabId)) return false;
-    const was = [...state.tabs.keys()];
-    const rest = was.filter(id => id !== tabId);
-    const at = beforeId === null ? rest.length : rest.indexOf(beforeId);
-    if (at < 0) return false;                                 // unknown neighbour, or itself
-    rest.splice(at, 0, tabId);
-    if (rest.every((id, i) => id === was[i])) return false;    // already sitting there
-    orderTabs(rest);
+    const order = L.reorder([...state.tabs.keys()], tabId, beforeId);
+    if (!order) return false; // an unknown neighbour, itself, or already sitting there
+    orderTabs(order);
     SB.renderTabStrip();
     api.moveTab(tabId, beforeId);
     return true;
@@ -72,10 +93,8 @@
 
   // One place left or right, for the keyboard and the palette.
   SB.nudgeTab = (tabId, step) => {
-    const ids = [...state.tabs.keys()];
-    const to = ids.indexOf(tabId) + step;
-    if (to < 0 || to >= ids.length) return false;
-    return SB.moveTab(tabId, ids.filter(id => id !== tabId)[to] ?? null);
+    const before = L.nudgeBefore([...state.tabs.keys()], tabId, step);
+    return before === undefined ? false : SB.moveTab(tabId, before);
   };
 
   SB.syncTabs = (summaries) => {
@@ -88,12 +107,15 @@
     // Main owns the order; a tab created here that isn't in the snapshot yet waits
     // at the end. A drag in progress wins, so a background tab reporting progress
     // mid-drag can't snap the strip back from under the pointer.
-    if (!drag) orderTabs([...summaries.map(s => s.id).filter(id => state.tabs.has(id)), ...[...state.tabs.keys()].filter(id => !ids.has(id))]);
+    if (!SB.isDraggingTab()) orderTabs([...summaries.map(s => s.id).filter(id => state.tabs.has(id)), ...[...state.tabs.keys()].filter(id => !ids.has(id))]);
     if (!state.tabs.has(state.activeTab)) {
       const next = [...state.tabs.keys()].pop();
       if (next) SB.activate(next); else SB.newTab();
     }
     syncBusyUi();
+    const active = SB.activeTab();
+    if (active) applyFolderLabel(active.cwd || state.cwd, active); // its first change can move it into its own copy
+    syncContextUi();
     SB.renderTabStrip();
   };
 
@@ -103,7 +125,7 @@
   let creating = null;
   SB.newTab = ({ focus = true } = {}) => {
     const cur = SB.activeTab();
-    if (cur && cur.isEmpty && !cur.busy) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
+    if (isBlank(cur)) { if (focus) SB.activate(cur.id); return Promise.resolve(cur); } // reuse a blank tab
     if (creating) return creating;
     creating = (async () => {
       const r = await api.newTab();
@@ -115,11 +137,12 @@
     return creating;
   };
 
-  // A fresh tab in a known project, with a prompt ready to send (from a nudge).
-  SB.newTabIn = async ({ cwd, draft }) => {
-    const r = await api.newTab({ cwd });
+  // A fresh tab in a known project (or the usual folder), with a prompt ready to
+  // send (from a nudge).
+  SB.newTabIn = async ({ cwd, draft } = {}) => {
+    const r = await api.newTab(cwd ? { cwd } : {});
     if (!r.ok) return SB.toast(r.error);
-    SB.ensureTab({ id: r.tabId, title: 'New task', cwd });
+    SB.ensureTab({ id: r.tabId, title: 'New task', cwd: cwd || state.cwd });
     SB.activate(r.tabId);
     input.value = draft || '';
     autosize();
@@ -127,7 +150,7 @@
   };
   api.onNewTabIn(o => { if (o?.cwd) SB.newTabIn(o); });
 
-  SB.closeTab = async (tabId) => {
+  SB.closeTab = async (tabId, { quiet = false } = {}) => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;
     tab.destroy();
@@ -139,555 +162,110 @@
     }
     await api.closeTab(tabId);
     SB.renderTabStrip();
-    if (tab.saved) SB.toast('Closed. It is still in History.');
+    if (tab.saved && !quiet) SB.toast('Closed. It is still in History.');
   };
 
-  function tabIcon(t) {
-    if (t.pending) return h('span', { class: 'ti ti-ask', title: 'Needs your OK', text: '?' });
-    if (t.busy || t.crew) return h('span', { class: 'ti ti-busy', title: t.crew ? `${t.crew} helper${t.crew > 1 ? 's' : ''} working` : 'Working' }, t.crew ? h('b', { text: t.crew }) : null);
-    if (t.outcome === 'error') return h('span', { class: 'ti ti-err', title: 'Ended with an error', text: '!' });
-    if (t.outcome === 'ok' && t.unread) return h('span', { class: 'ti ti-ok', title: 'Finished', text: '✓' });
-    if (t.routineId) return h('span', { class: 'ti ti-routine', title: 'Routine', text: '⟳' });
-    return null;
-  }
-
-  SB.renderTabStrip = () => {
-    const strip = $('tabs');
-    strip.replaceChildren(...[...state.tabs.values()].map(t => {
-      const active = t.id === state.activeTab;
-      const btn = h('div', {
-        class: `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${t.id === drag?.id && drag.moved ? ' dragging' : ''}`,
-        role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1', title: t.title,
-        'data-tab-id': t.id,
-        onclick: () => SB.activate(t.id),
-        onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
-        onpointerdown: e => dragStart(e, t.id),
-        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') SB.activate(t.id); },
-      },
-      tabIcon(t),
-      h('span', { class: 'tab-title', text: t.isEmpty && !t.saved ? 'New task' : t.title }),
-      h('button', { class: 'tab-x', type: 'button', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'));
-      return btn;
-    }));
-    // Not while dragging: following the active tab would fight the strip's own
-    // scrolling as the dragged tab is pulled past the edge.
-    if (!drag) strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    // Title bar shows total running count at a glance.
-    const running = [...state.tabs.values()].filter(t => t.busy).length;
-    document.body.classList.toggle('busy', running > 0);
-  };
-  $('tabs').addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
-  $('newTabBtn').addEventListener('click', () => SB.newTab());
-
-  // ------------------------------------------------------------ drag to reorder
-
-  // The strip reorders live as the pointer crosses a neighbour's midpoint, and the
-  // dragged tab keeps its place in the flow (just lifted). Nothing is positioned by
-  // hand, so there's nothing to re-apply when a working tab redraws the strip
-  // mid-drag — and pointermove/up are on the window, so replacing the tab's element
-  // underneath the pointer doesn't cut the drag short.
-  const EDGE = 26;            // px from a strip edge where dragging starts scrolling it
-  const SLOP = 5;             // px of movement before a click becomes a drag
-
-  function dragStart(e, tabId) {
-    if (e.button !== 0 || e.target.closest('.tab-x') || state.tabs.size < 2) return;
-    drag = { id: tabId, startX: e.clientX, x: e.clientX, moved: false };
-    window.addEventListener('pointermove', dragMove);
-    window.addEventListener('pointerup', dragEnd);
-    window.addEventListener('pointercancel', dragEnd);
-  }
-
-  function dragMove(e) {
-    if (!drag) return;
-    drag.x = e.clientX;
-    // A click that wobbles a few pixels is still a click.
-    if (!drag.moved && Math.abs(e.clientX - drag.startX) < SLOP) return;
-    if (!drag.moved) {
-      drag.moved = true;
-      document.body.classList.add('reordering');
-      lift();
-      requestAnimationFrame(edgeScroll);
-    }
-    SB.moveTab(drag.id, dropBefore(drag.x));
-  }
-
-  function dragEnd() {
-    const moved = drag?.moved;
-    drag = null;
-    window.removeEventListener('pointermove', dragMove);
-    window.removeEventListener('pointerup', dragEnd);
-    window.removeEventListener('pointercancel', dragEnd);
-    if (!moved) return;
-    document.body.classList.remove('reordering');
-    lift();
-    // The click that follows this pointerup is left alone on purpose: you grabbed
-    // that tab, so ending up in its conversation is what you asked for. That also
-    // means not redrawing the strip here — replacing the element the pointer came
-    // up on would lose the click.
-  }
-
-  // Marks the dragged tab in place, so starting and ending a drag don't have to
-  // redraw the strip. A redraw in between re-applies it from `drag` itself.
-  function lift() {
-    for (const el of $('tabs').children) el.classList.toggle('dragging', !!drag?.moved && el.dataset.tabId === drag.id);
-  }
-
-  // The tab to land in front of: the first whose midpoint is still right of the
-  // pointer. Nothing means past them all, i.e. the end of the strip.
-  function dropBefore(clientX) {
-    for (const el of $('tabs').children) {
-      const r = el.getBoundingClientRect();
-      if (clientX < r.left + r.width / 2) return el.dataset.tabId;
-    }
-    return null;
-  }
-
-  // Eight conversations don't fit at the default width, so holding a tab against
-  // either edge scrolls the strip until the slot you want comes into view.
-  function edgeScroll() {
-    if (!drag?.moved) return;
-    const strip = $('tabs');
-    const r = strip.getBoundingClientRect();
-    const dx = drag.x < r.left + EDGE ? -9 : drag.x > r.right - EDGE ? 9 : 0;
-    if (dx) {
-      strip.scrollLeft += dx;
-      SB.moveTab(drag.id, dropBefore(drag.x));
-    }
-    requestAnimationFrame(edgeScroll);
-  }
-
-  // ------------------------------------------------------------ busy / status
-
-  function syncBusyUi() {
-    const tab = SB.activeTab();
-    const busy = !!tab?.busy;
-    $('status').hidden = !busy;
-    // While Shellby works you can keep typing: Enter queues the message.
-    $('sendBtn').title = busy ? 'Queue: sends when Shellby finishes' : 'Send';
-    $('sendBtn').classList.toggle('queueing', busy);
-    $('sendHint').textContent = busy ? 'Enter to queue · Shift+Enter new line' : 'Enter to send · Shift+Enter new line';
-    if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
-    renderQueue();
-  }
-  SB.syncBusyUi = syncBusyUi;
-
-  // ------------------------------------------------------------ composer
-
-  function autosize() {
-    input.style.height = 'auto';
-    input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
-  }
-  input.addEventListener('input', () => { autosize(); updateSlash(); });
-
-  function renderAttachments() {
-    const tab = SB.activeTab();
-    const files = tab ? tab.attachments : [];
-    $('attachments').hidden = !files.length;
-    $('attachments').replaceChildren(...SB.attachmentChips(files, i => { files.splice(i, 1); renderAttachments(); }));
-  }
-  SB.addAttachments = files => {
-    const tab = SB.activeTab();
+  // Ctrl+W (and the palette) on a conversation that's still working asks first:
+  // a second press within a few seconds stops it and closes it. The × and a
+  // middle-click are aimed, so they close straight away as they always have.
+  const CLOSE_ARM_MS = 4000;
+  let closeArmed = null;
+  SB.closeTabSafely = (tabId) => {
+    const tab = state.tabs.get(tabId);
     if (!tab) return;
-    for (const f of files) if (!tab.attachments.includes(f)) tab.attachments.push(f);
-    renderAttachments();
-    input.focus();
-  };
-
-  // Send to any tab: the active one, or a background tab draining its queue.
-  async function sendNow(tab, text, attachments) {
-    const r = await api.sendTask(tab.id, text, attachments);
-    if (!r.ok) { SB.toast(r.error); return false; }
-    tab.render({ kind: 'user', text, attachments });
-    tab.busy = true;
-    tab.saved = true;
-    tab.statusText = 'Working…';
-    if (tab.title === 'New task') tab.title = text.length > 70 ? text.slice(0, 67) + '…' : text || 'Attached files';
-    if (tab.isActive) syncBusyUi();
-    SB.renderTabStrip();
-    return true;
-  }
-
-  function clearComposer(tab) {
-    input.value = '';
-    tab.attachments = [];
-    renderAttachments();
-    autosize();
-  }
-
-  SB.send = async (text) => {
-    const tab = SB.activeTab();
-    if (!tab) return;
-    text = (text ?? input.value).trim();
-    if (!text && !tab.attachments.length) return;
-    const attachments = [...tab.attachments];
-    if (tab.busy) {
-      tab.queue.push({ text, attachments });
-      clearComposer(tab);
-      syncBusyUi();
+    if (tab.busy && closeArmed !== tabId) {
+      closeArmed = tabId;
+      setTimeout(() => { if (closeArmed === tabId) closeArmed = null; }, CLOSE_ARM_MS);
+      SB.toast(`"${L.shownTitle(tab)}" is still working. Press ${SB.shortcuts.primary('closeTab')} again to stop it and close it.`,
+        { ms: CLOSE_ARM_MS, action: 'Stop and close', onAction: () => { closeArmed = null; SB.closeTab(tabId); } });
       return;
     }
-    if (await sendNow(tab, text, attachments)) {
-      clearComposer(tab);
-      SB.setView('chat');
-    }
+    closeArmed = null;
+    SB.closeTab(tabId);
   };
 
-  // ------------------------------------------------------------ queued messages
-
-  function renderQueue() {
-    const tab = SB.activeTab();
-    const q = tab?.queue || [];
-    const box = $('queued');
-    box.hidden = !q.length;
-    if (!q.length) { box.replaceChildren(); return; }
-    box.replaceChildren(...[
-      tab.queuePaused ? h('div', { class: 'queue-paused' },
-        h('span', { text: 'Paused: the last turn ended with an error.' }),
-        h('button', { class: 'btn slim-btn', type: 'button', onclick: () => { tab.queuePaused = false; drain(tab); } }, 'Send next now')) : null,
-      ...q.map((m, i) => h('div', { class: 'queue-item' },
-        h('span', { class: 'queue-tag', text: i === 0 ? 'Next' : `#${i + 1}` }),
-        h('button', { class: 'queue-text', type: 'button', title: 'Edit (puts it back in the box)', onclick: () => editQueued(tab, i) },
-          m.text || `${m.attachments.length} attached file${m.attachments.length === 1 ? '' : 's'}`),
-        h('button', { class: 'queue-x icon-btn', type: 'button', 'aria-label': 'Remove from queue', onclick: () => { tab.queue.splice(i, 1); syncBusyUi(); } },
-          SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })))),
-    ].filter(Boolean));
+  // One step along the strip, wrapping round at the ends.
+  function stepTab(step) {
+    const to = L.stepTarget([...state.tabs.keys()], state.activeTab, step);
+    if (to !== undefined) SB.activate(to);
   }
 
-  // Pull a queued message back into the box to edit (whatever was typed there is queued in its place).
-  function editQueued(tab, i) {
-    const [m] = tab.queue.splice(i, 1);
-    if (input.value.trim() || tab.attachments.length) tab.queue.splice(i, 0, { text: input.value.trim(), attachments: [...tab.attachments] });
-    input.value = m.text;
-    tab.attachments = [...m.attachments];
-    renderAttachments();
-    autosize();
-    syncBusyUi();
-    input.focus();
-  }
-
-  async function drain(tab) {
-    if (tab.busy || tab.queuePaused || !tab.queue.length) return;
-    const next = tab.queue.shift();
-    if (!(await sendNow(tab, next.text, next.attachments))) tab.queue.unshift(next);
-    if (tab.isActive) syncBusyUi();
-  }
-
-  // A turn ended: send the next queued message, or hand the queue back after Stop.
-  SB.onTurnEnded = (tab, result) => {
-    if (!tab.queue.length) return;
-    if (result.interrupted) {
-      const back = tab.queue.map(m => m.text).filter(Boolean).join('\n\n');
-      const files = tab.queue.flatMap(m => m.attachments);
-      tab.queue = [];
-      if (tab.isActive) {
-        input.value = [input.value.trim(), back].filter(Boolean).join('\n\n');
-        for (const f of files) if (!tab.attachments.includes(f)) tab.attachments.push(f);
-        renderAttachments();
-        autosize();
-        syncBusyUi();
-        SB.toast('Stopped. Your queued messages are back in the box.');
-      } else {
-        tab.draft = [tab.draft, back].filter(Boolean).join('\n\n');
-      }
-      return;
-    }
-    if (!result.ok) { tab.queuePaused = true; if (tab.isActive) syncBusyUi(); return; }
-    drain(tab);
+  // The newer shortcuts for the conversation you're in (shortcuts.js has their keys).
+  const TAB_KEYS = {
+    tryAgain: tab => SB.tryAgain(tab),
+    showChanges: tab => SB.showChanges(tab),
+    bringHome: tab => (tab.worktree ? SB.bringHome(tab) : SB.toast('This conversation works in your own checkout, so there’s nothing to bring home.')),
   };
-
-  $('form').addEventListener('submit', e => { e.preventDefault(); SB.send(); });
-  input.addEventListener('keydown', e => {
-    if (slashKeydown(e)) return;
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); SB.send(); }
-    // Up in an empty box pulls back the last queued message, like Claude Code.
-    const tab = SB.activeTab();
-    if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); }
-  });
-  $('stopBtn').addEventListener('click', stop);
-  function stop() {
-    const tab = SB.activeTab();
-    if (!tab?.busy) return;
-    api.stopTask(tab.id);
-    tab.setStatus('Stopping…');
-  }
 
   document.addEventListener('keydown', e => {
     const tab = SB.activeTab();
-    if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); SB.newTab(); return; }
-    if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTab(tab.id); return; }
+    const K = SB.shortcuts;
+    if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
+    if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
     // Reordering from the keyboard, where a browser puts it too — and the only way
     // to do it without a pointer.
-    if (e.ctrlKey && e.shiftKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
+    if (K.matches(e, 'moveTab')) {
       e.preventDefault();
       if (tab) SB.nudgeTab(tab.id, e.key === 'PageUp' ? -1 : 1);
       return;
     }
-    if (e.ctrlKey && e.key === 'Tab') {
+    if (K.matches(e, 'nextTab')) { e.preventDefault(); stepTab(1); return; }
+    if (K.matches(e, 'prevTab')) { e.preventDefault(); stepTab(-1); return; }
+    const own = Object.keys(TAB_KEYS).find(id => K.matches(e, id));
+    if (own) {
       e.preventDefault();
-      const ids = [...state.tabs.keys()];
-      const i = ids.indexOf(state.activeTab);
-      SB.activate(ids[(i + (e.shiftKey ? -1 : 1) + ids.length) % ids.length]);
+      // Not over a dialog, and not before there's a conversation to act on.
+      if (!tab || state.view === 'onboarding' || SB.isCrabOnly() || document.querySelector('.card-sheet:not([hidden])')) return;
+      SB.inChat(() => TAB_KEYS[own](tab));
       return;
     }
     // Esc backs out one level and stops at home; it never hides the panel, since
     // a stray press there made the whole window vanish. The hotkey and × do that.
     if (e.key === 'Escape') {
-      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('gitMenu').hidden) return SB.closeMenus();
-      if (SB.find.isOpen) return SB.find.close();
-      if (tab?.busy && state.view === 'chat') return stop();
+      if (SB.anyMenuOpen()) return SB.closeMenus({ refocus: true });
+      if (tab?.busy && state.view === 'chat') return SB.stopTask();
+      // Esc twice, like the terminal: back to an earlier message (composer.js).
+      if (state.view === 'chat' && SB.escRewind?.(tab, e)) return;
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
       return;
     }
     // Y / A / N answer the newest open permission card in the active tab.
     if (e.target.closest('textarea, input, select') || e.ctrlKey || e.metaKey || e.altKey || state.view !== 'chat') return;
+    if (e.target.closest('.card-sheet')) return; // not through a dialog (the shortcut list, the share card)
     const open = tab?.openAsk();
     const btn = open?.querySelector(`[data-key="${e.key.toLowerCase()}"]`);
     if (btn) { e.preventDefault(); btn.click(); }
   });
 
-  // drag files onto the panel too
-  let dragDepth = 0;
-  window.addEventListener('dragenter', e => { e.preventDefault(); if (dragDepth++ === 0) document.body.classList.add('dropping'); });
-  window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dropping'); } });
-  window.addEventListener('dragover', e => e.preventDefault());
-  window.addEventListener('drop', e => {
-    e.preventDefault();
-    dragDepth = 0;
-    document.body.classList.remove('dropping');
-    const paths = api.pathsForFiles(e.dataTransfer.files);
-    if (paths.length) { SB.setView('chat'); SB.addAttachments(paths); }
-  });
-
-  // ------------------------------------------------------------ slash menu (skills + commands) and @ files
-
-  // One menu, two kinds: / at the start of the box lists skills and commands;
-  // @ anywhere lists files in the conversation's folder. Claude Code expands an
-  // @path into the file itself, the same as in the terminal.
-  let slashItems = [];
-  let slashIndex = 0;
-  let menuKind = 'slash';
-  let atToken = null;   // { start, end } of the @word being completed
-  let atSeq = 0;
-
-  // The @word the caret is in, or null. @"…" allows spaces.
-  function findAt() {
-    const end = input.selectionStart;
-    if (end !== input.selectionEnd) return null;
-    const m = input.value.slice(0, end).match(/(^|\s)@(?:"([^"]*)|([^\s"@]*))$/);
-    return m ? { start: end - m[0].length + m[1].length, end, query: m[2] ?? m[3] ?? '' } : null;
-  }
-
-  async function updateAt(at) {
-    const seq = ++atSeq;
-    const r = await api.suggestFiles(state.activeTab, at.query).catch(() => null);
-    if (seq !== atSeq) return;
-    const now = findAt();
-    if (!now || now.start !== at.start) return SB.hideSlash();
-    menuKind = 'at';
-    atToken = now;
-    slashItems = r?.items || [];
-    slashIndex = 0;
-    renderSlash();
-  }
-
-  function slashCandidates(q) {
-    const tb = state.toolbox;
-    if (!tb) return [];
-    const all = [...tb.skills.map(t => ({ ...t, kind: 'skill' })), ...tb.commands.map(t => ({ ...t, kind: 'command' }))];
-    const seen = new Set();
-    const pinned = new Set((state.pinned || []).map(p => `${p.kind}:${p.name}`));
-    return all
-      .filter(t => { const k = t.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
-      .map(t => {
-        const n = t.name.toLowerCase();
-        const score = pinned.has(`${t.kind}:${t.name}`) ? -1 : n.startsWith(q) ? 0 : n.includes(q) ? 1 : (t.description || '').toLowerCase().includes(q) ? 2 : 9;
-        return { t, score };
-      })
-      .filter(x => x.score < 9 && (x.score >= 0 || !q || x.t.name.toLowerCase().includes(q)))
-      .sort((a, b) => a.score - b.score || a.t.name.localeCompare(b.t.name))
-      .slice(0, 8)
-      .map(x => x.t);
-  }
-
-  function updateSlash() {
-    const m = input.value.match(/^\/([\w:.-]*)$/);
-    if (m) {
-      atSeq++; // a slow @ lookup mustn't replace this
-      menuKind = 'slash';
-      slashItems = slashCandidates(m[1].toLowerCase());
-      slashIndex = 0;
-      return renderSlash();
-    }
-    const at = findAt();
-    if (at) return updateAt(at);
-    atSeq++;
-    SB.hideSlash();
-  }
-  // Moving the caret into or out of an @word opens or closes the file list.
-  input.addEventListener('click', updateSlash);
-  input.addEventListener('keyup', e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) updateSlash(); });
-
-  function slashRow(t) {
-    if (menuKind === 'slash') return [h('span', { class: 'slash-name' }, '/', t.name), h('span', { class: `kind-pill k-${t.kind}`, text: t.kind }), h('span', { class: 'slash-desc', text: t.description || '' })];
-    const parts = t.path.replace(/\/$/, '').split('/');
-    const name = parts.pop();
-    return [h('span', { class: 'slash-name' }, '@', name, t.dir ? '/' : ''), h('span', { class: `kind-pill k-${t.dir ? 'folder' : 'file'}`, text: t.dir ? 'folder' : 'file' }), h('span', { class: 'slash-desc', text: parts.join('/') })];
-  }
-
-  function renderSlash() {
-    const menu = $('slashMenu');
-    if (!slashItems.length) return SB.hideSlash();
-    menu.hidden = false;
-    menu.setAttribute('aria-label', menuKind === 'slash' ? 'Skills and commands' : 'Files');
-    menu.replaceChildren(...slashItems.map((t, i) => h('button', {
-      type: 'button', role: 'option', class: `slash-item${i === slashIndex ? ' on' : ''}`, 'aria-selected': String(i === slashIndex),
-      onmousedown: e => { e.preventDefault(); pickSlash(i); },
-    }, slashRow(t))));
-  }
-
-  function pickSlash(i) {
-    const t = slashItems[i];
-    if (!t) return;
-    if (menuKind === 'at') return pickFile(t);
-    input.value = `/${t.name} `;
-    SB.hideSlash();
-    autosize();
-    input.focus();
-  }
-
-  // A folder keeps the list open to go further in; a file finishes the word.
-  function pickFile(t) {
-    const p = t.path;
-    const word = /[\s"]/.test(p) ? `@"${p}${t.dir ? '' : '"'}` : `@${p}`;
-    const tail = t.dir ? '' : ' ';
-    const { start, end } = atToken;
-    const after = input.value.slice(end).replace(/^[^\s]*/, ''); // the rest of the word being replaced
-    input.value = input.value.slice(0, start) + word + tail + after;
-    const caret = start + word.length + tail.length;
-    input.setSelectionRange(caret, caret);
-    autosize();
-    input.focus();
-    if (t.dir) updateSlash(); else SB.hideSlash();
-  }
-
-  function slashKeydown(e) {
-    if ($('slashMenu').hidden) return false;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      slashIndex = (slashIndex + (e.key === 'ArrowDown' ? 1 : -1) + slashItems.length) % slashItems.length;
-      renderSlash();
-      return true;
-    }
-    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickSlash(slashIndex); return true; }
-    return false;
-  }
-
-  SB.hideSlash = () => { $('slashMenu').hidden = true; atToken = null; };
-  SB.useTool = (t) => {
+  // Run fn on the chat screen. Coming from another screen, after the switch has
+  // put the keyboard in the box, so a menu fn opens keeps it instead.
+  const SWITCH_SETTLE_MS = 60;
+  SB.inChat = (fn) => {
+    if (state.view === 'chat') return fn();
     SB.setView('chat');
-    const prefix = t.kind === 'agent' ? `Use the ${t.name} agent to ` : `/${t.name} `;
-    input.value = prefix + input.value.replace(/^\/\S*\s*/, '');
-    autosize();
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
+    setTimeout(fn, SWITCH_SETTLE_MS);
   };
 
-  // ------------------------------------------------------------ mode chip
+  // ------------------------------------------------------------ the last turn, from the keyboard
 
-  SB.applyMode = (mode) => {
-    document.body.dataset.mode = mode;
-    const m = SB.MODES.find(x => x.id === mode) || SB.MODES[0];
-    $('modeLabel').textContent = m.chip;
-    $('modeHint').textContent = SB.MODE_HINTS[mode] || '';
-    $('modeHint').classList.toggle('danger', mode === 'autonomous');
+  const lastChanges = tab => [...tab.el.querySelectorAll('details.changes')].pop() || null;
+  SB.hasChanges = tab => !!tab && !!lastChanges(tab);
+
+  // The last turn's "files changed" block: opened, in view, and the keyboard on
+  // its first file, so Enter shows that file's diff and Tab reaches Undo.
+  SB.showChanges = (tab) => {
+    const block = tab && lastChanges(tab);
+    if (!block) return SB.toast('Nothing in this conversation has changed any files yet.');
+    block.open = true;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    block.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    (block.querySelector('.chg-file') || block.querySelector('summary'))?.focus({ preventScroll: true });
   };
 
-  SB.chooseMode = async (mode, { quiet = false } = {}) => {
-    if (mode === 'autonomous' && !state.settings.autonomousAcknowledged) {
-      SB.setView('settings');
-      $('autonomousConfirm').hidden = false;
-      $('autonomousConfirm').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    const r = await api.setSettings({ mode });
-    state.settings = r.settings;
-    SB.applyMode(state.settings.mode);
-    if (state.view === 'settings') SB.views.settings.render();
-    if (!quiet) SB.toast(`Mode: ${SB.MODES.find(x => x.id === state.settings.mode).title} (all open conversations)`);
+  // Your last message, tried again in a new tab: change it first, or run it as is.
+  SB.tryAgain = (tab) => {
+    if (!tab) return;
+    if (tab.busy) return SB.toast('Let him finish first (or press Stop), then try it another way.');
+    return SB.openBranch(tab, tab.lastTurnId, 'before');
   };
-
-  $('modeChip').addEventListener('click', () => SB.openMenu($('modeMenu'), $('modeChip'), () => SB.MODES.map(m =>
-    h('button', { class: 'menu-item', role: 'menuitemradio', 'aria-checked': String(state.settings.mode === m.id), onclick: () => { SB.closeMenus(); SB.chooseMode(m.id); } },
-      h('span', { class: 'mi-check', text: state.settings.mode === m.id ? '●' : '' }),
-      h('span', {}, h('div', { class: 'mi-title', text: m.title }), h('div', { class: 'mi-sub', text: m.sub }))))));
-
-  // ------------------------------------------------------------ folder chip
-
-  function applyFolderLabel(cwd) {
-    $('folderLabel').textContent = SB.shortPath(cwd);
-    $('folderChip').title = `Working folder: ${cwd}`;
-  }
-  SB.applyFolderLabel = applyFolderLabel;
-
-  SB.folderChanged = async (r) => {
-    if (!r) return;
-    if (r.error) return SB.toast(r.error);
-    state.settings = r.settings;
-    state.cwd = r.cwd;
-    $('settingsFolder').textContent = r.cwd;
-    // A blank tab moves to the new folder; a conversation in progress keeps its own.
-    const tab = SB.activeTab();
-    if (tab && tab.isEmpty && !tab.busy) {
-      await api.closeTab(tab.id);
-      tab.destroy();
-      state.tabs.delete(tab.id);
-      state.activeTab = null;
-      await SB.newTab();
-      SB.toast(`Now working in ${SB.basename(r.cwd)}`);
-    } else {
-      applyFolderLabel(tab?.cwd || r.cwd);
-      SB.toast(`New conversations will start in ${SB.basename(r.cwd)}`, { action: 'Open one', onAction: () => SB.newTab() });
-    }
-    SB.refreshGit();
-  };
-
-  $('folderChip').addEventListener('click', () => SB.openMenu($('folderMenu'), $('folderChip'), () => {
-    const tab = SB.activeTab();
-    const here = tab?.cwd || state.cwd;
-    const recents = (state.settings.recentFolders || []).filter(d => d.toLowerCase() !== (here || '').toLowerCase());
-    return [
-      h('div', { class: 'menu-label', text: tab && !tab.isEmpty ? 'This conversation works in' : 'Working in' }),
-      h('div', { class: 'menu-item path', text: here }),
-      state.editors?.using ? h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); SB.openFile(here); } },
-        h('span', { class: 'mi-check', text: '↗' }), h('span', { class: 'mi-title', text: `Open in ${state.editors.using}` })) : null,
-      h('div', { class: 'menu-sep' }),
-      h('button', { class: 'menu-item', onclick: async () => { SB.closeMenus(); SB.folderChanged(await api.pickFolder()); } }, h('span', { class: 'mi-check', text: '+' }), h('span', { class: 'mi-title', text: 'Choose folder…' })),
-      recents.length ? h('div', { class: 'menu-label', text: 'Recent' }) : null,
-      ...recents.map(d => h('button', { class: 'menu-item path', title: d, onclick: async () => { SB.closeMenus(); SB.folderChanged(await api.setFolder(d)); } }, SB.tildify(d))),
-    ];
-  }));
-
-  // ------------------------------------------------------------ usage meter
-
-  SB.applyUsage = (u) => {
-    if (!u || (!u.fiveHour && !u.sevenDay)) return;
-    $('usage').hidden = false;
-    const set = (el, win, name) => {
-      if (!win) { el.hidden = true; return; }
-      el.hidden = false;
-      el.querySelector('.meter-fill').style.transform = `scaleX(${Math.min(100, win.pct) / 100})`;
-      el.classList.toggle('warn', win.pct >= 70 && win.pct < 90);
-      el.classList.toggle('hot', win.pct >= 90);
-      const reset = win.resetsAt ? ` · resets ${new Date(win.resetsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '';
-      el.title = `${name} usage: ${win.pct}%${reset}`;
-    };
-    set($('meter5h'), u.fiveHour, '5-hour');
-    set($('meter7d'), u.sevenDay, 'Weekly');
-  };
-
-  // The plan's usage limit: Shellby naps until it resets, then says so (src/main/limits.js).
-  api.onLimit(e => {
-    if (e.phase === 'hit') SB.toast(`Your ${e.name} Claude limit is reached. Shellby will tap you when it resets, ${e.at}.`, { ms: 8000 });
-    if (e.phase === 'reset') SB.toast(`Your ${e.name} limit just reset. Go ahead!`, { ms: 6000 });
-  });
 })();

@@ -1,0 +1,5 @@
+{
+  "command": "grep -rn TypeError logs",
+  "isError": false,
+  "output": "logs/old.log:3: TypeError: x is not a function"
+}

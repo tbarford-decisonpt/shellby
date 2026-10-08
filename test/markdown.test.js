@@ -16,10 +16,24 @@ test('escapes HTML inside code spans and fences', () => {
 });
 
 test('only https links become (inert) anchors', () => {
-  assert.match(render('[docs](https://example.com/a?b=1&c=2)'), /<a data-href="https:\/\/example.com\/a\?b=1&amp;c=2" href="#">docs<\/a>/);
+  assert.match(render('[docs](https://example.com/a?b=1&c=2)'), /<a data-href="https:\/\/example.com\/a\?b=1&amp;c=2" href="#" title="https:\/\/example.com\/a\?b=1&amp;c=2">docs<\/a>/);
   assert.ok(!render('[x](javascript:alert(1))').includes('<a'));
   assert.ok(!render('[x](http://insecure.test)').includes('<a'));
   assert.ok(!render('[x](https://a.test" onmouseover="bad)').includes('onmouseover="'));
+});
+
+test('emphasis and code markers inside a link URL leave the URL alone', () => {
+  const out = render('[doc](https://ex.com/_draft_/x*y*z) and [**bold** text](https://ex.com/a_b_c)');
+  assert.match(out, /data-href="https:\/\/ex.com\/_draft_\/x\*y\*z" href="#" title="https:\/\/ex.com\/_draft_\/x\*y\*z">doc<\/a>/);
+  assert.match(out, /data-href="https:\/\/ex.com\/a_b_c" href="#" title="https:\/\/ex.com\/a_b_c"><strong>bold<\/strong> text<\/a>/);
+  assert.match(render('[x](https://ex.com/`v`)'), /data-href="https:\/\/ex.com\/`v`"/);
+});
+
+test('placeholder characters in the text are dropped, not taken as placeholders', () => {
+  const [code, url] = [String.fromCharCode(0), String.fromCharCode(1)];
+  const out = render(`a ${code}0${code} b ${url}0${url} [x](https://ex.com/y)`);
+  assert.equal(out.includes(code) || out.includes(url), false);
+  assert.match(out, /a 0 b 0 <a data-href="https:\/\/ex.com\/y"/);
 });
 
 test('lists, headings, emphasis and paragraphs', () => {
@@ -64,7 +78,7 @@ test('alignment rides on data-align, never an inline style (CSP forbids them)', 
 test('cells render inline markdown and escape HTML', () => {
   const out = render('| What | Where |\n|---|---|\n| **bold** `code` | [docs](https://example.com) |\n| <img src=x> | *em* |');
   assert.match(out, /<td><strong>bold<\/strong> <code>code<\/code><\/td>/);
-  assert.match(out, /<td><a data-href="https:\/\/example.com" href="#">docs<\/a><\/td>/);
+  assert.match(out, /<td><a data-href="https:\/\/example.com" href="#" title="https:\/\/example.com">docs<\/a><\/td>/);
   assert.match(out, /<td>&lt;img src=x&gt;<\/td>/);
   assert.ok(!out.includes('<img'));
 });

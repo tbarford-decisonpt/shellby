@@ -1,81 +1,224 @@
-// Opening a file Claude mentioned in the editor you already use, at the line.
+// "Open in VS Code": one file of a turn's diff in VS Code's own diff view.
 //
-// VS Code and its forks register a URL scheme (vscode://file/C:/x.js:12:3),
-// which is how this works without knowing where any of them are installed and
-// without running a .cmd through a shell. With none of them around, a file
-// opens in Windows' default app, except anything that would run rather than
-// open: those are shown in Explorer instead.
+// The renderer names a file of a change main reported (main.js changeRef), and
+// nothing else: both sides are read out of git here, into a temp folder of
+// Shellby's own with names made safe, and VS Code is started with fixed
+// arguments. When the file in the project is still exactly as the turn left
+// it, the right side is that real file, so an edit made in the diff lands in
+// the project.
 //
-// Everything here is pure (the "is it installed" check is passed in), so it is
-// all unit-tested; main.js does the opening.
+// code.cmd is a batch file, so cmd.exe runs it (a .cmd can't be started on its
+// own), and every path on that line is one Shellby made or checked for
+// characters cmd would read as anything but a path. The pickers are pure;
+// open() never throws.
+const { execFile, spawn } = require('child_process');
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { CMD } = require('./system32');
+const { checkRef } = require('./changes');
 
-// In "auto", the first one installed wins, in this order.
-const EDITORS = Object.freeze({
-  vscode: { label: 'VS Code', scheme: 'vscode' },
-  cursor: { label: 'Cursor', scheme: 'cursor' },
-  windsurf: { label: 'Windsurf', scheme: 'windsurf' },
-  insiders: { label: 'VS Code Insiders', scheme: 'vscode-insiders' },
-});
-const CHOICES = ['auto', ...Object.keys(EDITORS), 'system'];
+const TEMP_NAME = 'shellby-vsdiff';
+const MAX_BLOB = 50 * 1024 * 1024;
+const MAX_TEMP_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_NAME = 80;
+// Characters that mean something to cmd.exe even inside quotes (or that a
+// Windows path can't hold anyway): such a path is never put on a command line.
+const UNSAFE_PATH_RE = /["%!^\r\n\0]/;
 
-// Opening these would run them (or mount, install or macro-load them), not show
-// them. Scripting languages are here because their installers often make
-// double-click mean "run".
-const RUNS = new Set(['exe', 'com', 'bat', 'cmd', 'ps1', 'psm1', 'psd1', 'ps1xml', 'psc1', 'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh',
-  'msi', 'msp', 'mst', 'scr', 'hta', 'lnk', 'url', 'website', 'pif', 'cpl', 'msc', 'jar', 'reg', 'appx', 'appxbundle', 'msix',
-  'msixbundle', 'appref-ms', 'application', 'xbap', 'gadget', 'inf', 'scf', 'sct', 'chm', 'diagcab', 'settingcontent-ms',
-  'library-ms', 'search-ms', 'iso', 'img', 'vhd', 'vhdx', 'cab', 'py', 'pyw', 'pyc', 'pyz', 'pyzw', 'rb', 'rbw', 'pl', 'sh',
-  'bash', 'ahk', 'au3', 'xll', 'xlam', 'ppam', 'docm', 'dotm', 'xlsm', 'xltm', 'pptm', 'potm']);
+const isDir = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+const isFile = p => { try { return fs.statSync(p).isFile(); } catch { return false; } };
 
 /**
- * Which editor to use: an id from EDITORS, or null for "the default app".
- * isInstalled(scheme) -> boolean.
+ * Where VS Code (or Insiders, or Cursor) keeps its command-line launcher, in
+ * the order to try: the usual install folders first, then PATH, whose entries
+ * count only when they're absolute folders that exist. Pure but for dirExists.
  */
-function pickEditor(choice, isInstalled) {
-  if (EDITORS[choice]) return isInstalled(EDITORS[choice].scheme) ? choice : null;
-  if (choice === 'system') return null;
-  return Object.keys(EDITORS).find(id => isInstalled(EDITORS[id].scheme)) || null;
+function editorCandidates(env = process.env, dirExists = isDir) {
+  const out = [];
+  const add = p => { if (p && path.isAbsolute(p) && !out.some(o => o.toLowerCase() === p.toLowerCase())) out.push(p); };
+  const local = env.LOCALAPPDATA;
+  const pf = [env.ProgramFiles, env['ProgramFiles(x86)']].filter(Boolean);
+  if (local) add(path.join(local, 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd'));
+  for (const p of pf) add(path.join(p, 'Microsoft VS Code', 'bin', 'code.cmd'));
+  if (local) add(path.join(local, 'Programs', 'Microsoft VS Code Insiders', 'bin', 'code-insiders.cmd'));
+  for (const p of pf) add(path.join(p, 'Microsoft VS Code Insiders', 'bin', 'code-insiders.cmd'));
+  if (local) add(path.join(local, 'Programs', 'cursor', 'resources', 'app', 'bin', 'cursor.cmd'));
+  const names = ['code.cmd', 'code-insiders.cmd', 'cursor.cmd'];
+  for (const dir of String(env.PATH || env.Path || '').split(';').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean)) {
+    // A relative PATH entry means "wherever we happen to be"; a missing one, nothing.
+    if (!path.isAbsolute(dir) || !dirExists(dir)) continue;
+    for (const n of names) add(path.join(dir, n));
+  }
+  return out;
 }
 
-/** vscode://file/C:/a%20b/x.js:12:3 for a file (or folder) and an optional line and column. */
-function editorUrl(id, file, line = null, col = null) {
-  const parts = path.resolve(file).split(/[\\/]+/).filter(Boolean)
-    .map((seg, i) => (i === 0 && /^[A-Za-z]:$/.test(seg) ? seg.toUpperCase() : encodeURIComponent(seg)));
-  let url = `${EDITORS[id].scheme}://file/${parts.join('/')}`;
-  if (line) url += `:${line}${col ? `:${col}` : ''}`;
-  return url;
+/** The first launcher that exists and can go on a command line, or null. */
+function findEditor(env = process.env, exists = isFile, dirExists = isDir) {
+  return editorCandidates(env, dirExists).find(p => !UNSAFE_PATH_RE.test(p) && exists(p)) || null;
 }
 
 /**
- * What someone clicked, as { file, line, col }: an absolute path, or one
- * relative to the conversation's folder, with an optional :line[:col] (or the
- * (12,3) form some tools print). Quotes, backticks and a leading @ go. null
- * for anything that isn't a plausible path.
+ * The project's own file, only when it's a plain file (not a link) that really
+ * sits inside the project, and still holds exactly `after`. -> its path | null.
  */
-function parseTarget(raw, cwd) {
-  if (typeof raw !== 'string') return null;
-  let s = raw.trim().replace(/^[`'"@]+|[`'"]+$/g, '').trim();
-  if (!s || s.length > 1000 || /[\u0000-\u001f<>|?*]/.test(s)) return null;
-  let line = null, col = null;
-  const m = s.match(/(?::(\d+))(?::(\d+))?$/) || s.match(/\((\d+)(?:,\s*(\d+))?\)$/);
-  if (m && !/^[A-Za-z]:$/.test(s.slice(0, m.index))) {
-    line = Number(m[1]) || null;
-    col = m[2] ? Number(m[2]) || null : null;
-    s = s.slice(0, m.index);
-  }
-  if (/^~[\\/]/.test(s)) s = path.join(process.env.USERPROFILE || '', s.slice(2));
-  if (!path.isAbsolute(s)) {
-    if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) return null;
-    s = path.join(cwd, s);
-  }
-  return { file: path.resolve(s), line, col };
+function liveFile(root, file, after) {
+  try {
+    const real = path.resolve(root, file);
+    if (UNSAFE_PATH_RE.test(real)) return null;
+    const st = fs.lstatSync(real);
+    if (!st.isFile() || st.isSymbolicLink() || st.size !== after.length) return null;
+    const top = fs.realpathSync.native(root).toLowerCase() + path.sep;
+    if (!fs.realpathSync.native(real).toLowerCase().startsWith(top)) return null;
+    return fs.readFileSync(real).equals(after) ? real : null;
+  } catch { return null; }
 }
 
-/** Would opening this with its default app run it? */
-function runsWhenOpened(file) {
-  const ext = path.extname(file).slice(1).toLowerCase();
-  return RUNS.has(ext);
+/** A file's name, made safe for a temp file: letters, digits, dot, dash, underscore. Pure. */
+function safeName(file) {
+  const base = String(file || '').split(/[\\/]/).pop() || '';
+  const clean = base.replace(/[^\w.-]/g, '_').replace(/^\.+/, '').replace(/\.{2,}/g, '.').slice(-MAX_NAME);
+  return clean && !/^[_.-]*$/.test(clean) ? clean : 'file';
 }
 
-module.exports = { EDITORS, CHOICES, pickEditor, editorUrl, parseTarget, runsWhenOpened };
+/** cmd's command line for `code --diff a b`. Every path is ours and already checked. Pure. */
+function diffCommandLine(editor, left, right) {
+  for (const p of [editor, left, right]) {
+    if (typeof p !== 'string' || !path.isAbsolute(p) || UNSAFE_PATH_RE.test(p)) return null;
+  }
+  return `""${editor}" --diff "${left}" "${right}""`;
+}
+
+/** cmd's command line for `code <folder>`. The folder is one main checked. Pure. */
+function folderCommandLine(editor, dir) {
+  for (const p of [editor, dir]) {
+    if (typeof p !== 'string' || !path.isAbsolute(p) || UNSAFE_PATH_RE.test(p)) return null;
+  }
+  return `""${editor}" "${dir}""`;
+}
+
+/**
+ * Open a folder in the editor (a mod's, from the Toolbox): the caller names
+ * only a folder it found itself. -> { ok: true } | { ok: false, error, notFound? }
+ */
+function openFolder(dir, { env = process.env, spawnImpl = spawn, editor = undefined } = {}) {
+  if (!isDir(dir)) return { ok: false, error: "That folder isn't there any more." };
+  const code = editor === undefined ? findEditor(env) : editor;
+  if (!code) return { ok: false, notFound: true, error: "Shellby couldn't find VS Code on this PC. Install it (or tick \"Add to PATH\" when you do), then try again." };
+  const line = folderCommandLine(code, dir);
+  if (!line) return { ok: false, error: 'That path has characters Shellby won\'t hand to the command line.' };
+  try {
+    const child = spawnImpl(CMD, ['/d', '/s', '/c', line], {
+      cwd: dir, windowsHide: true, windowsVerbatimArguments: true, detached: true, stdio: 'ignore',
+      env: { ...env, NoDefaultCurrentDirectoryInExePath: '1', ELECTRON_RUN_AS_NODE: undefined },
+    });
+    child.on?.('error', () => {});
+    child.unref?.();
+  } catch (e) {
+    return { ok: false, error: `Couldn't start VS Code: ${e.message}` };
+  }
+  return { ok: true };
+}
+
+/** cmd's command line for `code <folder> -g <file>:<line>`. Both paths are ones main checked. Pure. */
+function fileCommandLine(editor, dir, file, line) {
+  for (const p of [editor, dir, file]) {
+    if (typeof p !== 'string' || !path.isAbsolute(p) || UNSAFE_PATH_RE.test(p)) return null;
+  }
+  if (!Number.isInteger(line) || line < 1) return null;
+  return `""${editor}" "${dir}" -g "${file}:${line}""`;
+}
+
+/**
+ * Open a file at a line, in its project's window (a loose end on Next up):
+ * the caller found the file inside the project itself. -> like openFolder's.
+ */
+function openFileAt(dir, file, line, { env = process.env, spawnImpl = spawn, editor = undefined } = {}) {
+  if (!isDir(dir) || !isFile(file)) return { ok: false, error: "That file isn't there any more." };
+  const code = editor === undefined ? findEditor(env) : editor;
+  if (!code) return { ok: false, notFound: true, error: "Shellby couldn't find VS Code on this PC. Install it (or tick \"Add to PATH\" when you do), then try again." };
+  const cmd = fileCommandLine(code, dir, file, line);
+  if (!cmd) return { ok: false, error: 'That path has characters Shellby won\'t hand to the command line.' };
+  try {
+    const child = spawnImpl(CMD, ['/d', '/s', '/c', cmd], {
+      cwd: dir, windowsHide: true, windowsVerbatimArguments: true, detached: true, stdio: 'ignore',
+      env: { ...env, NoDefaultCurrentDirectoryInExePath: '1', ELECTRON_RUN_AS_NODE: undefined },
+    });
+    child.on?.('error', () => {});
+    child.unref?.();
+  } catch (e) {
+    return { ok: false, error: `Couldn't start VS Code: ${e.message}` };
+  }
+  return { ok: true };
+}
+
+/** Temp folders from earlier runs that are past a day old. entries: [{ name, mtimeMs }]. Pure. */
+function staleTemp(entries, now = Date.now(), maxAgeMs = MAX_TEMP_AGE_MS) {
+  return (entries || []).filter(e => e && /^[0-9a-f]{12}$/.test(e.name) && now - e.mtimeMs > maxAgeMs).map(e => e.name);
+}
+
+function tidyTemp(base, now = Date.now()) {
+  try {
+    const entries = fs.readdirSync(base).map(name => ({ name, mtimeMs: fs.statSync(path.join(base, name)).mtimeMs }));
+    for (const name of staleTemp(entries, now)) fs.rmSync(path.join(base, name), { recursive: true, force: true });
+  } catch { /* nothing there yet */ }
+}
+
+/** One file as it was in a snapshot tree, as bytes; an empty buffer when it isn't there. */
+function blobAt(root, tree, file) {
+  return new Promise(resolve => {
+    execFile('git', ['-C', root, 'cat-file', 'blob', `${tree}:${file.replace(/\\/g, '/')}`], {
+      windowsHide: true, timeout: 20000, maxBuffer: MAX_BLOB, encoding: 'buffer',
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
+    }, (err, stdout) => resolve(err ? null : stdout));
+  });
+}
+
+/**
+ * Open one file of a change in the editor's diff.
+ *   ref: { root, before, after, file, status } from changeRef (status: A, M, D…)
+ * -> { ok: true, live } | { ok: false, error, notFound? }
+ */
+async function open(ref, { env = process.env, spawnImpl = spawn, tmp = os.tmpdir(), editor = undefined } = {}) {
+  const bad = checkRef(ref);
+  if (bad || !ref.file) return { ok: false, error: bad || 'Not a file in this change.' };
+  const code = editor === undefined ? findEditor(env) : editor;
+  if (!code) return { ok: false, notFound: true, error: "Shellby couldn't find VS Code on this PC. Install it (or tick \"Add to PATH\" when you do), then try again." };
+  const base = path.join(tmp, TEMP_NAME);
+  tidyTemp(base);
+  const [before, after] = await Promise.all([
+    ref.status === 'A' ? Buffer.alloc(0) : blobAt(ref.root, ref.before, ref.file),
+    ref.status === 'D' ? Buffer.alloc(0) : blobAt(ref.root, ref.after, ref.file),
+  ]);
+  if (!before || !after) return { ok: false, error: 'Those changes have been tidied away by git since.' };
+  const dir = path.join(base, crypto.randomBytes(6).toString('hex'));
+  const name = safeName(ref.file);
+  const left = path.join(dir, `before-${name}`);
+  let right = path.join(dir, `after-${name}`);
+  // The file in the project, if it's still what the turn left: edits land in the real thing.
+  const real = ref.status === 'D' ? null : liveFile(ref.root, ref.file, after);
+  const live = !!real;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(left, before);
+    if (real) right = real; else fs.writeFileSync(right, after);
+  } catch (e) {
+    return { ok: false, error: `Couldn't write the two sides: ${e.message}` };
+  }
+  const line = diffCommandLine(code, left, right);
+  if (!line) return { ok: false, error: 'That path has characters Shellby won\'t hand to the command line.' };
+  try {
+    const child = spawnImpl(CMD, ['/d', '/s', '/c', line], {
+      cwd: dir, windowsHide: true, windowsVerbatimArguments: true, detached: true, stdio: 'ignore',
+      env: { ...env, NoDefaultCurrentDirectoryInExePath: '1', ELECTRON_RUN_AS_NODE: undefined },
+    });
+    child.on?.('error', () => {});
+    child.unref?.();
+  } catch (e) {
+    return { ok: false, error: `Couldn't start VS Code: ${e.message}` };
+  }
+  return { ok: true, live };
+}
+
+module.exports = { editorCandidates, findEditor, liveFile, safeName, diffCommandLine, folderCommandLine, fileCommandLine, staleTemp, open, openFolder, openFileAt, UNSAFE_PATH_RE, TEMP_NAME };

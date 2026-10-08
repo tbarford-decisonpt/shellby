@@ -5,8 +5,10 @@ A wardrobe pack is **one JSON file** that adds things Shellby can wear or show:
 - **Accessories**: hats, glasses, scarves, things to hold, things on his shell.
 - **Effects**: little sprites that drift around him, like snow, bats or sparkles.
 - **Skins**: whole new crabs. They use the same format as [SKINS.md](SKINS.md).
+- **Voices**: new ways for him to talk, like a pirate, a grump, or another language. See [Voices](#voices).
+- **Scenes**: little stories he acts out in beats, like building a sandcastle that crumbles. See [Scenes](#scenes).
 
-Packs hold **data only**: pixels, colours and a few settings. There is no code, scripting, HTML or links that run. Shellby checks every pack when it loads, so a broken pack can't break the app. The strict rules are in [`addon.schema.json`](addon.schema.json), and editors like VS Code can use that file to check your pack as you type.
+Packs hold **data only**: pixels, colours, short lines of text and a few settings. There is no code, scripting, HTML or links that run. Shellby checks every pack when it loads, so a broken pack can't break the app. The strict rules are in [`addon.schema.json`](addon.schema.json), and editors like VS Code can use that file to check your pack as you type.
 
 ## Try it in 5 minutes
 
@@ -57,7 +59,10 @@ If something is wrong, the Wardrobe lists the pack with its warnings, for exampl
   "homepage": "https://…",         // optional, must start with https://, up to 200 chars
   "accessories": [],               // up to 200
   "effects": [],                   // up to 50
-  "skins": []                      // up to 50
+  "skins": [],                     // up to 50
+  "voices": [],                    // up to 20
+  "scenes": [],                    // up to 60
+  "decor": []                      // up to 100: things for his tank
 }
 ```
 
@@ -222,6 +227,134 @@ Skins use the [SKINS.md](SKINS.md) format and add two optional fields:
 
 Each anchor value is `[x, y]` with integers from −16 to 48. If your crab has the classic shape, leave out `anchors`.
 
+## Voices
+
+A voice changes what Shellby says in his speech bubble. He wears **one voice at a time**: pick it under **Wardrobe → Voice**, and pick **His own** to go back. The built-in [`voices.json`](../src/wardrobe/voices.json) pack has a Pirate, a Grumpy crab, a Robot, a Surfer, a Royal, a Cowboy, Español and Français to copy from.
+
+```jsonc
+{
+  "id": "pirate",
+  "name": "Pirate Crab",           // 1–40 chars
+  "description": "…",              // optional, up to 160 chars
+  "lang": "en",                    // optional: the language the lines are in ("es", "pt-BR", …)
+  "fallback": "shellby",           // optional: shellby (default) | quiet, see below
+  "lines": {                       // what he says, by occasion. At least one.
+    "working": ["arr, on it", "hoist the code!", "aye aye"],
+    "success": ["treasure secured!", "yo ho ho!"],
+    "error": ["we've sprung a leak", "man overboard!"]
+  },
+  "flavor": {                      // optional: extra lines for one temperament
+    "cocky": { "success": ["captain's orders"] }
+  },
+  "rarity": "rare",                // optional, like any item
+  "unlock": { "season": "summer" } // optional, see "Unlocking"
+}
+```
+
+**Lines.** Each line is plain text of **at most 24 characters**, so it fits his bubble. Emoji and any language are fine. Control characters aren't. Each occasion takes 1–20 lines. Give an occasion three or more lines and he won't repeat himself, because he uses every line before he says one again.
+
+**Occasions.** Where the voice has lines for an occasion, he uses them instead of his own. That includes the lines Shellby makes up for milestones and memories, so a grumpy crab stays grumpy at his 100th day. For occasions you leave out, `fallback` decides what happens:
+
+| `fallback` | Occasions you didn't write lines for |
+|---|---|
+| `shellby` | he uses his own (English) lines. Good for a character voice that only covers his favourite moments. |
+| `quiet` | he says nothing. Right for **another language**, so English never slips in. His built-in scenes still play, but without words. |
+
+These are the occasions, from `OCCASIONS` in [`src/main/voice.js`](../src/main/voice.js):
+
+| Group | Occasions |
+|---|---|
+| His moods | `working`, `success`, `error`, `learned` (a new trick), `unlocked` (a new item), `petted` |
+| The work | `tests`, `passed`, `push`, `deploy`, `bigWrite`, `sameFile` (third visit to one file), `searching`*, `web`*, `crew` (helpers), `longTask`, `serverDown` |
+| Your day | `morning`, `latenight`, `back` (you were away for days), `gameOver`, `callOver`, `sheetStretch`, `docStretch`, `slideStretch` (hours in a spreadsheet, document or deck), `friday`, `weekend`, `monday` |
+| You and him | `found` (he dug something up), `memory`, `milestone`, `idle` |
+| Up on your windows | `perch`, `ride`, `shaken`, `dropped`, `dizzy`, `pop`, `caught` |
+
+\* only when he's set to chatty.
+
+**Temperament.** Every Shellby has a temperament: `chipper`, `fussy`, `cocky` or `sleepy`. Lines in `flavor.<temperament>` are added to the voice's lines for crabs with that temperament. They count as lines for that occasion, so with `fallback: "quiet"` a flavor line alone is enough to make him speak.
+
+His cooldowns and chattiness setting still apply in any voice, and a voice never speaks while he's guarding your focus or you're on a call.
+
+## Scenes
+
+A scene is a few **beats** strung together: he squints at something, creeps up, pounces, misses. Shellby picks one now and then when he's idle. Pack scenes join his own.
+
+```jsonc
+{
+  "id": "spyglass",
+  "name": "Keeps a lookout",       // 1–40 chars
+  "description": "…",              // optional, up to 160 chars
+  "voice": "pirate",               // optional: a voice in THIS pack. The scene only plays while he talks in it.
+  "who": ["cocky", "chipper"],     // optional: temperaments it suits (they get it 3× as often). Everyone can get it.
+  "when": { "night": true },       // optional: conditions that must all hold
+  "beats": [                       // 1–8 beats, adding up to at most 12 seconds
+    { "bit": "gaze", "ms": 2200, "say": "land ho?" },
+    { "bit": "squint", "ms": 1400, "say": "…nope", "prop": "fly" },
+    { "bit": "gaze", "ms": 1800, "say": { "any": "keep lookin'", "sleepy": "wake me at land" } }
+  ]
+}
+```
+
+Each beat is:
+
+| Field | What |
+|---|---|
+| `bit` | the animation (required): `dig`, `polish`, `peek`, `stretch`, `flop`, `squint`, `creep`, `pounce`, `nose`, `sneeze`, `sniff`, `hic`, `hold`, `blow`, `nod`, `jolt`, `curl`, `admire`, `rock`, `bow`, `swat`, `jab`, `gaze`, `juggle`, `bonk`, `present`, `lean`, `sip`, `boogie`, `hide`, `boo`, `shiver`, `wave`, `count` |
+| `ms` | how long it lasts (required): a whole number from 500 to 5000 |
+| `say` | optional. A line, a list he picks one from (1–6), or lines by temperament: `{ "any": "…", "fussy": "…" }`. Same rules as voice lines. |
+| `prop` | optional, something beside him: `castle`, `castle-fall`, `bubbles`, `fly`, `shooting-star`, `juggle`, `heart`, `achoo`, `zz`, `notes`, `sweat` |
+| `hold` | optional, something in his claw: `find` (his favourite find), `coffee`, `pebble`, `mic` |
+| `wear` | optional, on his face: `shades` |
+
+A scene can only use the animations and props Shellby already draws, which is why it can't do anything else.
+
+`when` conditions:
+
+| Condition | Holds when |
+|---|---|
+| `"night": true` / `"day": true` | it's 9pm–5am / any other time |
+| `"weekend": true`, `"friday": true`, `"monday": true` | it's that day |
+| `"music": true` | something is playing |
+| `"cursor": true` | your pointer is near him |
+| `"find": true` | he has a favourite find |
+| `"bond": 2` | you've reached that friendship level (1 Pals … 5 Inseparable) |
+| `"season": "winter"` | that season is on (see [Unlocking](#unlocking)) |
+
+**Scenes and voices.** A scene with `voice` only comes up while he talks in that voice, so it can be written in the voice's language. A scene without `voice` can come up for anyone, but while he wears a voice with `fallback: "quiet"`, it plays without words.
+
+Pack scenes don't count toward his Storyteller trophy or the scene count on the Us page. Those are for his own scenes.
+
+## Decor
+
+Decor goes in his tank (Shellby's screen → **Tank**, see [TANK.md](TANK.md)): castles, plants, rocks, treasures and lights, plus the floor and the back glass. Decor unlocks, gets a "new" dot and syncs like any other item.
+
+```jsonc
+{
+  "id": "lighthouse",
+  "name": "Lighthouse",
+  "description": "…",              // optional, up to 160 chars
+  "category": "structure",         // structure, plant, rock, treasure, bubbler, substrate or backdrop
+  "layer": "floor",                // optional: floor (default), back or float
+  "palette": { "w": "#f3e6cc", "r": "#e63946", "y": "#ffd23f", "Y": "#fff2b8" },
+  "pixels": ["..r..", ".yyy.", ".www.", ".rrr.", "wwwww"],   // up to 32×32
+  "frames": [["..r..", ".YYY.", ".www.", ".rrr.", "wwwww"]], // optional: 1–3 more pictures, the same size
+  "fps": 1,                        // with frames: 1–8 (default 2)
+  "spots": [{ "kind": "hide", "at": [2, 4] }],              // optional, up to 4
+  "rarity": "rare",
+  "unlock": { "achievement": "green-light" }
+}
+```
+
+- **`layer`:** `floor` pieces stand in one of three rows, and he walks between the back row and the front one. `back` pieces stand against the back glass, behind everything. `float` pieces hang in the water.
+- **`frames`** play in a loop after `pixels`: a plant swaying, a lamp flickering. Keep them gentle. With reduced motion on, only `pixels` is shown.
+- **`bubbler`** pieces on the floor get a column of bubbles rising from them. After dark, floating bubblers keep their glow.
+- **`spots`** are places on the piece he can use: `hide`, `sit`, `climb`, `sleep`, `nibble`, `open` or `peek`. `at` is `[x, y]` inside the piece, and `y` may go above it (up to −32) for something he sits on top of. He doesn't use spots yet; they're there so your piece is ready when he does.
+- **`substrate` and `backdrop`** are tiles the tank repeats: across the floor, or over the whole back glass. They have no `layer`, `frames` or `spots`. Keep them small (8×4 is plenty for a floor) and quiet, because everything else stands in front of them.
+- Decor ids share their keys with the rest of the pack, so a piece can't have the same id as one of your accessories, effects, voices or skins.
+- **Decor from packs stays on your PC.** It's in his tank and on the crab card you share yourself, and it syncs between your PCs, but it never goes on the public calling card or profile card: friends who peek at his tank see the built-in decor and his finds only.
+- **In the gallery,** decor is its own category, next to accessories, effects and skins: the gallery's catalog lists each piece under `decor`, so Shellby can tell which pack a piece comes from.
+
 ## Unlocking
 
 Items are available right away unless you add `unlock`. You can use one of these:
@@ -234,7 +367,7 @@ Items are available right away unless you add `unlock`. You can use one of these
 
 If an achievement or season id doesn't exist, the item is skipped with a warning. The ids you can use are listed below. They're defined in `src/main/wardrobe/achievements.js` and `src/main/wardrobe/seasons.js`.
 
-**Achievements:** `first-task` (1 task), `ten-tasks`, `quarter-century` (25), `centurion` (100), `crew-boss` (first helper), `all-hands` (3 helpers at once), `fleet` (25 helpers), `toolmaker` (first new trick), `inventor` (5 tricks), `tinkerer`, `clockwork`, `night-owl` (secret), `early-bird` (secret), `multitasker`, `careful`, `planner`, `special-delivery`, `loyal` (7 days), `check-up` (open the Health view), `keep-your-cool` (secret: cool down after a heat warning), `spring-cleaning` (free up space after a low-disk warning), `show-off` (share your crab card), `good-crab` (secret: pet him 25 times), `frequent-flyer` (secret: throw him), `deep-focus` (5 focus sessions), `green-light` (fix a failing build on a pull request).
+**Achievements:** `first-task` (1 task), `ten-tasks`, `quarter-century` (25), `centurion` (100), `crew-boss` (first helper), `all-hands` (3 helpers at once), `fleet` (25 helpers), `toolmaker` (first new trick), `inventor` (5 tricks), `tinkerer`, `clockwork`, `night-owl` (secret), `early-bird` (secret), `multitasker`, `careful`, `planner`, `special-delivery`, `loyal` (7 days), `check-up` (open the Health view), `keep-your-cool` (secret: cool down after a heat warning), `spring-cleaning` (free up space after a low-disk warning), `show-off` (share your crab card), `good-crab` (secret: pet him 25 times), `frequent-flyer` (secret: throw him), `deep-focus` (5 focus sessions), `green-light` (fix a failing build on a pull request), `tagged` (ship a project and earn its sticker), `sticker-bomb` (10 projects shipped), `shiny` (a sticker goes holo), `liftoff` (release a 1.0), `well-traveled` (stickers on 3 shells), `swap-meet` (a visiting friend leaves you a sticker), `beachcomber` (his first dug-up gift), `magpie` (25 gifts), `curator` (complete a set of finds), `x-marks` (secret: a legendary find), `best-friends` (reach Best friends), `peekaboo` (find him in hide and seek), `good-arm` (10 games of fetch), `player-two` (secret: he watches you finish 5 games), `on-air` (secret: he keeps quiet through 5 calls), `storyteller` (10 different little scenes), `gossip` (5 chats with visiting crabs), `moving-in` (the first piece in his tank), `interior-designer` (15 pieces in his tank at once), `house-guest` (a friend's crab drops by while his tank is on your cards).
 
 **Seasons** (local dates, both ends included):
 
@@ -253,7 +386,7 @@ Use `rarity` to say how special an item is. It changes how the item is shown in 
 
 - **Install:** use **Wardrobe → Install pack…** (**Shellby** in the bar at the bottom of the panel, or tray → Wardrobe), or copy the file into `%APPDATA%\Shellby\wardrobe\` yourself. Installed packs are saved as `<pack id>.json`.
 - **Test:** edit the installed file and hit **Reload**. Warnings show up next to the pack in the Wardrobe.
-- **Check before sharing:** run your file against [`addon.schema.json`](addon.schema.json) with any JSON Schema (draft 2020-12) validator. The community site uses the same schema, which is stricter than the app: it rejects unknown fields and bad items instead of skipping them.
+- **Check before sharing:** run your file against [`addon.schema.json`](addon.schema.json) with any JSON Schema (draft 2020-12) validator. The community site uses the same schema, which is stricter than the app: it rejects unknown fields and bad items instead of skipping them. A few rules can't be written as a schema, so also install the pack and check that the Wardrobe shows no warnings for it. Those rules are: a scene's beats add up to at most 12 seconds, a scene's `voice` is a voice in the same pack, a scene can't need both `night` and `day`, and an item id can't be shared by a voice and an accessory, effect or skin in the same pack.
 - **Remove:** use the pack's **Remove** button in the Wardrobe, or delete the file.
 
 ## Publishing to the community gallery
@@ -269,6 +402,33 @@ To ship an update, bump `version` and open another pull request. Keep the same `
 ## Rules for shared packs
 
 - **Original art only.** Don't include copyrighted characters, logos, brand marks or other people's sprites. Inspired-by is fine, but traced or copied isn't.
+- **Original lines too.** Write your own voice lines and scenes. Don't paste song lyrics, film quotes or a character's catchphrases. A pirate crab is fine, a famous pirate isn't.
 - **Data only.** Packs can't include code, scripts, HTML, or anything that loads from the internet. Shellby ignores everything it doesn't recognise. `homepage` is only shown as a link.
-- **Keep it friendly.** Shellby sits on people's desktops, including at work. Anything hateful, sexual or gory will be removed.
+- **Keep it friendly.** Shellby sits on people's desktops, including at work. Anything hateful, sexual or gory will be removed, in pixels or in words. A grumpy crab can grumble, but he can't insult people.
 - **Credit yourself.** Put your name in `author`, bump `version` when you update, and keep the same `id` so updates replace the old copy.
+
+## Repo stickers
+
+Every project Shellby sees you ship earns a sticker on his shell. Normally it's drawn for you from the repo (a shape, a pattern and its first letter, in the colour of its main language). A repo can ship its own official sticker instead, so everyone who works on it gets the same one: commit a file called `.shellby/sticker.json` at the root of the repository.
+
+```json
+{
+  "palette": { "w": "#fffaf0", "k": "#1d3557", "o": "#ff7a5c", "y": "#ffd166" },
+  "pixels": [
+    "..wwwwwwww..",
+    ".wkkkkkkkkw.",
+    "wkooooooookw",
+    "wkoyyyyyyokw",
+    "wkoyookyyokw",
+    "wkoyyyyyyokw",
+    "wkooooooookw",
+    ".wkkkkkkkkw.",
+    "..wwwwwwww.."
+  ],
+  "micro": ["kok", "oyo", "kok"]
+}
+```
+
+- `palette` and `pixels` work as they do in packs (see [Pixels and palettes](#pixels-and-palettes)): up to 16 colours and up to **16×16**. This is the sticker in the Sticker Book and on the crab card. A white border around the shape makes it read as a sticker.
+- `micro` is optional: the **3×3** version that sits on his shell, using the same palette, with no transparent pixels. Without it, Shellby shrinks the big one.
+- Shellby reads the file when the project ships, at most once a day per project, and only if it's under 16 KB. Anything that doesn't check out is ignored and the generated sticker is used instead. Like packs, it's data only.

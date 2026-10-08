@@ -22,7 +22,7 @@
     const needle = q.toLowerCase();
     const out = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: n => (n.parentElement?.closest('.empty, .dn') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      acceptNode: n => (n.parentElement?.closest('.empty, .en') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
     });
     while (walker.nextNode() && out.length < MAX_MATCHES) {
       const node = walker.currentNode;
@@ -122,7 +122,7 @@
 
   document.addEventListener('keydown', e => {
     if (state.view === 'onboarding' || SB.isCrabOnly?.()) return;
-    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') { e.preventDefault(); SB.find.open(); return; }
+    if (SB.shortcuts.matches(e, 'find')) { e.preventDefault(); SB.find.open(); return; }
     if (e.key === 'F3' && !bar.hidden) { e.preventDefault(); go(e.shiftKey ? -1 : 1); }
   });
 })();

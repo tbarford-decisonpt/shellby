@@ -1,0 +1,240 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "shipyard",
+  "name": "Shipyard",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Rewards for the everyday work: deploys, green tests, critical hits and clean landings, flaky fixes, issues turned into pull requests, clean audits, a tidy toolbox, fresh starts, streaks and level 10.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "accessories": [
+    {
+      "id": "mission-patch",
+      "name": "Mission Patch",
+      "description": "First deploy. Every launch gets a patch.",
+      "slot": "neck",
+      "pivot": [3, 0],
+      "palette": { "k": "#8d99ae", "n": "#1d3557", "w": "#f1faee", "r": "#e63946" },
+      "pixels": [
+        "k.....k",
+        ".k...k.",
+        "..nnn..",
+        ".nnwnn.",
+        ".nwwwn.",
+        ".nrnrn.",
+        "..nnn.."
+      ],
+      "unlock": { "achievement": "launch-day" }
+    },
+    {
+      "id": "test-tube",
+      "name": "Test Tube",
+      "description": "Red to green ten times over. The experiment is working.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [1, 5],
+      "palette": { "K": "#8d99ae", "w": "#caf0f8", "g": "#06d6a0", "G": "#b7efc5" },
+      "pixels": [
+        "KKK",
+        "w.w",
+        "wGw",
+        "wgw",
+        "wgw",
+        ".g."
+      ],
+      "unlock": { "achievement": "back-to-green" }
+    },
+    {
+      "id": "proton-pack",
+      "name": "Proton Pack",
+      "description": "Caught a flaky test and made it stay caught.",
+      "slot": "shell",
+      "rarity": "epic",
+      "pivot": [2, 5],
+      "palette": { "K": "#6c757d", "k": "#3d405b", "y": "#ffd166", "g": "#4cc9f0", "r": "#e63946" },
+      "pixels": [
+        "KKKKk",
+        "KyKgk",
+        "KKKKk",
+        "KrKKk",
+        "KKKKk"
+      ],
+      "unlock": { "achievement": "ghostbuster" }
+    },
+    {
+      "id": "ships-wheel",
+      "name": "Ship's Wheel",
+      "description": "Took an issue from report to pull request. Steady as she goes.",
+      "slot": "held",
+      "rarity": "rare",
+      "pivot": [0, 6],
+      "palette": { "b": "#d4a373", "y": "#ffd166" },
+      "pixels": [
+        "...b...",
+        ".b.b.b.",
+        "..bbb..",
+        "bbbybbb",
+        "..bbb..",
+        ".b.b.b.",
+        "...b..."
+      ],
+      "unlock": { "achievement": "issue-to-ship" }
+    },
+    {
+      "id": "clipboard",
+      "name": "Clipboard",
+      "description": "Dependency audit came back clean. Everything checks out.",
+      "slot": "held",
+      "pivot": [0, 5],
+      "palette": { "k": "#adb5bd", "K": "#6c757d", "b": "#a47148", "w": "#fffaf0", "g": "#2a9d8f" },
+      "pixels": [
+        ".kKk.",
+        "bbbbb",
+        "bwwwb",
+        "bwwgb",
+        "bggwb",
+        "bbbbb"
+      ],
+      "unlock": { "achievement": "clean-bill" }
+    },
+    {
+      "id": "feather-duster",
+      "name": "Feather Duster",
+      "description": "Switched off a plugin nobody was using. A tidy shell is a happy shell.",
+      "slot": "held",
+      "pivot": [2, 6],
+      "palette": { "p": "#ff9ec4", "P": "#c77dff", "b": "#8b5a2b" },
+      "pixels": [
+        ".pp.",
+        "pPPp",
+        "pPPp",
+        ".pp.",
+        "..b.",
+        "..b.",
+        "..b."
+      ],
+      "unlock": { "achievement": "tidy-shell" }
+    },
+    {
+      "id": "fresh-page",
+      "name": "Fresh Page",
+      "description": "A crowded chat, summed up and started over. Clean slate.",
+      "slot": "held",
+      "pivot": [0, 5],
+      "palette": { "k": "#6c757d", "w": "#fffaf0", "b": "#90e0ef" },
+      "pixels": [
+        "k.k.k",
+        "wwwww",
+        "wbbbw",
+        "wwwww",
+        "wbbww",
+        "wwwww"
+      ],
+      "unlock": { "achievement": "fresh-start" }
+    },
+    {
+      "id": "flame-scarf",
+      "name": "Flame Scarf",
+      "description": "Seven days in a row. He's on fire.",
+      "slot": "neck",
+      "rarity": "rare",
+      "pivot": [3, 0],
+      "palette": { "r": "#e63946", "o": "#f77f00", "y": "#fcbf49" },
+      "pixels": [
+        "orroyro",
+        "royrory",
+        "....or.",
+        "....ry.",
+        "....o.."
+      ],
+      "unlock": { "achievement": "on-a-roll" }
+    },
+    {
+      "id": "blazing-crest",
+      "name": "Blazing Crest",
+      "description": "Thirty days without a break in the streak. Nothing puts this one out.",
+      "slot": "hat",
+      "rarity": "legendary",
+      "pivot": [3, 5],
+      "palette": { "y": "#ffd166", "o": "#f77f00", "r": "#e63946", "R": "#9d0208" },
+      "pixels": [
+        "...y...",
+        "..yoy.y",
+        "y.yoyoy",
+        "yyorroy",
+        ".orrro.",
+        "..RRR.."
+      ],
+      "unlock": { "achievement": "unstoppable" }
+    },
+    {
+      "id": "coral-laurel",
+      "name": "Coral Laurel",
+      "description": "Level 10. Coral Commander, and he dresses the part.",
+      "slot": "hat",
+      "rarity": "epic",
+      "pivot": [4, 2],
+      "palette": { "p": "#ff8c69", "c": "#ffb4a2", "y": "#ffd166" },
+      "pixels": [
+        "p..p.p..p",
+        "pp.ppp.pp",
+        "ccccycccc"
+      ],
+      "unlock": { "achievement": "double-digits" }
+    },
+    {
+      "id": "lucky-d20",
+      "name": "Lucky D20",
+      "description": "Rolled a crit: one turn, red to green.",
+      "slot": "held",
+      "rarity": "epic",
+      "pivot": [3, 6],
+      "palette": { "K": "#5c0f14", "r": "#e63946", "R": "#ff8fa3", "w": "#fff4e6" },
+      "pixels": [
+        "...K...",
+        "..KRK..",
+        ".KRwRK.",
+        "KRwwwRK",
+        "KrrrrrK",
+        ".KrrrK.",
+        "..KKK.."
+      ],
+      "unlock": { "achievement": "critical-hit" }
+    },
+    {
+      "id": "golden-d20",
+      "name": "Golden D20",
+      "description": "Twenty critical hits. The dice like you.",
+      "slot": "held",
+      "rarity": "legendary",
+      "pivot": [3, 6],
+      "palette": { "K": "#7a5200", "r": "#ffc300", "R": "#fff1a8", "w": "#ffffff" },
+      "pixels": [
+        "...K...",
+        "..KRK..",
+        ".KRwRK.",
+        "KRwwwRK",
+        "KrrrrrK",
+        ".KrrrK.",
+        "..KKK.."
+      ],
+      "unlock": { "achievement": "natural-twenty" }
+    },
+    {
+      "id": "pilot-wings",
+      "name": "Pilot Wings",
+      "description": "Brought a copy home green on the first try. Smooth skies.",
+      "slot": "neck",
+      "rarity": "rare",
+      "pivot": [4, 0],
+      "palette": { "s": "#dfe7ec", "S": "#8d99ae", "y": "#ffd166" },
+      "pixels": [
+        "S.......S",
+        "sSs.y.sSs",
+        ".ssSySss.",
+        "...sss..."
+      ],
+      "unlock": { "achievement": "clean-landing" }
+    }
+  ]
+}

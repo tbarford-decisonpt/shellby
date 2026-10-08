@@ -1,0 +1,113 @@
+/* Shellby — Crew (crew.js). Tokens come from panel.css; the dock is the
+   Wardrobe's stage (wardrobe.css) with the whole crew on it, the level coin and
+   bar are the Trophies tab's, so the tabs of his screen feel like one place. */
+
+body[data-view="crew"] .view-crew { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+.view-crew {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+/* The crew only ever comes out for Claude's helpers. */
+body.crab-only [data-goto="crew"] { display: none; }
+
+/* ---------------------------------------------------------------- the dock */
+.cr-dock {
+  position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 4px;
+  min-height: 132px; margin: 12px 0 8px; padding: 18px 10px 10px; border-radius: var(--r-lg); overflow: hidden;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(transparent 72%, rgba(201, 179, 138, .16) 72%, rgba(201, 179, 138, .08)),
+    radial-gradient(60% 55% at 50% 30%, rgba(127, 214, 194, .12), transparent 70%),
+    linear-gradient(var(--abyss), var(--reef));
+}
+.cr-dock[hidden] { display: none; }
+.cr-dock-crab {
+  position: relative; display: grid; grid-template-columns: minmax(0, auto) auto; justify-content: center; align-items: center; gap: 3px 4px; flex: 0 1 96px; min-width: 0;
+  padding: 4px 2px; border: 0; border-radius: var(--r); background: none; color: var(--sand); cursor: pointer;
+}
+.cr-dock-crab svg { grid-column: 1 / -1; justify-self: center; width: 100%; max-width: 64px; height: auto; image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .35)); transition: transform .2s var(--ease-spring); }
+.cr-dock-crab:hover svg { transform: translateY(-3px); }
+.cr-dock-crab:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.cr-dock-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-11) var(--font-pixel); color: var(--sand-dim); }
+/* The level rides beside the name, clear of the hat. */
+.cr-dock-lv {
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: 99px;
+  font: 700 var(--fs-10)/18px var(--font-pixel); color: #1f1604; background: #ffd23f;
+}
+
+.cr-totals { margin: 0 0 10px; }
+
+/* ---------------------------------------------------------------- empty */
+.cr-empty {
+  display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: center; margin: 12px 0;
+  padding: 14px; border-radius: var(--r-lg); border: 1px dashed var(--line);
+}
+.cr-empty[hidden] { display: none; }
+.cr-empty-crab svg { width: 84px; height: auto; opacity: .55; filter: grayscale(.6); }
+.cr-empty h3 { margin: 0 0 4px; font: 600 var(--fs-17) var(--font-pixel); }
+.cr-empty p { margin: 0; font-size: var(--fs-12-5); line-height: 1.5; color: var(--sand-dim); }
+
+/* ---------------------------------------------------------------- the roster */
+.cr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cr-row {
+  display: grid; grid-template-columns: 56px 1fr auto; column-gap: 12px; align-items: center;
+  padding: 12px 14px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft);
+  scroll-margin-top: 10px;
+}
+.cr-face { grid-row: 1 / 3; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--abyss); }
+.cr-face svg { width: 44px; height: auto; image-rendering: pixelated; }
+.cr-who { min-width: 0; }
+.cr-who h3 { margin: 0; font: 600 var(--fs-17) var(--font-pixel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-type { margin: 1px 0 0; font-size: var(--fs-12); color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-type code { color: var(--glass); }
+/* The Trophies tab's level coin, a size down. */
+.cr-lv {
+  grid-row: 1; grid-column: 3; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 var(--fs-15) var(--font-pixel); color: #1f1604;
+  background: radial-gradient(circle at 35% 30%, #fff, #ffd23f 55%, color-mix(in srgb, #ffd23f 70%, #000));
+  box-shadow: 0 0 0 3px rgba(255, 210, 63, .2);
+}
+.cr-bar { grid-column: 2 / 4; height: 6px; margin: 8px 0 3px; border-radius: 99px; background: var(--abyss); overflow: hidden; border: 1px solid rgba(255, 210, 63, .2); }
+.cr-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, #ffd23f 75%, #000), #ffd23f); transform-origin: left; }
+.cr-next { grid-column: 2 / 4; margin: 0; font-size: var(--fs-11); color: var(--sand-faint); }
+.cr-stats { grid-column: 1 / 4; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.cr-stat { padding: 6px 8px; border-radius: 8px; background: var(--abyss); }
+.cr-stat b { display: block; font: 600 var(--fs-15) var(--font-pixel); color: var(--sand); }
+.cr-stat span { font-size: var(--fs-11); color: var(--sand-faint); }
+
+/* ---------------------------------------------------------------- the drawer */
+.cr-more { grid-column: 1 / 4; margin-top: 8px; }
+.cr-more summary { cursor: pointer; font-size: var(--fs-12); color: var(--sand-dim); padding: 2px 0; }
+.cr-more summary:hover { color: var(--sand); }
+.cr-more summary:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 4px; }
+.cr-field { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: var(--fs-12); color: var(--sand-dim); }
+.cr-rename { flex: 1; min-width: 0; max-width: 220px; }
+.cr-field-label { margin: 12px 0 6px; font-size: var(--fs-12); color: var(--sand-dim); }
+.cr-hats { display: flex; flex-wrap: wrap; gap: 6px; }
+.cr-hat {
+  position: relative; display: grid; place-items: center; width: 52px; height: 44px; padding: 0;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--abyss); color: var(--sand-dim); cursor: pointer;
+  transition: border-color .15s var(--ease-out);
+}
+.cr-hat svg { image-rendering: pixelated; max-width: 40px; max-height: 30px; }
+.cr-hat:hover:not(:disabled) { border-color: var(--glass); }
+.cr-hat:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.cr-hat[aria-pressed="true"] { border-color: var(--coral); background: color-mix(in srgb, var(--coral) 10%, var(--abyss)); color: var(--sand); }
+.cr-hat.locked { cursor: not-allowed; }
+.cr-hat-word { font: 600 var(--fs-11) var(--font-pixel); }
+.cr-hat-lv { position: absolute; bottom: 1px; right: 3px; font-size: var(--fs-9-5); color: var(--sand-faint); }
+.cr-recent { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 4px; }
+.cr-recent li { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-12); }
+.cr-recent-what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-recent time { color: var(--sand-faint); font-size: var(--fs-11); white-space: nowrap; }
+.cr-acted, .cr-failed { flex: none; padding: 0 6px; border-radius: 99px; font-size: var(--fs-10-5); line-height: 17px; }
+.cr-acted { color: var(--glass); background: var(--glass-dim); }
+.cr-failed { color: var(--coral); background: var(--coral-dim); }
+.cr-note { margin: 14px 0 0; }
+
+@media (max-width: 420px) {
+  .cr-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cr-dock-crab svg { transition: none; }
+}

@@ -77,7 +77,7 @@ function sourceUrl(src, marketplaceRepo = null) {
  * catalogs, because the CLI leaves installed plugins out of "available".
  * @returns {{ plugins: Array<{ id, name, marketplace, description, installs, url, installed, enabled, version, scope }> }}
  */
-function parseCatalog(json, { repos = {}, listings = {} } = {}) {
+function parseCatalog(json, { repos = {}, listings = {}, pluginsRoot = null } = {}) {
   const out = new Map();
   const root = isObj(json) ? json : {};
   const repoOf = mk => (Object.hasOwn(repos, mk) ? repos[mk] : null);
@@ -108,10 +108,20 @@ function parseCatalog(json, { repos = {}, listings = {} } = {}) {
       installed: true,
       enabled: p.enabled !== false,
       version: str(p.version, 24),
+      installedAt: Number.isFinite(Date.parse(p.installedAt)) ? Date.parse(p.installedAt) : null,
+      // Where it's unpacked, only inside Claude Code's plugins folder (lean.js reads its skill names).
+      dir: underRoot(pluginsRoot, p.installPath),
       scope: ['user', 'project', 'local'].includes(p.scope) ? p.scope : 'user',
     });
   }
   return { plugins: [...out.values()] };
+}
+
+/** dir, when it's a local folder under pluginsRoot (Claude Code's own plugins folder); else null. */
+function underRoot(pluginsRoot, dir) {
+  if (!pluginsRoot || typeof dir !== 'string' || dir.startsWith('\\\\') || !path.isAbsolute(dir)) return null;
+  const rel = path.relative(pluginsRoot, dir);
+  return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? dir : null;
 }
 
 /**
@@ -119,11 +129,7 @@ function parseCatalog(json, { repos = {}, listings = {} } = {}) {
  * (its local clone) is kept only when it sits under pluginsRoot.
  */
 function parseMarketplaces(json, { pluginsRoot = null } = {}) {
-  const under = dir => {
-    if (!pluginsRoot || typeof dir !== 'string' || dir.startsWith('\\\\') || !path.isAbsolute(dir)) return null;
-    const rel = path.relative(pluginsRoot, dir);
-    return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? dir : null;
-  };
+  const under = dir => underRoot(pluginsRoot, dir);
   return (Array.isArray(json) ? json : [])
     .filter(m => isObj(m) && typeof m.name === 'string' && /^[\w.-]{1,80}$/.test(m.name))
     .map(m => ({
@@ -199,7 +205,8 @@ function normalizeSource(input) {
   try {
     const u = new URL(s);
     if (u.protocol !== 'https:' || u.username || u.password || u.port) return null;
-    const host = u.hostname.replace(/^\[|\]$/g, '');
+    // "localhost." is localhost: a trailing dot must not slip past the names below.
+    const host = u.hostname.replace(/^\[|\]$/g, '').replace(/\.+$/, '');
     // Defence in depth only: this is a name check, not a DNS check, so a public
     // name that resolves to a private address gets through. The CLI does the fetch.
     if (net.isIP(host) || !host.includes('.') || /(^|\.)(localhost|local|internal|lan|home|corp)$/i.test(host)) return null;
@@ -235,6 +242,12 @@ class Marketplace {
 
   find(id) { return this.cache?.plugins.find(p => p.id === id) || null; }
 
+  /** Installed plugins unpacked in Claude Code's plugins folder, as last listed (the Toolbox looks for mods among them). */
+  installed() { return (this.cache?.plugins || []).filter(p => p.installed && p.dir); }
+
+  /** The next list() asks the CLI again: something changed outside the shop (a mod written to ~/.claude/skills). */
+  invalidate() { if (this.cache) this.cache.at = 0; }
+
   /** The configured marketplace by name, as the CLI reported it. */
   marketplace(name) { return this.cache?.marketplaces.find(m => m.name === name) || null; }
 
@@ -244,9 +257,12 @@ class Marketplace {
     return (m && SUGGESTED.find(s => s.name === m.name && (s.source === m.repo || s.source === m.source))) || null;
   }
 
-  list({ refresh = false } = {}) {
+  // stale: any earlier list will do, so a caller that only needs what's installed
+  // never waits behind a refresh (`marketplace update` can take minutes). The
+  // cache is patched by every change, so what's installed in it stays right.
+  list({ refresh = false, stale = false } = {}) {
     if (typeof this.run !== 'function') return Promise.resolve({ ok: false, notInstalled: true, error: NOT_INSTALLED });
-    if (!refresh && this.cache && this.now() - this.cache.at < LIST_TTL_MS) return Promise.resolve({ ok: true, ...this.view() });
+    if (!refresh && this.cache && (stale || this.now() - this.cache.at < LIST_TTL_MS)) return Promise.resolve({ ok: true, ...this.view() });
     if (this.listing) return this.listing;
     this.listing = this.fetchList(refresh).finally(() => { this.listing = null; });
     return this.listing;
@@ -273,7 +289,7 @@ class Marketplace {
       .map(m => parseListing(this.readJson(path.join(m.dir, '.claude-plugin', 'marketplace.json')), m.name)));
     try {
       if (!cat.ok) throw new Error('plugin list failed');
-      catalog = parseCatalog(JSON.parse(cat.stdout), { repos, listings });
+      catalog = parseCatalog(JSON.parse(cat.stdout), { repos, listings, pluginsRoot: this.pluginsRoot });
     } catch {
       return { ok: false, error: "Couldn't read the plugin list from Claude Code. Make sure it's up to date (2.1 or newer)." };
     }
@@ -345,6 +361,55 @@ class Marketplace {
       this.patch(id, { installed: false, enabled: false, version: '', scope: null });
       return { ok: true, id };
     });
+  }
+
+  // Bring an installed plugin up to its marketplace's newest. Claude Code only
+  // knows what's newest after pulling that marketplace, so that goes first.
+  update(id) {
+    const p = this.find(id);
+    if (!this.known(id) || !p?.installed) return Promise.resolve({ ok: false, error: "That plugin isn't installed." });
+    if (p.scope !== 'user') {
+      return Promise.resolve({ ok: false, needsTerminal: true, command: `claude plugin update ${id} --scope ${p.scope}`, error: `This plugin is installed for one project. Update it from a terminal in that project's folder.` });
+    }
+    return this.change(async () => {
+      await this.run(['plugin', 'marketplace', 'update', p.marketplace], CHANGE_TIMEOUT_MS); // best effort
+      const r = await this.run(['plugin', 'update', id, '--scope', 'user', '--json'], CHANGE_TIMEOUT_MS);
+      if (r.notInstalled) return { ok: false, error: NOT_INSTALLED };
+      const res = parseResultLine(r.stdout);
+      if (res?.shownCommand || res?.failureCode === 'command_confirmation_required') {
+        return { ok: false, needsTerminal: true, command: `claude plugin update ${id}`, error: 'This plugin updates by running a command. To review that command first, update it from a terminal.' };
+      }
+      if (failed(r, res)) return { ok: false, error: str(res?.message, 300) || 'Claude Code could not update that plugin.' };
+      const to = str(res?.newVersion, 24);
+      if (to) this.patch(id, { version: to });
+      return { ok: true, id, updated: res?.updateOutcome !== 'up_to_date', from: str(res?.oldVersion, 24), to };
+    });
+  }
+
+  // Turn an installed plugin off or back on. It stays installed, so either way
+  // is one click to undo (the Lean tab offers this, never uninstall).
+  setEnabled(id, on) {
+    const p = this.find(id);
+    if (!this.known(id) || !p?.installed) return Promise.resolve({ ok: false, error: "That plugin isn't installed." });
+    if (p.scope !== 'user') {
+      const verb = on ? 'enable' : 'disable';
+      return Promise.resolve({ ok: false, needsTerminal: true, command: `claude plugin ${verb} ${id} --scope ${p.scope}`, error: `This plugin is installed for one project. Turn it ${on ? 'on' : 'off'} from a terminal in that project's folder.` });
+    }
+    return this.change(async () => {
+      const r = await this.run(['plugin', on ? 'enable' : 'disable', id, '--scope', 'user', '--json'], CHANGE_TIMEOUT_MS);
+      if (r.notInstalled) return { ok: false, error: NOT_INSTALLED };
+      const res = parseResultLine(r.stdout);
+      if (failed(r, res)) return { ok: false, error: str(res?.message, 300) || `Claude Code could not turn that plugin ${on ? 'on' : 'off'}.` };
+      this.patch(id, { enabled: !!on });
+      return { ok: true, id };
+    });
+  }
+
+  /** `claude plugin details`: what a plugin brings and its always-on token estimate (null if it won't say). */
+  async details(id) {
+    if (!this.known(id)) return null;
+    const r = await this.run(['plugin', 'details', id], LIST_TIMEOUT_MS);
+    return r.ok ? parseDetails(r.stdout) : null;
   }
 
   addMarketplace(input) {

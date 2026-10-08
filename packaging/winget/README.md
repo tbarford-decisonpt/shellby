@@ -19,16 +19,25 @@ folder and already validated — `winget validate` passes with no warnings.
 
 Two things only you can do, both in the browser:
 
-1. Create a **classic** personal access token with only the **`public_repo`** scope.
-   Fine-grained tokens are [not supported](https://github.com/microsoft/winget-create/issues/595).
+1. Create a **classic** personal access token with the **`public_repo`** and **`workflow`**
+   scopes. Fine-grained tokens are [not supported](https://github.com/microsoft/winget-create/issues/595).
+   `workflow` is for your fork of winget-pkgs: `wingetcreate` brings the fork up to date
+   before every submission, and when upstream has changed its own `.github/workflows`
+   since, GitHub refuses that sync without it ("The forked repository could not be synced
+   with the upstream commits"). With `public_repo` alone, submissions work only until
+   upstream next touches a workflow.
 2. Add it as the repo secret **`WINGET_TOKEN`** (Settings → Secrets and variables →
    Actions).
 
-Then run the **Submit to winget** workflow from the Actions tab, with version `0.18.0`.
+Then run the **Submit to winget** workflow from the Actions tab, with version `0.66.0`.
 It opens the PR against `microsoft/winget-pkgs` for you, creating the fork if needed.
 
 A first-time package gets reviewed by a human moderator, which can take a few days.
-Automated validation runs the installer in a sandbox first.
+Automated validation runs the installer in a sandbox first. Leave the PR open while it
+waits: the first try (0.18.0, [#445454](https://github.com/microsoft/winget-pkgs/pull/445454))
+passed validation and was closed before a moderator got to it, so nothing was published.
+Releases tagged while it waits don't reach winget (`wingetcreate update` has nothing to
+update yet); the first one after the merge does.
 
 Nothing needs installing locally — the workflow runs on a GitHub runner, which matters
 because `wingetcreate` requires the .NET 9 runtime.
@@ -36,12 +45,12 @@ because `wingetcreate` requires the .NET 9 runtime.
 ### Doing it by hand instead
 
 ```powershell
-winget validate --manifest packaging\winget\0.18.0
-winget install  --manifest packaging\winget\0.18.0   # optional local test
+winget validate --manifest packaging\winget\0.66.0
+winget install  --manifest packaging\winget\0.66.0   # optional local test
 ```
 
 Then fork `microsoft/winget-pkgs`, copy this version folder to
-`manifests/x/x-salmon/Shellby/0.18.0/` in the fork, and open a PR.
+`manifests/x/x-salmon/Shellby/0.66.0/` in the fork, and open a PR.
 
 ## Automatic updates after that
 

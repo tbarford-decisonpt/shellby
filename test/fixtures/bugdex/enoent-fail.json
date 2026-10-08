@@ -1,0 +1,5 @@
+{
+  "command": "node app.js",
+  "isError": true,
+  "output": "node:fs:573\n  return binding.open(\n                 ^\n\nError: ENOENT: no such file or directory, open 'config.json'\n    at Object.openSync (node:fs:573:18)\n    at main (/proj/app.js:3:10)\n\nNode.js v22.13.1"
+}

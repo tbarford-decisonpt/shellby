@@ -25,6 +25,10 @@
     const named = [...(state.outfit?.accessories || []).map(a => a.name), state.outfit?.effect?.name].filter(Boolean);
     return {
       title: top ? top.name : 'Fresh out of the shell',
+      // His temperament, and the Claude-free side of things (together.js / life.js).
+      temperament: state.life?.temperament?.name || null,
+      together: state.life?.bond?.days || 0,
+      finds: state.life?.finds?.total || 0,
       titleIcon: top ? top.icon : '🐚',
       wearing: named,
       tasks: v.stats?.tasksCompleted ?? 0,
@@ -37,6 +41,9 @@
       code: SB.outfitCode?.() || null,
       hasOutfit: !!(o && Object.values(o).some(Boolean)),
       login: state.github?.signedIn ? state.github.login : null,
+      // Your own shipping (not friends' swaps), minus anything you keep off your card.
+      shipped: (state.stickers?.projects || []).filter(p => !p.from).length,
+      stickers: (state.stickers?.projects || []).filter(p => !p.hidden && !p.from).sort((a, b) => b.ships - a.ships).slice(0, 5),
     };
   }
 
@@ -73,22 +80,22 @@
     return `${t.trimEnd()}…`;
   }
 
-  // ------------------------------------------------------------ the card
+  // ------------------------------------------------------------ shared by every card (week-card.js too)
 
-  async function render() {
-    await Promise.all(['64px "Pixelify Sans"', '600 15px "Martian Mono"', '20px "Atkinson Hyperlegible"', '700 20px "Atkinson Hyperlegible"']
-      .map(f => document.fonts.load(f).catch(() => null)));
-    // Fresh numbers: the panel's wardrobe view only refreshes when something unlocks.
-    SB.applyWardrobe(await api.wardrobeView());
-    if (!SB.outfitCode?.()) await new Promise(r => setTimeout(r, 50));
-    const d = cardData();
+  const loadFonts = () => Promise.all(['64px "Pixelify Sans"', '600 15px "Martian Mono"', '20px "Atkinson Hyperlegible"', '700 20px "Atkinson Hyperlegible"']
+    .map(f => document.fonts.load(f).catch(() => null)));
+
+  function newCanvas() {
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
+    return { canvas, ctx };
+  }
 
-    // Water: deep gradient with two soft lights, like the panel.
+  // Water: deep gradient with two soft lights, like the panel.
+  function drawWater(ctx) {
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#0f3039');
     bg.addColorStop(1, C.abyss);
@@ -101,17 +108,36 @@
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
     }
+  }
 
-    // Shellby's tank on the left.
-    const tank = { x: 48, y: 48, w: 470, h: 470 };
-    ctx.save();
-    roundRect(ctx, tank.x, tank.y, tank.w, tank.h, 26);
-    ctx.fillStyle = 'rgba(6,19,22,.72)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(127,214,194,.18)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.clip();
+  // His real tank (tank.js), when there's something in it: painted still
+  // (tank-paint.js) with him in the middle row, scaled up by a whole number and
+  // standing at the bottom of the box. A wide tank is cropped around its
+  // biggest piece and him beside it, so he stays big enough to see. Returns
+  // where its water ends.
+  const CROP_W = 78; // art px: the most of a tank's width the card shows
+  async function drawDecorated(ctx, box, v) {
+    const P = SB.tankPaint;
+    const { world } = v;
+    const k = Math.max(1, Math.floor(Math.min(box.w / Math.min(world.w, CROP_W), box.h / world.h)));
+    const cropW = Math.min(world.w, Math.floor(box.w / k));
+    const svg = SB.sprite(state.skin, { fit: true });
+    const [, , vw, vh] = (svg.getAttribute('viewBox') || '0 0 22 13').split(' ').map(Number);
+    const w = Math.ceil(vw), h = Math.ceil(vh);
+    const { x0, crabX } = P.framing(v, cropW, w);
+    let crab = null;
+    try {
+      crab = { img: await svgImage(svg, w, h), w, h, x: crabX, flip: false };
+    } catch { /* the tank still stands without him */ }
+    const pic = P.still({ world, style: v.style, pieces: v.pieces }, crab);
+    const dx = box.x + Math.round((box.w - cropW * k) / 2), dy = box.y + box.h - world.h * k;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(pic, x0, 0, cropW, world.h, dx, dy, cropW * k, world.h * k);
+    return dy + world.sandTop * k;
+  }
+
+  // Today's tank: plain sand and him, big. Returns where the sand starts.
+  async function drawPlain(ctx, tank) {
     ctx.fillStyle = 'rgba(127,214,194,.035)';
     for (let x = tank.x + 24; x < tank.x + tank.w; x += 24) ctx.fillRect(x, tank.y, 1, tank.h);
     // sand
@@ -135,6 +161,28 @@
     ctx.ellipse(tank.x + tank.w / 2, sandY + 18, vw * P * 0.42, 12, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.drawImage(crab, Math.round(cx), Math.round(cy));
+    return sandY;
+  }
+
+  // What's in his tank, or null when it's empty (or can't be had).
+  const decorated = () => (api.getTank ? api.getTank().then(v => (v?.pieces?.length ? v : null), () => null) : Promise.resolve(null));
+
+  // Shellby's tank on the left: his decorated tank (or plain sand) with the
+  // crab as dressed now, his effect around him, and up to five stickers
+  // ({ art: { palette, pixels } }) on the glass. Returns how many pieces of
+  // decor are in the picture.
+  async function drawTank(ctx, glassStickers) {
+    const tank = { x: 48, y: 48, w: 470, h: 470 };
+    const v = await decorated();
+    ctx.save();
+    roundRect(ctx, tank.x, tank.y, tank.w, tank.h, 26);
+    ctx.fillStyle = 'rgba(6,19,22,.72)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(127,214,194,.18)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.clip();
+    const sandY = v ? await drawDecorated(ctx, tank, v) : await drawPlain(ctx, tank);
 
     // His equipped effect, scattered around him (snow, sparkles, bats...).
     const fx = state.outfit?.effect;
@@ -148,7 +196,81 @@
         ctx.drawImage(img, Math.round(tank.x + spots[i][0] * tank.w), Math.round(tank.y + spots[i][1] * (sandY - tank.y)));
       }
     }
+
+    // Stickers slapped on the tank glass (on top of everything in it).
+    const tilt = [-8, 5, -3, 7, -6];
+    for (let i = 0; i < Math.min(5, glassStickers.length); i++) {
+      const art = glassStickers[i].art;
+      const n = Math.max(...art.pixels.map(r => r.length));
+      const k = Math.floor(64 / n);
+      const img = await svgImage(SB.Sprite.grid(art.pixels, art.palette), n * k, art.pixels.length * k);
+      const sx = tank.x + 30 + i * ((tank.w - 60 - n * k) / Math.max(1, 4)), sy = tank.y + 24 + (i % 2) * 14;
+      ctx.save();
+      ctx.translate(sx + (n * k) / 2, sy + (art.pixels.length * k) / 2);
+      ctx.rotate((tilt[i] * Math.PI) / 180);
+      ctx.shadowColor = 'rgba(0,0,0,.4)';
+      ctx.shadowOffsetY = 3;
+      ctx.drawImage(img, -(n * k) / 2, -(art.pixels.length * k) / 2);
+      ctx.restore();
+    }
     ctx.restore();
+    return v ? v.pieces.length : 0;
+  }
+
+  // Stat tiles in a row: [[number, label, accent colour], ...].
+  function drawTiles(ctx, tiles, x0, colW, ty, th = 128) {
+    const gap = 14, tw = (colW - gap * (tiles.length - 1)) / tiles.length;
+    tiles.forEach(([num, label, col], i) => {
+      const x = x0 + i * (tw + gap);
+      roundRect(ctx, x, ty, tw, th, 16);
+      ctx.fillStyle = 'rgba(17,35,42,.9)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(127,214,194,.12)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.fillRect(x, ty + 18, 4, th - 36);
+      ctx.fillStyle = C.sand;
+      ctx.fillText(fitText(ctx, num, tw - 36, '500 46px "Martian Mono"'), x + 22, ty + th * 0.55);
+      ctx.fillStyle = C.sandDim;
+      ctx.fillText(fitText(ctx, label, tw - 36, '17px "Atkinson Hyperlegible"'), x + 22, ty + th * 0.8);
+    });
+  }
+
+  async function drawFooter(ctx) {
+    const right = W - 56;
+    ctx.fillStyle = 'rgba(6,19,22,.85)';
+    ctx.fillRect(0, H - 64, W, 64);
+    ctx.fillStyle = 'rgba(127,214,194,.18)';
+    ctx.fillRect(0, H - 64, W, 1);
+    const mini = await svgImage(SB.sprite(state.skin, { plain: true }), 22 * 2, 13 * 2);
+    ctx.drawImage(mini, 48, H - 45);
+    ctx.fillStyle = C.sand;
+    ctx.font = '600 24px "Pixelify Sans"';
+    ctx.fillText('Shellby', 104, H - 23);
+    ctx.fillStyle = C.sandDim;
+    ctx.font = '17px "Atkinson Hyperlegible"';
+    ctx.fillText('the pixel hermit crab that runs Claude Code on your desktop', 210, H - 25);
+    ctx.fillStyle = C.glass;
+    ctx.font = '600 15px "Martian Mono"';
+    ctx.textAlign = 'right';
+    ctx.fillText('github.com/x-salmon/shellby', right, H - 25);
+    ctx.textAlign = 'left';
+  }
+
+  // ------------------------------------------------------------ the crab card
+
+  async function render() {
+    await loadFonts();
+    // Fresh numbers: the panel's wardrobe view only refreshes when something unlocks.
+    SB.applyWardrobe(await api.wardrobeView());
+    SB.applyStickers?.(await api.getStickers());
+    if (!SB.outfitCode?.()) await new Promise(r => setTimeout(r, 50));
+    const d = cardData();
+    const { canvas, ctx } = newCanvas();
+    drawWater(ctx);
+    // His tank, with his best stickers on the glass.
+    d.tankPieces = await drawTank(ctx, d.stickers);
 
     // ---- right column
     const x0 = 568, right = W - 56, colW = right - x0;
@@ -167,31 +289,24 @@
     ctx.fillText(fitText(ctx, `${d.titleIcon} ${d.title}`, colW, ctx.font), x0, 150);
 
     ctx.fillStyle = C.sandDim;
-    const wearing = d.wearing.length ? `Wearing ${d.wearing.join(', ')}` : 'Wearing nothing but a shell';
+    const worn = d.wearing.length ? `wearing ${d.wearing.join(', ')}` : 'wearing nothing but a shell';
+    const wearing = d.temperament ? `A ${d.temperament.toLowerCase()} crab, ${worn}` : worn.replace(/^w/, 'W');
     ctx.fillText(fitText(ctx, wearing, colW, '20px "Atkinson Hyperlegible"'), x0, 188);
 
     // Three stat tiles.
     const tiles = [
-      [d.tasks.toLocaleString(), d.tasks === 1 ? 'task done' : 'tasks done', C.coral],
+      // No tasks yet (just the crab, say): show the days you've had him instead of a zero.
+      d.tasks || !d.together
+        ? [d.tasks.toLocaleString(), d.tasks === 1 ? 'task done' : 'tasks done', C.coral]
+        : [d.together.toLocaleString(), d.together === 1 ? 'day together' : 'days together', C.coral],
       [`${d.trophies}/${d.trophiesAll}`, 'trophies', C.amber],
-      [d.helpers.toLocaleString(), d.helpers === 1 ? 'helper crab sent' : 'helper crabs sent', C.glass],
+      d.shipped
+        ? [d.shipped.toLocaleString(), d.shipped === 1 ? 'project shipped' : 'projects shipped', C.glass]
+        : d.helpers || !d.finds
+          ? [d.helpers.toLocaleString(), d.helpers === 1 ? 'helper crab sent' : 'helper crabs sent', C.glass]
+          : [d.finds.toLocaleString(), d.finds === 1 ? 'find dug up' : 'finds dug up', C.glass],
     ];
-    const gap = 14, tw = (colW - gap * 2) / 3, ty = 226, th = 128;
-    tiles.forEach(([num, label, col], i) => {
-      const x = x0 + i * (tw + gap);
-      roundRect(ctx, x, ty, tw, th, 16);
-      ctx.fillStyle = 'rgba(17,35,42,.9)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(127,214,194,.12)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.fillStyle = col;
-      ctx.fillRect(x, ty + 18, 4, th - 36);
-      ctx.fillStyle = C.sand;
-      ctx.fillText(fitText(ctx, num, tw - 36, '500 46px "Martian Mono"'), x + 22, ty + 70);
-      ctx.fillStyle = C.sandDim;
-      ctx.fillText(fitText(ctx, label, tw - 36, '17px "Atkinson Hyperlegible"'), x + 22, ty + 102);
-    });
+    drawTiles(ctx, tiles, x0, colW, 226);
 
     // Trophy badges.
     const by = 392;
@@ -232,25 +347,7 @@
       ctx.fillText(d.code, x0, cy + 34);
     }
 
-    // Footer.
-    ctx.fillStyle = 'rgba(6,19,22,.85)';
-    ctx.fillRect(0, H - 64, W, 64);
-    ctx.fillStyle = 'rgba(127,214,194,.18)';
-    ctx.fillRect(0, H - 64, W, 1);
-    const mini = await svgImage(SB.sprite(state.skin, { plain: true }), 22 * 2, 13 * 2);
-    ctx.drawImage(mini, 48, H - 45);
-    ctx.fillStyle = C.sand;
-    ctx.font = '600 24px "Pixelify Sans"';
-    ctx.fillText('Shellby', 104, H - 23);
-    ctx.fillStyle = C.sandDim;
-    ctx.font = '17px "Atkinson Hyperlegible"';
-    ctx.fillText('the pixel hermit crab that runs Claude Code on your desktop', 210, H - 25);
-    ctx.fillStyle = C.glass;
-    ctx.font = '600 15px "Martian Mono"';
-    ctx.textAlign = 'right';
-    ctx.fillText('github.com/x-salmon/shellby', right, H - 25);
-    ctx.textAlign = 'left';
-
+    await drawFooter(ctx);
     return { canvas, data: d };
   }
 
@@ -261,21 +358,29 @@
 
   const postText = d => `Meet my Shellby 🦀 ${d.tasks} task${d.tasks === 1 ? '' : 's'} done and ${d.trophies}/${d.trophiesAll} trophies. A pixel hermit crab that runs Claude Code on my desktop.${d.code ? ` Wear my look: ${d.code}` : ''}`;
 
-  async function share() {
-    const btns = document.querySelectorAll('[data-share-card]');
+  /**
+   * Draw a card, save it (main copies it to the clipboard too) and show it in
+   * the share sheet. spec: { kind, draw: () => { canvas, data }, title, alt,
+   * post: data => text, buttons: selector of the buttons to disable meanwhile }.
+   */
+  async function present({ kind, draw, title, alt, post, buttons }) {
+    const btns = document.querySelectorAll(buttons);
     btns.forEach(b => { b.disabled = true; });
     try {
-      const { canvas, data } = await render();
+      const { canvas, data } = await draw();
       const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
       const bytes = new Uint8Array(await blob.arrayBuffer());
-      const r = await api.saveCard(bytes);
+      const r = await api.saveCard(bytes, kind);
       if (!r?.ok) return SB.toast(r?.error || "Couldn't save the card.");
       // data: URL, not blob: (the panel's CSP only allows 'self' and data: images).
-      last = { url: canvas.toDataURL('image/png'), data, bytes };
+      last = { url: canvas.toDataURL('image/png'), bytes, post: post(data) };
+      $('cardTitle').textContent = title;
+      $('cardImg').alt = alt;
       $('cardImg').src = last.url;
       $('cardPath').textContent = r.name;
       sheet.hidden = false;
       $('cardCopy').focus();
+      if (r.copied === false) SB.toast("Saved, but another app is holding the clipboard. Try Copy in a moment.");
     } catch (e) {
       console.warn('[shellby] card failed', e);
       SB.toast("Couldn't draw the card.");
@@ -283,6 +388,11 @@
       btns.forEach(b => { b.disabled = false; });
     }
   }
+
+  const share = () => present({
+    kind: 'crab', draw: render, buttons: '[data-share-card]', post: postText,
+    title: 'Your crab card', alt: "Your Shellby card: your crab as he's dressed now, with your trophies and task count",
+  });
 
   function close() {
     sheet.hidden = true;
@@ -299,11 +409,12 @@
   });
   $('cardReveal').addEventListener('click', () => api.revealCard());
   $('cardX').addEventListener('click', () => {
-    if (last) api.openExternal(`https://x.com/intent/post?text=${encodeURIComponent(postText(last.data))}&url=${encodeURIComponent(REPO)}`);
+    if (last) api.openExternal(`https://x.com/intent/post?text=${encodeURIComponent(last.post)}&url=${encodeURIComponent(REPO)}`);
   });
   $('cardBsky').addEventListener('click', () => {
-    if (last) api.openExternal(`https://bsky.app/intent/compose?text=${encodeURIComponent(`${postText(last.data)} ${REPO}`)}`);
+    if (last) api.openExternal(`https://bsky.app/intent/compose?text=${encodeURIComponent(`${last.post} ${REPO}`)}`);
   });
 
   SB.crabCard = { render, share };
+  SB.cardKit = { W, H, C, svgImage, roundRect, fitText, loadFonts, newCanvas, drawWater, drawTank, drawTiles, drawFooter, present };
 })();

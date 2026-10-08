@@ -174,6 +174,80 @@ test('sending to a conversation you marked done puts it back on the list', async
   }
 });
 
+test('a tab left quiet gives its process back, and its next message resumes the conversation', async () => {
+  const history = new History(tmp());
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });
+  try {
+    mgr.open({ tabId: 'quiet', cwd: os.tmpdir() });
+    let results = 0;
+    mgr.on('item', (_tabId, item) => { if (item.kind === 'result') results++; });
+    mgr.send('quiet', 'hello', { kind: 'user', text: 'hello' });
+    await until(mgr, () => results === 1);
+    const tab = mgr.tabs.get('quiet');
+    const proc = tab.session.proc;
+    assert.ok(proc, 'the process stays up after a turn');
+
+    assert.deepEqual(mgr.stopIdle(30 * 60 * 1000), [], 'not after a moment');
+    assert.deepEqual(mgr.stopIdle(30 * 60 * 1000, Date.now() + 31 * 60 * 1000), ['quiet']);
+    await new Promise(r => (proc.exitCode !== null ? r() : proc.once('exit', r)));
+    assert.equal(tab.session.proc, null);
+    assert.equal(mgr.tabs.has('quiet'), true, 'the tab itself stays open');
+
+    mgr.send('quiet', 'still there?', { kind: 'user', text: 'still there?' });
+    await until(mgr, () => results === 2);
+    assert.ok(tab.session.buildArgs().includes('--resume'), 'it picks the conversation back up');
+  } finally {
+    mgr.closeAll();
+  }
+});
+
+test('a quiet tab keeps its process while it waits on you or runs something in the background', async () => {
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history: new History(tmp()), getMode: () => 'ask', getModel: () => '' });
+  try {
+    const later = Date.now() + 60 * 60 * 1000;
+    let results = 0;
+    mgr.on('item', (_tabId, item) => { if (item.kind === 'result') results++; });
+    for (const id of ['asking', 'background']) {
+      mgr.open({ tabId: id, cwd: os.tmpdir() });
+      mgr.send(id, 'hello', { kind: 'user', text: 'hello' });
+    }
+    await until(mgr, () => results === 2);
+    mgr.tabs.get('asking').session.pending.set('req-1', { requestId: 'req-1' });
+    mgr.tabs.get('background').session.tasks.set('t1', { taskId: 't1', status: 'running' });
+    assert.deepEqual(mgr.stopIdle(1000, later), []);
+
+    mgr.tabs.get('asking').session.pending.clear();
+    mgr.tabs.get('background').session.tasks.set('t1', { taskId: 't1', status: 'completed' });
+    assert.deepEqual(mgr.stopIdle(1000, later).sort(), ['asking', 'background']);
+  } finally {
+    mgr.closeAll();
+  }
+});
+
+test('a tab renamed before its first message keeps that name; a saved one renames its History entry', () => {
+  const history = new History(tmp());
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });
+  try {
+    mgr.open({ tabId: 'fresh', cwd: os.tmpdir() });
+    assert.equal(mgr.rename('fresh', '  Login   bug  '), true);
+    assert.equal(mgr.tabs.get('fresh').title, 'Login bug');
+    assert.equal(mgr.summary[0].named, true);
+    mgr.send('fresh', 'fix the redirect after login', { kind: 'user', text: 'fix the redirect after login' });
+    assert.equal(history.get('fresh').title, 'Login bug', 'the first message does not replace a chosen name');
+
+    mgr.open({ tabId: 'saved', cwd: os.tmpdir(), historyEntry: history.create({ id: 'saved', title: 'old name', cwd: os.tmpdir(), mode: 'ask' }) });
+    assert.equal(mgr.rename('saved', 'new name'), true);
+    assert.equal(mgr.tabs.get('saved').title, 'new name');
+    assert.equal(history.get('saved').title, 'new name');
+
+    assert.equal(mgr.rename('saved', '   '), false, 'a blank name changes nothing');
+    assert.equal(history.get('saved').title, 'new name');
+    assert.equal(mgr.rename('gone', 'x'), false);
+  } finally {
+    mgr.closeAll();
+  }
+});
+
 // The tab order is the strip's order and the order tabs come back in next launch
 // (main.js writes `summary` to config on every change), so it's worth pinning down.
 test('a tab can be moved anywhere in the strip, and nowhere it would be a no-op', () => {
@@ -212,4 +286,53 @@ test('SessionManager enforces the tab limit and pins routine modes', () => {
   mgr.setMode('plan');
   assert.equal(r.session.mode, 'smart');
   mgr.closeAll();
+});
+
+test("a branch's note goes ahead of its first real message, once, and never in front of a /command", async () => {
+  const history = new History(tmp());
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });
+  try {
+    history.create({ id: 'branch-tab', title: '⑂ Try', cwd: os.tmpdir(), mode: 'ask' });
+    history.update('branch-tab', { preamble: 'Shellby has branched this conversation into a new tab.' });
+    mgr.open({ tabId: 'branch-tab', cwd: os.tmpdir(), historyEntry: history.get('branch-tab') });
+    const texts = [];
+    let results = 0;
+    mgr.on('item', (_tabId, item) => { if (item.kind === 'text') texts.push(item.text); if (item.kind === 'result') results++; });
+
+    mgr.send('branch-tab', '/compact', { kind: 'user', text: '/compact' });
+    await until(mgr, () => results === 1);
+    assert.ok(!texts.some(t => t.startsWith('noted:')), 'a /command goes as typed, without the note');
+    assert.ok(history.get('branch-tab').preamble, '...and the note waits for a real message');
+
+    mgr.send('branch-tab', 'hello', { kind: 'user', text: 'hello' });
+    await until(mgr, () => results === 2);
+    assert.ok(texts.includes('noted: Shellby has branched this conversation into a new tab.'), 'the note goes as a block of its own');
+    assert.ok(texts.some(t => t.startsWith('echo: hello')), 'the message itself is exactly what was typed');
+    assert.equal(history.get('branch-tab').preamble, null, 'once Claude has started with it, it is forgotten');
+
+    const before = texts.length;
+    mgr.send('branch-tab', 'again', { kind: 'user', text: 'again' });
+    await until(mgr, () => results === 3);
+    assert.ok(!texts.slice(before).some(t => t.startsWith('noted:')), 'only once');
+  } finally {
+    mgr.closeAll();
+  }
+});
+
+test('a send while the tab is busy is refused before anything is saved or reset', async () => {
+  const history = new History(tmp());
+  let prepared = 0;
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '', prepareTurn: () => { prepared++; return null; } });
+  try {
+    mgr.open({ tabId: 'tab-busy', cwd: os.tmpdir() });
+    const first = mgr.send('tab-busy', 'wait 400 first', { kind: 'user', text: 'wait 400 first' });
+    const tab = mgr.tabs.get('tab-busy');
+    assert.equal(tab.turnId, first);
+    assert.throws(() => mgr.send('tab-busy', 'second', { kind: 'user', text: 'second' }), /still working/);
+    assert.equal(tab.turnId, first, 'the running turn keeps its id');
+    assert.equal(prepared, 1, 'the running turn\'s snapshot is not replaced');
+    assert.equal(history.load('tab-busy').filter(i => i.kind === 'user').length, 1, 'no message Claude never saw');
+  } finally {
+    mgr.closeAll({ kill: true });
+  }
 });

@@ -1,0 +1,78 @@
+/* Shellby panel — Build it with Claude (wf-chat.js): the chat beside the
+   workflow editor. Under the workflow in a narrow panel, beside it once there's
+   room. Claude's lines carry the coral the map uses for Claude steps. Colours
+   come from the panel's variables only, so every skin reads the same way. */
+
+/* ================================================================ where it sits */
+.wf-work { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* A long list scrolls the page: in a narrow panel the chat comes first, where you can see it. */
+.wf-work > .wf-chat { order: -1; }
+
+.view-workflows.map-mode .wf-work { flex: 1; min-height: 0; gap: 0; }
+.view-workflows.map-mode .wf-work > .wf-chat {
+  order: 0; flex: none; height: 50%; margin: 0 -16px;
+  border-width: 1px 0 0; border-radius: 0;
+}
+
+@media (min-width: 720px) {
+  .wf-work { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+  .wf-work > .wf-chat { order: 0; position: sticky; top: 0; max-height: calc(100vh - 170px); }
+  .view-workflows.map-mode .wf-work { display: flex; flex-direction: row; align-items: stretch; }
+  .view-workflows.map-mode .wf-mappane { margin-right: 0; }
+  .view-workflows.map-mode .wf-work > .wf-chat { width: 300px; height: auto; margin: 0 -16px 0 0; border-width: 1px 0 0 1px; }
+}
+
+/* ================================================================ the chat */
+.wf-chat {
+  display: flex; flex-direction: column; gap: 8px; min-height: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--reef);
+}
+.wf-chat-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
+.wf-chat-head .wf-h3 { margin: 0; white-space: nowrap; color: var(--coral); }
+/* The panel's own switch (.toggle/.switch in panel.css), a size down to sit beside the heading. */
+.wf-chat-tests { display: inline-flex; gap: 6px; padding: 0; font-size: var(--fs-11-5); color: var(--sand-dim); }
+.wf-chat-tests:hover { color: var(--sand); }
+.wf-chat-tests .switch { width: 26px; height: 15px; }
+.wf-chat-tests .switch::after { top: 2px; left: 2px; width: 11px; height: 11px; }
+.wf-chat-tests input:checked + .switch::after { transform: translateX(11px); }
+
+.wf-chat-log {
+  list-style: none; margin: 0; padding: 0; min-height: 48px; max-height: 260px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px; overscroll-behavior: contain;
+}
+.view-workflows.map-mode .wf-chat-log { flex: 1; max-height: none; }
+
+.wf-chat-msg { max-width: 92%; padding: 6px 9px; border-radius: var(--r-sm); font-size: var(--fs-12-5); line-height: 1.45; overflow-wrap: anywhere; }
+.wf-chat-msg .btn { margin-top: 6px; }
+.wf-chat-body > :first-child { margin-top: 0; }
+.wf-chat-body > :last-child { margin-bottom: 0; }
+.wf-chat-body p { margin: 0 0 6px; }
+
+.wf-chat-msg.you { align-self: flex-end; background: var(--glass-dim); color: var(--sand); white-space: pre-wrap; }
+.wf-chat-msg.claude { align-self: flex-start; background: color-mix(in srgb, var(--coral) 10%, transparent); border-left: 2px solid var(--coral); }
+.wf-chat-msg.run { align-self: stretch; max-width: none; font: var(--fs-11-5) var(--font-mono); font-stretch: 90%; color: var(--glass); border: 1px dashed var(--line); }
+.wf-chat-msg.run .btn { display: block; height: 24px; padding: 0 9px; font: 600 var(--fs-11-5) var(--font-body); font-stretch: normal; }
+.wf-chat-msg.err { align-self: stretch; max-width: none; background: rgba(255, 90, 74, .1); color: #ffb3aa; }
+.wf-chat-msg.hint { align-self: stretch; max-width: none; padding: 2px 0; color: var(--sand-dim); }
+.wf-chat-tag { margin: 4px 0 0; font-size: var(--fs-11); color: var(--coral); }
+
+.wf-chat-status { display: flex; align-items: center; gap: 7px; margin: 0; font-size: var(--fs-11-5); color: var(--sand-dim); }
+.wf-chat-status:empty { display: none; }
+.wf-chat.busy .wf-chat-status { color: var(--coral); }
+
+/* Send sits beside the box, so the conversation keeps the room. */
+.wf-chat-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }
+.wf-chat-text.field.area { min-height: 40px; max-height: 140px; resize: vertical; }
+.wf-chat-btns { display: flex; flex-direction: column; gap: 6px; }
+
+/* What Claude just changed glows for a moment, on the map and in the list. */
+.wf-touched { animation: wf-touched 1.6s var(--ease-out); }
+@keyframes wf-touched {
+  0%, 30% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--coral) 55%, transparent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-touched { animation: none; outline: 2px solid var(--coral); outline-offset: 2px; }
+}

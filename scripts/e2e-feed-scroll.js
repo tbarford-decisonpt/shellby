@@ -72,6 +72,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await ev('SB.activeTab().el.scrollTop = 0');
     await idle(); await wait(300);
     check(await ev('SB.activeTab().el.scrollTop') < 50, 'a reply does not yank you away from history you scrolled up to read');
+
+    // 5. The feed shrinking by more than 40px in the very frame a new message lands (the bar,
+    // chips and a warning at once, or a slow machine batching them): the scroll event that
+    // message's own scroll-to-end queued must not read as "you scrolled away".
+    await idle();
+    await ev('SB.activeTab().el.scrollTop = SB.activeTab().el.scrollHeight');
+    await wait(400);
+    await ev(`(() => {
+      const t = SB.activeTab(); const room = t.el.clientHeight;
+      t.el.style.flex = 'none'; t.el.style.height = room + 'px';
+      const m = document.createElement('div'); m.className = 'msg user'; m.textContent = 'one more ' + 'words '.repeat(30);
+      t.append(m);
+      t.el.style.height = (room - 60) + 'px';
+    })()`);
+    await wait(600);
+    h = await hidden();
+    check(h <= 0, `a message landing as the feed shrinks 60px is still fully visible (${h > 0 ? `${h}px cut off` : 'ok'})`);
   } catch (e) {
     check(false, e.message);
   } finally {
