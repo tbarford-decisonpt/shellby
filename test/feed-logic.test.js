@@ -81,6 +81,7 @@ test('modeAfterPlan follows Claude Code into edits, never into autonomous, else 
 test('decisionVerdict words the decision and colours a cancel as a deny', () => {
   assert.deepEqual(F.decisionVerdict('always'), { text: '→ Always allowed', tone: 'allow' });
   assert.deepEqual(F.decisionVerdict('allow', 'phone'), { text: '→ Allowed from your phone', tone: 'allow' });
+  assert.deepEqual(F.decisionVerdict('deny', 'deck'), { text: '→ Denied from the Stream Deck', tone: 'deny' });
   assert.deepEqual(F.decisionVerdict('cancelled'), { text: '→ Cancelled', tone: 'deny' });
   assert.deepEqual(F.decisionVerdict('later'), { text: '→ later', tone: 'allow' });
 });

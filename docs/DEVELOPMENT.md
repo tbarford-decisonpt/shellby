@@ -299,6 +299,8 @@ src/main/        Electron main process
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts, his own footprint
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
+  deck.js          the Stream Deck keys (pure: what each shows, what a press does) and the token-guarded 127.0.0.1 server
+                   the plugin listens to; deck-pack.js zips src/streamdeck/ into a .streamDeckPlugin; wiring/deck.js ties it in
   handoff.js       a conversation to a terminal and back (pure): the launch command per shell, ids, folders
   xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
   bounties.js      the day's three bounties, picked from the date alone
@@ -347,6 +349,7 @@ src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   shared/          used by more than one window or by tests too: framecap, diff (an edit's red and green lines), panes (the split grid; pure)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
+src/streamdeck/  the Stream Deck plugin (Node 24, no packages): Stream Deck's websocket on one side, deck.js on the other, keys drawn as SVG
 test/            node:test suites and a fake Claude CLI
 claude-plugin/   the Shellby plugin for Claude Code (hooks that report sessions to the app)
 ```
