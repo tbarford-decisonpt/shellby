@@ -40,7 +40,7 @@ async function run(settings, body) {
     }
     const { ev } = await connect(list.find(t => t.url.endsWith('panel.html')).webSocketDebuggerUrl);
     const until = async (expr, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await ev(expr)) return true; await wait(150); } return false; };
-    await until("!!window.SB && document.body.classList.contains('rooms-ready')");
+    await until("!!window.SB && document.body.classList.contains('rooms-ready') && !!SB.activeTab()"); // rooms come apart from the tabs
     await body({ ev, until, data });
   } finally {
     app.kill();
@@ -62,10 +62,10 @@ const SHOWN = "[...document.querySelectorAll('.dock .dock-btn')].filter(b => get
 
       // 2. A finished task opens History and Projects.
       await ev("(i => { i.value = 'hello'; i.dispatchEvent(new Event('input')); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })(SB.$('input'))");
-      check(await until(`(${SHOWN}) === 'wardrobe,chat,history,projects,dockMore'`, 15000), 'the first task puts History and Projects on the bar');
+      check(await until(`(${SHOWN}) === 'wardrobe,chat,history,projects,notes,dockMore'`, 15000), 'the first task puts History and Projects on the bar');
       check(await ev("document.querySelector('.dock [data-view-btn=\"history\"]').classList.contains('room-new')"), 'the new button glows');
       // The first task's trophy card may go first; the room card waits its turn.
-      check(await until("/History and Projects are open/.test(document.querySelector('.celebrate')?.textContent || '')", 20000), 'a "New room" card says so');
+      check(await until("/History, Projects and Notes are open/.test(document.querySelector('.celebrate')?.textContent || '')", 20000), 'a "New room" card says so');
       const saved = JSON.parse(fs.readFileSync(path.join(data, 'settings.json'), 'utf8')).rooms;
       check(saved?.tasks === 1 && !saved.all, 'the count is saved');
 
@@ -76,12 +76,12 @@ const SHOWN = "[...document.querySelectorAll('.dock .dock-btn')].filter(b => get
 
       // 4. Show every screen.
       await ev('SB.openAllRooms()');
-      check(await until(`(${SHOWN}) === 'wardrobe,chat,toolbox,workflows,health,history,projects'`), '"Show every screen" opens the rest and hides More');
+      check(await until(`(${SHOWN}) === 'wardrobe,chat,toolbox,workflows,health,history,projects,notes'`), '"Show every screen" opens the rest and hides More');
     });
 
     // 5. Someone who was here before rooms: no rooms value yet, already onboarded.
     await run({ onboarded: true }, async ({ ev, data }) => {
-      check(await ev(SHOWN) === 'wardrobe,chat,toolbox,workflows,health,history,projects', 'an existing user keeps the whole bar');
+      check(await ev(SHOWN) === 'wardrobe,chat,toolbox,workflows,health,history,projects,notes', 'an existing user keeps the whole bar');
       check(JSON.parse(fs.readFileSync(path.join(data, 'settings.json'), 'utf8')).rooms?.all === true, 'and is saved as everything open');
     });
   } catch (e) {

@@ -136,7 +136,7 @@ function register(deps) {
     try {
       r = await btw.ask({
         question, sessionId: s.sessionId, resumeAt: s.resumeAt, model: s.model, cwd: s.cwd, lean: skipSettings(os.homedir()),
-      }, (args, timeout, opts) => runCli(s.exe, [...(s.argsPrefix || []), ...args], timeout, opts));
+      }, (args, timeout, opts) => runCli(s.exePath(), [...(s.argsPrefix || []), ...args], timeout, opts));
     } finally { tab.btwAsking = false; }
     if (r.detail) deps.log?.warn?.(`btw: ${r.detail}`);
     if (r.ok) deps.stat('btw');

@@ -57,7 +57,7 @@
     SB.celebrate({
       eyebrow: 'New room',
       icon: '🚪',
-      title: opened.length > 1 ? `${opened.map(r => r.name).join(' and ')} are open` : `${first.name} is open`,
+      title: opened.length > 1 ? `${opened.slice(0, -1).map(r => r.name).join(', ')} and ${opened.at(-1).name} are open` : `${first.name} is open`,
       text: opened.map(r => r.text).join(' '),
       action: { label: 'Take a look', run: () => SB.setView(first.id) },
     });

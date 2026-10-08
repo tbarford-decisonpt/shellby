@@ -160,7 +160,7 @@ function registerTabsIpc(ipcMain, d) {
     let r;
     try {
       r = await quiz.ask({ patch: p.patch, truncated: p.truncated, cwd: s.cwd, lean: skipSettings(os.homedir()) },
-        (args, timeout, opts) => runCli(s.exe, [...(s.argsPrefix || []), ...args], timeout, opts));
+        (args, timeout, opts) => runCli(s.exePath(), [...(s.argsPrefix || []), ...args], timeout, opts));
     } finally { tab.quizAsking = false; }
     if (r.detail) d.log.warn(`quiz: ${r.detail}`);
     if (!r.ok) return { ok: false, error: r.error };

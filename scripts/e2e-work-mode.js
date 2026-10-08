@@ -74,7 +74,7 @@ async function connect(url) {
     check(await panel.ev('document.body.dataset.view') === 'chat', 'lands on the chat');
     check(await panel.ev("document.body.classList.contains('work-mode')"), 'Work mode is on');
     const order = await bar();
-    check(JSON.stringify(order) === JSON.stringify(['chat', 'projects', 'history', 'toolbox', 'workflows', 'health', 'wardrobe']), `the bar leads with the tools (${order})`);
+    check(JSON.stringify(order) === JSON.stringify(['chat', 'projects', 'notes', 'history', 'toolbox', 'workflows', 'health', 'wardrobe']), `the bar leads with the tools (${order})`);
     check(await panel.ev("document.querySelector('.dock [data-view-btn=chat]').title") === 'Chat (Ctrl+1)', 'Ctrl+1 is the chat');
     check(await panel.ev("[...document.querySelectorAll('.dock [data-view-btn]')].every(b => getComputedStyle(b).display !== 'none')"), 'every tool is on the bar from the start');
     await panel.shot('2-chat');

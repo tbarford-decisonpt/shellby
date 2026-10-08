@@ -39,7 +39,7 @@ async function run(settings, body) {
     }
     const { ev } = await connect(list.find(t => t.url.endsWith('panel.html')).webSocketDebuggerUrl);
     const until = async (expr, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await ev(expr)) return true; await wait(150); } return false; };
-    await until("!!window.SB && document.body.classList.contains('rooms-ready')");
+    await until("!!window.SB && document.body.classList.contains('rooms-ready') && !!SB.activeTab()"); // rooms come apart from the tabs
     await body({ ev, until, data });
   } finally {
     app.kill();

@@ -216,6 +216,9 @@ class ClaudeSession extends EventEmitter {
     return { ...(this.mcpConfig || {}), mcpServers: { ...(this.mcpConfig?.mcpServers || {}), ...crabmcp.servers() } };
   }
 
+  /** The CLI's path as it is now (exe may be a function: see the constructor). */
+  exePath() { return typeof this.exe === 'function' ? this.exe() : this.exe; }
+
   start() {
     if (this.proc) return;
     // The servers' definitions can hold tokens, so they go in a file of the
@@ -228,7 +231,7 @@ class ClaudeSession extends EventEmitter {
     // SHELLBY_CRAB_TOOLS: the crab's tools are served from here, so the plugin's
     // MCP server leaves its copies of them out of every request.
     const crabEnv = this.mcp ? { SHELLBY_CRAB_TOOLS: '1' } : {};
-    const exe = typeof this.exe === 'function' ? this.exe() : this.exe;
+    const exe = this.exePath();
     const proc = remote
       // Only Shellby's own markers go over: your GitHub token and the rest of
       // this PC's environment stay here.

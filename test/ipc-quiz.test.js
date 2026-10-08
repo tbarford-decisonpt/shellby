@@ -15,7 +15,7 @@ const ITEM = { kind: 'changes', root: 'C:\\repo', before: 'a'.repeat(40), after:
 function setup({ item = ITEM } = {}) {
   const handlers = new Map();
   const xp = [];
-  const tab = { id: 't1', title: 'Cart', session: { exe: process.execPath, argsPrefix: [FAKE], cwd: __dirname } };
+  const tab = { id: 't1', title: 'Cart', session: { exe: process.execPath, exePath() { return this.exe; }, argsPrefix: [FAKE], cwd: __dirname } };
   registerTabsIpc({ handle: (c, fn) => handlers.set(c, fn), on: () => {} }, {
     isStr: s => typeof s === 'string' && s.length > 0,
     manager: { tabs: new Map([['t1', tab]]) },
