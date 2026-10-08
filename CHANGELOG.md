@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.74.0: Search Settings, helper costs and Bugdex portraits
+
+### New
+- **Every bug in the Bugdex has a proper portrait.** The creatures are drawn big and shaded now, with real faces, on their page, their card, the sparkly picture and in bug battles. The little ones on the desk, in his jars and in the tank are the same as before.
+- First run has a fourth choice, **Claude Code on another computer**, for a PC where Claude Code can't be installed but ssh works. Set up a computer of yours over ssh right there, with Claude Code installed and signed in over there, pick a folder on it, and conversations start in that folder. Nothing about Claude Code is needed on this PC, and first run doesn't come back for it.
+- **A tour to start with.** Right after you set Shellby up, your first New task leads with **Show me around a project**. It opens a tour of the folder he works in, or one you pick, with the prompt waiting for you to send. It runs in **Ask first**, so it only reads. Once you've opened it, it makes way for the usual suggestions.
+- Pictures show up in the chat as Claude works. A screenshot it takes or reads (a browser tool's capture, an image it opens) appears under that step, and so does a picture it writes or edits. Click one to see it full width.
+- **Search Settings.** A box at the top of Settings finds any switch by what it says, across every tab at once: type "discord" or "volume" and only those rows are left, with folded sections opened for you. Esc puts the tabs back, and Ctrl+F on Settings goes straight to the box.
+- **His own screen starts small too.** Someone new sees his outfits first, and Trophies, Finds, Stickers, Crew, the Bugdex, Us, the Tank and the Beach join the tabs along the top one or two at a time as he finishes tasks, each with a card saying what it's for. "More" says which opens next. Anyone already using Shellby keeps every tab, and **Show every screen** still opens the lot.
+- **What you use.** Settings → General → What you use shows the screens you open most, and the ones you never have (or haven't for a month), each with a line on what it's for and **Take a look**. It's counted on this PC only: never sent anywhere, and not carried by Sync.
+- **What each helper cost.** When Claude sends helpers out, the turn's cost line says how much of it they spent ("this turn: 80k tokens (helpers 60k)"), and each helper's lane shows its own tokens and its share of your 5-hour window, with the details on hover.
+
+### Fixed
+- Bug battles only show Claude fighting a bug when it's working on it. Reads, edits and helpers count in the conversation that spotted the bug, and only for ten minutes after it last failed. Running its command again brings it back into play. Unrelated work no longer looks like a fight.
+- **Bring it home keeps your words out of git.** Its commits used to quote the start of your prompt ("From the conversation: …"), and a copy Claude hadn't named was titled with it outright, which anyone can read in a public repository. Now they're named for the work: the branch name Claude chose, Claude's own commit message when there's one, or else the files that changed ("Update tabs.js and nav.js").
+- A queued task in a folder on another computer runs at the reset even when Claude Code isn't installed on this PC.
+
+### Faster
+- **He takes less memory while he sits there.** One of Shellby's background processes is gone (the network one now runs inside the app itself), about 25 to 50 MB less on your PC all day.
+
+### Changed
+- A bug opens its battle the way a wild one does: "A wild Nullfish appeared!"
+
 ## 0.73.0: Other computers, tide events, and what Claude Code does by itself
 
 ### New

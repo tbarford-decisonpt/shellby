@@ -1,2 +1,0 @@
-### Fixed
-- **Bring it home keeps your words out of git.** Its commits used to quote the start of your prompt ("From the conversation: …"), and a copy Claude hadn't named was titled with it outright, which anyone can read in a public repository. Now they're named for the work: the branch name Claude chose, Claude's own commit message when there's one, or else the files that changed ("Update tabs.js and nav.js").
