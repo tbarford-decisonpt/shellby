@@ -7,7 +7,9 @@ const fs = require('fs');
 const path = require('path');
 const confirm = require('../confirm');
 const recap = require('../recap');
+const { repoOf } = require('../gitinfo');
 const { reviewPrompt } = require('../review');
+const selfaware = require('../selfaware');
 const stickers = require('../stickers');
 const streaks = require('../streaks');
 
@@ -59,6 +61,25 @@ function registerProgressIpc(ipcMain, d) {
     const r = d.startTask(reviewPrompt(p.name), `Look over ${p.name}`, { mode: 'ask', cwd: key });
     if (r.ok) d.showPanel({ focusInput: false, tabId: r.tabId });
     return r;
+  });
+
+  // ---- suggestion cards (wiring/crab-api.js suggestCard): the user tapped one
+  // A review from a card runs on the conversation's own folder, under the same
+  // rules as the shield button: read-only prompt, Ask-first mode.
+  ipcMain.handle('suggest:review', async (_e, tabId) => {
+    const tab = d.isStr(tabId) && d.manager.tabs.get(tabId);
+    const repo = tab && await repoOf(tab.session.cwd);
+    if (!repo) return { ok: false, error: "That folder isn't a git repository any more." };
+    const r = d.startTask(reviewPrompt(repo.name), `Look over ${repo.name}`, { mode: 'ask', cwd: repo.root });
+    if (r.ok) d.showPanel({ focusInput: false, tabId: r.tabId });
+    return r;
+  });
+  // feature null: offer them all again.
+  ipcMain.handle('suggest:mute', (_e, feature, muted = true) => {
+    if (feature !== null && !selfaware.FEATURES[feature]) return d.config.get('mutedSuggestions');
+    const list = (d.config.get('mutedSuggestions') || []).filter(f => selfaware.FEATURES[f] && f !== feature);
+    d.config.set({ mutedSuggestions: feature === null ? [] : muted ? [...list, feature] : list });
+    return d.config.get('mutedSuggestions');
   });
 
   // ---- focus sessions

@@ -515,6 +515,13 @@
     if (dir) { folder = dir; $('routineFolder').textContent = SB.tildify(dir); loadMcp(); }
   });
 
+  // A routine drafted elsewhere (a suggestion card): show it in the editor to
+  // check and save. Opening it never saves it.
+  SB.openRoutineEditor = r => {
+    SB.setView('routines');
+    openEditor(r);
+  };
+
   // openEditor: Dependency watch (depwatch.js) offers its routine through the same editor.
   SB.views.routines = { render, openEditor };
 })();

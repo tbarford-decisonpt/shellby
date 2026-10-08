@@ -27,7 +27,7 @@ const KEYS = Object.freeze(Object.keys(PRESET));
 
 // The bottom bar in Work mode, left to right: the tools first, Shellby's own
 // screens last (and in Ctrl+K), never gone.
-const DOCK = Object.freeze(['chat', 'projects', 'history', 'toolbox', 'workflows', 'health', 'wardrobe']);
+const DOCK = Object.freeze(['chat', 'projects', 'notes', 'history', 'toolbox', 'workflows', 'health', 'wardrobe']);
 
 /** On, and not overruled by just the crab (which has no tools to put first). */
 const isOn = settings => !!settings?.workMode && !settings?.crabOnly;

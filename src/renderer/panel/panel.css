@@ -222,12 +222,13 @@ body[data-view="settings"] .view-settings,
 body[data-view="toolbox"] .view-toolbox,
 body[data-view="shop"] .view-shop,
 body[data-view="routines"] .view-routines,
+body[data-view="notes"] .view-notes,
 body[data-view="onboarding"] .view-onboarding { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
 @keyframes fadein { from { opacity: 0; } }
 /* Scroll areas get their own compositor layer and fade out under the header
    instead of being sliced by it (avoids repaint artifacts in frameless windows). */
 .view, .feed { transform: translateZ(0); }
-.view-history, .view-settings, .view-toolbox, .view-shop, .view-routines, .view-onboarding, .feed {
+.view-history, .view-settings, .view-toolbox, .view-shop, .view-routines, .view-notes, .view-onboarding, .feed {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
   mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
 }
@@ -245,7 +246,8 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* ================================================================ feed */
-.feeds { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+/* One pane by default; tab-panes.js sets the columns and rows for side by side (shared/panes.js). */
+.feeds { flex: 1; min-height: 0; position: relative; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
 .feed { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 8px; }
 
 .empty { text-align: center; padding: 8% 6px 0; animation: rise .5s var(--ease-out); }
@@ -500,6 +502,11 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .ask-more { margin-left: 8px; padding: 0 6px; border: 0; border-radius: var(--r-sm); background: none; font: inherit; font-weight: 400; color: var(--sand-faint); cursor: pointer; }
 .ask-more:hover, .ask-more:focus-visible { background: var(--reef-2); color: var(--sand); outline: none; }
 .ask-verdict { padding: 0 12px 10px; font: 600 var(--fs-12) var(--font-mono); }
+/* Claude offering a Shellby feature: calmer than a permission prompt, since nothing is waiting on it. */
+.ask.suggest { border-color: rgba(127, 214, 194, .5); background: linear-gradient(180deg, rgba(127, 214, 194, .1), rgba(127, 214, 194, .02) 60%), var(--reef); box-shadow: 0 6px 18px rgba(0, 0, 0, .25); }
+.ask.suggest .ask-title { color: var(--glass); }
+.suggest-draft { font-size: var(--fs-13); color: var(--sand); }
+.suggest-draft span { color: var(--sand-dim); }
 .ask-verdict.allow { color: var(--glass); }
 .ask-verdict.deny { color: var(--amber); }
 

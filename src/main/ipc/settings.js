@@ -17,6 +17,7 @@ const outputStyles = require('../outputstyles');
 const { SETTINGS: PERCH_SETTINGS } = require('../perch');
 const { EFFORTS } = require('../session');
 const sounds = require('../sounds');
+const syncPrefs = require('../sync-prefs');
 const voice = require('../voice');
 const workmode = require('../workmode');
 
@@ -26,9 +27,82 @@ const workmode = require('../workmode');
  */
 function registerSettingsIpc(ipcMain, d) {
   // ---- settings
+  /**
+   * What a saved change sets going: the hotkey's already in place, the rest
+   * (sounds, his layer, Work mode, the session's mode...) follows here.
+   * allowed: what was saved. asked: what changed as you see it (before Work
+   * mode moved it to workOverrides). before: config.data before the save.
+   */
+  function applied(allowed, asked, before, { taste = false } = {}) {
+    const workSwitched = workmode.isOn(before) !== workmode.isOn({ ...before, ...allowed });
+    const eff = workmode.effective({ ...before, ...allowed });
+    const changed = k => k in asked || (workSwitched && workmode.KEYS.includes(k));
+    // Told to stay down, he hops down off any window rather than freezing up there.
+    if (allowed.wander === false || (changed('perch') && eff.perch === 'off')) d.perching?.leave('off');
+    if (allowed.wander === false || (changed('climb') && eff.climb === 'off')) d.climbing?.leave();
+    if (allowed.wander === false && !d.perching?.isAway() && !d.climbing?.isAway()) d.motion?.stop(); // off a wall he lets go instead (above)
+    // Snacks and naps on again: he comes back full, not hungry (care.js).
+    if ('needsOn' in allowed && allowed.needsOn !== (before.needsOn !== false)) d.life?.needsSwitched(allowed.needsOn);
+    if ('bugFollower' in allowed || 'catchBugs' in allowed || 'crabOnly' in allowed) d.bugdex?.sendBuddy(); // his favourite catch, following him
+    if (allowed.pushToTalk === false) { d.ptt?.reset(); d.showListening(false); d.dictation?.stop(); }
+    // Asked to hush, he stops mid-line rather than finishing it.
+    if (changed('chatter') && !voice.hasHabits(eff.chatter)) { d.said = null; d.refreshCritter(); }
+    // In or out of Work mode: his needs pick up from now, and his look and the bars follow.
+    if (workSwitched) { d.life?.workModeSwitched(); d.refreshCritter(); }
+    if (['sounds', 'soundFx', 'ambient', 'soundVolume'].some(k => k in allowed)) {
+      d.refreshCritter(); // the new mix goes with his state
+      // Switching a sound on, or changing the volume, plays a taste of it
+      // (unless he's on guard or you're on a call: the mix says so).
+      const m = d.soundMix();
+      const tasted = allowed.soundFx === true || allowed.sounds === true || 'soundVolume' in allowed;
+      if (taste && tasted && m.fx) d.send(d.critter, 'critter:sound', { cue: 'tada' });
+      else if (taste && tasted && m.voice) d.send(d.critter, 'critter:chirp', { occasion: 'success' });
+    }
+    if ('mode' in allowed) d.manager.setMode(allowed.mode);
+    // Always: what's waiting on an answer goes now. Never: it's dropped from the disk now.
+    if (allowed.crashReports === 'always' || allowed.crashReports === 'never') d.drainCrashQueue();
+    if ('forecast' in allowed) d.sendOutlook();
+    if ('clashWarnings' in allowed) d.refreshClashes?.(); // off clears the markers; on looks straight away
+    if ('effort' in allowed) d.manager.setEffort(allowed.effort);
+    if ('planOnly' in allowed) setPlanOnly(allowed.planOnly);
+    if ('openAtLogin' in allowed) d.applyLoginItem(allowed.openAtLogin);
+    if ('skin' in allowed) d.broadcastSkin();
+    if ('onTop' in allowed) d.applyLayer();
+    // Mischief on or off starts or stops its loop; pals and footprints open or close the floor strip.
+    if (changed('mischief') || 'mischiefPranks' in allowed) d.pranks?.sync();
+    if (changed('mischief') || 'mischiefPranks' in allowed || changed('colony')) d.floor?.sync();
+    if ('critterScale' in allowed) {
+      const size = d.critterBaseSize();
+      const b = d.critter.getBounds();
+      const width = size.width + d.crewExtra();
+      // Grow/shrink around the critter's feet so it doesn't jump.
+      d.critter.setBounds({ x: b.x + b.width - width, y: b.y + b.height - size.height, width, height: size.height });
+      d.broadcastSkin();
+    }
+  }
+
+  // A sync brought settings you changed on another PC (sync-prefs.js). They're
+  // saved already; here they take effect, and the panel hears about them.
+  d.settingsSynced = before => {
+    const now = d.config.data;
+    const allowed = Object.fromEntries(syncPrefs.changedKeys(now, before).map(k => [k, now[k]]));
+    if (!Object.keys(allowed).length) return;
+    if ('hotkey' in allowed && !d.applyHotkey(allowed.hotkey, before.hotkey)) {
+      // Taken on this PC: keep the old one, with its old stamp so the next sync tries again.
+      d.applyHotkey(before.hotkey);
+      const stamps = now.syncStamps || {};
+      d.config.set({ hotkey: before.hotkey, syncStamps: { ...stamps, prefs: { ...stamps.prefs, hotkey: before.syncStamps?.prefs?.hotkey || 0 } } });
+      delete allowed.hotkey;
+    }
+    // Work mode's own settings count as changed when its overrides did.
+    applied(allowed, { ...allowed, ...(allowed.workOverrides || {}) }, before);
+    d.send(d.panel, 'settings', d.panelSettings());
+    if ('snippets' in allowed || 'pinnedTools' in allowed) d.send(d.panel, 'snippets', d.snippetsView());
+  };
+
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'workMode', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'checkTimeoutMin', 'turnShots', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'holdBigTasks', 'crashReports']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'workMode', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effort', 'outputStyle', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'checkTimeoutMin', 'turnShots', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'holdBigTasks', 'crashReports', 'selfAware', 'suggestions']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -68,7 +142,7 @@ function registerSettingsIpc(ipcMain, d) {
     if ('model' in allowed && !isModel(allowed.model)) delete allowed.model;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'workMode', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'turnShots', 'spendGuard', 'holdBigTasks']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'workMode', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'turnShots', 'spendGuard', 'holdBigTasks', 'selfAware', 'suggestions']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('checkTimeoutMin' in allowed && !TIMEOUTS_MIN.includes(allowed.checkTimeoutMin)) delete allowed.checkTimeoutMin;
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
     if ('spendMaxMinutes' in allowed && !guard.MAX_MINUTES.includes(allowed.spendMaxMinutes)) delete allowed.spendMaxMinutes;
@@ -92,13 +166,6 @@ function registerSettingsIpc(ipcMain, d) {
     const saving = workmode.write(d.config.data, allowed);
     for (const k of Object.keys(allowed)) if (!(k in saving)) delete allowed[k];
     Object.assign(allowed, saving);
-    const workSwitched = workmode.isOn(d.config.data) !== workmode.isOn({ ...d.config.data, ...allowed });
-    const eff = workmode.effective({ ...d.config.data, ...allowed });
-    const changed = k => k in asked || (workSwitched && workmode.KEYS.includes(k));
-    // Told to stay down, he hops down off any window rather than freezing up there.
-    if (allowed.wander === false || (changed('perch') && eff.perch === 'off')) d.perching?.leave('off');
-    if (allowed.wander === false || (changed('climb') && eff.climb === 'off')) d.climbing?.leave();
-    if (allowed.wander === false && !d.perching?.isAway() && !d.climbing?.isAway()) d.motion?.stop(); // off a wall he lets go instead (above)
     const prevHotkey = d.config.get('hotkey');
     /** @type {string | null} */
     let hotkeyError = null;
@@ -116,46 +183,9 @@ function registerSettingsIpc(ipcMain, d) {
       const r = await d.dictation.warm();
       if (!r.ok) { pushToTalkError = r.error; delete allowed.pushToTalk; }
     }
-    const neededBefore = d.config.get('needsOn') !== false;
+    const before = d.config.data;
     d.config.set(allowed);
-    // Snacks and naps on again: he comes back full, not hungry (care.js).
-    if ('needsOn' in allowed && allowed.needsOn !== neededBefore) d.life?.needsSwitched(allowed.needsOn);
-    if ('bugFollower' in allowed || 'catchBugs' in allowed || 'crabOnly' in allowed) d.bugdex?.sendBuddy(); // his favourite catch, following him
-    if (allowed.pushToTalk === false) { d.ptt?.reset(); d.showListening(false); d.dictation?.stop(); }
-    // Asked to hush, he stops mid-line rather than finishing it.
-    if (changed('chatter') && !voice.hasHabits(eff.chatter)) { d.said = null; d.refreshCritter(); }
-    // In or out of Work mode: his needs pick up from now, and his look and the bars follow.
-    if (workSwitched) { d.life?.workModeSwitched(); d.refreshCritter(); }
-    if (['sounds', 'soundFx', 'ambient', 'soundVolume'].some(k => k in allowed)) {
-      d.refreshCritter(); // the new mix goes with his state
-      // Switching a sound on, or changing the volume, plays a taste of it
-      // (unless he's on guard or you're on a call: the mix says so).
-      const m = d.soundMix();
-      const tasted = allowed.soundFx === true || allowed.sounds === true || 'soundVolume' in allowed;
-      if (tasted && m.fx) d.send(d.critter, 'critter:sound', { cue: 'tada' });
-      else if (tasted && m.voice) d.send(d.critter, 'critter:chirp', { occasion: 'success' });
-    }
-    if ('mode' in allowed) d.manager.setMode(allowed.mode);
-    // Always: what's waiting on an answer goes now. Never: it's dropped from the disk now.
-    if (allowed.crashReports === 'always' || allowed.crashReports === 'never') d.drainCrashQueue();
-    if ('forecast' in allowed) d.sendOutlook();
-    if ('clashWarnings' in allowed) d.refreshClashes?.(); // off clears the markers; on looks straight away
-    if ('effort' in allowed) d.manager.setEffort(allowed.effort);
-    if ('planOnly' in allowed) setPlanOnly(allowed.planOnly);
-    if ('openAtLogin' in allowed) d.applyLoginItem(allowed.openAtLogin);
-    if ('skin' in allowed) d.broadcastSkin();
-    if ('onTop' in allowed) d.applyLayer();
-    // Mischief on or off starts or stops its loop; pals and footprints open or close the floor strip.
-    if (changed('mischief') || 'mischiefPranks' in allowed) d.pranks?.sync();
-    if (changed('mischief') || 'mischiefPranks' in allowed || changed('colony')) d.floor?.sync();
-    if ('critterScale' in allowed) {
-      const size = d.critterBaseSize();
-      const b = d.critter.getBounds();
-      const width = size.width + d.crewExtra();
-      // Grow/shrink around the critter's feet so it doesn't jump.
-      d.critter.setBounds({ x: b.x + b.width - width, y: b.y + b.height - size.height, width, height: size.height });
-      d.broadcastSkin();
-    }
+    applied(allowed, asked, before, { taste: true });
     return { settings: d.panelSettings(), hotkeyError, pushToTalkError };
   });
   ipcMain.handle('folder:pick', async () => {

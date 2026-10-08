@@ -1,8 +1,9 @@
 /* Shellby panel — a feed's permission cards and Claude's multiple-choice
-   questions, and what was decided on them. Part of Tab (feed.js). */
+   questions, and what was decided on them, and the Shellby features Claude
+   offers. Part of Tab (feed.js). */
 'use strict';
 (function () {
-  const { h, api } = SB;
+  const { h, api, state } = SB;
   const F = window.ShellbyFeedLogic;
 
   class AskCards {
@@ -199,6 +200,63 @@
         btn.textContent = open ? 'show less' : 'show all';
       };
       return btn;
+    }
+
+    // A Shellby feature Claude offered (src/main/selfaware.js). Nothing has
+    // happened yet: the button does it, or the card is ignored. Cards from an
+    // earlier session replay as a one-line note, not as something to answer.
+    renderSuggestion(item, replay) {
+      if (replay) return this.append(h('div', { class: 'meta suggest-note', text: `Shellby suggested: ${item.title.replace(/\?$/, '')}` }));
+      const tabId = this.id;
+      const cwd = this.cwd;
+      let card = null;
+      const close = verdict => {
+        card.classList.add('decided');
+        card.append(h('div', { class: 'ask-verdict allow', text: `→ ${verdict}` }));
+      };
+      const act = async () => {
+        if (item.feature === 'routine') {
+          SB.openRoutineEditor({ ...item.draft, mode: 'smart', cwd: cwd || null, isTemplate: true });
+          return close('Opened in Routines');
+        }
+        if (item.feature === 'focus') {
+          await api.startFocus(item.minutes);
+          SB.toast(`Guarding your focus for ${item.minutes} minutes ⛑️`);
+          return close('Focus on');
+        }
+        if (item.feature === 'review') {
+          const r = await api.reviewFromSuggestion(tabId);
+          if (r?.needsClaude) return SB.claudeUpsell('review');
+          if (!r?.ok) return SB.toast(r?.error || "Couldn't start that.");
+          return close('Review started in a new tab');
+        }
+        if (item.feature === 'notify') {
+          SB.setView('settings');
+          setTimeout(() => document.getElementById('channelsGroup')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+          return close('Opened Settings');
+        }
+      };
+      const mute = async () => {
+        state.settings.mutedSuggestions = await api.muteSuggestion(item.feature, true);
+        close("Won't offer this again");
+      };
+      const draft = item.draft
+        ? h('div', { class: 'ask-body' },
+            h('div', { class: 'suggest-draft' }, h('b', { text: item.draft.name }), h('span', { text: ` · ${item.draft.when}` })),
+            h('p', { class: 'ask-desc', text: item.draft.prompt }))
+        : null;
+      card = h('div', { class: 'ask suggest', role: 'group', 'aria-label': `Suggestion: ${item.title}` },
+        h('div', { class: 'ask-head' },
+          h('span', { class: 'ask-crab' }, SB.sprite()),
+          h('div', {},
+            h('div', { class: 'ask-title', text: item.title }),
+            h('div', { class: 'ask-sub', text: item.why }))),
+        draft,
+        h('div', { class: 'ask-actions' },
+          h('button', { class: 'btn allow', type: 'button', onclick: act }, item.button),
+          h('button', { class: 'btn ghost', type: 'button', onclick: () => close('Not now') }, 'Not now'),
+          h('button', { class: 'btn ghost', type: 'button', title: "Claude won't offer this one again. Turn it back on in Settings.", onclick: mute }, "Don't offer this")));
+      this.append(card);
     }
 
     cancelOpenAsks() {

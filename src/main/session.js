@@ -18,6 +18,7 @@ const eff = require('./efficiency');
 const { claudeEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
+const crabmcp = require('./crabmcp');
 const processJob = require('./process-job');
 
 // The tools that can change files, for the beforeWork hook.
@@ -76,9 +77,12 @@ class ClaudeSession extends EventEmitter {
   // allowedTools: permission rules Claude Code applies without asking (a
   // routine's or workflow step's MCP servers). mcpConfig: { mcpServers } to load
   // instead of every configured server, or null for the usual ones.
-  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null }) {
+  //
+  // systemNote: appended to Claude Code's system prompt (see selfaware.js).
+  // mcp: { tools, call(name, args) } -> the crab's tools, hosted here (see crabmcp.js).
+  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null, systemNote = null, mcp = null }) {
     super();
-    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig });
+    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig, systemNote, mcp });
     // Set by rewindTo(): the next start resumes the conversation only up to this
     // transcript entry, as a fork, so the original is left as it was. Kept in
     // History too (sessions.js), so a restart before the next message honours it.
@@ -127,11 +131,17 @@ class ClaudeSession extends EventEmitter {
       // unless that mode is actually selected.
       '--allow-dangerously-skip-permissions',
     ];
+    if (this.systemNote) args.push('--append-system-prompt', this.systemNote);
     if (this.model) args.push('--model', this.model);
     if (EFFORTS.includes(this.effort)) args.push('--effort', this.effort);
     if (this.outputStyle) args.push('--settings', JSON.stringify({ outputStyle: this.outputStyle }));
-    if (this.allowedTools?.length) args.push('--allowedTools', this.allowedTools.join(','));
-    if (this.mcpConfig) args.push('--strict-mcp-config', '--mcp-config', this.mcpConfigFile || JSON.stringify(this.mcpConfig));
+    // The crab's own tools are allowed outright: they can't run anything or
+    // change anything that matters, so a permission card for each would be noise.
+    const allowed = [...(this.allowedTools || []), ...(this.mcp ? [`mcp__${crabmcp.SERVER}`] : [])];
+    if (allowed.length) args.push('--allowedTools', allowed.join(','));
+    const mcpConfig = this.fullMcpConfig();
+    if (this.mcpConfig) args.push('--strict-mcp-config', '--mcp-config', this.mcpConfigFile || JSON.stringify(mcpConfig));
+    else if (mcpConfig) args.push('--mcp-config', JSON.stringify(mcpConfig));
     if (this.sessionId) {
       args.push('--resume', this.sessionId);
       if (this.resumeAt) args.push(`--resume-session-at=${this.resumeAt}`, '--fork-session');
@@ -139,11 +149,18 @@ class ClaudeSession extends EventEmitter {
     return args;
   }
 
+  // The MCP servers this process loads beyond the usual ones: a routine's or
+  // workflow step's own (strict), with the crab's in-app server alongside.
+  fullMcpConfig() {
+    if (!this.mcp) return this.mcpConfig;
+    return { ...(this.mcpConfig || {}), mcpServers: { ...(this.mcpConfig?.mcpServers || {}), ...crabmcp.servers() } };
+  }
+
   start() {
     if (this.proc) return;
     // The servers' definitions can hold tokens, so they go in a file of the
     // process's own rather than on its command line, and the file goes with it.
-    const configFile = this.mcpConfig ? writeConfig(this.mcpConfig) : null;
+    const configFile = this.mcpConfig ? writeConfig(this.fullMcpConfig()) : null;
     this.mcpConfigFile = configFile;
     const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
       cwd: this.cwd, env: { ...claudeEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
@@ -154,7 +171,9 @@ class ClaudeSession extends EventEmitter {
     const job = processJob.adopt(proc.pid);
     this.job = job;
     let stderr = '';
-    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'initialize', hooks: initHooks(!!this.beforeWork) } });
+    // Also names the servers hosted here: Claude Code then connects to them
+    // with mcp_message requests before the first turn.
+    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'initialize', hooks: initHooks(!!this.beforeWork), ...(this.mcp ? { sdkMcpServers: [crabmcp.SERVER] } : {}) } });
 
     readline.createInterface({ input: proc.stdout }).on('line', line => {
       if (this.proc !== proc) return; // dropped: whatever it still says goes unheard
@@ -169,6 +188,8 @@ class ClaudeSession extends EventEmitter {
         this.answerHook(event.request_id, event.request.input);
       } else if (event?.type === 'control_request' && event.request?.subtype === 'hook_callback' && event.request.callback_id === STEER_HOOK) {
         this.steer(event.request_id, event.request.input);
+      } else if (event?.type === 'control_request' && event.request?.subtype === 'mcp_message' && this.mcp && event.request.server_name === crabmcp.SERVER) {
+        this.answerMcp(event);
       } else if (event?.type === 'control_request' && event.request?.subtype !== 'can_use_tool') {
         // Unknown host callbacks (hooks, MCP bridging): answer so the CLI never hangs.
         this.write({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Not supported by Shellby' } });
@@ -231,6 +252,11 @@ class ClaudeSession extends EventEmitter {
     if (!this.proc) return;
     this.kill();
     this.ended(null);
+  }
+
+  async answerMcp(event) {
+    const response = await crabmcp.handle(event.request.message, this.mcp);
+    this.write({ type: 'control_response', response: { subtype: 'success', request_id: event.request_id, response: { mcp_response: response } } });
   }
 
   handle(item) {

@@ -1,5 +1,5 @@
 /* Shellby panel — navigation: the bottom bar and Settings gear, Back/Esc going
-   up one level, Ctrl+1…6, the Ctrl+K "jump anywhere" palette, and the Settings
+   up one level, Ctrl+1…8, the Ctrl+K "jump anywhere" palette, and the Settings
    tabs. */
 'use strict';
 (function () {
@@ -30,7 +30,7 @@
   }
 
   document.addEventListener('keydown', e => {
-    if (state.view === 'onboarding' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+    if (SB.solo || state.view === 'onboarding' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
     // A dialog (share card, upsell, outfit code) owns the keyboard until it closes.
     if (document.querySelector('.card-sheet:not([hidden])')) return;
     if (e.key.toLowerCase() === 'k') { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
@@ -274,6 +274,8 @@
       claude() && { icon: '⚡', title: 'Describe a workflow', sub: 'Say what should happen and Claude drafts it', keys: 'automate draft write claude flow', run: () => SB.workflows.describe() },
       claude() && { icon: '⏰', title: 'Routines', sub: 'Tasks that run on a schedule', keys: 'automate schedule recurring cron', run: go('routines') },
       claude() && { icon: '⏰', title: 'New routine', sub: 'Schedule a recurring task', keys: 'schedule add', run: () => { SB.setView('routines'); $('newRoutineBtn').click(); } },
+      claude() && { icon: '📝', title: 'Notes', sub: 'Ideas to plan, build or ask Claude about', keys: 'todo ideas list project', run: go('notes') },
+      claude() && { icon: '📝', title: 'New note', sub: 'Jot down something to do', keys: 'todo idea add', run: () => { SB.setView('notes'); $('noteInput').focus(); } },
       { icon: '📈', title: 'Health', sub: 'Temperatures, memory and drives', keys: 'gpu cpu ram disk temperature vitals', run: go('health') },
       claude() && { icon: '🗂️', title: 'History', sub: 'Past conversations', keys: 'sessions old', run: go('history') },
       { icon: '⏱️', title: 'Time', sub: 'Hours on each project, your streak, focus sessions and timesheets', keys: 'time tracking hours timesheet invoice billing clients rate freelance streak nudge quiet focus pomodoro', run: go('time') },
@@ -353,6 +355,26 @@
     }))];
   }
 
+  // Splitting, popping out and moving between panes: the keyboard's way to do
+  // what dragging a tab into the chat, or out of the window, does (tab-panes.js).
+  function paneEntries() {
+    const tab = state.tabs.get(state.activeTab);
+    if (!claude() || !tab) return [];
+    const shown = SB.panes.ids(state.grid);
+    const keys = 'pane split side by side grid quad window layout';
+    const chat = run => () => { SB.setView('chat'); run(); };
+    return [
+      { icon: '◫', title: 'Split: another conversation alongside', sub: 'Side by side, then a 2×2 grid', keys, shortcut: 'splitPane', run: chat(SB.splitPane) },
+      { icon: '↗', title: 'Open this conversation in its own window', sub: tab.title, keys: `${keys} pop out tear off`, run: () => SB.popOut(tab.id) },
+      shown.length > 1 && { icon: '×', title: 'Close this pane', sub: `${tab.title} keeps its tab`, keys, run: chat(() => SB.closePane(tab.id)) },
+      ...shown.filter(id => id !== tab.id && state.tabs.has(id)).map(id => ({
+        icon: '◧', title: `Go to the pane with ${state.tabs.get(id).title}`, sub: 'Focus it, so the box talks to it', keys: `${keys} focus`,
+        run: chat(() => SB.activate(id)),
+      })),
+      { icon: '⛶', title: 'Maximize or restore the panel', sub: 'Room for a 2×2 grid', keys: `${keys} fullscreen full screen bigger`, run: () => api.maximize() },
+    ].filter(Boolean).map(e => ({ ...e, group: 'Conversations' }));
+  }
+
   // Ranking lives in shortcuts.js (tested there): the best match first, then
   // what you ran lately, then the group's place here.
   const GROUP_RANK = {
@@ -368,7 +390,7 @@
     const screens = screenEntries();
     const settings = settingEntries();
     const all = [...actions, ...screens, ...focusEntries(), ...projectEntries(), ...claudeEntries(), ...settings, ...modeEntries(),
-      ...routineEntries(), ...snippetEntries(), ...tabEntries(), ...conversationEntries(), ...toolEntries()];
+      ...routineEntries(), ...snippetEntries(), ...tabEntries(), ...paneEntries(), ...conversationEntries(), ...toolEntries()];
     return K.rank(all, raw, {
       recent, groupRank: GROUP_RANK,
       pinned: state.view === 'chat' ? actions : [],
@@ -436,7 +458,7 @@
   }
 
   function openPalette() {
-    if (state.view === 'onboarding') return;
+    if (state.view === 'onboarding' || SB.solo) return;
     SB.closeMenus();
     returnFocus = document.activeElement;
     sheet.hidden = false;
@@ -465,7 +487,7 @@
     }
     if (e.key === 'Enter') { e.preventDefault(); return runAt(selected); }
     if (e.key === 'Tab') e.preventDefault(); // the input is the only stop in the dialog
-    if (!(e.ctrlKey && /^[k1-6/]$/i.test(e.key))) e.stopPropagation();
+    if (!(e.ctrlKey && /^[k1-8/]$/i.test(e.key))) e.stopPropagation();
   });
   sheet.addEventListener('mousedown', e => { if (e.target === sheet) closePalette(); });
   $('paletteBtn').addEventListener('click', openPalette);

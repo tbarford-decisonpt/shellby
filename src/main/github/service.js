@@ -58,7 +58,8 @@ function gitEnv(token, base = process.env) {
 class GitHubService extends EventEmitter {
   /**
    * config: Shellby's Config. store: TokenStore. web/api/clientId: GitHub (or a
-   * mock in tests). openUrl/copy: shell helpers. onSynced: called after a pull.
+   * mock in tests). openUrl/copy: shell helpers. onSynced(before): called after a pull,
+   * with the settings (config.data) from before the sync.
    */
   constructor({ config, store, web = 'https://github.com', api = 'https://api.github.com', clientId = CLIENT_ID, fetchImpl = fetch, now = () => Date.now(), onSynced = () => {} }) {
     super();
@@ -219,9 +220,10 @@ class GitHubService extends EventEmitter {
     this.syncing = (async () => {
       this.emit('change', this.view());
       try {
-        const r = await syncNow(this.gh(), { get: k => this.config.get(k), set: p => this.config.set(p) });
+        const before = this.config.data;
+        const r = await syncNow(this.gh(), { get: k => this.config.get(k), set: p => this.config.set(p), data: () => this.config.data });
         this.save({ lastSyncAt: this.now(), lastSyncError: null });
-        if (r.pulled) this.onSynced();
+        if (r.pulled) this.onSynced(before);
         return { ok: true, ...r };
       } catch (e) {
         const offline = !e.status && OFFLINE.test(`${e.message} ${e.cause?.code || ''}`);

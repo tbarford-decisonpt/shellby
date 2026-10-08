@@ -2,13 +2,17 @@
 // `shellby` command talk to, and installing that command (clipath.js).
 // Kept out of main.js, which only wires it up.
 const { app } = require('electron');
+const { randomUUID } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { run: runCli } = require('../claude-cli');
 const clipath = require('../clipath');
 const { MODES } = require('../config');
+const crabmcp = require('../crabmcp');
 const crabtools = require('../crabtools');
+const { repoOf } = require('../gitinfo');
+const selfaware = require('../selfaware');
 const focus = require('../focus');
 const snippets = require('../snippets');
 const system32 = require('../system32');
@@ -113,6 +117,43 @@ function wireCrabApi(d) {
     }
     if (intent.text) sayText(intent.text, 'mcp');
     return { text: crabtools.ackReply(intent) };
+  }
+
+  // ---- Claude knowing it's in Shellby
+
+  /** The note and tools a new conversation's process gets (see selfaware.js), or null when off. */
+  function getSelfAware() {
+    if (!d.config.get('selfAware')) return null;
+    const suggestions = !!d.config.get('suggestions');
+    return { note: selfaware.systemNote({ suggestions }), tools: crabmcp.toolsFor({ suggestions }) };
+  }
+
+  /**
+   * A crab tool called from one of Shellby's own conversations. The cosmetic
+   * ones go through exactly the checks the plugin's do; `suggest` only ever
+   * puts up a card, and the card's button is the user's to press.
+   */
+  async function crabTool(tab, name, args) {
+    if (name === 'suggest') return suggestCard(tab, args);
+    if (!['say', 'celebrate', 'wear', 'status'].includes(name)) return { text: `Unknown tool: ${name}`, isError: true };
+    const r = applyCrabIntent({ action: name, args });
+    return r.ok === false ? { text: r.error, isError: true } : { text: r.text };
+  }
+
+  async function suggestCard(tab, args) {
+    const feature = args?.feature;
+    const checked = selfaware.checkSuggestion(args, {
+      enabled: !!d.config.get('suggestions'),
+      muted: d.config.get('mutedSuggestions') || [],
+      offered: tab.offered,
+      focusOn: !!d.focusState()?.phase,
+      notifyOn: !!d.channelSettings().enabled,
+      inRepo: feature === 'review' && !!(await repoOf(tab.session.cwd)),
+    });
+    if (!checked.ok) return { text: checked.reason, isError: true };
+    tab.offered.add(checked.card.feature);
+    d.manager.onItem(tab, { kind: 'suggest', id: randomUUID(), ...checked.card });
+    return { text: selfaware.suggestReply(checked.card) };
   }
 
   // The project journal: the handoff notes for Claude to start from, so it
@@ -278,7 +319,7 @@ function wireCrabApi(d) {
     return { ...cliSettings(), dir: cliBinDir(), available: process.platform === 'win32', listening: !!d.config.get('externalSessions') };
   }
 
-  return { cliBinDir, cliView, createCrabApi, installCli, removeCli, sayText };
+  return { cliBinDir, cliView, createCrabApi, crabTool, getSelfAware, installCli, removeCli, sayText };
 }
 
 module.exports = { wireCrabApi };

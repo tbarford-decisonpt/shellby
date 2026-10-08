@@ -18,6 +18,8 @@
 
   SB.chooseMode = async (mode, { quiet = false } = {}) => {
     if (mode === 'autonomous' && !state.settings.autonomousAcknowledged) {
+      // A popped-out window has no Settings to confirm it in.
+      if (SB.solo) return SB.toast('Turn Autonomous on from Settings in the main panel first.');
       SB.setView('settings');
       SB.showSettingsTab('claude');
       $('autonomousConfirm').hidden = false;
@@ -71,7 +73,7 @@
     $('settingsFolder').textContent = r.cwd;
     // A blank tab moves to the new folder; a conversation in progress keeps its own.
     const tab = SB.activeTab();
-    if (SB.isBlankTab(tab)) {
+    if (SB.isBlankTab(tab) && !SB.solo) {
       await api.closeTab(tab.id);
       tab.destroy();
       state.tabs.delete(tab.id);
@@ -80,7 +82,7 @@
       SB.toast(`Now working in ${SB.basename(r.cwd)}`);
     } else {
       applyFolderLabel(tab?.cwd || r.cwd);
-      SB.toast(`New conversations will start in ${SB.basename(r.cwd)}`, { action: 'Open one', onAction: () => SB.newTab() });
+      SB.toast(`New conversations will start in ${SB.basename(r.cwd)}`, SB.solo ? {} : { action: 'Open one', onAction: () => SB.newTab() });
     }
   };
 

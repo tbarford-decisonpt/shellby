@@ -13,6 +13,8 @@
 //   "mod"        -> a mod's log line, toast and status line, and its slash command (ui_*, commands_changed)
 //   "/compact"   -> compacts the conversation (a compact_boundary, then a result)
 //   "args"       -> replies with the command line it was started with (JSON)
+//   "mcp <tool> <json>" -> calls a tool on the in-app MCP server (see crabmcp.js)
+//                   and replies with its result; "mcp tools" lists them
 //   "effort"     -> replies with the effort level it was last told (flag or apply_flag_settings)
 //   "... FAKE_JSON:{...}" -> replies with that object in a ```json block
 //   "steps <n> <ms> [late <ms>]" -> n tool calls in a row; see below for messages sent meanwhile
@@ -25,6 +27,25 @@ let mode = args.includes('--permission-mode') ? args[args.indexOf('--permission-
 let turn = 0;
 let pending = null;   // { requestId, onAnswer }
 let slow = null;
+const mcpWaiting = new Map(); // our control request id -> what to do with the answer
+let mcpTools = null;           // from tools/list, once the in-app server answered
+const deferred = [];           // user messages that arrived before it connected
+
+// Like the real CLI: an in-app ("sdk") server named in --mcp-config is
+// connected with mcp_message requests once the host's initialize names it.
+// The config is JSON on the command line, or a file holding it.
+const mcpArg = (() => {
+  if (!args.includes('--mcp-config')) return null;
+  const v = args[args.indexOf('--mcp-config') + 1];
+  try { return JSON.parse(v.trimStart().startsWith('{') ? v : require('fs').readFileSync(v, 'utf8')); } catch { return null; }
+})();
+const sdkServer = mcpArg && Object.entries(mcpArg.mcpServers || {}).find(([, c]) => c.type === 'sdk')?.[0];
+let mcpSeq = 0;
+function mcpRequest(message, then) {
+  const id = `mcp-${++mcpSeq}`;
+  mcpWaiting.set(id, then);
+  out({ type: 'control_request', request_id: id, request: { subtype: 'mcp_message', server_name: sdkServer, message } });
+}
 let workHooks = [];   // PreToolUse hookCallbackIds from an initialize request
 let stepHooks = [];   // PostToolUse ones
 let inbox = null;     // messages that came in while a "steps" turn runs, not yet read
@@ -112,6 +133,15 @@ if (ONE_SHOT) {
 function onLine(line) {
   const msg = JSON.parse(line);
 
+  // The real CLI connects its MCP servers before the first turn runs.
+  if (msg.type === 'user' && sdkServer && mcpTools === null) { deferred.push(line); return; }
+  if (msg.type === 'control_response' && mcpWaiting.has(msg.response.request_id)) {
+    const then = mcpWaiting.get(msg.response.request_id);
+    mcpWaiting.delete(msg.response.request_id);
+    then(msg.response.response?.mcp_response);
+    return;
+  }
+
   if (msg.type === 'control_response' && pending && msg.response.request_id === pending.requestId) {
     const p = pending; pending = null;
     p.onAnswer(msg.response.response);
@@ -130,6 +160,15 @@ function onLine(line) {
       workHooks = msg.request.hooks?.PreToolUse?.flatMap(m => m.hookCallbackIds) || [];
       stepHooks = msg.request.hooks?.PostToolUse?.flatMap(m => m.hookCallbackIds) || [];
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
+      if (sdkServer && (msg.request.sdkMcpServers || []).includes(sdkServer)) {
+        mcpRequest({ method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {} }, jsonrpc: '2.0', id: 0 }, () => {
+          mcpRequest({ jsonrpc: '2.0', method: 'notifications/initialized' }, () => {});
+          mcpRequest({ method: 'tools/list', jsonrpc: '2.0', id: 1 }, r => {
+            mcpTools = r?.result?.tools || [];
+            for (const l of deferred.splice(0)) onLine(l);
+          });
+        });
+      }
     } else if (sub === 'set_permission_mode') {
       mode = msg.request.mode;
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mode } } });
@@ -138,6 +177,11 @@ function onLine(line) {
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
     } else if (sub === 'mcp_status') {
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mcpServers: [{ name: 'github', status: 'connected' }, { name: 'broken', status: 'failed' }] } } });
+    } else if (sub === 'get_usage') {
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {
+        subscription_type: 'max', rate_limits_available: true,
+        rate_limits: { five_hour: { utilization: 42, resets_at: '2026-10-08T04:00:00+00:00' }, seven_day: { utilization: 7.6, resets_at: '2026-10-14T23:00:00+00:00' } },
+      } } });
     } else {
       out({ type: 'control_response', response: { subtype: 'error', request_id: msg.request_id, error: `Unsupported: ${sub}` } });
     }
@@ -258,6 +302,16 @@ function onLine(line) {
   if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
   if (content === 'args') { text(JSON.stringify(args)); result(true); return; }
+  if (content.startsWith('mcp ')) {
+    const [, tool, ...rest] = content.split(' ');
+    if (tool === 'tools') { text(`tools: ${(mcpTools || []).map(t => t.name).join(',')}`); result(true); return; }
+    mcpRequest({ method: 'tools/call', params: { name: tool, arguments: rest.length ? JSON.parse(rest.join(' ')) : {} }, jsonrpc: '2.0', id: 100 + turn }, r => {
+      const res = r?.result || {};
+      text(`mcp${res.isError ? ' error' : ''}: ${(res.content || []).map(c => c.text).join(' ')}`);
+      result(true);
+    });
+    return;
+  }
   // "novel <type>" -> an event type no Shellby knows, twice, then a normal reply
   if (content.startsWith('novel ')) {
     const type = content.split(' ')[1];

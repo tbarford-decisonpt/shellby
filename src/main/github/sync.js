@@ -5,14 +5,19 @@
 // added together (xp.js mergeXpCounts), so XP earned on two PCs adds up. The
 // outfit, skin and sticker layouts follow whichever PC changed them last. The
 // Bugdex's catches are counted per PC like XP (bugdex.js merge). His tank's
-// layout follows whichever PC changed it last (tank-share.js). The gist is yours but is still
-// treated as untrusted input.
+// layout follows whichever PC changed it last (tank-share.js). Your friends list
+// follows the latest add or remove on any PC (friends.js mergeSync), and each of
+// your settings whichever PC changed it last (sync-prefs.js). The gist is yours
+// but is still treated as untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
 const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
 const stickers = require('../stickers');
 const bugdex = require('../bugdex');
 const tankShare = require('../tank-share');
 const tankLayouts = require('../tank-layouts');
+const friends = require('../friends');
+const prefs = require('../sync-prefs');
+const { findGist } = require('./gists');
 
 const FILE = 'shellby-sync.json';
 const FORMAT = 1;
@@ -23,8 +28,11 @@ const KEY_RE = /^[a-z0-9][a-z0-9/-]{0,80}$/;
 const strings = (list, re, max) => [...new Set((Array.isArray(list) ? list : []).filter(x => typeof x === 'string' && re.test(x)))].slice(0, max);
 const num = v => (Number.isFinite(v) && v > 0 ? v : 0);
 
-/** Pull the syncable parts out of Shellby's settings (config.get). */
-function snapshot(get) {
+/**
+ * Pull the syncable parts out of Shellby's settings. get: config.get. data:
+ * your own settings, without Work mode laid over them (config.data).
+ */
+function snapshot(get, data = {}) {
   const w = get('wardrobe') || {};
   const stamps = get('syncStamps') || {};
   const xp = normalizeXp(get('xp'));
@@ -41,6 +49,8 @@ function snapshot(get) {
     bugdex: bugdex.syncable(bugdex.withDevice(get('bugdex'), xp.device)),
     tank: get('tank'),
     tankLayouts: get('tankLayouts'),
+    friends: friends.syncable(get('friends')),
+    prefs: prefs.snapshot(data, stamps.prefs),
   });
 }
 
@@ -74,6 +84,10 @@ function clean(raw) {
     tank: tankShare.syncable(r.tank),
     // The saved layouts; what a season put up on this PC stays here.
     tankLayouts: tankLayouts.syncable(r.tankLayouts),
+    // Who's on the list and who you removed: no cards, visits or waves.
+    friends: friends.syncable(r.friends),
+    // Personal settings only, each with when it last changed.
+    prefs: prefs.clean(r.prefs),
   };
 }
 
@@ -104,13 +118,15 @@ function merge(aIn, bIn) {
     bugdex: bugdex.merge(a.bugdex, b.bugdex),
     tank: tankShare.merge(a.tank, b.tank),
     tankLayouts: tankLayouts.merge(a.tankLayouts, b.tankLayouts),
+    friends: friends.mergeSync(a.friends, b.friends),
+    prefs: prefs.merge(a.prefs, b.prefs),
   });
 }
 
 const same = (x, y) => JSON.stringify(clean(x)) === JSON.stringify(clean(y));
 
 /** Write a merged snapshot back into Shellby's settings (patch for config.set). */
-function patchFor(merged, get) {
+function patchFor(merged, get, data = {}) {
   const w = get('wardrobe') || {};
   const xp = get('xp') || {};
   const streaks = get('streaks') || {};
@@ -121,7 +137,7 @@ function patchFor(merged, get) {
     streaks: { ...streaks, days: merged.days },
     // Merged into this PC's own, so its folders, options and badges stay.
     stickers: stickers.merge(get('stickers'), merged.stickers),
-    syncStamps: { outfitAt: merged.wardrobe.outfitAt, skinAt: merged.skinAt },
+    syncStamps: { outfitAt: merged.wardrobe.outfitAt, skinAt: merged.skinAt, prefs: null },
     // Merged into this PC's own book, so its open bugs and projects stay.
     bugdex: bugdex.applySync(bugdex.withDevice(get('bugdex'), normalizeXp(xp).device), merged.bugdex),
   };
@@ -129,24 +145,14 @@ function patchFor(merged, get) {
   if (merged.tank.editedAt > tankShare.syncable(get('tank')).editedAt) patch.tank = tankShare.applySync(get('tank'), merged.tank);
   if (merged.tankLayouts.editedAt > tankLayouts.syncable(get('tankLayouts')).editedAt) patch.tankLayouts = tankLayouts.applySync(get('tankLayouts'), merged.tankLayouts);
   if (merged.skin) patch.skin = merged.skin;
+  if (JSON.stringify(friends.syncable(get('friends'))) !== JSON.stringify(merged.friends)) patch.friends = friends.applySync(get('friends'), merged.friends);
+  const p = prefs.apply(prefs.snapshot(data, (get('syncStamps') || {}).prefs), merged.prefs);
+  Object.assign(patch, p.values);
+  patch.syncStamps.prefs = p.stamps;
   return patch;
 }
 
 // ------------------------------------------------------------------ the gist
-
-/** Find one of your own gists by the file it holds (the sync gist by default); returns its id or null. */
-async function findGist(gh, knownId, file = FILE) {
-  if (knownId) {
-    try { await gh.get(`/gists/${encodeURIComponent(knownId)}`); return knownId; } catch (e) { if (e.status !== 404) throw e; }
-  }
-  for (let page = 1; page <= 5; page++) {
-    const list = await gh.get(`/gists?per_page=100&page=${page}`);
-    const hit = (list || []).find(g => g.files && g.files[file]);
-    if (hit) return hit.id;
-    if (!list || list.length < 100) break;
-  }
-  return null;
-}
 
 async function readGist(gh, id) {
   const g = await gh.get(`/gists/${encodeURIComponent(id)}`);
@@ -157,16 +163,16 @@ async function readGist(gh, id) {
 
 // What's in the gist is settled: nobody else's legacy is pending.
 const settled = snap => { const c = clean(snap); return { ...c, xp: { ...c.xp, legacyPending: false } }; };
-const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days, shell stickers, his tank and its saved layouts. Safe to delete; Shellby makes a new one.' }, null, 1);
+const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days, shell stickers, his tank and its saved layouts, your friends list and settings. Safe to delete; Shellby makes a new one.' }, null, 1);
 
 /**
  * One sync: merge local with the gist, apply what changed locally, push what
  * changed remotely. Returns { gistId, pulled, pushed }.
- *   get/set: config accessors
+ *   get/set: config accessors. data(): your own settings (config.data)
  */
-async function syncNow(gh, { get, set }) {
-  const local = snapshot(get);
-  const id = await findGist(gh, get('syncGistId'));
+async function syncNow(gh, { get, set, data = () => ({}) }) {
+  const local = snapshot(get, data());
+  const id = await findGist(gh, get('syncGistId'), FILE);
   if (!id) {
     const created = await gh.post('/gists', { public: false, description: 'Shellby sync', files: { [FILE]: { content: content(local) } } });
     // This PC's legacy is now the gist's, so it counts in full from here on.
@@ -177,7 +183,7 @@ async function syncNow(gh, { get, set }) {
   const remote = await readGist(gh, id) || clean({});
   const merged = merge(local, remote);
   const pulled = !same(merged, local);
-  if (pulled) set(patchFor(merged, get));
+  if (pulled) set(patchFor(merged, get, data()));
   const pushed = !same(merged, remote);
   if (pushed) await gh.patch(`/gists/${encodeURIComponent(id)}`, { files: { [FILE]: { content: content(merged) } } });
   return { gistId: id, pulled, pushed };

@@ -13,6 +13,13 @@ const TOOL_VERBS = {
   AskUserQuestion: 'Asked you',
 };
 
+// The crab's own tools, as served to Shellby's conversations (crabmcp.js):
+// verb, and which input field is worth showing.
+const SHELLBY_TOOLS = {
+  say: ['Shellby said', 'text'], celebrate: ['Celebrated', 'reason'], wear: ['Dressed Shellby', 'item'],
+  status: ['Checked on Shellby', null], suggest: ['Suggested', 'feature'],
+};
+
 /**
  * Claude's AskUserQuestion input, cleaned up for the question card:
  * [{ question, header, multiSelect, options: [{ label, description }] }]
@@ -40,6 +47,11 @@ function describeTool(name = '', input = {}) {
   if (name === 'AskUserQuestion') {
     const qs = questionsOf(i);
     return { label: TOOL_VERBS.AskUserQuestion, detail: qs.map(q => q.question).join(' · ').slice(0, 400) || 'a question' };
+  }
+  const own = /^mcp__shellby__(\w+)$/.exec(name);
+  if (own && SHELLBY_TOOLS[own[1]]) {
+    const [label, field] = SHELLBY_TOOLS[own[1]];
+    return { label, detail: field && typeof i[field] === 'string' ? i[field].replace(/\s+/g, ' ').trim().slice(0, 400) : '' };
   }
   let detail =
     i.command ?? i.file_path ?? i.notebook_path ??

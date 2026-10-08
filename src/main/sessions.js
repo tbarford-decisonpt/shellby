@@ -22,9 +22,13 @@ class SessionManager extends EventEmitter {
   // compose(text, files): the content Claude gets for a steer (attachments.js composeContent).
   // windowShare(weight): a turn's share of the 5-hour window, or null (turncost.js),
   // put on its result before History keeps it.
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null }) {
+  // Claude knowing it's in Shellby (see selfaware.js, crabmcp.js), all optional:
+  //   getSelfAware() -> { note, tools } | null, read when a tab's process is made
+  //   onTool(tab, name, args) -> Promise<{ text, isError? }>, a crab tool was called
+  //   decorate(tab, prompt) -> the prompt Claude actually receives
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate });
     this.tabs = new Map();
   }
 
@@ -37,6 +41,8 @@ class SessionManager extends EventEmitter {
     if (this.tabs.size >= MAX_TABS) throw new Error(`Shellby can run up to ${MAX_TABS} conversations at once. Close one first.`);
     const exe = this.getExe();
     if (!exe) throw new Error('Claude Code is not installed.');
+    const aware = this.getSelfAware();
+    let tab = null; // the tools are only ever called once it exists
     const session = new ClaudeSession({
       exe, argsPrefix: this.argsPrefix,
       cwd: historyEntry?.cwd || cwd,
@@ -49,8 +55,10 @@ class SessionManager extends EventEmitter {
       extraEnv: () => this.getEnv(),
       context: historyEntry?.context || null,
       allowedTools, mcpConfig,
+      systemNote: aware?.note || null,
+      mcp: aware?.tools && this.onTool ? { tools: aware.tools, call: (name, args) => this.onTool(tab, name, args) } : null,
     });
-    const tab = {
+    tab = {
       id: tabId, session, routineId,
       workflowRunId,               // a workflow run's conversation (workflows/service.js)
       pinnedMode: !!mode,          // routines and workflows keep their own mode
@@ -74,7 +82,11 @@ class SessionManager extends EventEmitter {
       activeAt: Date.now(),        // when it last sent or heard anything, for stopIdle()
       steers: [],                  // what the panel has queued for this turn's next step (steer())
       steeredIds: new Set(),       // ...and what of it has gone in already
+      usageTold: 0,                // the usage level Claude was last told about (selfaware.usageNote)
+      offered: new Set(),          // features suggested in this conversation
     };
+    // A reopened conversation remembers what it already offered.
+    if (historyEntry) for (const i of this.history.load?.(tabId) || []) if (i?.kind === 'suggest') tab.offered.add(i.feature);
     this.tabs.set(tabId, tab);
     session.takeSteers = () => this.takeSteers(tab);
 
@@ -189,6 +201,7 @@ class SessionManager extends EventEmitter {
       prompt = withPreamble(prompt, tab.preamble);
       tab.preambleSent = true;
     }
+    if (this.decorate) prompt = this.decorate(tab, prompt);
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
     this.changed();
     return userItem.turnId;

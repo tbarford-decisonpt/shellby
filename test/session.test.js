@@ -414,3 +414,59 @@ test('a logger that throws never breaks the session', async () => {
     setLogger(null);
   }
 });
+
+// ------------------------------------------------------------------ Claude knowing it's in Shellby
+
+test('a plain session passes no note and no in-app tools', async () => {
+  const { s, items } = makeSession();
+  s.send('args');
+  await waitFor(s, i => i.kind === 'result');
+  const args = JSON.parse(texts(items)[0]);
+  for (const flag of ['--append-system-prompt', '--mcp-config', '--allowedTools']) assert.ok(!args.includes(flag), flag);
+  s.close();
+});
+
+test('the note and the crab tools reach the CLI, and tool calls are answered in-app', async () => {
+  const crabmcp = require('../src/main/crabmcp');
+  const calls = [];
+  const mcp = { tools: crabmcp.toolsFor(), call: async (name, args) => { calls.push([name, args]); return { text: `did ${name}` }; } };
+  const { s, items } = makeSession({ systemNote: 'You are in Shellby.', mcp });
+  s.send('args');
+  await waitFor(s, i => i.kind === 'result');
+  const args = JSON.parse(texts(items)[0]);
+  assert.equal(args[args.indexOf('--append-system-prompt') + 1], 'You are in Shellby.');
+  assert.deepEqual(JSON.parse(args[args.indexOf('--mcp-config') + 1]), { mcpServers: { shellby: { type: 'sdk', name: 'shellby' } } });
+  assert.ok(!args.includes('--strict-mcp-config'), "the user's own servers still load");
+  assert.equal(args[args.indexOf('--allowedTools') + 1], 'mcp__shellby');
+
+  s.send('mcp tools');
+  await waitFor(s, i => i.kind === 'result' && texts(items).length === 2);
+  assert.equal(texts(items)[1], 'tools: say,celebrate,wear,status,suggest');
+
+  s.send('mcp say {"text":"all green"}');
+  await waitFor(s, i => i.kind === 'result' && texts(items).length === 3);
+  assert.equal(texts(items)[2], 'mcp: did say');
+  assert.deepEqual(calls, [['say', { text: 'all green' }]]);
+  s.close();
+});
+
+test('a routine with its own MCP servers keeps them, with the crab alongside and one allow list', async () => {
+  const crabmcp = require('../src/main/crabmcp');
+  const mcp = { tools: crabmcp.toolsFor(), call: async name => ({ text: `did ${name}` }) };
+  const mcpConfig = { mcpServers: { github: { command: 'gh-mcp' } } };
+  const { s, items } = makeSession({ mcp, mcpConfig, allowedTools: ['mcp__github'] });
+  s.send('args');
+  await waitFor(s, i => i.kind === 'result');
+  const args = JSON.parse(texts(items)[0]);
+  assert.ok(args.includes('--strict-mcp-config'));
+  const file = args[args.indexOf('--mcp-config') + 1];
+  const written = JSON.parse(file.trimStart().startsWith('{') ? file : require('fs').readFileSync(file, 'utf8'));
+  assert.deepEqual(written.mcpServers, { github: { command: 'gh-mcp' }, shellby: { type: 'sdk', name: 'shellby' } });
+  assert.equal(args.filter(a => a === '--allowedTools').length, 1);
+  assert.equal(args[args.indexOf('--allowedTools') + 1], 'mcp__github,mcp__shellby');
+  s.send('mcp status');
+  await waitFor(s, i => i.kind === 'result' && texts(items).length === 2);
+  assert.equal(texts(items)[1], 'mcp: did status');
+  s.close();
+});
+

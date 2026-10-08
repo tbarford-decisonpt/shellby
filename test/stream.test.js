@@ -145,6 +145,15 @@ test('writeChars reads each write tool, and MultiEdit sums its edits', () => {
   assert.equal(writeChars('Write', null), 0);
 });
 
+test('the crab\'s own tools read as what they did', () => {
+  const { describeTool } = require('../src/main/stream');
+  assert.deepEqual(describeTool('mcp__shellby__say', { text: 'all  green' }), { label: 'Shellby said', detail: 'all green' });
+  assert.deepEqual(describeTool('mcp__shellby__suggest', { feature: 'routine', why: 'x' }), { label: 'Suggested', detail: 'routine' });
+  assert.deepEqual(describeTool('mcp__shellby__status', {}), { label: 'Checked on Shellby', detail: '' });
+  // The plugin's copy, or anyone else's server, keeps the generic label.
+  assert.equal(describeTool('mcp__plugin_shellby_shellby__say', { text: 'hi' }).label, 'say (plugin_shellby_shellby)');
+});
+
 // ---- mods: what a mod's $.ui.* calls and registered commands become
 
 const { KNOWN } = require('../src/main/stream');

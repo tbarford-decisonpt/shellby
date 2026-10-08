@@ -9,7 +9,7 @@
 // counts, projects or errors (bugdex.js shared).
 // A friend's card is somebody else's file, so it is always cleaned before use,
 // and only believed when the gist really belongs to that friend.
-const { findGist } = require('./sync');
+const { findGist } = require('./gists');
 const { cleanCardStickers } = require('../stickers');
 const { cleanCardTank } = require('../tank-share');
 const { cleanShared } = require('../bugdex');

@@ -56,6 +56,9 @@ const DEFAULTS = {
   soundFx: false,    // his feet, bumps, landings and a ta-da for big moments (see sounds.js)
   ambient: 'off',    // the background: off | surf | tidepool (src/renderer/critter/ambient.js)
   soundVolume: 60,   // 25 | 60 | 100: soft, normal, loud
+  selfAware: true,   // Claude is told it's in Shellby and gets the crab's tools (see selfaware.js)
+  suggestions: true, // ...and may offer Shellby features as one-tap cards
+  mutedSuggestions: [], // features the user said not to offer again
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
   bugdex: null,      // the bugs Claude has fixed for you, in jars (see bugdex.js)
@@ -135,6 +138,7 @@ const DEFAULTS = {
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on
   claudeUpdates: null, // { mode, latest, lastCheckAt, … }: keeping Claude Code itself current (see claude-update.js); null -> tell me
+  notes: null,        // { general, projects }: ideas to plan, build or ask about (see notes.js)
   health: null,       // health monitor settings (see health/service.js); null -> defaults
   healthLog: [],      // recent health alerts, newest first
   channels: null,     // where to send "he needs you" when you're away (see channels.js)

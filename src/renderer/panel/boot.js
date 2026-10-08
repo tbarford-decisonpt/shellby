@@ -3,8 +3,15 @@
 (function () {
   const { api, state, $ } = SB;
 
-  $('closeBtn').addEventListener('click', () => api.hide());
+  // In a popped-out window, × puts the conversation back in the panel.
+  $('closeBtn').addEventListener('click', () => {
+    if (!SB.solo) return api.hide();
+    const tab = SB.activeTab();
+    if (tab) tab.draft = $('input').value;
+    api.popInTab(SB.solo, tab ? SB.carryOf(tab) : null);
+  });
   $('minBtn').addEventListener('click', () => api.minimize());
+  if (SB.solo) $('closeBtn').title = 'Back into the panel';
 
   SB.renderCrabs = () => {
     for (const id of ['brandCrab', 'helloCrab', 'dockCrab']) $(id).replaceChildren(SB.sprite());
@@ -30,7 +37,7 @@
     if (item.kind === 'user' && item.steerId) SB.onSteered(tab, item.steerId);
     if (item.kind === 'result') {
       tab.busy = false;
-      if (!tab.isActive) tab.unread = true;
+      if (!tab.isShown) tab.unread = true;
       SB.onTurnEnded(tab, item);
       api.listSessions().then(s => { state.sessions = s; });
     }
@@ -42,6 +49,7 @@
   });
   api.onTabs(summaries => SB.syncTabs(summaries));
   api.onTabOpened(({ tabId, entry, items, background, busy = true, draft = '', attachments = [] }) => {
+    if (state.popped.has(tabId)) return; // out in a window of its own (tab-panes.js)
     const tab = SB.ensureTab({ id: tabId, title: entry?.title || 'Routine', cwd: entry?.cwd, saved: true, routineId: entry?.routineId, busy, inTerminal: entry?.inTerminal || null });
     for (const item of items || []) tab.render(item, { replay: true });
     // A branch from before a message opens with it back in the box (branching.js).
@@ -62,6 +70,7 @@
   api.onWorkflows(view => SB.applyWorkflows(view));
   api.onWorkflowRun(summary => SB.onWorkflowRun(summary));
   api.onWorkflowOpen(runId => SB.views.workflows.openRun(runId));
+  api.onNotes(v => { state.notes = v; if (state.view === 'notes') SB.views.notes.refresh(); });
   api.onAttach(files => {
     if (SB.isCrabOnly()) return SB.claudeUpsell('files');
     if (state.view !== 'onboarding') SB.setView('chat');
@@ -115,6 +124,7 @@
     for (const tab of state.tabs.values()) tab.destroy();
     state.tabs.clear();
     state.activeTab = null;
+    state.grid = [];
     Object.assign(state, { toolbox: demo.toolbox ?? state.toolbox, routines: demo.routines ?? state.routines, learned: demo.learned ?? [], pinned: demo.pinned ?? [] });
     for (const t of demo.tabs) {
       const tab = SB.ensureTab({ id: t.id, title: t.title, cwd: t.cwd, saved: true, busy: t.busy, pending: t.pending, crew: t.crew, outcome: t.outcome, unread: t.unread, routineId: t.routineId });
@@ -135,14 +145,35 @@
 
   // ------------------------------------------------------------ boot
 
-  (async function init() {
-    const b = await api.bootstrap();
+  // What the panel page starts from, in the panel or a popped-out window (main's ipc/panel.js panelView).
+  function adopt(b) {
     Object.assign(state, {
       settings: b.settings, status: b.status, skins: b.skins, skin: b.skin, outfit: b.outfit, sessions: b.sessions,
       home: b.home, version: b.version, packaged: b.packaged, models: b.models, cwd: b.cwd, registryUrl: b.registryUrl,
       toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines, updates: b.updates, claudeUpdate: b.claudeUpdate,
       snippets: b.snippets || [],
     });
+  }
+
+  // A popped-out window: one conversation, picked up as it stands, nothing else.
+  async function initSolo() {
+    const b = await api.popoutBootstrap();
+    if (!b) return; // its conversation closed on the way; main closes the window
+    adopt(b);
+    SB.applyMode(state.settings.mode);
+    SB.applyEffort?.();
+    SB.renderCrabs();
+    const tab = SB.ensureTab(b.tab);
+    for (const item of b.items) tab.render(item, { replay: true });
+    SB.takeCarry(tab, b.carry);
+    SB.activate(tab.id);
+    SB.setView('chat');
+  }
+
+  (async function init() {
+    if (SB.solo) return initSolo();
+    const b = await api.bootstrap();
+    adopt(b);
     if (b.outlook) SB.applyOutlook(b.outlook);
     SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear
     $('settingsFolder').textContent = b.cwd;

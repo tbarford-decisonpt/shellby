@@ -41,6 +41,7 @@ const { registerTriesIpc } = require('./tries');
 const { registerCorrectionsIpc } = require('./corrections');
 const { registerStartFromIpc } = require('./startfrom');
 const { registerBacklogIpc } = require('./backlog');
+const { registerNotesIpc } = require('./notes');
 const { registerCrewIpc } = require('./crew');
 const { registerReleasesIpc } = require('../projects/releases-ipc');
 
@@ -54,6 +55,7 @@ function registerIpc(electronIpcMain, d) {
   const ipcMain = guardIpc(electronIpcMain, windowPolicy(() => ({
     panel: d.panel && !d.panel.isDestroyed() ? d.panel.webContents : null,
     critter: d.critter && !d.critter.isDestroyed() ? d.critter.webContents : null,
+    isPopout: wc => !!d.isPopout?.(wc),
     isToy: wc => !!d.playtime?.isToy(wc),
     isFloor: wc => !!d.floor?.isFloor(wc),
     isNote: wc => !!d.pranks?.isNote(wc),
@@ -117,6 +119,7 @@ function registerIpc(electronIpcMain, d) {
   // ---- history (ipc/history.js)
   registerHistoryIpc(ipcMain, {
     history: d.history, manager: d.manager, openTab: d.openTab, log,
+    isPoppedOut: id => d.isPoppedOut(id), showPopout: id => d.showPopout(id),
     onCleared: () => d.usagePlan.clear(), // what each turn cost goes with the conversations
     confirmClear: async (count, openCount) => {
       const r = await dialog.showMessageBox(d.panel, {
@@ -183,6 +186,7 @@ function registerIpc(electronIpcMain, d) {
   registerCorrectionsIpc(ipcMain, d);
   registerStartFromIpc(ipcMain, d);
   registerBacklogIpc(ipcMain, d);
+  registerNotesIpc(ipcMain, d);
   registerCrewIpc(ipcMain, d);
   registerReleasesIpc(ipcMain, d);
 }

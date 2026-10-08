@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const focus = require('../focus');
 const workmode = require('../workmode');
-const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS } = require('../friends');
+const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS, syncable: friendsSyncable } = require('../friends');
 const bugdex = require('../bugdex');
 const gifts = require('../gifts');
 const { TokenStore } = require('../github/auth');
@@ -20,6 +20,7 @@ const { GitHubService } = require('../github/service');
 const { SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('../marketplace');
 const shells = require('../shells');
 const stickers = require('../stickers');
+const syncPrefs = require('../sync-prefs');
 const tankShare = require('../tank-share');
 const voice = require('../voice');
 const { KNOWN_ACHIEVEMENTS } = require('../wardrobe/achievements');
@@ -47,28 +48,39 @@ function wireGithub(d) {
       config: d.config,
       store: new TokenStore(path.join(app.getPath('userData'), 'github.bin'), safeStorage),
       ...githubEndpoints(),
-      onSynced: () => { d.broadcastWardrobe(); d.send(d.panel, 'xp', d.xpView()); d.send(d.panel, 'homes', d.homesView()); d.send(d.panel, 'stickers', d.stickersView()); d.refreshStatusLine(); },
+      onSynced: before => {
+        d.broadcastWardrobe(); d.send(d.panel, 'xp', d.xpView()); d.send(d.panel, 'homes', d.homesView()); d.send(d.panel, 'stickers', d.stickersView()); d.refreshStatusLine();
+        d.settingsSynced?.(before);
+        // A friend added on another PC needs their card fetched here.
+        if (d.friends && friendsChanged(d.config.data, before)) { d.friends.emit('change', d.friends.view()); d.friends.refresh().catch(() => {}); }
+      },
     });
     d.github.on('change', v => d.send(d.panel, 'github', v));
     d.github.on('signed-in', v => d.send(d.panel, 'github:signed-in', v));
     d.github.on('error', message => d.send(d.panel, 'github:error', message));
-    // Outfit and color changes are stamped so sync keeps the newest, and shared soon.
+    // Outfit, color and settings changes are stamped so sync keeps the newest, and shared soon.
     d.config.onSet = (patch, prev) => {
       if ('syncStamps' in patch) return; // a sync writing back, not you
       const stamps = { ...(prev.syncStamps || {}) };
       let changed = false;
       if ('skin' in patch && patch.skin !== prev.skin) { stamps.skinAt = Date.now(); changed = true; }
       if (patch.wardrobe && JSON.stringify(patch.wardrobe.outfit) !== JSON.stringify(prev.wardrobe?.outfit)) { stamps.outfitAt = Date.now(); changed = true; }
+      const prefsChanged = syncPrefs.changedKeys(patch, prev);
+      if (prefsChanged.length) { stamps.prefs = { ...stamps.prefs }; for (const k of prefsChanged) stamps.prefs[k] = Date.now(); changed = true; }
       if (changed) d.config.set({ syncStamps: stamps });
       const stickersMoved = 'stickers' in patch && JSON.stringify(stickers.syncable(patch.stickers)) !== JSON.stringify(stickers.syncable(prev.stickers));
       const tankMoved = 'tank' in patch && JSON.stringify(tankShare.syncable(patch.tank)) !== JSON.stringify(tankShare.syncable(prev.tank));
-      if (changed || stickersMoved || tankMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
+      const friendsMoved = 'friends' in patch && friendsChanged(patch, prev);
+      if (changed || stickersMoved || tankMoved || friendsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
     };
     d.github.schedule();
     if (d.github.can('sync')) setTimeout(() => d.github.sync().catch(() => {}), 30 * 1000);
     d.profileCard = new ProfileCard({ config: d.config, github: d.github });
     d.prBadge = new prBadges.PrBadge({ config: d.config, github: d.github, level: d.currentLevel, web: githubEndpoints().web });
   }
+
+  // Who's on the friends list (or was removed) differs: not a card fetch or a visit.
+  const friendsChanged = (now, before) => JSON.stringify(friendsSyncable(now.friends)) !== JSON.stringify(friendsSyncable(before.friends));
 
   // ---- CI on your pull requests
 

@@ -21,7 +21,7 @@
 body.crab-only .tabstrip, body.crab-only .subbar, body.crab-only .mode-chip,
 body.crab-only [data-view-btn="chat"], body.crab-only [data-view-btn="toolbox"], body.crab-only [data-view-btn="routines"],
 body.crab-only [data-view-btn="workflows"], body.crab-only [data-view-btn="projects"],
-body.crab-only [data-view-btn="history"] { display: none !important; }
+body.crab-only [data-view-btn="history"], body.crab-only [data-view-btn="notes"] { display: none !important; }
 /* the Bugdex is only Claude's work, so its tab and page go too (Finds stays) */
 body.crab-only .shellby-tabs [data-goto="bugdex"], body.crab-only .view-bugdex { display: none !important; }
 

@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="../shared/fonts.css">
 <link rel="stylesheet" href="panel.css">
 <link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="notes.css">
 <link rel="stylesheet" href="shop.css">
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
@@ -48,6 +49,7 @@
       <span class="brand-xp" aria-hidden="true"><i id="brandXp"></i></span>
     </button>
     <button type="button" class="brand-level" id="brandLevel" hidden></button>
+    <span class="win-title" id="winTitle"></span>
     <button class="mode-chip" id="modeChip" type="button" aria-haspopup="menu" title="Permission mode (Shift+Tab in the message box cycles it)" aria-keyshortcuts="Shift+Tab">
       <span class="mode-dot"></span><span id="modeLabel">Ask</span>
       <svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
@@ -64,7 +66,10 @@
       <button type="button" id="minBtn" class="icon-btn" title="Minimize" aria-label="Minimize">
         <svg viewBox="0 0 16 16"><path d="M4 8.5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
-      <button type="button" id="closeBtn" class="icon-btn close" title="Hide (Esc)" aria-label="Hide">
+      <button type="button" id="maxBtn" class="icon-btn" title="Maximize or restore (double-click the title bar)" aria-label="Maximize or restore">
+        <svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+      <button type="button" id="closeBtn" class="icon-btn close" title="Hide" aria-label="Hide">
         <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
     </div>
@@ -112,6 +117,12 @@
       <span class="meter" id="meter5h"><span class="meter-label">5h</span><span class="meter-track"><span class="meter-fill"></span></span></span>
       <span class="meter" id="meter7d"><span class="meter-label">7d</span><span class="meter-track"><span class="meter-fill"></span></span></span>
     </button>
+    <button type="button" class="icon-btn pop-btn" id="splitBtn" title="Split: another conversation alongside (Ctrl+\)" aria-label="Split" aria-keyshortcuts="Control+\">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 3v10" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+    <button type="button" class="icon-btn pop-btn" id="popOutBtn" title="Open this conversation in its own window (or drag its tab out)" aria-label="Open in its own window">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .4-.4.8-.8.8H3.3c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8h3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </div>
 
   <div class="popover" id="modeMenu" role="menu" hidden></div>
@@ -129,10 +140,11 @@
   <div class="popover" id="blMenu" role="menu" hidden></div>
   <div class="popover" id="snipMenu" role="menu" hidden></div>
   <div class="popover text-menu" id="textMenu" role="menu" aria-label="Text" hidden></div>
+  <div class="popover" id="noteMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
-    <div class="feeds" id="feeds"></div>
+    <div class="feeds" id="feeds" data-panes="1"></div>
 
     <footer class="composer" id="composer">
       <div class="status" id="status" hidden>
@@ -392,6 +404,21 @@
       <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby asks each project's own package manager what's outdated and vulnerable (npm, pnpm and Yarn, <code>pip-audit</code>, <code>cargo-audit</code>, Go and <code>govulncheck</code>), which asks their registries about its packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
       <ul class="dw-list" id="depWatchList"></ul>
     </section>
+  </main>
+
+  <!-- ====================== NOTES ====================== -->
+  <main class="view view-notes" id="notesView">
+    <div class="view-head">
+      <h2>Notes</h2>
+      <select class="field slim notes-scope" id="notesScope" aria-label="Which list"></select>
+    </div>
+    <p class="view-lede">Things you'd like to do. When you're ready, have Claude plan one, build it, or tell you whether it's worth doing.</p>
+    <form class="note-add" id="noteAdd">
+      <textarea class="field area" id="noteInput" rows="2" maxlength="2000" placeholder="Add a note… (Enter to save, Shift+Enter for a new line)" aria-label="New note"></textarea>
+      <button type="submit" class="btn primary slim-btn">Add</button>
+    </form>
+    <p class="notes-where" id="notesWhere"></p>
+    <ul class="note-list" id="noteList"></ul>
   </main>
 
   <!-- ====================== HEALTH ====================== -->
@@ -1575,6 +1602,13 @@
           <p class="small" id="billingGuardText">If an API key or another provider (Bedrock, Vertex, Foundry) is set on this PC, Claude Code bills that, per token, instead of your Pro or Max plan. Turn this on and Shellby leaves them out, so every conversation runs on your plan. Applies to new conversations.</p>
           <p class="small" id="billingEnvNote" hidden></p>
         </div>
+        <label class="toggle"><input type="checkbox" id="selfAwareToggle"><span class="switch"></span>Tell Claude it's running in Shellby</label>
+        <label class="toggle"><input type="checkbox" id="suggestToggle"><span class="switch"></span>Let Claude offer Shellby features</label>
+        <p class="small muted">Claude gets a short note about Shellby and can make him talk, celebrate or dress up. The note never changes, so Claude Code caches it and it costs very little of your plan. When your usage passes 80%, Claude is told so it can keep things lean. Offers show up as cards and nothing happens unless you tap them. Changes apply to new conversations.</p>
+        <div class="row wrap" id="mutedSuggestRow" hidden>
+          <span class="small muted" id="mutedSuggestText"></span>
+          <button type="button" class="btn slim-btn" id="unmuteSuggestBtn">Offer them again</button>
+        </div>
       </section>
 
       <section class="setting-group" data-nav="Mode">
@@ -1755,7 +1789,7 @@
           </div>
           <p class="small muted gh-wait"><span class="gh-dot"></span>Waiting for you to approve it on GitHub…</p>
         </div>
-        <label class="toggle"><input type="checkbox" id="ghSync"><span class="switch"></span>Sync trophies, XP, outfit and streak between PCs (a private gist)</label>
+        <label class="toggle"><input type="checkbox" id="ghSync"><span class="switch"></span>Sync trophies, XP, outfit, streak, friends and settings between PCs (a private gist)</label>
         <div class="gh-sync" id="ghSyncRow" hidden>
           <p class="small ext-status" id="ghSyncStatus"></p>
           <button type="button" class="btn ghost slim-btn" id="ghSyncNow">Sync now</button>
@@ -2044,6 +2078,10 @@
       <span>Projects</span>
       <i class="dot-badge" id="projectsBadge" hidden></i>
     </button>
+    <button type="button" class="dock-btn" data-view-btn="notes" aria-keyshortcuts="Control+8">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4zM10 2.5V5h2.5M6 8h4.5M6 10.5h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Notes</span>
+    </button>
     <!-- Someone new: the rooms still to open (rooms.js) -->
     <button type="button" class="dock-btn dock-more" id="dockMore" hidden>
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v9.6M3.2 8h9.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -2168,6 +2206,8 @@
   </div>
 
   <div class="toast" id="toast" role="status"></div>
+  <!-- where a dragged tab will land in the chat view (tab-panes.js) -->
+  <div class="drop-hint" id="dropHint" aria-hidden="true" hidden></div>
   <p class="sr-only" id="announcer" role="status" aria-live="polite"></p>
 
 <script src="../shared/framecap.js"></script>
@@ -2179,6 +2219,7 @@
 <script src="../shared/outlook-format.js"></script>
 <script src="../shared/time-format.js"></script>
 <script src="../shared/streaks-format.js"></script>
+<script src="../shared/panes.js"></script>
 <script src="shortcuts.js"></script>
 <script src="core.js"></script>
 <script src="a11y.js"></script>
@@ -2196,6 +2237,7 @@
 <script src="tab-logic.js"></script>
 <script src="tabs.js"></script>
 <script src="tab-strip.js"></script>
+<script src="tab-panes.js"></script>
 <script src="tab-send.js"></script>
 <script src="tab-queue.js"></script>
 <script src="slash-menu.js"></script>
@@ -2234,6 +2276,7 @@
 <script src="wf-save.js"></script>
 <script src="workflows.js"></script>
 <script src="settings-text.js"></script>
+<script src="notes.js"></script>
 <script src="settings.js"></script>
 <script src="settings-account.js"></script>
 <script src="settings-everywhere.js"></script>

@@ -111,6 +111,12 @@
     $('chatterSelect').value = ['quiet', 'work', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('workModeToggle').checked = !!SB.isWorkMode?.();
     $('soundsToggle').checked = !!state.settings.sounds;
+    $('selfAwareToggle').checked = state.settings.selfAware !== false;
+    $('suggestToggle').checked = state.settings.suggestions !== false;
+    $('suggestToggle').disabled = state.settings.selfAware === false;
+    const muted = state.settings.mutedSuggestions || [];
+    $('mutedSuggestRow').hidden = !muted.length;
+    $('mutedSuggestText').textContent = `${muted.length} ${muted.length === 1 ? 'feature' : 'features'} Claude won't offer.`;
     $('soundFxToggle').checked = !!state.settings.soundFx;
     $('ambientSelect').value = ['off', 'surf', 'tidepool'].includes(state.settings.ambient) ? state.settings.ambient : 'off';
     $('soundVolumeSelect').value = [25, 60, 100].includes(state.settings.soundVolume) ? String(state.settings.soundVolume) : '60';
@@ -169,6 +175,12 @@
     SB.toast(state.settings.mode === 'autonomous' ? 'Autonomous mode on. Be careful out there.' : 'Autonomous mode stays off.');
   });
   $('autonomousNo').addEventListener('click', () => { $('autonomousConfirm').hidden = true; });
+  // Changed on another PC, and brought over by a sync.
+  api.onSettings(s => {
+    state.settings = s;
+    SB.applyMode(s.mode);
+    if (state.view === 'settings') renderSettings();
+  });
   $('changeFolderBtn').addEventListener('click', async () => { await SB.folderChanged(await api.pickFolder()); renderSettings(); });
   $('resetPosBtn').addEventListener('click', () => { api.resetCritterPosition(); SB.toast('Shellby is back in the bottom-right corner of your main screen.'); });
   $('scaleSelect').addEventListener('change', async e => { const r = await api.setSettings({ critterScale: Number(e.target.value) }); state.settings = r.settings; });
@@ -242,6 +254,9 @@
     box.checked = !!state.settings.pushToTalk;
     if (r.pushToTalkError) $('hotkeyMsg').textContent = r.pushToTalkError;
   });
+  $('selfAwareToggle').addEventListener('change', async e => { const r = await api.setSettings({ selfAware: e.target.checked }); state.settings = r.settings; renderSettings(); });
+  $('suggestToggle').addEventListener('change', async e => { const r = await api.setSettings({ suggestions: e.target.checked }); state.settings = r.settings; });
+  $('unmuteSuggestBtn').addEventListener('click', async () => { state.settings.mutedSuggestions = await api.muteSuggestion(null); renderSettings(); });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });

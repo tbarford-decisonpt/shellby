@@ -65,6 +65,63 @@ body.reordering .tab { cursor: grabbing; }
 body.reordering .tab-x { opacity: 0; pointer-events: none; }
 body.reordering .tip { display: none; }
 .tab.dragging { background: var(--reef-2); color: var(--sand); opacity: .6; }
+/* On screen in another pane: lit, but not the one you're typing to. */
+.tab.shown { background: var(--reef); color: var(--sand); }
+
+/* ================================================================ panes
+   Conversations side by side, or in a 2x2 grid. Each pane is a header row and
+   a feed (tab-panes.js places them); the focused one, which the composer talks to,
+   is outlined. A lone pane has no header and looks as it always did. */
+.feeds:not([data-panes="1"]) { gap: 0 6px; padding: 6px 6px 0; }
+.feeds[data-panes="1"] .pane-head { display: none; }
+.feeds:not([data-panes="1"]) .feed {
+  padding: 12px 12px 6px; margin-bottom: 6px;
+  border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 var(--r-sm) var(--r-sm);
+}
+.feeds:not([data-panes="1"]) .feed.focused { border-color: var(--glass); }
+.pane-head {
+  display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 2px 0 10px;
+  background: var(--abyss); border: 1px solid var(--line-soft); border-radius: var(--r-sm) var(--r-sm) 0 0;
+  color: var(--sand-dim); font-size: 12px; cursor: grab; user-select: none;
+}
+.pane-head.focused { color: var(--sand); border-color: var(--glass); box-shadow: inset 0 2px 0 var(--glass); }
+.pane-state:empty { display: none; }
+.pane-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-btn {
+  flex: none; width: 24px; height: 22px; border: 0; border-radius: 5px; background: none;
+  color: var(--sand-faint); display: grid; place-items: center;
+}
+.pane-btn:hover { background: var(--reef-3); color: var(--sand); }
+.pane-btn:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.pane-btn svg { width: 14px; height: 14px; }
+body.reordering .pane-head { cursor: grabbing; }
+
+/* Where a tab dragged into the chat will land. */
+.drop-hint {
+  position: fixed; z-index: 30; pointer-events: none;
+  border: 2px solid var(--glass); border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--glass) 14%, transparent);
+  transition: left .08s, top .08s, width .08s, height .08s;
+}
+
+/* Split and pop-out, at the right end of the bar under the tabs. */
+.pop-btn { width: 26px; height: 24px; margin-left: auto; }
+.usage:not([hidden]) ~ .pop-btn, .pop-btn + .pop-btn { margin-left: -8px; }
+.pop-btn svg { width: 15px; height: 15px; }
+
+/* ================================================================ a popped-out conversation
+   The panel page with the chat alone (SB.solo): no strip, dock or screens, and
+   the conversation's title in the title bar. */
+.win-title { display: none; }
+body.solo { --dock-h: 0px; }
+body.solo .win-title {
+  display: block; flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--sand-dim);
+}
+body.solo .brand { pointer-events: none; }
+body.solo .brand-name, body.solo .brand-xp, body.solo .brand-level,
+body.solo .tabstrip, body.solo .dock, body.solo .usage, body.solo .pop-btn,
+body.solo #paletteBtn, body.solo #settingsBtn, body.solo .win-btns .sep { display: none; }
 .tab-add {
   flex: none; width: 28px; height: 28px; margin-bottom: 2px; border: 0; border-radius: var(--r-sm);
   background: none; color: var(--sand-dim); display: grid; place-items: center;

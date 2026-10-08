@@ -71,7 +71,7 @@
         if (near || this.el.scrollTop < this.lastTop) this.stuck = near;
         this.lastTop = this.el.scrollTop;
       }, { passive: true });
-      this.resizer = new ResizeObserver(() => { if (this.stuck && this.isActive) this.scrollToEnd(); });
+      this.resizer = new ResizeObserver(() => { if (this.stuck && this.isShown) this.scrollToEnd(); });
       this.resizer.observe(this.el);
     }
 
@@ -108,7 +108,7 @@
       const follow = this.stuck || this.distanceFromEnd() < 140;
       host.append(el);
       if (host === this.el) this.trim();
-      if (follow && this.isActive) this.scrollToEnd();
+      if (follow && this.isShown) this.scrollToEnd();
       return el;
     }
 
@@ -151,6 +151,7 @@
     }
 
     get isActive() { return state.activeTab === this.id; }
+    get isShown() { return SB.isShown(this.id); }   // in a pane, focused or not (tab-panes.js)
 
     setStatus(text) {
       this.statusText = text;
@@ -197,6 +198,7 @@
         case 'surprise': return this.append(h('div', { class: `home-mark surprise-mark ${item.what === 'landing' ? 'landing' : 'crit'}` },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: item.what === 'landing' ? '🛬' : '🎲' }),
           h('span', {}, h('b', { text: item.title || (item.what === 'landing' ? 'Clean landing' : 'Critical hit!') }), ` ${item.text || ''}`)));
+        case 'suggest': return this.renderSuggestion(item, replay); // feed-asks.js
         case 'handoff': return this.renderHandoff(item, replay);
         case 'branched': return this.renderBranched(item);
         case 'branched-off': return this.renderBranchedOff(item);
