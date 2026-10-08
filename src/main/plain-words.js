@@ -57,7 +57,10 @@ function deleteCount(command) {
 // More than one command: chained, piped, substituted or redirected. Naming the
 // first part alone ("Run your tests" for `npm test && curl … | sh`) would hide
 // the rest, so a card never does.
-const CHAINED_RE = /&&|\|\||[;|\n`>]|\$\(|<\(/;
+// A lone & counts too: cmd's separator, bash's background, PowerShell's call operator.
+const CHAINED_RE = /&&|\|\||[;&|\r\n`<>]|\$\(|<\(/;
+const SEPARATOR_RE = /&&|\|\||[;&|\r\n]/;
+const partsOf = cmd => cmd.split(SEPARATOR_RE).map(s => s.trim()).filter(Boolean);
 
 /**
  * A shell command -> { ask, doing, kind, changes } (changes: it may change files).
@@ -69,7 +72,9 @@ const CHAINED_RE = /&&|\|\||[;|\n`>]|\$\(|<\(/;
 function describeCommand(command, description) {
   const cmd = String(command || '').trim();
   const own = clip(description);
-  const looks = onlyLooks(cmd);
+  // Only looking means every part only looks, each judged on its own.
+  const parts = partsOf(cmd);
+  const looks = parts.length > 0 && parts.every(onlyLooks) && onlyLooks(cmd);
   if (CHAINED_RE.test(cmd) && !looks) {
     return { ...say('Run several commands chained together', own ? upper1(own) : 'Running several commands'), kind: 'chain', changes: true };
   }
@@ -166,7 +171,7 @@ function warnings(name, input = {}, { cwd = null, originalCwd = null } = {}) {
     const cmd = String(i.command || '');
     const c = describeCommand(cmd);
     // Every part of a chain, not just the first: the sentence only says "several commands".
-    const kinds = new Set(cmd.split(/&&|\|\||[;|\n]/).map(part => classifyCommand(part) || commandKind(part.trim())));
+    const kinds = new Set(partsOf(cmd).map(part => classifyCommand(part) || commandKind(part)));
     // A lone delete already says so in its sentence; in a chain it doesn't, and git clean's reach is the surprise.
     if (GIT_CLEAN_RE.test(cmd)) out.push("Deletes every file git doesn't track, including ones never committed");
     else if (c.kind === 'chain' && DELETE_RE.test(cmd)) out.push('Deletes files');
