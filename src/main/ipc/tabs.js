@@ -11,6 +11,8 @@ const { run: runCli, skipSettings } = require('../claude-cli');
 // The most queued messages that go in at once, and files across all of them (as one task:send).
 const MAX_STEERS = 20;
 const MAX_STEER_FILES = 20;
+// What Claude is told when you say no: a reason, or your notes on its plan.
+const MAX_DENY_MESSAGE = 4000;
 
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
@@ -133,7 +135,8 @@ function registerTabsIpc(ipcMain, d) {
     const clean = answers && typeof answers === 'object' && !Array.isArray(answers)
       ? Object.fromEntries(Object.entries(answers).slice(0, 10).filter(([q, a]) => d.isStr(q) && typeof a === 'string'))
       : undefined;
-    return d.answerPermission(tabId, requestId, decision, { message: typeof message === 'string' ? message.slice(0, 500) : undefined, answers: clean });
+    // Up to a page: notes on a plan go back to Claude as the reason it wasn't approved (feed-logic.js planNotesMessage).
+    return d.answerPermission(tabId, requestId, decision, { message: typeof message === 'string' ? message.slice(0, MAX_DENY_MESSAGE) : undefined, answers: clean });
   });
 
   // ---- what a turn changed

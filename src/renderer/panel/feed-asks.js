@@ -10,6 +10,8 @@
     // ------------------------------------------------------------ permission cards
     renderAsk(item, replay) {
       if (item.toolName === 'AskUserQuestion' && item.questions?.length) return this.renderQuestion(item, replay);
+      // A plan gets a card of its own: notes on its lines, sent back together (feed-native.js).
+      if (item.toolName === 'ExitPlanMode' && this.renderPlanAsk) return this.renderPlanAsk(item, replay);
       const isPlan = item.toolName === 'ExitPlanMode';
       const always = item.suggestions?.[0];
       const persistent = always && always.destination && always.destination !== 'session';
@@ -185,7 +187,8 @@
       const card = this.asks.get(item.requestId);
       if (!card || card.classList.contains('decided')) return;
       card.classList.add('decided');
-      if (card.classList.contains('question')) {
+      if (card.classList.contains('plan-card')) this.markPlanDecision(card, item);
+      else if (card.classList.contains('question')) {
         // Show what was answered instead of "Allowed".
         const v = F.questionVerdict(item.decision, card.answers);
         card.querySelectorAll('button, input').forEach(el => { el.disabled = true; });

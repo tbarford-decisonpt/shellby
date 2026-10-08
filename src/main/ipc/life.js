@@ -47,6 +47,9 @@ function registerLifeIpc(ipcMain, d) {
   // The badge for background work: straight to the list that says what it was.
   ipcMain.on('critter:bg-click', () => {
     d.reachedForShellby();
+    // One of Shellby's own conversations left it running: that conversation, where its tray says what it is.
+    const job = d.manager?.aggregate.jobs?.[0];
+    if (job) return d.showPanel({ focusInput: false, tabId: job.tabId });
     d.showPanel({ focusInput: false });
     d.send(d.panel, 'panel:view', 'settings');
     d.send(d.panel, 'panel:jump', 'Everywhere');

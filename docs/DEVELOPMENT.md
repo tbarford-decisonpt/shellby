@@ -16,6 +16,9 @@ claude -p --input-format stream-json --output-format stream-json --verbose
 - **Stop** sends an `interrupt` control request, and falls back to killing the process tree if the CLI doesn't wind down.
 - **Mode changes** mid-conversation send `set_permission_mode`.
 - **Subagents** come through as `task_started` / `task_progress` / `task_notification` system events. Their messages carry `parent_tool_use_id`, the Agent call that spawned them, and their permission prompts carry `agent_id`, which equals the `task_id`. That's all it takes to route every event, prompt and helper crab to the right lane.
+- **Background commands and watches** (`Bash { run_in_background }`, `Monitor`) come through as the same `task_*` events with `task_type: "local_bash"` (helpers are `local_agent`), and only `task_started` says the type, so later events are known by their task id (jobs.js). A command's exit code is only in `task_notification`'s summary. Stop sends a `stop_task` control request, as Claude Code's own TaskStop does. A helper sent another message (`SendMessage`) starts again under that call's id while its messages keep the first Agent call's.
+- **Claude's own to-do list** is its `TaskCreate` / `TaskUpdate` calls (`TodoWrite` in older versions); the new to-do's id comes back in `TaskCreate`'s result (shared/todos.js).
+- **Cloud routines** (`/schedule`) are listed and run by a one-off `claude -p` that may only call Claude Code's RemoteTrigger tool (Haiku, no MCP servers, no settings, a 5¢ cap); Shellby reads the tool's own result out of the stream (cloud-routines.js). The ultra review (`/code-review ultra`) opens in a terminal, where Claude Code's launch dialog asks first.
 - **The toolbox** merges the skills, agents, commands and MCP servers reported in Claude Code's `init` event with a scan of `~/.claude` and the project's `.claude/`. A file watcher on those folders is how Shellby notices new tricks.
 - **Billing safety:** Shellby never sees your Claude sign-in. You log in to the official, unmodified Claude Code CLI yourself, and Shellby only reads `claude auth status` to show which account and plan it's on. Claude Code gets the environment as it is on your PC, so if `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` or a Bedrock/Vertex/Foundry switch is set, Settings warns that it may bill that instead. **Always use my Claude plan** leaves them all out. Usage counts against your plan's normal limits, exactly as if you'd typed the task into a terminal.
 
@@ -62,6 +65,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `node scripts/e2e-editor.js [folder]` | An edit's permission card shows its diff with line numbers, the tool row folds open to it, a path in a reply becomes a link (checked, never clicked), Ctrl+F counts and steps through matches, Ctrl+= zooms, Ctrl+Shift+P opens the palette, and Settings → Editor says what Automatic means. Screenshots go in `[folder]` |
 | `node scripts/e2e-panes.js [--shots <dir>]` | Conversations side by side and in their own windows: Split puts one beside another, dragging a tab into the chat splits a pane and fills a 2x2 grid, a click picks which pane the box talks to, a tab dragged out gets a window of its own with its conversation and what was typed, and its × hands it back |
 | `node scripts/e2e-notes.js` | Notes: a list per project plus a General one; adding, editing, ticking off, moving between lists and deleting, and Plan / Build / Ask each opening a task in the right folder, in the right mode, with the right prompt |
+| `node scripts/e2e-native.js [folder]` | What Claude Code does by itself, made visible, with the fake CLI and a throwaway Claude config folder: its to-do list above the box ticking over, a command left running (the tray, its output, Stop, the crab's badge, done and failed), a plan with a note on one line sent back whole and then approved (the crab's "plan?"), Claude switching itself to planning, a skill's first use and what it's for, a memory written down, listed in Toolbox → Memory and forgotten, the effort and thinking beside a turn's cost, a helper messaged again (one lane, both answers, the message on the desktop) and cloud routines on the Routines page. Screenshots go in `[folder]` |
 | `node scripts/e2e-questions.js` | Claude's multiple-choice questions: a real question card, number keys, multi-select and your own words, Skip, and exactly what Claude receives |
 | `node scripts/e2e-feed-cap.js` | A very long conversation stops growing the DOM: 3,600 blocks pumped through one tab, the cap holds, the tool and lane maps let go with the elements, a result for a long-trimmed tool is ignored, and replay is capped too |
 | `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
@@ -295,6 +299,7 @@ src/main/        Electron main process
     quit.js          what quitting stops, in order
     popouts.js       a conversation in a window of its own, and handing it back to the panel
     notes.js         Notes: Plan, Build and Ask open a task in the right folder and mode
+    native.js        the crab noticing what Claude Code does by itself: to-dos ticked off, a background command done, a memory, a skill's first use
   ipc/             the panel's and crab's IPC handlers, one module per area: `registerXIpc(ipcMain, shared)`;
                    index.js registers them all behind the window check (ipc-guard.js)
   sessions.js      parallel conversations (tabs) + the critter's rolled-up mood
@@ -335,7 +340,10 @@ src/main/        Electron main process
   focus.js         focus sessions: focus, break, and what a restart picks up
   limits.js        usage limits: when one is reached, when it resets
   forecast.js      the 5-hour window's pace (pure): when it fills, and whether that's worth a warning
-  turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge
+  turncost.js      what a turn and a tab cost (pure): tokens, share of the 5-hour window, the costliest turns, the crowded nudge, the effort and thinking badge
+  jobs.js          commands and Monitor watches Claude left running in the background (pure): the tray above the box and the crab's badge
+  automemory.js    Claude Code's auto memory for a project: listing it, fixing one, forgetting one (Toolbox → Memory), and noticing a new one
+  cloud-routines.js Claude Code's cloud routines (/schedule) through a one-off RemoteTrigger call: the list, a routine's runs, Run now
   held.js          messages and routine runs held for after the usage reset (pure list ops; held-service.js sends them)
   usage-ledger.js  what each turn cost (pure): the per-turn ledger, a prompt's kind of ask, and the estimate the
                    composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate
@@ -380,7 +388,8 @@ src/main/        Electron main process
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   critter/         the desktop crab: critter.js (moods, bubble, habits, how he works: src/main/work-pose.js picks the pose) · beats.js (the beats between moods, nodding off and waking, a question left waiting) · sound.js (the WebAudio engine: volume, footsteps, bumps, ta-das) · chirp.js (his voice) · ambient.js (surf, rock pool); none use audio files, and main decides what may play (src/main/sounds.js)
-  panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · files (file links, an edit's diff, zoom) · find (Ctrl+F) · feed (crew lanes) · tabs · tab-panes (split and pop-out) · notes · bugdex · bugdex-battle · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · moment-card (one 1200×630 card per moment) · sparkle (the sparkly reveal) · tide (tide events) · social (swaps and eggs) · celebrate · crabonly · workmode · outfitcode · github · boot
+  shared/todos.js  Claude's own to-do list folded from a conversation's items (pure; main and the panel both use it)
+  panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · files (file links, an edit's diff, zoom) · find (Ctrl+F) · feed (crew lanes) · feed-native (messages between agents, skills, memories, the plan card) · native-strip (the to-do list and background tray above the box) · toolbox-automemory · routines-cloud · tabs · tab-panes (split and pop-out) · notes · bugdex · bugdex-battle · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · moment-card (one 1200×630 card per moment) · sparkle (the sparkly reveal) · tide (tide events) · social (swaps and eggs) · celebrate · crabonly · workmode · outfitcode · github · boot
                    a big screen is a file per part (tab-strip, tab-send, feed-asks, settings-account, health-gauges…), and its words and decisions live in a pure module beside it with node:test coverage (tab-logic, feed-logic, settings-text, health-logic, projects-logic, tab-sort)
   shared/          used by more than one window or by tests too: framecap, workposes (what he holds for each work pose, and how long a pose stays up; the OBS overlay uses it too), diff (an edit's red and green lines), panes (the split grid; pure)
 src/skins/       built-in skins (JSON pixel grids)

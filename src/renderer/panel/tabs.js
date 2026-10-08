@@ -47,6 +47,9 @@
       nudge: summary.nudge !== undefined ? summary.nudge : tab.nudge || null,
       inTerminal: summary.inTerminal !== undefined ? summary.inTerminal : tab.inTerminal || null,
       effort: summary.effort ?? tab.effort, effortBy: summary.effortBy !== undefined ? summary.effortBy : tab.effortBy || null, // the effort chip
+      // What it left running in the background (main's jobs.js), and whether Claude is planning.
+      jobs: Array.isArray(summary.jobs) ? summary.jobs : tab.jobs || [],
+      planning: summary.planning !== undefined ? !!summary.planning : !!tab.planning,
     });
     return tab;
   };

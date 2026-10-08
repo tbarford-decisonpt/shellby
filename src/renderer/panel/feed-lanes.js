@@ -21,7 +21,9 @@
         h('summary', { class: 'lane-head' },
           h('span', { class: 'lane-crab' }, SB.helperSprite(index)),
           h('span', { class: 'lane-text' },
-            h('span', { class: 'lane-title' }, h('b', { text: item.agent.description || 'Helper' }), h('span', { class: 'lane-type', text: item.agent.type }), item.agent.background ? h('span', { class: 'lane-type bg', text: 'background' }) : null),
+            h('span', { class: 'lane-title' }, h('b', { text: item.agent.description || 'Helper' }), h('span', { class: 'lane-type', text: item.agent.type }),
+              item.agent.name ? h('span', { class: 'lane-type name', title: 'Other agents write to it by this name', text: `@${item.agent.name}` }) : null,
+              item.agent.background ? h('span', { class: 'lane-type bg', text: 'background' }) : null),
             this.activity),
           this.meta,
           h('span', { class: 'lane-state', 'aria-hidden': 'true' })),
@@ -35,6 +37,8 @@
     setAsking(on) { this.el.classList.toggle('asking', on); if (on) this.el.open = true; }
 
     update(item, replay) {
+      // Sent another message after it finished (SendMessage): it's back at work in the same lane.
+      if (item.phase === 'started' && this.status !== 'running') this.reopen(replay);
       if (item.usage) this.stats = { ...this.stats, tokens: item.usage.tokens, toolUses: item.usage.toolUses };
       if (item.phase === 'progress' && item.description) this.setActivity(item.description);
       if (item.phase === 'started' && item.description) this.setActivity(replay ? item.description : 'Getting started…');
@@ -63,6 +67,21 @@
         if (first) this.activity.textContent = first;
       }
       this.tick();
+    }
+
+    reopen(replay) {
+      this.el.classList.remove('done', 'failed', 'stopped');
+      this.el.classList.add('running');
+      this.status = 'running';
+      this.finishedAt = null;
+      this.startedAt = Date.now();
+      this.stats = null;
+      this.activity.textContent = 'Picking it up again…';
+      if (!replay) this.el.open = true;
+      // Its next answer goes under the first, which stays.
+      this.summaryEl = h('div', { class: 'lane-summary', hidden: true });
+      this.el.append(this.summaryEl);
+      Lane.all.add(this);
     }
 
     tick() {

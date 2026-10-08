@@ -53,6 +53,7 @@ let stepHooks = [];   // PostToolUse ones
 let inbox = null;     // messages that came in while a "steps" turn runs, not yet read
 const REPLAY = args.includes('--replay-user-messages');
 let effort = args.includes('--effort') ? args[args.indexOf('--effort') + 1] : '';
+const bgJobs = new Map(); // task id -> { stop } for "bg" / "watch" commands still running
 
 // Like the real CLI, it keeps the conversation under <config>/projects/<folder>/<id>.jsonl,
 // so Shellby can carry it into a copy and it can carry on there. Only for a
@@ -95,11 +96,31 @@ const runInbox = () => { const rest = inbox || []; inbox = null; for (const m of
 // structured answer, then exit. Workflow drafts get a one-step workflow. The
 // editor's chat gets a scripted build: a first version that fails its test, a
 // fix, then "it worked", so a screenshot run can watch Claude iterate.
+// `claude -p "<call RemoteTrigger with {...}>" --tools RemoteTrigger` (cloud-routines.js):
+// RemoteTrigger's result as stream-json, then exit. SHELLBY_FAKE_CLOUD=signedout answers 401.
+const CLOUD = !args.includes('--json-schema') && args[args.indexOf('--tools') + 1] === 'RemoteTrigger';
+if (CLOUD) {
+  const input = JSON.parse(/\{.*\}\s*$/s.exec(args[args.indexOf('-p') + 1])[0]);
+  const routines = [
+    { id: 'trig_morning', name: 'Morning issue sweep', enabled: true, cron_expression: '0 8 * * 1-5', next_run_at: new Date(Date.now() + 3600e3).toISOString(),
+      job_config: { ccr: { session_context: { model: 'claude-sonnet-5-5', sources: [{ git_repository: { url: 'https://github.com/x-salmon/shellby' } }] }, events: [{ data: { message: { content: 'Sum up the issues opened overnight.', role: 'user' } } }] } } },
+    { id: 'trig_deps', name: 'Dependency check', enabled: false, cron_expression: '30 2 * * 0', next_run_at: null, job_config: { ccr: { session_context: {}, events: [] } } },
+  ];
+  const signedOut = process.env.SHELLBY_FAKE_CLOUD === 'signedout';
+  const body = input.action === 'list' ? { data: routines, has_more: false }
+    : input.action === 'list_runs' ? { data: [{ id: 'session_1', status: 'completed', updated_at: new Date(Date.now() - 7200e3).toISOString(), title: 'Morning issue sweep' }] }
+      : { id: 'session_2', status: 'running' };
+  const status = signedOut ? 401 : 200;
+  const json = JSON.stringify(signedOut ? { error: { message: 'unauthorized' } } : body);
+  out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_rt', name: 'RemoteTrigger', input }] }, parent_tool_use_id: null });
+  out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_rt', content: `HTTP ${status}\n${json}` }] }, tool_use_result: { status, json }, parent_tool_use_id: null });
+  out({ type: 'result', subtype: 'success', is_error: false, result: 'done' });
+}
 // `claude -p --output-format json --no-session-persistence` with the question on
 // stdin: a /btw side question (btw.js). Says which conversation it forked, so a
 // test can tell it saw the conversation. "btw fail" -> an error result;
 // "btw wait <ms>" -> answers after a delay.
-const SIDE = args.includes('--no-session-persistence') && !args.includes('--json-schema');
+const SIDE = args.includes('--no-session-persistence') && !args.includes('--json-schema') && !CLOUD;
 if (SIDE) {
   let q = '';
   process.stdin.on('data', c => { q += c; });
@@ -201,6 +222,10 @@ function onLine(line) {
     } else if (sub === 'set_permission_mode') {
       mode = msg.request.mode;
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mode } } });
+    } else if (sub === 'stop_task') {
+      // Like the real CLI: the task is killed, then the answer.
+      bgJobs.get(msg.request.task_id)?.stop();
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
     } else if (sub === 'apply_flag_settings') {
       effort = msg.request.settings?.effortLevel || '';
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {} } });
@@ -533,6 +558,152 @@ function onLine(line) {
     return;
   }
 
+  // What Claude Code does by itself, in the shapes 2.1.293 sends (stream.js, jobs.js):
+  // "todos" -> its own to-do list: three made, the first started and done, the second started.
+  if (content === 'todos') {
+    const tool = (id, name, input) => out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name, input }] }, parent_tool_use_id: null, session_id: sessionId });
+    const res = (id, content, data) => out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content }] }, tool_use_result: data, parent_tool_use_id: null, session_id: sessionId });
+    [['Read the config', 'Reading the config'], ['Fix the parser', 'Fixing the parser'], ['Run the tests', 'Running the tests']].forEach(([subject, activeForm], i) => {
+      tool(`tu_tc_${turn}_${i}`, 'TaskCreate', { subject, description: subject, activeForm });
+      res(`tu_tc_${turn}_${i}`, `Task #${i + 1} created successfully: ${subject}`, { task: { id: String(i + 1), subject } });
+    });
+    const update = (k, taskId, status) => { tool(`tu_tu_${turn}_${k}`, 'TaskUpdate', { taskId, status }); res(`tu_tu_${turn}_${k}`, `Updated task #${taskId} status`, { success: true, taskId, updatedFields: ['status'] }); };
+    update(0, '1', 'in_progress');
+    setTimeout(() => {
+      update(1, '1', 'completed');
+      update(2, '2', 'in_progress');
+      setTimeout(() => { text('TODOS SO FAR'); result(true); }, Number(process.env.SHELLBY_FAKE_TODO_MS || 300));
+    }, Number(process.env.SHELLBY_FAKE_TODO_MS || 300));
+    return;
+  }
+  // "todos done" -> the rest of the list ticked off.
+  if (content === 'todos done') {
+    for (const [k, [taskId, status]] of [['2', 'completed'], ['3', 'in_progress'], ['3', 'completed']].entries()) {
+      out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_td_${turn}_${k}`, name: 'TaskUpdate', input: { taskId, status } }] }, parent_tool_use_id: null, session_id: sessionId });
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_td_${turn}_${k}`, content: `Updated task #${taskId} status` }] }, parent_tool_use_id: null, session_id: sessionId });
+    }
+    text('TODOS DONE');
+    result(true);
+    return;
+  }
+  // "bg <ms> [fail]" -> a command sent to the background with its output in a
+  // file under temp; the turn ends at once, and the command finishes <ms> later
+  // (or never, until a stop_task). "watch <ms>" -> the same as a Monitor.
+  if (content.startsWith('bg ') || content.startsWith('watch ')) {
+    const [word, msText, how] = content.split(' ');
+    const monitor = word === 'watch';
+    const fsx = require('fs'), osx = require('os'), pathx = require('path');
+    const taskId = `bg${turn}x${Math.random().toString(36).slice(2, 7)}`;
+    const id = `tu_bg_${turn}`;
+    const dir = pathx.join(osx.tmpdir(), 'claude', 'fake-shellby', sessionId, 'tasks');
+    fsx.mkdirSync(dir, { recursive: true });
+    const file = pathx.join(dir, `${taskId}.output`);
+    fsx.writeFileSync(file, 'starting\n');
+    const description = monitor ? 'Watching the dev server' : 'Run the build in the background';
+    const input = monitor ? { command: 'npm run dev', description, timeout_ms: 60000 } : { command: 'npm run build', description, run_in_background: true };
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: monitor ? 'Monitor' : 'Bash', input }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'system', subtype: 'background_tasks_changed', tasks: [{ task_id: taskId, task_type: 'local_bash', description }], session_id: sessionId });
+    out({ type: 'system', subtype: 'task_started', task_id: taskId, tool_use_id: id, description, is_backgrounded: true, task_type: 'local_bash', session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: monitor ? `Monitor started (task ${taskId}, expires in 1m).` : `Command running in background with ID: ${taskId}. Output is being written to: ${file}. You will be notified when it completes.` }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(monitor ? 'WATCHING' : 'BUILD SENT OFF');
+    result(true);
+    const ms = Number(msText) || 0;
+    const tick = setInterval(() => { try { fsx.appendFileSync(file, `line ${Date.now()}\n`); } catch { /* gone */ } }, 300);
+    const end = (status, summary) => {
+      clearInterval(tick);
+      if (!bgJobs.has(taskId)) return;
+      bgJobs.delete(taskId);
+      out({ type: 'system', subtype: 'task_updated', task_id: taskId, patch: { status: status === 'stopped' ? 'killed' : status, end_time: Date.now() }, session_id: sessionId });
+      out({ type: 'system', subtype: 'task_notification', task_id: taskId, tool_use_id: id, status, output_file: file, summary, session_id: sessionId });
+      out({ type: 'system', subtype: 'background_tasks_changed', tasks: [], session_id: sessionId });
+    };
+    bgJobs.set(taskId, { stop: () => end('stopped', `Background command "${description}" was stopped`) });
+    if (ms > 0) {
+      setTimeout(() => {
+        fsx.appendFileSync(file, how === 'fail' ? 'error: it broke\n' : 'built ok\n');
+        end('completed', monitor ? `Monitor "${description}" stream ended` : `Background command "${description}" completed (exit code ${how === 'fail' ? 1 : 0})`);
+      }, ms);
+    }
+    return;
+  }
+  // "plan" -> a plan to approve (ExitPlanMode): approved, it says so; sent back, it says what it was told.
+  if (content === 'plan') {
+    const plan = '# Plan\n\n1. Read the parser\n2. Add a cache in front of it\n3. Run the tests\n\nNothing else changes.';
+    const id = `tu_plan_${turn}`;
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'ExitPlanMode', input: { plan } }] }, parent_tool_use_id: null, session_id: sessionId });
+    const requestId = `req-plan-${turn}`;
+    out({ type: 'control_request', request_id: requestId, request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input: { plan }, tool_use_id: id, permission_suggestions: [{ type: 'setMode', mode: 'acceptEdits', destination: 'session' }] } });
+    pending = { requestId, onAnswer: r => {
+      const ok = r.behavior === 'allow';
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, is_error: !ok, content: ok ? 'User has approved your plan.' : r.message }] }, parent_tool_use_id: null, session_id: sessionId });
+      text(ok ? 'PLAN APPROVED' : `PLAN SENT BACK: ${r.message}`);
+      result(true);
+    } };
+    return;
+  }
+  // "enterplan" -> Claude switches itself to planning.
+  if (content === 'enterplan') {
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_ep_${turn}`, name: 'EnterPlanMode', input: {} }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_ep_${turn}`, content: 'Entered plan mode.' }] }, parent_tool_use_id: null, session_id: sessionId });
+    text('PLANNING NOW');
+    result(true);
+    return;
+  }
+  // "skill <name>" -> Claude reaches for a skill by itself.
+  if (content.startsWith('skill ')) {
+    const skill = content.slice(6).trim();
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_sk_${turn}`, name: 'Skill', input: { skill } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_sk_${turn}`, content: `Launching skill: ${skill}` }] }, parent_tool_use_id: null, session_id: sessionId });
+    text(`USED ${skill}`);
+    result(true);
+    return;
+  }
+  // "remember <words>" -> a memory written down (auto memory), into CLAUDE_CONFIG_DIR when it's under temp.
+  if (content.startsWith('remember ')) {
+    const fsx = require('fs'), pathx = require('path');
+    const root = process.env.CLAUDE_CONFIG_DIR || pathx.join(require('os').homedir(), '.claude');
+    const dir = pathx.join(root, 'projects', pathx.resolve(process.cwd()).replace(/[^a-zA-Z0-9]/g, '-'), 'memory');
+    const file = pathx.join(dir, 'use-pnpm.md');
+    const body = `---\nname: use-pnpm\ndescription: ${content.slice(9).trim()}\nmetadata:\n  type: feedback\n---\n\n${content.slice(9).trim()}\n`;
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: `tu_mem_${turn}`, name: 'Write', input: { file_path: file, content: body } }] }, parent_tool_use_id: null, session_id: sessionId });
+    if (transcript) { fsx.mkdirSync(dir, { recursive: true }); fsx.writeFileSync(file, body); fsx.writeFileSync(pathx.join(dir, 'MEMORY.md'), '- [Use pnpm](use-pnpm.md) — pnpm here\n'); }
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `tu_mem_${turn}`, content: `File created successfully at: ${file}` }] }, parent_tool_use_id: null, session_id: sessionId });
+    text('NOTED');
+    result(true);
+    return;
+  }
+  // "think" -> a reply that thought first: the result says how much (output_tokens_details).
+  if (content === 'think') {
+    text(`thought at ${effort || 'default'}`);
+    result(true, { usage: { input_tokens: 10, output_tokens: 3000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens_details: { thinking_tokens: 2100 } } });
+    return;
+  }
+  // "team" -> a helper named scout reports back, then Claude writes to it
+  // (SendMessage) and it picks up again in the same lane, as 2.1.293 does.
+  if (content === 'team') {
+    const ms = Number(process.env.SHELLBY_FAKE_TEAM_MS || 300);
+    const agentId = `scout${turn}`;
+    out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_scout', name: 'Agent', input: { subagent_type: 'Explore', description: 'Scout the repo', prompt: 'look around', name: 'scout', run_in_background: true } }] } });
+    out({ type: 'system', subtype: 'task_started', task_id: agentId, tool_use_id: 'tu_scout', description: 'Scout the repo', subagent_type: 'Explore', is_backgrounded: true, spawn_depth: 1, task_type: 'local_agent' });
+    out({ type: 'user', parent_tool_use_id: null, tool_use_result: { isAsync: true, status: 'async_launched', agentId }, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_scout', content: [{ type: 'text', text: `Async agent launched successfully.\nagentId: ${agentId}` }] }] } });
+    out({ type: 'assistant', parent_tool_use_id: 'tu_scout', message: { content: [{ type: 'text', text: 'Found three folders.' }] } });
+    setTimeout(() => {
+      out({ type: 'system', subtype: 'task_updated', task_id: agentId, patch: { status: 'completed' } });
+      out({ type: 'system', subtype: 'task_notification', task_id: agentId, tool_use_id: 'tu_scout', status: 'completed', summary: 'Found three folders.', usage: { total_tokens: 700, tool_uses: 2, duration_ms: ms } });
+      out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_msg', name: 'SendMessage', input: { to: 'scout', message: 'Now count the tests in each.', summary: 'Count the tests' } }] } });
+      out({ type: 'system', subtype: 'task_started', task_id: agentId, tool_use_id: 'tu_msg', description: 'Scout the repo', subagent_type: 'Explore', is_backgrounded: true, spawn_depth: 1, task_type: 'local_agent' });
+      out({ type: 'user', parent_tool_use_id: null, tool_use_result: { success: true, message: 'Resuming agent scout', resumedAgentId: agentId }, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_msg', content: [{ type: 'text', text: '{"success":true,"message":"Resuming agent scout"}' }] }] } });
+      out({ type: 'assistant', parent_tool_use_id: 'tu_scout', message: { content: [{ type: 'text', text: '12, 4 and 9 tests.' }] } });
+      setTimeout(() => {
+        out({ type: 'system', subtype: 'task_updated', task_id: agentId, patch: { status: 'completed' } });
+        out({ type: 'system', subtype: 'task_notification', task_id: agentId, tool_use_id: 'tu_msg', status: 'completed', summary: '12, 4 and 9 tests.', usage: { total_tokens: 400, tool_uses: 1, duration_ms: ms } });
+        text('TEAM DONE');
+        result(true);
+      }, ms);
+    }, ms);
+    return;
+  }
+
   if (content.startsWith('slow')) {
     out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_slow', name: 'Bash', input: { command: 'sleep 999' } }] } });
     slow = setTimeout(() => { text('never'); result(true); }, 60000);
@@ -652,4 +823,4 @@ function onLine(line) {
   result(true);
 }
 
-if (!ONE_SHOT) readline.createInterface({ input: process.stdin }).on('line', onLine);
+if (!ONE_SHOT && !CLOUD) readline.createInterface({ input: process.stdin }).on('line', onLine);

@@ -150,6 +150,7 @@ const DEFAULTS = {
   snippetUse: {},     // { name: { n, at } }: how often each snippet has run, and when last
   snippetFormat: 0,   // snippets.FORMAT once the saved list has been migrated to it
   learnedTricks: [],  // recently discovered skills/agents/commands
+  skillsSeen: null,   // skills Claude has used in Shellby, so the first use of each is noticed (wiring/native.js)
   corrections: null,  // { events, offers }: corrections noted and rules offered from them (see corrections.js); this PC only
   routines: [],       // see routines.js
   depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on

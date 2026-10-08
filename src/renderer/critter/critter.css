@@ -44,6 +44,9 @@ html, body {
   opacity: 0; transition: opacity .15s; pointer-events: none;
 }
 .helper:hover .tag, .helper.fresh .tag { opacity: 1; }
+/* a message between helpers (SendMessage): the tag shows it while it's fresh */
+.helper.talking .tag { opacity: 1; max-width: 160px; background: var(--glass); z-index: 3; }
+.helper.talking.heard .tag { background: #cfe8ff; color: #10324f; }
 /* stagger neighbouring labels so they never overlap */
 .helper:nth-child(even) .tag { bottom: calc(100% + 26px); }
 .helper:hover .tag { z-index: 2; }
@@ -156,6 +159,10 @@ html, body {
 .state-working .part-claw { animation: snap .664s steps(1) infinite; }
 .state-working .part-eyes, .state-working .part-stalks { animation: look 1.992s steps(1) infinite; }
 .state-working #shadow { animation: shadow-hop .664s steps(1) infinite; }
+
+/* ---------- planning: the bubble says so (the think pose is his claw to his chin). Nothing changes yet ---------- */
+.planning #bubble, .plan-ready #bubble { background: #cfe8ff; color: #10324f; }
+.planning #bubble::after, .plan-ready #bubble::after { border-top-color: #cfe8ff; }
 
 /* ---------- working the way Claude is (src/main/work-pose.js, critter.js "how he works") ----------
    One class per pose; 'busy' is the scuttle above. Most poses have something

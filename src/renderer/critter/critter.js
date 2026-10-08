@@ -25,6 +25,8 @@ let focusing = null; // { phase: 'focus' | 'break', endsAt } (src/main/focus.js)
 let limit = null;    // { resetsAt }: napping until the usage limit resets (src/main/limits.js)
 let say = null;      // { text, occasion, until }: what he's saying (src/main/voice.js)
 let onCall = false;  // you're on a call: he holds up his "shh" sign (src/main/surroundings.js)
+let planning = false; // Claude is planning, not changing anything yet (plan mode)
+let planReady = false; // ...and has a plan for you to read
 // Things a scene or a game puts on him for a moment, by slot (src/renderer/critter/life.js).
 const overrides = new Map();
 // What he works with while Claude uses a tool, a scroll or a wrench (see
@@ -354,6 +356,11 @@ function helperTag(c) {
   return c.type && c.type !== c.label ? `${c.label} · ${c.type}` : c.label;
 }
 
+// "📨 check the tests" for a message it got, "→ scout: done" for one it sent.
+function helperTalk(b) {
+  return b.kind === 'said' ? `→ ${b.to}: ${b.text}` : `📨 ${b.text}`;
+}
+
 function renderCrew(crew, more) {
   const live = new Set(crew.map(c => c.id));
   // Helpers whose task finished walk back into Shellby, then disappear.
@@ -393,7 +400,10 @@ function renderCrew(crew, more) {
       el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, c.accessories));
     }
     // Themed name tag only: a native `title` would pop an unstyled OS tooltip.
-    el.querySelector('.tag').textContent = helperTag(c);
+    // While a helper is sent a message, or sends one, the tag shows it (session.js noteMessage).
+    el.querySelector('.tag').textContent = c.bubble ? helperTalk(c.bubble) : helperTag(c);
+    el.classList.toggle('talking', !!c.bubble);
+    el.classList.toggle('heard', c.bubble?.kind === 'heard');
     el.setAttribute('aria-label', c.name ? `${c.name}, level ${c.level} ${c.type}: ${c.label}` : `Helper ${c.type}: ${c.label}`);
   });
   crewHost.querySelector('.more')?.remove();
@@ -418,6 +428,9 @@ function bubbleFor() {
   // His own voice comes last of the things that mean something, and still beats
   // the bare mood glyph it replaces.
   if (saying()) return say.text;
+  // Planning reads differently from working, and a plan waiting differently from a yes/no.
+  if (state === 'asking' && planReady) return 'plan?';
+  if (state === 'working' && planning) return 'plan…';
   return BUBBLES[state] ?? '';
 }
 const saying = () => !!say && say.until > Date.now();
@@ -480,6 +493,7 @@ function paintBody() {
     `state-${state}`, bubbleOn() || dropping ? 'bubble-on' : '', health ? `health-${health.level}` : '',
     molt?.cls, dropping ? 'dropping' : '', ciFailing && state !== 'sleeping' ? 'ci-red' : '',
     focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', onCall ? 'on-call' : '',
+    planning && state === 'working' ? 'planning' : '', planReady && state === 'asking' ? 'plan-ready' : '',
     poseClass(dropping),
     stillNow ? 'calm-deep' : '', // kept through every repaint, or the next state push would wake him
     ...needClasses(), ...flags,
@@ -497,6 +511,8 @@ api.onState(msg => {
   limit = msg.limit || null;
   say = msg.say || null;
   onCall = !!msg.call;
+  planning = !!msg.planning;
+  planReady = !!msg.plan;
   confetti = msg.confetti !== false;
   window.ShellbySound.setMix(msg.sound);
   needs = msg.needs && typeof msg.needs === 'object' ? msg.needs : null;

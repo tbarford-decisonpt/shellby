@@ -43,7 +43,29 @@ test('a turn that made no calls has no cost', () => {
   assert.equal(tc.turnCost({ usages: [], weight: 0 }, ctxAt(1000)), null);
   assert.equal(tc.turnCost(null, null), null);
   const c = tc.turnCost({ usages: [{ input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 4000 }], weight: 42 }, ctxAt(82000));
-  assert.deepEqual(c, { tokens: 1500, read: 4000, weight: 42, share: null, contextPct: 41 });
+  assert.deepEqual(c, { tokens: 1500, read: 4000, weight: 42, share: null, contextPct: 41, effort: '', thinking: null });
+});
+
+test("a turn keeps the effort it ran at and the thinking it did, and the badge says both", () => {
+  const usages = [{ input_tokens: 1000, output_tokens: 3000 }];
+  const c = tc.turnCost({ usages, weight: 1, effort: 'high', thinking: 2100 }, ctxAt(1000));
+  assert.equal(c.effort, 'high');
+  assert.equal(c.thinking, 2100);
+  const b = tc.effortBadge(c);
+  assert.equal(b.text, 'high · 2.1k thinking');
+  assert.equal(b.level, 'high');
+  assert.match(b.detail, /2,100 tokens/);
+  assert.match(b.detail, /about 53% of this turn's new tokens/);
+  // Auto: Claude Code chose; no thinking at all says so.
+  const auto = tc.effortBadge(tc.turnCost({ usages, weight: 1, effort: '', thinking: 0 }, null));
+  assert.equal(auto.text, 'auto · no thinking');
+  assert.equal(auto.level, 'auto');
+  assert.match(auto.detail, /Claude Code chose/);
+  // A made-up level reads as auto; a turn from before Shellby kept these has no badge.
+  assert.equal(tc.turnCost({ usages, effort: 'turbo' }, null).effort, '');
+  assert.equal(tc.effortBadge(tc.turnCost({ usages, effort: 'xhigh' }, null)).text, 'extra high effort');
+  assert.equal(tc.effortBadge({ tokens: 5 }), null);
+  assert.equal(tc.effortBadge(null), null);
 });
 
 test('numbers read the way the panel writes them', () => {
