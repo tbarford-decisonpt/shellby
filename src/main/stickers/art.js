@@ -41,6 +41,7 @@ function languageOf(files) {
     const lang = m && EXTENSIONS[m[1].toLowerCase()];
     if (lang) counts.set(lang, (counts.get(lang) || 0) + 1);
   }
+  /** @type {[string, number] | null} */
   let best = null;
   for (const [lang, n] of counts) if (!best || n > best[1]) best = [lang, n];
   return best ? best[0] : null;

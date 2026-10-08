@@ -65,6 +65,10 @@ const billingScrub = (onlyPlan = planOnly) => (onlyPlan ? [...BILLING_ENV] : [])
 // configured: a path the user picked in Settings when the search below missed
 // (unusual installs, a portable copy, a drive we'd never guess). It's tried
 // first, but it is not trusted to exist — findClaude still checks.
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {string | null} [configured]
+ */
 function candidatePaths(env = process.env, configured = null) {
   const list = [];
   if (env.SHELLBY_CLAUDE_PATH) list.push(env.SHELLBY_CLAUDE_PATH);
@@ -80,6 +84,10 @@ function candidatePaths(env = process.env, configured = null) {
 
 const isFile = p => { try { return fs.statSync(p).isFile(); } catch { return false; } };
 
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {string | null} [configured]
+ */
 function findClaude(env = process.env, configured = null) {
   return candidatePaths(env, configured).find(isFile) || null;
 }
@@ -129,6 +137,12 @@ async function verifyClaude(file) {
 // opts.input: text for stdin, which `claude -p` with no prompt argument reads
 // as the prompt. Long prompts go this way: a Windows command line stops at
 // 32,767 characters.
+/**
+ * @param {string} exe
+ * @param {string[]} args
+ * @param {number} [timeout]
+ * @param {{ cwd?: string, input?: string | null }} [opts]
+ */
 function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
   return new Promise(resolve => {
     let timedOut = false;
@@ -168,6 +182,7 @@ function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
 
 // { installed, exe, version, loggedIn, authMethod, subscriptionType, email, planOnly, billingEnv, warning, picked }
 // configured: the path the user chose in Settings, if any (see candidatePaths).
+/** @param {{ configured?: string | null }} [opts] */
 async function checkStatus({ configured = null } = {}) {
   const exe = findClaude(process.env, configured);
   if (!exe) return { installed: false };

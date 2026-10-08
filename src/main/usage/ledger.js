@@ -29,6 +29,7 @@ const KINDS = ['tab', 'routine', 'workflow'];
 
 // First match wins, so the order settles "fix the failing test" (a fix) and
 // "review the docs" (a review).
+/** @type {[string, RegExp][]} */
 const RULES = [
   ['review', /\b(review|look over|code review|audit|critique|sanity[- ]check|go over)\b/],
   ['fix', /\b(fix(es|ed|ing)?|bug(s|gy)?|broken|crash(es|ing)?|error(s)?|fail(s|ing|ed|ure)?|debug|regression|doesn'?t work|not working|issue)\b/],
@@ -74,6 +75,8 @@ function cleanTokens(t) {
   return out.input + out.output + out.cacheRead + out.cacheWrite ? out : null;
 }
 
+/** @typedef {NonNullable<ReturnType<typeof normalizeRow>>} Row */
+
 /** One row read from disk or handed in, cleaned, or null if it can't be used. */
 function normalizeRow(r) {
   if (!r || typeof r !== 'object' || !Number.isFinite(r.at)) return null;
@@ -101,7 +104,7 @@ function normalizeRow(r) {
 /** Whatever was saved, as rows oldest first, within the last 60 days and the cap. */
 function normalize(raw, now) {
   return (Array.isArray(raw) ? raw : []).map(normalizeRow).filter(r => r && now - r.at < KEEP_MS)
-    .sort((a, b) => a.at - b.at).slice(-MAX_ROWS);
+    .sort((/** @type {Row} */ a, /** @type {Row} */ b) => a.at - b.at).slice(-MAX_ROWS);
 }
 
 /** The ledger plus one turn's row (a new array; old rows pruned, capped). */
@@ -163,6 +166,7 @@ function estimate(ledger, { pk = null, category = 'other', model = '', now = Dat
   const ratio = ratioOf(rows);
   const key = pk ? String(pk).toLowerCase() : null;
   const family = modelFamily(model);
+  /** @type {[string, (r: any) => boolean][]} */
   const tiers = [
     ['project+kind', r => !!key && r.pk === key && r.category === category],
     ['project', r => !!key && r.pk === key],

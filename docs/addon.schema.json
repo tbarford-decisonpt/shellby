@@ -184,7 +184,7 @@
         "enum": [
           "working", "success", "error", "learned", "newTricks", "unlocked", "petted",
           "tests", "passed", "fixed", "merged", "push", "deploy", "bigWrite", "sameFile", "searching", "web", "crew", "longTask", "serverDown",
-          "todoDone", "todosAll", "jobDone", "jobFailed", "remembered", "skillFirst", "planning",
+          "todoDone", "todosAll", "jobDone", "jobFailed", "remembered", "compacted", "skillFirst", "planning",
           "morning", "latenight", "back",
           "gameOver", "callOver", "sheetStretch", "docStretch", "slideStretch", "friday", "weekend", "monday", "tank", "tankNew",
           "found", "memory", "milestone", "idle", "oops",

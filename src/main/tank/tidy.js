@@ -35,6 +35,8 @@ function normalize(raw) {
 /**
  * Whether he tidies now, and what: null, or { uid, ref, from, to }.
  *   state: the tank (config `tank`)   lib: tank.library()   tidy: normalize()
+ * @param {any} stateIn
+ * @param {{ lib: any, tidy?: ReturnType<typeof normalize> | null, now?: number, rand?: () => number }} opts
  */
 function pick(stateIn, { lib, tidy: tidyIn = null, now = 0, rand = () => 1 }) {
   const t = normalize(tidyIn);

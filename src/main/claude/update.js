@@ -126,7 +126,9 @@ class ClaudeUpdates extends EventEmitter {
     this.deps = { isOff: () => false, busy: () => 0, toPanel: () => {}, notify: () => {}, now: () => Date.now(), ...deps };
     this.checking = null;
     this.updating = null;
+    /** @type {NodeJS.Timeout | null} */
     this.timer = null;
+    /** @type {NodeJS.Timeout | null} */
     this.first = null;
   }
 
@@ -175,7 +177,7 @@ class ClaudeUpdates extends EventEmitter {
   }
 
   stop() {
-    clearTimeout(this.first); clearInterval(this.timer);
+    clearTimeout(/** @type {any} */ (this.first)); clearInterval(/** @type {any} */ (this.timer));
     this.first = null; this.timer = null;
   }
 
@@ -241,12 +243,14 @@ class ClaudeUpdates extends EventEmitter {
       if (auto) this.save({ tried: s.latest });
       const r = await this.deps.run(exe, ['update'], UPDATE_TIMEOUT_MS);
       const parsed = parseUpdate(`${r.stdout}\n${r.stderr}`);
+      /** @type {any} */
       let status = null;
       try { status = await this.deps.recheck(); } catch { /* the next check will tell */ }
       const to = version(status?.version) || parsed.to || before;
       const from = parsed.from || before;
       const ok = r.ok && (parsed.updated || parsed.current || (!!to && to !== from));
       const updated = !!to && !!from && to !== from;
+      /** @type {string | null} */
       let error = null;
       if (!ok) {
         error = r.timedOut ? 'Claude Code took too long to update.'

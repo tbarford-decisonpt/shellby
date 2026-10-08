@@ -104,6 +104,7 @@ function testBrief(test) {
 /**
  * The panel's ask -> { ok, request, hook, test } with only plain, bounded text,
  * or { ok: false, error }. A change with no words is "fix the failed test".
+ * @param {{ request?: string, hook?: any, test?: any }} [ask]
  */
 function checkAsk({ request, hook, test } = {}) {
   const text = clean(request, MAX_REQUEST + 1).replace(/[ \t]+/g, ' ');
@@ -172,6 +173,7 @@ async function askClaude(input, deps) {
   const base = prompt(ask, deps);
   let r = await call(base);
   if (!r.ok) return r;
+  /** @type {{ hook?: any, error?: string }} */
   let v = validateHook(r.hook);
   if (v.error) {
     if (deadline - now() < MIN_RETRY_MS) return { ok: false, error: `Claude's hook didn't fit: ${v.error}` };

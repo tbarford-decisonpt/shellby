@@ -23,6 +23,12 @@ const MAX_FILES = 20000;
 const MAX_BYTES = 2 * 1024 * 1024 * 1024; // per scan, newest files first (a heavy month is ~1 GB)
 const MAX_COUNTED = 1500;                // transcripts whose use counts are kept (they live in config.json)
 
+/**
+ * @param {string} dir
+ * @param {number} since
+ * @param {number} [depth]
+ * @param {{ files: { file: string, mtimeMs: number, size: number }[], full: boolean }} [out]
+ */
 async function listTranscripts(dir, since, depth = 0, out = { files: [], full: false }) {
   if (depth > MAX_DEPTH) return out;
   let entries;
@@ -73,6 +79,8 @@ function totalUses(counts) {
  * only the time just means one more read. Returns { used, from, seen, counts }
  * where from is the oldest moment the scan can vouch for (null when it can't)
  * and counts holds each file's uses since `since` (totalUses adds them up).
+ * @param {{ configDir: string, since: number, used?: any, from?: number | null, seen?: Record<string, string>,
+ *   counts?: Record<string, any>, now?: number, maxBytes?: number }} opts
  */
 async function scanTranscripts({ configDir, since, used = {}, from = null, seen = {}, counts = {}, now = Date.now(), maxBytes = MAX_BYTES }) {
   const listing = await listTranscripts(path.join(configDir, 'projects'), since);
@@ -85,6 +93,7 @@ async function scanTranscripts({ configDir, since, used = {}, from = null, seen 
   const listed = new Set(files.map(f => f.file));
   const nextCounts = Object.fromEntries(Object.entries(counts && typeof counts === 'object' ? counts : {}).filter(([file]) => listed.has(file)));
   let bytes = 0;
+  /** @type {number | null} */
   let missedUpTo = null;   // the newest file left unread
   const stamp = f => `${f.mtimeMs}:${f.size}`;
   for (const f of files) {
@@ -101,7 +110,7 @@ async function scanTranscripts({ configDir, since, used = {}, from = null, seen 
   }
   // The oldest transcript read (or read before) bounds how far back "unused" can be judged.
   const read = files.filter(f => nextSeen[f.file] === stamp(f)).map(f => f.mtimeMs);
-  const covered = [state.from, ...read].filter(Number.isFinite);
+  const covered = /** @type {number[]} */ ([state.from, ...read].filter(Number.isFinite));
   let reach = covered.length ? Math.min(...covered) : null;
   if (reach !== null && missedUpTo !== null) reach = Math.max(reach, missedUpTo);
   const kept = files.map(f => f.file).filter(file => nextCounts[file]).slice(0, MAX_COUNTED);

@@ -85,7 +85,11 @@ function systemPrompt({ home, defaultFolder, places }) {
   ].filter(Boolean).join('\n');
 }
 
-/** CLI arguments for one draft. The description goes in as a single argument, never through a shell. */
+/**
+ * CLI arguments for one draft. The description goes in as a single argument, never through a shell.
+ * @param {string} description
+ * @param {{ home?: string, defaultFolder?: string, places?: any }} [where]
+ */
 function draftArgs(description, { home, defaultFolder, places } = {}) {
   return [
     '-p', `Describe this as a routine: ${description}`,
@@ -100,7 +104,10 @@ function draftArgs(description, { home, defaultFolder, places } = {}) {
   ];
 }
 
-/** What the user typed -> cleaned text, or an error to show beside the box. */
+/**
+ * What the user typed -> cleaned text, or an error to show beside the box.
+ * @returns {{ ok: true, text: string, error?: undefined } | { ok: false, error: string, text?: undefined }}
+ */
 function checkDescription(text) {
   const clean = typeof text === 'string' ? text.replace(UNSAFE, ' ').replace(/\s+/g, ' ').trim() : '';
   if (!clean) return { ok: false, error: 'Say what you want done and when.' };
@@ -112,6 +119,8 @@ function checkDescription(text) {
  * The CLI's JSON reply -> editor fields { name, prompt, schedule, mode, cwd },
  * or an error. Only those fields come through: never an id, never enabled,
  * never Autonomous. `folderOk(path)` decides whether a suggested folder is kept.
+ * @param {string} stdout
+ * @param {{ folderOk?: (folder: string) => boolean }} [opts]
  */
 function parseDraft(stdout, { folderOk = () => false } = {}) {
   const env = envelope(stdout, 'draft');
@@ -266,6 +275,7 @@ function shownRoutine(r) {
 const quoted = t => `«${String(t).replace(/[«»]/g, '"')}»`;
 const TURN_LINE = { user: t => `Person: ${quoted(t)}`, claude: t => `You: ${t}`, run: t => `Shellby: ${quoted(t)}` };
 
+/** @param {{ home?: string, defaultFolder?: string, today?: string, places?: any }} [where] */
 const contextText = ({ home, defaultFolder, today, places } = {}) => [
   `The person's home folder is ${home}; Shellby's current folder is ${defaultFolder || home}. Today is ${today}. Commands run in Windows PowerShell 5.1.`,
   placesText(places),
@@ -312,6 +322,10 @@ function parseChat(stdout) {
  * ({ name, prompt, schedule, mode, cwd, catchUp }), or { ok: false, errors }.
  * Autonomous only stays when the editor's routine already had it, and a folder
  * only when `folderOk` says it's there.
+ * @param {any} change
+ * @param {any} base
+ * @param {{ folderOk?: (folder: string) => boolean, allowAutonomous?: boolean }} [opts]
+ * @returns {{ ok: true, routine: any, errors?: undefined } | { ok: false, errors: string[], routine?: undefined }}
  */
 function checkChange(change, base, { folderOk = () => false, allowAutonomous = false } = {}) {
   const keepAutonomous = base?.mode === 'autonomous' && allowAutonomous;
@@ -450,6 +464,7 @@ function runBrief(items) {
   const tools = new Map();
   const failures = [];
   const said = [];
+  /** @type {any} */
   let result = null;
   let denied = 0;
   for (const i of list) {

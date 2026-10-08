@@ -20,6 +20,7 @@ const gaugesOf = require('../tank/gauges');
 function registerTankGaugesIpc(ipcMain, deps) {
   let snap = null;      // the Health monitor's last sample
   let mood = null;      // its mood
+  /** @type {ReturnType<typeof gaugesOf.gauges> | null} */
   let last = null;      // what was last sent
 
   const latestHealth = () => snap || deps.health()?.monitor?.snapshot?.({ withHistory: false }) || null;

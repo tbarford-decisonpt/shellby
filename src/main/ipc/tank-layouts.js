@@ -102,6 +102,7 @@ function registerTankLayoutsIpc(ipcMain, deps) {
       return reply({ undid: 'use', view: r.view });
     }
     const s = get();
+    /** @type {any} */
     const r = s.editedAt === u.editedAt && layouts.restore(s, u.layout, { at: u.at, seasonal: u.seasonal, now: now() });
     if (!r?.ok) return { ok: false, error: 'The layouts have changed since, so they stay as they are.', layouts: layouts.view(get()) };
     set(r.state);

@@ -41,6 +41,8 @@ function shapeOf(raw) {
   return { size: t.size, style: t.style, placed: t.placed };
 }
 
+/** @typedef {NonNullable<ReturnType<typeof normalizeOne>>} Layout */
+
 function normalizeOne(raw) {
   if (!isObj(raw)) return null;
   const name = cleanName(raw.name);
@@ -49,6 +51,10 @@ function normalizeOne(raw) {
 }
 
 // Ids and names are each one of a kind: a repeated id gets a fresh one, a repeated name is dropped.
+/**
+ * @param {Layout[]} list
+ * @returns {Layout[]}
+ */
 function unique(list) {
   const ids = new Set(), names = new Set();
   let n = 0;
@@ -106,6 +112,9 @@ function remove(stateIn, id, now = 0) {
  * was (`at`, or the end), unless the list is full or its id or name has been
  * taken since. `seasonal` is what the season had up for it, put back only if
  * nothing else is up now. Returns { ok, state }.
+ * @param {any} stateIn
+ * @param {any} raw
+ * @param {{ at?: number, seasonal?: any, now?: number }} [opts]
  */
 function restore(stateIn, raw, { at = Infinity, seasonal = null, now = 0 } = {}) {
   const s = normalize(stateIn);

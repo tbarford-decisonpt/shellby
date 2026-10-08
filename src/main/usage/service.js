@@ -35,6 +35,7 @@ function createUsage(d) {
   // ---- the limit: when your plan's limit is reached Shellby naps until it
   // resets, then wakes up and taps you (see limits.js).
 
+  /** @type {NodeJS.Timeout | null} */
   let limitTimer = null;
   const limitWait = () => (limits.status(d.config?.get('limitWait'), Date.now()) === 'waiting' ? limits.normalize(d.config.get('limitWait')) : null);
 
@@ -57,7 +58,7 @@ function createUsage(d) {
   }
 
   function scheduleLimit() {
-    clearTimeout(limitTimer);
+    clearTimeout(/** @type {any} */ (limitTimer));
     const w = limitWait();
     if (w) limitTimer = setTimeout(checkLimit, Math.min(w.resetsAt - Date.now() + RESET_SLACK_MS, MAX_TIMER_MS));
   }
@@ -82,6 +83,7 @@ function createUsage(d) {
   // ---- who used it (spend.js): the meters' breakdown by tab, routine and project
 
   let spendLedger = null;
+  /** @type {NodeJS.Timeout | null} */
   let spendSaveTimer = null;
 
   // A folder as the ledgers key it: { project (its name), pk (its full path, lowercased) }.
@@ -116,7 +118,7 @@ function createUsage(d) {
   }
 
   function saveSpend() {
-    clearTimeout(spendSaveTimer);
+    clearTimeout(/** @type {any} */ (spendSaveTimer));
     spendSaveTimer = null;
     if (spendLedger) d.config.set({ spendLedger });
   }
@@ -140,7 +142,10 @@ function createUsage(d) {
 
   // ---- what a turn or a tab cost (turncost.js): a share of the current 5-hour window
 
-  /** A share of the 5-hour window, in percent: `weight`, or all a source spent in it (key). Null with no current reading. */
+  /**
+   * A share of the 5-hour window, in percent: `weight`, or all a source spent in it (key). Null with no current reading.
+   * @param {{ weight?: number | null, key?: string | null }} [what]
+   */
   function windowShare({ weight = null, key = null } = {}) {
     spendLedger ??= spend.normalize(d.config.get('spendLedger'));
     const w = d.config.get('lastUsage')?.fiveHour;
@@ -269,6 +274,7 @@ function createUsage(d) {
     if (!settings.on) return;
     const now = Date.now();
     const usage = d.config.get('lastUsage');
+    /** @type {number | null} */
     let idleMs = null;
     for (const [tabId, tab] of d.manager.tabs) {
       const run = tab.guardRun;
@@ -292,7 +298,7 @@ function createUsage(d) {
 
   // Quitting: the reset tap mustn't fire into a half-torn-down app.
   function stop() {
-    clearTimeout(limitTimer);
+    clearTimeout(/** @type {any} */ (limitTimer));
   }
 
   return {

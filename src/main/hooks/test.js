@@ -14,6 +14,7 @@ const { RECIPES } = require('./recipes');
 const MAX_OUTPUT = 16 * 1024;      // kept per stream; the panel shows the start of it
 const MAX_PAYLOAD = 64 * 1024;
 const MAX_TEST_SECONDS = 120;
+/** @type {Map<string, any>} */
 const EVENT = new Map(HOOK_EVENTS.map(e => [e.name, e]));
 
 // What each tool's input looks like, for a believable sample. {cwd} is filled in.
@@ -42,6 +43,8 @@ function toolFor(matcher) {
 /**
  * The JSON Claude Code would send this hook. A recipe's own sample wins (so
  * "Stop force-pushes" is tried on a force-push, not on git status).
+ * @param {{ event?: string, matcher?: string, command?: string }} [hook]
+ * @param {string} [cwd]
  */
 function samplePayload({ event, matcher = '', command = '' } = {}, cwd = process.cwd()) {
   const base = { session_id: 'shellby-test-run', transcript_path: '', cwd, permission_mode: 'default', hook_event_name: event };
@@ -142,11 +145,12 @@ function runHook({ command, payload, cwd, timeout = 60, bash = findBash() }) {
     const out = { stdout: '', stderr: '' };
     let done = false;
     let timedOut = false;
+    /** @type {NodeJS.Timeout | null} */
     let timer = null;
     const finish = r => {
       if (done) return;
       done = true;
-      clearTimeout(timer);
+      clearTimeout(/** @type {any} */ (timer));
       resolve({ stdout: out.stdout, stderr: out.stderr, timedOut, ms: Date.now() - started, timeout: seconds, asked, capped: asked > seconds, ...r });
     };
     // Never Command Prompt instead: it would read the command differently from

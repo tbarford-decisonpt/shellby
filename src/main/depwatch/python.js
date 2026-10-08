@@ -23,9 +23,11 @@ const pin = (name, version) => (typeof name === 'string' && typeof version === '
  * ([[packages]]). Only each block's own name, version and (uv) source lines
  * matter, so this reads those and nothing else. Packages from the project
  * itself (uv's editable, virtual and path sources) or from git aren't on PyPI.
+ * @returns {{ name: string, version: string }[]}
  */
 function tomlPins(text) {
   const out = [];
+  /** @type {Record<string, any> | null} */
   let cur = null;
   const flush = () => { if (cur && !cur.local) { const p = pin(cur.name, cur.version); if (p) out.push(p); } cur = null; };
   for (const raw of String(text || '').split(/\r?\n/)) {
