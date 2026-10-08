@@ -52,6 +52,8 @@ There's no shop and nothing to buy. Each piece comes from something specific, an
 | **From the start** | Yours from day one | Sandcastle Keep, Rock Cave, Driftwood Arch, kelp, java fern, sea grass, a moss ball, rocks, an air stone, an amphora, two floors and two back walls |
 | **Trophies** | Comes with a trophy | Sunken Chest (*Moving In*), Coral Fan (*Interior Designer*), Guest Bench (*House Guest*), Anubias (*Aquascaper*), Display Plinth (*On Display*), Old Anchor (*Upsized*), Moon Lamp (secret), Lighthouse (*Green Light*), Deep-Sea Diver (*Deep Focus*), Pebble Floor (*Beachcomber*), Jellyfish Lamp (*Best Friends*), Sunken Ship (*Double Digits*), Starry Night (secret) |
 | **Seasons** | Turns up while its season is on, and stays | Carved Pumpkin (Halloween), Snow Globe (winter), Heart Shell (Valentine's), Cherry Blossom (spring), Beach Ball (summer), Pile of Leaves (autumn) |
+| **Tide events** | Finish one while it's on ([TIDES.md](TIDES.md)) | Harvest Sheaf, Wisp Lantern, Ice Castle, Post Box, Flower Pot, Giant Clam |
+| **Friends** | A sparkly find, or an egg a friend hatched | Glitter Jar (*Glimmer*), Crab Nest (*Proud Parent*) |
 | **His finds** | Anything he's dug up for you | Put in as many as he's found |
 
 Wardrobe packs can add decor too: see [ADDONS.md](ADDONS.md#decor).

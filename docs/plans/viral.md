@@ -1,6 +1,6 @@
 # Shinies, eggs, swaps, the monthly board, the PR line and tide events
 
-> Status: **in progress** on `shellby/viral-feature-ideas`. Six features meant to
+> Status: **built** on `shellby/viral-feature-ideas`. Six features meant to
 > be shown to someone else: a screenshot, a link, a line in a pull request.
 > Each one only ever celebrates something that really happened: a fix Claude
 > proved, a find he dug, a friend who installed him. Nothing here can be bought,
@@ -8,6 +8,33 @@
 
 The order below is the build order. Each part stands alone, so it can ship
 alone.
+
+## Where it ended up (differences from the first draft below)
+
+- **Modules.** Pure: `events.js`, `board.js`, `swaps.js`, `eggs.js`, `crab-line.js`,
+  `today.js`, and sparkles in `gifts.js` / `bugdex.js`. Wiring: `wiring/events.js`,
+  `wiring/social.js` (swaps and eggs), and the board in `wiring/bugdex.js`. Panel:
+  `tide.js`, `sparkle.js`, `social.js`, `moment-card.js` (one 1200×630 card for
+  every moment), `tide.css`. Rewards: `src/wardrobe/tide-chest.json`.
+- **Egg ids are 16 characters** of [a-z0-9] (about 82 bits), and the card carries a
+  hash of each, never the id: an 8-character id could be walked back from the
+  public hash. Codes are `EGG-<login>-<16 chars>`.
+- **A `shellby://hatch` link never hatches by itself.** It opens the Us page with
+  the code in the box; hatching adds a friend and writes on their card as you,
+  so it waits for **Hatch it**.
+- **Letters.** Swap letters are read from friends only (like waves); hatch
+  letters from anyone, uncapped, and checked against the eggs you laid. A cap
+  let a stranger's junk crowd a real one out.
+- **Tide events don't add a new unlock type.** Each event has a trophy
+  (wardrobe/achievements.js) that unlocks its piece; the year's medal is the
+  events' own (`config.events.medals`), synced and on the card.
+- **The swap and want lists** are worked out from your shelf (gifts.swapLists),
+  not picked by hand.
+- **No change to Claude Code's attribution.** The badge already reaches the
+  pull requests Claude opens; the commit trailer names the model, which
+  Shellby can't know. The trailer is only on Shellby's own bring-home commits.
+- **Testing:** `SHELLBY_TODAY=YYYY-MM-DD` (dev and test runs) sets the day every
+  season and event reads. `scripts/e2e-tides.js` runs inside The Haunting.
 
 ## 1. Tide events (`src/main/events.js`)
 
