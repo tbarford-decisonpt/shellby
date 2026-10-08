@@ -199,7 +199,8 @@ function normalize(raw) {
     const shiny = Math.min(n, Math.floor(pos(it.shiny)));
     // Set aside for a swap (swaps.js): never more than you have.
     const held = Math.min(n, Math.floor(pos(it.held)));
-    items[id] = { n, first: pos(it.first), last: pos(it.last), ...(shiny ? { shiny, shinyFirst: pos(it.shinyFirst) } : {}), ...(held ? { held } : {}) };
+    const heldShiny = Math.min(shiny, held, Math.floor(pos(it.heldShiny)));
+    items[id] = { n, first: pos(it.first), last: pos(it.last), ...(shiny ? { shiny, shinyFirst: pos(it.shinyFirst) } : {}), ...(held ? { held } : {}), ...(heldShiny ? { heldShiny } : {}) };
   }
   return {
     items,
@@ -246,7 +247,7 @@ function add(state, find, t, shiny = false) {
   const sparkle = shiny ? { shiny: (it?.shiny || 0) + 1, shinyFirst: it?.shinyFirst || t } : it?.shiny ? { shiny: it.shiny, shinyFirst: it.shinyFirst } : {};
   return {
     ...state,
-    items: { ...state.items, [find.id]: { n: (it?.n || 0) + 1, first: it?.first || t, last: t, ...sparkle, ...(it?.held ? { held: it.held } : {}) } },
+    items: { ...state.items, [find.id]: { n: (it?.n || 0) + 1, first: it?.first || t, last: t, ...sparkle, ...(it?.held ? { held: it.held } : {}), ...(it?.heldShiny ? { heldShiny: it.heldShiny } : {}) } },
     dry: 0,
     lastFindAt: t,
     unseen: [...state.unseen.filter(id => id !== find.id), find.id].slice(-60),
@@ -397,6 +398,75 @@ function hintFor(f) {
   return 'Not found yet.';
 }
 
+// ------------------------------------------------------------------ swaps (swaps.js)
+// A copy offered in a swap is set aside (held) until the swap is done or off.
+// You always keep one of everything: a copy can go while another stays.
+
+/** Can this copy go in a swap? */
+function spare(stateIn, id, shiny = false) {
+  const it = normalize(stateIn).items[id];
+  if (!it) return false;
+  const free = it.n - (it.held || 0);
+  if (free < 2) return false; // one always stays on the shelf
+  if (shiny) return (it.shiny || 0) - (it.heldShiny || 0) >= 1;
+  return it.n - (it.shiny || 0) - ((it.held || 0) - (it.heldShiny || 0)) >= 1;
+}
+
+const bump = (state, id, f) => {
+  const it = state.items[id];
+  return it ? normalize({ ...state, items: { ...state.items, [id]: f(it) } }) : state;
+};
+/** Set a copy aside for a swap. */
+const hold = (stateIn, id, shiny = false) => bump(normalize(stateIn), id, it => ({ ...it, held: (it.held || 0) + 1, heldShiny: (it.heldShiny || 0) + (shiny ? 1 : 0) }));
+/** The swap's off: it's yours again. */
+const release = (stateIn, id, shiny = false) => bump(normalize(stateIn), id, it => ({ ...it, held: Math.max(0, (it.held || 0) - 1), heldShiny: Math.max(0, (it.heldShiny || 0) - (shiny ? 1 : 0)) }));
+/** The swap's done: the copy set aside goes to your friend. */
+const handOver = (stateIn, id, shiny = false) => bump(normalize(stateIn), id, it => ({
+  ...it, n: it.n - 1, held: Math.max(0, (it.held || 0) - 1),
+  shiny: Math.max(0, (it.shiny || 0) - (shiny ? 1 : 0)), heldShiny: Math.max(0, (it.heldShiny || 0) - (shiny ? 1 : 0)),
+}));
+/**
+ * A find from a friend: on the shelf like one he dug up, without counting as a
+ * dig. Returns { state, isNew, completed }.
+ */
+function receive(stateIn, id, shiny, now) {
+  const state = normalize(stateIn);
+  const find = findById(id);
+  if (!find || find.special || !Number.isFinite(Number(now))) return { state, isNew: false, completed: [] };
+  const isNew = !state.items[id];
+  const next = { ...add(state, find, Number(now), !!shiny), lastFindAt: state.lastFindAt, dry: state.dry, day: state.day, today: state.today };
+  return { state: next, isNew, completed: newlyCompleted(state, next) };
+}
+
+/**
+ * What you could swap away and what you're after, for your calling card.
+ * offers: copies past your first (sparkly ones marked), rarest first.
+ * wants: what's missing from the sets you're closest to finishing.
+ */
+function swapLists(stateIn, { max = 6 } = {}) {
+  const state = normalize(stateIn);
+  const offers = [];
+  for (const f of [...FINDS].sort((a, b) => RANK[b.rarity] - RANK[a.rarity])) {
+    if (f.special) continue;
+    if (spare(state, f.id, true)) offers.push(`${f.id}*`);
+    if (spare(state, f.id, false)) offers.push(f.id);
+  }
+  const sets = SETS.map(set => ({ set, have: set.members.filter(id => state.items[id]).length }))
+    .filter(x => x.have > 0 && x.have < x.set.members.length)
+    .sort((a, b) => (b.have / b.set.members.length) - (a.have / a.set.members.length));
+  const wants = [];
+  for (const { set } of sets) for (const id of set.members) if (!state.items[id] && !findById(id).special && !wants.includes(id)) wants.push(id);
+  return { offers: offers.slice(0, max), wants: wants.slice(0, max) };
+}
+
+/** Would this find finish one of your sets? The set's name, or null. */
+function finishes(stateIn, id) {
+  const state = normalize(stateIn);
+  if (state.items[id]) return null;
+  const set = SETS.find(x => x.members.includes(id) && x.members.every(m => m === id || state.items[m]));
+  return set ? set.name : null;
+}
+
 /** Pick the one he shows off (null goes back to the rarest). */
 function setFavourite(stateIn, id) {
   const state = normalize(stateIn);
@@ -412,4 +482,5 @@ module.exports = {
   SPARKLE_CHANCE, EVENT_NAMES,
   normalize, findById, eligible, pickFind, dig, keepsake, canDig, nextDigAt, favourite, foundLine, view, setFavourite, markSeen, total,
   sparkly, sparkles,
+  spare, hold, release, handOver, receive, swapLists, finishes,
 };
