@@ -1,8 +1,8 @@
-// End-to-end check that your friends list and settings follow you between PCs
-// (sync-prefs.js, friends.js mergeSync), against the dev app over CDP with a
+// End-to-end check that your friends list, settings and his finds and bond
+// follow you between PCs (sync-prefs.js, friends.js mergeSync, sync-life.js), against the dev app over CDP with a
 // mock GitHub (test/fixtures/mock-github.js). Two isolated profiles stand in
 // for two PCs signed in to the same account, one after the other:
-//   1. PC A picks its settings, adds two friends and syncs.
+//   1. PC A, with finds on his shelf and a bond, picks its settings, adds two friends and syncs.
 //   2. PC B signs in fresh and gets them: the settings view shows them, the
 //      friends' crabs are fetched, and PC A's own things (start at login) stay there.
 //   3. Another PC changes a setting while B is open: it takes effect at once.
@@ -14,6 +14,7 @@ const os = require('os');
 const path = require('path');
 const { savePng } = require('./lib/shot');
 const { startMockGitHub } = require('../test/fixtures/mock-github');
+const { FINDS } = require('../src/main/gifts');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9367;
@@ -101,7 +102,9 @@ async function connect(url) {
   const sync = async () => panel.ev('shellby.githubSync().then(r => r.ok)');
 
   try {
-    // ---- 1. PC A: settings, two friends, sync.
+    // ---- 1. PC A: finds and a bond already, settings, two friends, sync.
+    const FIND = FINDS[0].id;
+    fs.writeFileSync(path.join(pcA, 'settings.json'), JSON.stringify({ finds: { items: { [FIND]: { n: 3, first: 1000, last: 2000, shiny: 1 } }, digs: 7 }, bond: { hatchedAt: 1000, points: 140, days: 20, level: 2 } }));
     await open(pcA, { signIn: true });
     await turnOnFriends();
     const r = await panel.ev(`shellby.setSettings({ chatter: 'quiet', sounds: true, critterScale: 1.5, mode: 'plan', hotkey: '${HOTKEY}', openAtLogin: true }).then(r => r.settings)`);
@@ -113,6 +116,7 @@ async function connect(url) {
     check(!('openAtLogin' in gistA.prefs) && !('critterPos' in gistA.prefs) && !('cwd' in gistA.prefs), "but not the PC's own ones");
     check(gistA.friends?.list?.map(f => f.login).join() === 'reefbuddy,tidepal', 'and the friends list');
     check(!JSON.stringify(gistA).includes(mock.state.token), 'no token in the gist');
+    check(Object.values(gistA.life?.tally || {}).some(e => e.v[`finds.${FIND}`] === 3), "and PC A's finds");
     await close();
 
     // ---- 2. PC B: a fresh sign-in brings it all.
@@ -121,6 +125,8 @@ async function connect(url) {
     const b = settingsOf(pcB);
     check(b.chatter === 'quiet' && b.sounds === true && b.critterScale === 1.5 && b.mode === 'plan' && b.hotkey === HOTKEY, 'PC B: saved them');
     check(b.openAtLogin === false, "PC B: start at login stayed PC A's");
+    check(b.finds?.items?.[FIND]?.n === 3 && b.finds.items[FIND].shiny === 1 && b.finds.digs === 7, 'PC B: the finds came along, the sparkly one too');
+    check(b.bond?.points >= 140 && b.bond.hatchedAt === 1000, 'PC B: so did his bond, and his hatch day');
     check(b.friends?.list?.map(f => f.login).join() === 'reefbuddy,tidepal', 'PC B: has both friends');
     await turnOnFriends();
     await panel.ev("SB.setView('settings')");

@@ -336,3 +336,21 @@ test('a send while the tab is busy is refused before anything is saved or reset'
     mgr.closeAll({ kill: true });
   }
 });
+
+test('a helper that finishes keeps its outcome briefly, so the crab window can walk it home', () => {
+  const s = new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask' });
+  s.trackTask({ kind: 'task', phase: 'started', taskId: 'a1', description: 'Scan' });
+  s.trackTask({ kind: 'task', phase: 'started', taskId: 'a2', description: 'Build' });
+  assert.equal(s.tasks.get('a1').endedAt, undefined);
+  s.trackTask({ kind: 'task', phase: 'done', taskId: 'a1', status: 'completed' });
+  s.trackTask({ kind: 'task', phase: 'done', taskId: 'a2', status: 'failed' });
+  assert.ok(Number.isFinite(s.tasks.get('a1').endedAt));
+  const aggregate = Object.getOwnPropertyDescriptor(SessionManager.prototype, 'aggregate').get;
+  const agg = aggregate.call({ tabs: new Map([['t1', { id: 't1', session: s }]]) });
+  assert.deepEqual(agg.crew, []);
+  assert.deepEqual(agg.crewEnded, [{ id: 'a1', ok: true }, { id: 'a2', ok: false }]);
+  // Long gone: nothing rides along any more.
+  for (const id of ['a1', 'a2']) s.tasks.get(id).endedAt -= 60000;
+  assert.deepEqual(aggregate.call({ tabs: new Map([['t1', { id: 't1', session: s }]]) }).crewEnded, []);
+  s.close();
+});

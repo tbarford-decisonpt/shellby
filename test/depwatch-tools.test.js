@@ -1,10 +1,10 @@
 // Which manager a project uses, which checker asks about it, and how it is run
-// (src/main/depwatch-tools.js): fixed arguments, a trimmed environment, and
+// (src/main/depwatch/tools.js): fixed arguments, a trimmed environment, and
 // nothing the project ships ever gets to run.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
-const tools = require('../src/main/depwatch-tools');
+const tools = require('../src/main/depwatch/tools');
 const { findNpm } = require('../src/main/depwatch');
 
 const win = process.platform === 'win32';

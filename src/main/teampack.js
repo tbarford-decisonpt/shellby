@@ -33,7 +33,7 @@
 const crypto = require('crypto');
 const path = require('path');
 const snippets = require('./snippets');
-const claudeSetup = require('./claude-setup');
+const claudeSetup = require('./claude/setup');
 const mcpAdmin = require('./mcpadmin');
 const { lineSecret } = require('./secretscan');
 

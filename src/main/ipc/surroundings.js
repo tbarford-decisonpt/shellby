@@ -172,7 +172,7 @@ function registerSurroundingsIpc(ipcMain, d) {
     return d.typing.view();
   });
 
-  // ---- the weather outside (weather-service.js)
+  // ---- the weather outside (weather/service.js)
   ipcMain.handle('weather:get', () => d.weatherView());
   ipcMain.handle('weather:set', (_e, patch) => {
     const p = patch && typeof patch === 'object' ? patch : {};

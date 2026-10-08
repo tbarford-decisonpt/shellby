@@ -73,14 +73,14 @@ contextBridge.exposeInMainWorld('shellby', {
   claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"
   onClaudeStatus: on('claude:status'), // re-checked after the sign-in window closes, or a sign-out
   locateClaude: invoke('claude:locate'), // when the search missed it (unusual install)
-  // Keeping Claude Code itself current (claude-update.js): the daily look at the
+  // Keeping Claude Code itself current (claude/update.js): the daily look at the
   // registry, `claude update` on request, and tell | auto | off.
   checkClaudeUpdate: invoke('claude:update-check'),
   updateClaude: invoke('claude:update'),
   setClaudeUpdateMode: mode => ipcRenderer.invoke('claude:update-mode', String(mode)),
   onClaudeUpdate: on('claude:update'),
   dismissClaudeTricks: invoke('claude:tricks-dismiss'),
-  onClaudeTricks: on('claude:tricks'), // what a newer Claude Code can do (claude-tricks.js)
+  onClaudeTricks: on('claude:tricks'), // what a newer Claude Code can do (claude/tricks.js)
 
   // tabs + tasks
   newTab: invoke('tab:new'),
@@ -463,21 +463,21 @@ contextBridge.exposeInMainWorld('shellby', {
   getTank: invoke('tank:get'),
   saveTank: invoke('tank:save'),
   tankSeen: fire('tank:seen'),
-  shareTank: invoke('tank:share'),     // on your calling card (tank-share.js), or off it
+  shareTank: invoke('tank:share'),     // on your calling card (tank/share.js), or off it
   peekTank: invoke('tank:peek'),       // a friend's, from their calling card
-  getTankGauges: invoke('tank:gauges'), // live decor: Health and dev servers (tank-gauges.js)
+  getTankGauges: invoke('tank:gauges'), // live decor: Health and dev servers (tank/gauges.js)
   setTankLive: invoke('tank:live'),
-  tankLayouts: invoke('tank:layouts'), // saved layouts, and the seasons' (tank-layouts.js)
+  tankLayouts: invoke('tank:layouts'), // saved layouts, and the seasons' (tank/layouts.js)
   saveTankLayout: invoke('tank:layout-save'),
   useTankLayout: invoke('tank:layout-use'),
   removeTankLayout: invoke('tank:layout-remove'),
   seasonTankLayout: invoke('tank:layout-season'),
   undoTankLayout: invoke('tank:layout-undo'), // the last put up, replace or remove, taken back
-  tankTidy: invoke('tank:tidy'),       // he moves a find now and then (tank-tidy.js)
+  tankTidy: invoke('tank:tidy'),       // he moves a find now and then (tank/tidy.js)
   undoTankTidy: invoke('tank:tidy-undo'),
   setTankTidy: invoke('tank:tidy-set'),
   onTankGauges: on('tank:gauges'),
-  tankLife: invoke('tank:life'),       // his favourite piece and the sets on display (tank-life.js)
+  tankLife: invoke('tank:life'),       // his favourite piece and the sets on display (tank/life.js)
   tankLived: invoke('tank:lived'),     // what he got up to while you watched
   // dependency checkups and the week in review
   getCheckups: invoke('checkups:get'),
@@ -660,7 +660,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onNowPlaying: on('nowplaying'),
   getTyping: invoke('typing:get'),     // tapping along while you type (typing.js)
   setTyping: invoke('typing:set'),
-  getWeather: invoke('weather:get'),   // the weather outside (weather-service.js)
+  getWeather: invoke('weather:get'),   // the weather outside (weather/service.js)
   setWeather: invoke('weather:set'),
   searchWeather: invoke('weather:search'),
   checkWeather: invoke('weather:check'),
@@ -701,7 +701,7 @@ contextBridge.exposeInMainWorld('shellby', {
   depRoutine: invoke('depwatch:routine'),
   onDepWatch: on('depwatch'),
   usageBreakdown: invoke('usage:breakdown'),
-  estimateUsage: invoke('usage:estimate'), // { tabId, text } -> what a message like it usually costs (usage-ledger.js)
+  estimateUsage: invoke('usage:estimate'), // { tabId, text } -> what a message like it usually costs (usage/ledger.js)
   // usage forecast, and work held for after the reset (forecast.js, held.js)
   getOutlook: invoke('outlook:get'),
   holdForReset: invoke('held:add'),

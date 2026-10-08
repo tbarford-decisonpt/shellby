@@ -30,6 +30,7 @@ function compare(a, b) {
 /** The changelog's markdown -> [{ version, items: [line] }], in the file's order (newest first). */
 function parseChangelog(text) {
   const out = [];
+  /** @type {{ version: string, items: string[] } | null} */
   let cur = null;
   for (const raw of String(text || '').split(/\r?\n/)) {
     const head = raw.match(/^##\s+v?(\d+\.\d+\.\d+)\s*$/);
@@ -53,6 +54,7 @@ function between(sections, from, to) {
 // Lines about other products ("[Claude Tag] …", "[VSCode] …") or other systems
 // than this one (Shellby only runs on Windows) aren't Claude Code news for you.
 const ELSEWHERE = /^(\[[^\]]+\]|(macOS|Mac|Linux|Self-hosted runner|SDK|Agent SDK|VSCode|VS Code|JetBrains)\s*:)/i;
+/** @type {[string, RegExp][]} */
 const KINDS = [['added', /^(Added|New|Introduced)\b/i], ['improved', /^Improved\b/i], ['changed', /^Changed\b/i], ['fixed', /^Fixed\b/i]];
 
 /** One changelog line -> { text, kind } (kind: added, improved, changed, fixed, other), or null to leave out. */

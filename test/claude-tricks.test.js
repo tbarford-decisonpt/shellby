@@ -1,10 +1,10 @@
-// New tricks (src/main/claude-tricks.js and wiring/claude-tricks.js): Claude
+// New tricks (src/main/claude/tricks.js and wiring/claude-tricks.js): Claude
 // Code's changelog read, the releases between two versions picked out, a few
 // highlights chosen with a prompt to try each new feature, and the version
 // remembered so each update is announced once.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const tricks = require('../src/main/claude-tricks');
+const tricks = require('../src/main/claude/tricks');
 const { wireClaudeTricks } = require('../src/main/wiring/claude-tricks');
 
 // The changelog's shape, as of 2.1.293.

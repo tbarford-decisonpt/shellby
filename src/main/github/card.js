@@ -4,14 +4,14 @@
 // about when they meet (src/main/banter.js): his temperament and the find he's
 // proudest of. Nothing else goes in it: no stats, no history. Stickers are only colour patches unless you choose to share their
 // names (stickers.js forCard), and never the projects you've hidden. His tank
-// is on it only if you share it, as built-in decor ids and where they stand (tank-share.js).
+// is on it only if you share it, as built-in decor ids and where they stand (tank/share.js).
 // So is his Bugdex: which kinds of bug you've caught and how many badges, never
 // counts, projects or errors (bugdex.js shared).
 // A friend's card is somebody else's file, so it is always cleaned before use,
 // and only believed when the gist really belongs to that friend.
 const { findGist } = require('./gists');
 const { cleanCardStickers } = require('../stickers');
-const { cleanCardTank } = require('../tank-share');
+const { cleanCardTank } = require('../tank/share');
 const { cleanShared } = require('../bugdex');
 const { cleanCardSwap } = require('../swaps');
 const { cleanCardEggs } = require('../eggs');

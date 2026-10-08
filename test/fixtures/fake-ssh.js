@@ -11,7 +11,7 @@
 //   SHELLBY_FAKE_SSH_LOG: each run's arguments, a JSON line per run.
 const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
-const { findBash } = require('../../src/main/hook-test');
+const { findBash } = require('../../src/main/hooks/test');
 
 const args = process.argv.slice(2);
 if (args.includes('-G')) {

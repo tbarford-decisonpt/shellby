@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { draftArgs, checkDescription, parseDraft, MAX_DESCRIPTION } = require('../src/main/routine-draft');
+const { draftArgs, checkDescription, parseDraft, MAX_DESCRIPTION } = require('../src/main/routines/draft');
 
 const reply = (structured, extra = {}) => JSON.stringify({ type: 'result', is_error: false, structured_output: structured, ...extra });
 const good = {
@@ -78,7 +78,7 @@ test('parseDraft explains failures instead of throwing', () => {
 
 // ================================================================ Build it with Claude
 
-const { chat, chatSchema, chatArgs, chatPrompt, checkTurns, parseChat, checkChange, runBrief } = require('../src/main/routine-draft');
+const { chat, chatSchema, chatArgs, chatPrompt, checkTurns, parseChat, checkChange, runBrief } = require('../src/main/routines/draft');
 
 const change = { name: 'Morning briefing', prompt: 'List what changed.', schedule: { type: 'daily', time: '8:30' }, mode: 'plan', folder: '', catchUp: false };
 const chatReply = (extra = {}) => reply({ reply: 'Done.', changed: true, routine: change, test: false, ...extra });
@@ -208,7 +208,7 @@ test('runBrief sums up a test run from its transcript', () => {
 
 // ================================================================ the folders you work in, and a workflow's job
 
-const { placesText, repair, repairSchema, parseRepair } = require('../src/main/routine-draft');
+const { placesText, repair, repairSchema, parseRepair } = require('../src/main/routines/draft');
 
 test('the draft knows the folders you work in, each one quoted line of data', () => {
   const args = draftArgs('check my shellby repo', { home: 'H', defaultFolder: 'D', places: [{ name: 'shellby', path: 'C:/code/shellby' }] });

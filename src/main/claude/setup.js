@@ -9,9 +9,9 @@
 // test/claude-setup.test.js.
 const fs = require('fs');
 const path = require('path');
-const { walkMd, samePath } = require('./toolbox');
-const { writeJson } = require('./statusline');
-const { RECIPES, GROUPS: RECIPE_GROUPS, describeHook } = require('./hook-recipes');
+const { walkMd, samePath } = require('../toolbox');
+const { writeJson } = require('../statusline');
+const { RECIPES, GROUPS: RECIPE_GROUPS, describeHook } = require('../hooks/recipes');
 
 const MAX_MEMORY = 512 * 1024;   // a CLAUDE.md bigger than this isn't one we should edit in a textarea
 const MAX_SETTINGS = 1024 * 1024;
@@ -50,6 +50,7 @@ const HOOK_EVENTS = [
     choices: [['manual', 'When you run /compact'], ['auto', 'When it happens on its own']] },
   { name: 'SessionEnd', label: 'When a session ends', when: 'when a session ends', matcher: false, blocks: null },
 ];
+/** @type {Map<string, any>} */
 const EVENT = new Map(HOOK_EVENTS.map(e => [e.name, e]));
 const SCOPES = ['user', 'project', 'local'];
 
@@ -123,6 +124,7 @@ function flattenHooks(hooks, base) {
   return out;
 }
 
+/** @param {{ home?: string, cwd?: string, plugins?: any[] }} [opts] */
 function scanHooks({ home, cwd, plugins = [] } = {}) {
   const files = [];
   const hooks = [];
@@ -159,6 +161,7 @@ function validateHook(input) {
   if (HIDDEN_CHARS.test(command.replace(/ /g, ''))) return { error: 'The command has an invisible or unusual character in it (a special space, say). Retype it with plain characters.' };
   const matcher = EVENT.get(event).matcher ? str(i.matcher).trim() : '';
   if (matcher.length > MAX_MATCHER) return { error: 'That matcher is too long.' };
+  /** @type {number | null} */
   let timeout = null;
   if (i.timeout !== null && i.timeout !== undefined && i.timeout !== '') {
     timeout = Number(i.timeout);
@@ -224,6 +227,7 @@ function replaceHook(settings, at, hook) {
  * Read a settings file, apply change(settings) and write it back, keeping a
  * one-time backup beside it (the same one the status line uses). `expect` is
  * { at, fp }: the hook the panel was looking at must still be there, unchanged.
+ * @param {{ at: any, fp: string } | null} [expect]
  */
 function changeHooks(named, change, expect = null) {
   // Through a symlinked settings file to the real one, rather than replacing the link.
@@ -301,6 +305,7 @@ function explainRule(list, rule) {
   return `Claude doesn't ask before ${what}.`;
 }
 
+/** @param {{ home?: string, cwd?: string }} [opts] */
 function scanPermissions({ home, cwd } = {}) {
   const rules = [];
   const files = [];
@@ -362,6 +367,7 @@ function fileInfo(file) {
   } catch { return { exists: false, size: 0, mtimeMs: 0 }; }
 }
 
+/** @param {{ home?: string, cwd?: string, ceiling?: string | null }} [opts] */
 function scanMemory({ home, cwd, ceiling = null } = {}) {
   const out = [];
   const add = (scope, file, always = false) => {
@@ -443,6 +449,7 @@ function writeMemory(named, text, expectMtime) {
 
 // ---- together
 
+/** @param {{ home?: string, cwd?: string, plugins?: any[], ceiling?: string | null }} [opts] */
 function scanSetup({ home, cwd, plugins, ceiling } = {}) {
   const { hooks, files } = scanHooks({ home, cwd, plugins });
   return {

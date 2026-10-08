@@ -8,7 +8,7 @@
    Pure and cheap: tank.js calls it from the Tank tab's own 10 fps loop, which
    only runs while the tab is on screen, so none of this costs anything
    otherwise. Main keeps what lasts (his favourite, the sets on display):
-   src/main/tank-life.js. Loaded by the panel and by test/tank-life-pick.test.js. */
+   src/main/tank/life.js. Loaded by the panel and by test/tank-life-pick.test.js. */
 'use strict';
 (function () {
   // How long each one takes, in ms: [shortest, longest].

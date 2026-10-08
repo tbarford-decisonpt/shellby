@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const tc = require('../src/main/usage-ledger');
+const tc = require('../src/main/usage/ledger');
 
 const NOW = Date.UTC(2026, 9, 5, 12, 0);
 const DAY = 24 * 60 * 60 * 1000;

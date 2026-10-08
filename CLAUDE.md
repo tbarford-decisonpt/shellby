@@ -10,7 +10,7 @@ in an area you haven't touched.
 
 ```powershell
 npm run lint
-npm run typecheck   # jsconfig over src/preload and src/main/{ipc,flaky,remote,backlog,bugdex} only
+npm run typecheck   # jsconfig over src/preload and some src/main folders (see jsconfig.json)
 npm test            # node:test, a fake Claude CLI stands in for the real one
 npm run e2e:ci      # the real app over CDP; `npm run e2e:ci -- queue voice` runs only those
 ```
@@ -94,3 +94,4 @@ one lands under "Changed" word for word.
 - A dev instance with its own `SHELLBY_USER_DATA` runs alongside an installed
   Shellby. `SHELLBY_FAKE_CLAUDE` and `SHELLBY_HOOK_PORT` keep it off the real CLI and
   the live app's hook port.
+  `npm run dev:crab` starts one with all three set (`--poses` previews every pose).

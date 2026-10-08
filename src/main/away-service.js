@@ -24,7 +24,7 @@ const LEAVE_LINES_SHOWN = 12;
  *   CAPTURE, RECAP_TEST (dev:away supplies the idle readings),
  *   powerMonitor (Electron's), native (native-windows.js), confirm ({ ask }),
  *   log, send, every (main's cleared-on-quit interval), speak, notify,
- *   showPanel, dialogLook, limitWait (usage-service.js)
+ *   showPanel, dialogLook, limitWait (usage/service.js)
  */
 function createAway(d) {
   let recapLog = [];

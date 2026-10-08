@@ -11,7 +11,7 @@
 //
 // It's on the card only while `shareCard` is on (off by default), and that
 // choice belongs to this PC: it never syncs.
-const tank = require('./tank');
+const tank = require('../tank');
 
 const CARD_MAX = 24;
 const BUILTIN_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;              // a built-in decor id (pack decor has a "pack/" in front)

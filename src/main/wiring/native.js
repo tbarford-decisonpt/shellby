@@ -52,6 +52,12 @@ function wireNative(d) {
 
   /** wiring/sessions.js: every item of every tab. */
   function onItem(tabId, item, tab) {
+    // The conversation was compacted: he squashes his load down and pats it flat.
+    if (item.kind === 'compacted' && yours(tab)) {
+      d.send(d.critter, 'critter:bit', { bit: 'pack', ms: 2200 });
+      d.speak?.('compacted');
+      return;
+    }
     if (item.kind !== 'tool' || !yours(tab)) return;
     if (item.skill) skillUsed(tabId, item.skill);
     if (item.memory && !item.memory.index) d.speak?.('remembered');

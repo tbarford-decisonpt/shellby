@@ -198,7 +198,7 @@ function createLife(d) {
     jarIfFree();
   }
 
-  // Now and then a word about his tank (tank-life.js remark). The voice's own
+  // Now and then a word about his tank (tank/life.js remark). The voice's own
   // cooldown for 'tank' keeps it rare and the chatter setting applies; the
   // check here is only a time stamp until that cooldown could be over.
   let tankAfter = 0;

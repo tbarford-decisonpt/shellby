@@ -9,7 +9,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const ssh = require('../src/main/remote/ssh');
-const { findBash } = require('../src/main/hook-test');
+const { findBash } = require('../src/main/hooks/test');
 
 const bash = findBash();
 

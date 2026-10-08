@@ -72,6 +72,11 @@ function auditOf(byName) {
 
 // Adds an advisory to its package's entry, keeping the worst severity and the best fix.
 const FIX_RANK = { yes: 0, major: 1, none: 2 };
+/**
+ * @param {Map<string, any>} byName
+ * @param {string} name
+ * @param {{ severity: string, direct?: boolean | null, fix?: string }} entry
+ */
 function note(byName, name, { severity, direct = null, fix = 'none' }) {
   const was = byName.get(name);
   if (!was) { byName.set(name, { severity, direct, fix }); return; }

@@ -6,7 +6,7 @@ const { execFile } = require('child_process');
 const os = require('os');
 const path = require('path');
 const attach = require('../attachments');
-const { checkStatus, run: runCli, verifyClaude } = require('../claude-cli');
+const { checkStatus, run: runCli, verifyClaude } = require('../claude/cli');
 const { MODELS } = require('../models');
 const processJob = require('../process-job');
 const snippets = require('../snippets');
@@ -222,7 +222,7 @@ function registerPanelIpc(ipcMain, d) {
   ipcMain.handle('updates:check', () => (d.updates ? d.updates.check() : d.updateView()));
   ipcMain.handle('updates:install', () => !!d.updates?.install());
 
-  // ---- keeping Claude Code itself up to date (claude-update.js)
+  // ---- keeping Claude Code itself up to date (claude/update.js)
   ipcMain.handle('claude:tricks-dismiss', () => { d.dismissClaudeTricks(); return true; });
   ipcMain.handle('claude:update-check', async () => (d.claudeUpdates ? d.claudeUpdates.check() : null));
   ipcMain.handle('claude:update-mode', (_e, mode) => (d.claudeUpdates ? d.claudeUpdates.setMode(mode) : null));

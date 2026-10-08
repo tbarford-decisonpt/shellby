@@ -1,7 +1,7 @@
 // What's held for after the usage reset (held.js): messages, routine runs and
 // queued tasks, sent one at a time once the window rolls over, with the PC
 // kept awake while any of it waits.
-// Moved out of main.js; the limit and forecast it waits on are usage-service.js.
+// Moved out of main.js; the limit and forecast it waits on are usage/service.js.
 const path = require('path');
 const held = require('./held');
 const recap = require('./recap');
@@ -30,8 +30,8 @@ const pause = ms => new Promise(r => setTimeout(r, ms));
  *   log, send, notify, showPanel, tellChannel, wake, openTab, sendToTab, noteRecap (away-service.js),
  *   currentCwd, isFolder, isStr, dialogLook, confirm ({ ask }), randomUUID,
  *   powerSaveBlocker (Electron's), worktreeHome, adoptPhoneTab (wiring/phone-tasks.js),
- *   from usage-service.js: limitWait, resetTarget, clockTime, sendOutlook,
- *   from routines-service.js: routines, routinesView, runRoutine, makeRoomForRoutine
+ *   from usage/service.js: limitWait, resetTarget, clockTime, sendOutlook,
+ *   from routines/service.js: routines, routinesView, runRoutine, makeRoomForRoutine
  */
 function createHeldQueue(d) {
   const queueTabs = new Map();       // tabId -> held task id, for tasks queued for the reset

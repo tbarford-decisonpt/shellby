@@ -2,7 +2,7 @@
 
 Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the [README](../README.md).
 
-<p align="center"><img src="lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
+<p align="center"><img src="img/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
 
 ## Outfits
 
@@ -13,12 +13,12 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 - **Helper crabs wear matching hats,** and every crab in the app is dressed the same way.
 - **Outfit codes** like `SHB-B1T7-2DB1-7MXH-JW90` share a look: paste someone's code into **Wear a code…** and Shellby previews it on your crab, then puts it on. Locked items show which trophy unlocks them, and items from packs you don't have come with a **Get pack** button. Codes are typo-proof and need no server.
 
-<p align="center"><img src="lineup-crabs.png" width="700" alt="Five crab species: the classic, a fiddler with one enormous claw, a coconut crab, a pale porcelain crab, and a long-legged spider crab"></p>
+<p align="center"><img src="img/lineup-crabs.png" width="700" alt="Five crab species: the classic, a fiddler with one enormous claw, a coconut crab, a pale porcelain crab, and a long-legged spider crab"></p>
 
 <table>
 <tr>
-<td width="50%"><img src="screenshot-wardrobe.png" alt="Shellby's screen: Outfits, with slots for hat, face, neck, claw, shell and effect"></td>
-<td width="50%"><img src="screenshot-trophies.png" alt="Trophies and XP with level, streak, focus and rewards"></td>
+<td width="50%"><img src="img/screenshot-wardrobe.png" alt="Shellby's screen: Outfits, with slots for hat, face, neck, claw, shell and effect"></td>
+<td width="50%"><img src="img/screenshot-trophies.png" alt="Trophies and XP with level, streak, focus and rewards"></td>
 </tr>
 </table>
 
@@ -49,17 +49,17 @@ His **class** comes from his highest stat: 🚢 **Shipper**, 🧪 **Tester**, �
 
 ## Your week
 
-<p align="center"><img src="screenshot-week.png" width="380" alt="Trophies & XP → This week: tasks, streak, top project, trophies, ships, green tests, deploys and releases"></p>
+<p align="center"><img src="img/screenshot-week.png" width="380" alt="Trophies & XP → This week: tasks, streak, top project, trophies, ships, green tests, deploys and releases"></p>
 
 - **Trophies & XP → This week** sums up the last seven days: tasks done, your streak, your top project (the repo with the most finished tasks), new trophies, projects shipped, tests turned green, flaky tests fixed, deploys, releases and clean audits.
 - **The week's work** sits alongside, counted as it happens and only when it did: routines (and held messages) that ran while you were away and how long Claude worked on them ("Routines worked 3h 10m while you were away"), pull requests opened and merged, builds fixed (a pull request's checks back to green and staying there), branches brought home, and turns taken back with Rewind. It's what ran, not a guess at hours saved. The card has room for the best of these on one line; the Trophies page lists them all.
 - **📅 Share my week** makes a weekly crab card, with the week's stickers on his tank, his character sheet as a nameplate under his feet (his class, his four stats and what the week added to each) and XP for each day. Every Friday afternoon after a week with something done in it, Shellby hands you the card, ready to share. Projects you keep off your calling card stay off it.
 
-<p align="center"><img src="week-card.png" width="600" alt="A weekly crab card: projects shipped, XP for each day, the week's stickers and trophies"></p>
+<p align="center"><img src="img/week-card.png" width="600" alt="A weekly crab card: projects shipped, XP for each day, the week's stickers and trophies"></p>
 
 ## Shell stickers
 
-<p align="center"><img src="screenshot-stickers.png" width="420" alt="The Sticker Book: Shellby's shell up close with five stickers on it, six projects shipped, and a sticker for each project in foil, holo, vinyl and paper"> <img src="critter-stickers.png" width="200" alt="Shellby on the desktop with stickers on his shell"></p>
+<p align="center"><img src="img/screenshot-stickers.png" width="420" alt="The Sticker Book: Shellby's shell up close with five stickers on it, six projects shipped, and a sticker for each project in foil, holo, vinyl and paper"> <img src="img/critter-stickers.png" width="200" alt="Shellby on the desktop with stickers on his shell"></p>
 
 - **A sticker for every project you ship:** the first time you push, deploy or release a repo (or a pull request of yours is merged), he holds up a sticker drawn for it and slaps it on his shell.
 - **Drawn from the repo itself:** a shape, a pattern and its first letter, in the colour of the language it's mostly written in, so the same repo gets the same sticker on every PC. Shipping counts from Shellby's tabs, from Claude Code in your terminal (with the plugin), and from pull requests merged on GitHub (with CI on).
@@ -70,13 +70,13 @@ His **class** comes from his highest stat: 🚢 **Shipper**, 🧪 **Tester**, �
 
 ## The crab card
 
-<p align="center"><img src="crab-card.png" width="600" alt="A Shellby crab card: Shellby in a wizard hat with a coffee mug and sparkles, his title, tasks done, trophies and helper crabs sent"></p>
+<p align="center"><img src="img/crab-card.png" width="600" alt="A Shellby crab card: Shellby in a wizard hat with a coffee mug and sparkles, his title, tasks done, trophies and helper crabs sent"></p>
 
 **📸 Share** on Shellby's screen makes a card with Shellby as he's dressed, your best trophy, task count and trophy shelf. It's copied to your clipboard and saved to `Pictures\Shellby`. Sharing one earns a trophy too.
 
 ## Community wardrobe
 
-<a href="https://x-salmon.github.io/shellby-packs/"><img src="community-gallery.png" alt="The Shellby community gallery: Dress up the desktop crab"></a>
+<a href="https://x-salmon.github.io/shellby-packs/"><img src="img/community-gallery.png" alt="The Shellby community gallery: Dress up the desktop crab"></a>
 
 More hats, effects, colors and voices from other people at **[x-salmon.github.io/shellby-packs](https://x-salmon.github.io/shellby-packs/)**.
 

@@ -1,8 +1,8 @@
-// usage-service.js: the limit nap, the spend ledger's writes, and the spending
+// usage/service.js: the limit nap, the spend ledger's writes, and the spending
 // guard, driven with fakes for everything main hands it.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createUsage, SPEND_SAVE_MS, OUTLOOK_TICK_MS } = require('../src/main/usage-service');
+const { createUsage, SPEND_SAVE_MS, OUTLOOK_TICK_MS } = require('../src/main/usage/service');
 
 const NOW = 1_790_000_000_000;
 const H = 60 * 60 * 1000;

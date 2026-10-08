@@ -6,7 +6,7 @@ const changes = require('../changes');
 const ctx = require('../context');
 const editor = require('../editor');
 const quiz = require('../quiz');
-const { run: runCli, skipSettings } = require('../claude-cli');
+const { run: runCli, skipSettings } = require('../claude/cli');
 
 // The most queued messages that go in at once, and files across all of them (as one task:send).
 const MAX_STEERS = 20;

@@ -18,7 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const tp = require('./teampack');
-const claudeSetup = require('./claude-setup');
+const claudeSetup = require('./claude/setup');
 const mcpAdmin = require('./mcpadmin');
 const mcpServers = require('./mcpservers');
 

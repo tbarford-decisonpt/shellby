@@ -26,7 +26,7 @@ const { activeSeasons } = require('../wardrobe/seasons');
 const tideEvents = require('../events');
 const { publicItem } = require('../wardrobe/service');
 const weatherRules = require('../weather');
-const { createWeatherService } = require('../weather-service');
+const { createWeatherService } = require('../weather/service');
 const workmode = require('../workmode');
 
 /** d: what main shares (main.js `shared`). */

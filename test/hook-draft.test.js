@@ -3,8 +3,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { askClaude, checkAsk, prompt, parse, FORMAT, SCHEMA } = require('../src/main/hook-draft');
-const { HOOK_EVENTS } = require('../src/main/claude-setup');
+const { askClaude, checkAsk, prompt, parse, FORMAT, SCHEMA } = require('../src/main/hooks/draft');
+const { HOOK_EVENTS } = require('../src/main/claude/setup');
 
 const reply = out => JSON.stringify({ is_error: false, structured_output: out });
 const answer = (over = {}) => ({

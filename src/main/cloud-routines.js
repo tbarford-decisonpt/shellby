@@ -17,7 +17,7 @@
 //
 // The pure half (args, readOutput, parseRoutines, parseRuns, cronWords) is
 // tested in test/cloud-routines.test.js; ask() runs the CLI.
-const { run } = require('./claude-cli');
+const { run } = require('./claude/cli');
 
 const ACTIONS = new Set(['list', 'run', 'list_runs']);
 const TIMEOUT_MS = 60_000;

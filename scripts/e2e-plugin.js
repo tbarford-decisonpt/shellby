@@ -8,7 +8,7 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { findClaude } = require('../src/main/claude-cli');
+const { findClaude } = require('../src/main/claude/cli');
 
 const ROOT = path.join(__dirname, '..');
 const CDP = 9348;

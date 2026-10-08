@@ -3,7 +3,7 @@
 // flake. Shellby reads which tests failed from what the runner printed, keeps
 // a small per-project ledger of names and hashes (never the output), and says
 // so when one keeps doing it: "auth.spec flaked 3 times this week". The panel
-// offers to fix or quarantine it (routine-templates.js, in a copy of the repo).
+// offers to fix or quarantine it (routines/templates.js, in a copy of the repo).
 //
 // Strict on purpose: only the same command on the same tree is compared, and
 // a run whose outcome can't be told is skipped rather than guessed. A false

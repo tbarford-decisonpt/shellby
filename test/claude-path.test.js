@@ -7,7 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { findClaude, verifyClaude, candidatePaths, currentClaude, claudeMoved } = require('../src/main/claude-cli');
+const { findClaude, verifyClaude, candidatePaths, currentClaude, claudeMoved } = require('../src/main/claude/cli');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
 

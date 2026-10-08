@@ -11,7 +11,7 @@
 // stderr goes to Claude; what SessionStart and UserPromptSubmit hooks print to
 // stdout is added to what Claude knows. test/hook-recipes.test.js runs them.
 
-const { NO_TESTS_RE } = require('./depwatch');
+const { NO_TESTS_RE } = require('../depwatch');
 
 // "file_path": "…" out of the JSON on stdin (the first one).
 const FILE_PATH = 'grep -oE "\\"file_path\\": *\\"[^\\"]*\\"" | head -n1';

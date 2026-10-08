@@ -809,7 +809,7 @@ const JAR = [
 | `src/renderer/panel/bugdex.js`, `bugdex.css`, `pixel-art.js`, `panel.html`, `nav.js`, `crabonly.css`, `settings.js` | Page, tab, palette, switch (`bugdexToggle` under Settings → System, next to `flakyToggle`, settings.js:84/377). |
 | `src/main/xp.js`, `weekly.js`, `needs.js`, `wardrobe/achievements.js`, `src/wardrobe/bug-hunter.json`, `renderer/panel/week-card.js` | Rewards. |
 | `src/main/github/sync.js` | Sync. |
-| `src/main/capture-demo.js`, `capture.js`, `scripts/automate-shots.js` | `demoBugdex(now)`: 18 caught (one golden, one evolved to stage II, one habitat done: the Burrows), 6 seen, 2 on the loose. `capture.js` sets it next to `demoLife` (capture.js:346). Adds `docs/screenshot-bugdex.png`. |
+| `src/main/capture-demo.js`, `capture.js`, `scripts/automate-shots.js` | `demoBugdex(now)`: 18 caught (one golden, one evolved to stage II, one habitat done: the Burrows), 6 seen, 2 on the loose. `capture.js` sets it next to `demoLife` (capture.js:346). Adds `docs/img/screenshot-bugdex.png`. |
 | `test/fixtures/fake-claude.js` | `bash <fixture>`: a Bash tool call whose command and output come from `test/fixtures/bugdex/<fixture>.json` (`{ command, isError, output }`). Uses the existing `edit <file>` for real tree changes. |
 
 ---

@@ -1,18 +1,18 @@
 // Routines: the saved list, running one (on schedule, by hand, as a test, or
 // after the reset), the scheduler, and Claude's help writing and fixing them
-// (routine-draft.js) or adding one over MCP (crabtools.js).
+// (routines/draft.js) or adding one over MCP (crabtools.js).
 // Moved out of main.js; holding a run for the reset is held-service.js.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const crabtools = require('./crabtools');
-const guard = require('./guard');
-const limits = require('./limits');
-const mcpServers = require('./mcpservers');
-const routineDraft = require('./routine-draft');
-const { isModel } = require('./models');
-const { MAX_TABS } = require('./sessions');
-const { missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./routines');
+const crabtools = require('../crabtools');
+const guard = require('../guard');
+const limits = require('../limits');
+const mcpServers = require('../mcpservers');
+const routineDraft = require('./draft');
+const { isModel } = require('../models');
+const { MAX_TABS } = require('../sessions');
+const { missedOnStartup, nextRun, describeSchedule, Scheduler } = require('../routines');
 
 const MAX_ROUTINES = 50;
 const ROUTINE_TABS_KEPT = 6;             // finished routine tabs left open before the oldest closes
@@ -34,7 +34,7 @@ const lastLines = s => String(s).trim().split('\n').slice(-3).join(' ');
  *   log, send, notify, showPanel, sayText, wake, openTab, currentCwd, stat,
  *   dialogLook, confirm ({ ask }), runClaudeOnce, knownProjects, isFolder,
  *   randomUUID,
- *   from usage-service.js: limitWait, guardSettings, clockTime,
+ *   from usage/service.js: limitWait, guardSettings, clockTime,
  *   from held-service.js: heldList, holdForReset, scheduleHeld, syncKeepAwake, queueTabs
  */
 function createRoutines(d) {
@@ -43,6 +43,7 @@ function createRoutines(d) {
   // routineTabs, which forgets a tab once it closes, so a test is still read
   // after you've closed its tab. Only the last few are remembered.
   const routineTests = new Map();
+  /** @type {InstanceType<typeof Scheduler> | null} */
   let scheduler = null;
   let routineAsking = false;
   let routineDeclinedAt = 0;
@@ -226,6 +227,7 @@ function createRoutines(d) {
    * Build it with Claude, one turn of the routine editor's chat. `runId` is the
    * test run that just finished: its transcript is read here, and only if it was
    * a test of this same saved routine. Nothing is saved or run here.
+   * @param {{ routine?: any, messages?: any[], runId?: string }} [ask]
    */
   async function chatRoutine({ routine, messages, runId } = {}) {
     if (d.config.get('crabOnly')) return { ok: false, error: 'Routines are off in just-the-crab mode.' };

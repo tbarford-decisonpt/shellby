@@ -93,7 +93,7 @@ const viaStart = (cmd, program, rest, options) => ({
  * How to open the conversation in a terminal, best first. Each plan is what
  * child_process.spawn takes. wt, powershell, cmd: full paths (wt may be null
  * when Windows Terminal isn't installed). env: the environment for the new
- * window, already scrubbed (claude-cli.js terminalEnv).
+ * window, already scrubbed (claude/cli.js terminalEnv).
  *   -> { ok: true, plans: [{ shell, file, args, options }] } | { ok: false, error }
  */
 function launchPlans({ exe, cwd, sessionId, prompt = null, scrub = [], env = undefined, wt = null, powershell = null, cmd = null }) {

@@ -4,7 +4,7 @@
 const { app } = require('electron');
 const path = require('path');
 const attach = require('../attachments');
-const { setPlanOnly } = require('../claude-cli');
+const { setPlanOnly } = require('../claude/cli');
 const { Config } = require('../config');
 const { History } = require('../history');
 const rooms = require('../rooms');

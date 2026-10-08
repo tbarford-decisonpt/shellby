@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const btw = require('../src/main/btw');
-const { run } = require('../src/main/claude-cli');
+const { run } = require('../src/main/claude/cli');
 
 const FAKE = path.join(__dirname, 'fixtures', 'fake-claude.js');
 const fakeRun = (args, timeout, opts) => run(process.execPath, [FAKE, ...args], timeout, opts);

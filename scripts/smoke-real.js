@@ -6,7 +6,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const { ClaudeSession } = require('../src/main/session');
-const { checkStatus } = require('../src/main/claude-cli');
+const { checkStatus } = require('../src/main/claude/cli');
 
 (async () => {
   const status = await checkStatus();

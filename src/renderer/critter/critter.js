@@ -361,16 +361,24 @@ function helperTalk(b) {
   return b.kind === 'said' ? `→ ${b.to}: ${b.text}` : `📨 ${b.text}`;
 }
 
-function renderCrew(crew, more) {
+function renderCrew(crew, more, ended = []) {
   const live = new Set(crew.map(c => c.id));
-  // Helpers whose task finished walk back into Shellby, then disappear.
+  const how = new Map(ended.map(e => [e.id, !!e.ok]));
+  // Helpers whose task finished walk back into Shellby, then disappear: one that
+  // did its job holds it up first (a scroll), one that failed trudges home.
   for (const [id, el] of helpers) {
     if (!live.has(id) && !el.classList.contains('leaving')) {
       // Out of the row where it stands, so a helper arriving in the same moment
       // takes its slot instead of being pushed past the window's left edge.
       el.style.left = `${el.offsetLeft}px`;
-      el.classList.add('leaving');
-      setTimeout(() => { el.remove(); helpers.delete(id); }, 900);
+      const ok = how.get(id);
+      if (ok === true) {
+        const loot = document.createElement('span');
+        loot.className = 'loot';
+        el.append(loot);
+      }
+      el.classList.add('leaving', ...(ok === true ? ['home-ok'] : ok === false ? ['home-sad'] : []));
+      setTimeout(() => { el.remove(); helpers.delete(id); }, ok === undefined ? 900 : 1500);
     }
   }
   crew.forEach((c, i) => {
@@ -538,7 +546,7 @@ api.onState(msg => {
   countEl.textContent = msg.busy;
   countEl.classList.toggle('on', msg.busy > 1);
   countEl.setAttribute('aria-label', `${msg.busy} conversations running`);
-  if (skin) renderCrew(msg.crew || [], msg.moreCrew || 0);
+  if (skin) renderCrew(msg.crew || [], msg.moreCrew || 0, Array.isArray(msg.crewEnded) ? msg.crewEnded : []);
 });
 
 // ---- click vs drag (pointer capture keeps drags alive past the window edge)
@@ -836,13 +844,25 @@ reducedQuery.addEventListener?.('change', tellReduced);
 tellReduced();
 
 // ---- his favourite Bugdex catch follows him round the desk, a step behind
-// whichever way he faces, and bobs along faster when he walks.
+// whichever way he faces, and bobs along faster when he walks. Its Bugdex
+// portrait is drawn in finer pixels than his, so it stays the size the little
+// 8×8 sprites were; small art (a hatchling) keeps his chunky pixels.
 const buddyEl = document.getElementById('buddy');
-api.onBuddy(b => {
-  if (!b || !Array.isArray(b.pixels) || !b.palette) { buddyEl.hidden = true; buddyEl.replaceChildren(); return; }
+const BUDDY_BOX = 8; // its longer side, in his pixels: at any size it stays in his slot, clear of the helpers (critter.css #buddy)
+let buddyArt = null;
+function drawBuddy() {
+  const b = buddyArt;
+  if (!b) { buddyEl.hidden = true; buddyEl.replaceChildren(); return; }
+  const side = Math.max(b.pixels.length, ...b.pixels.map(r => r.length));
+  const dpr = window.devicePixelRatio || 1;
+  const fit = Math.max(1, Math.round(px * BUDDY_BOX * dpr / side)) / dpr; // whole screen pixels, so it stays crisp
   buddyEl.hidden = false;
   buddyEl.classList.toggle('ghost', !!b.ghost);
-  buddyEl.replaceChildren(window.ShellbySprite.grid(b.pixels, b.palette, { px: Math.max(2, Math.round(px * 0.85)) }));
+  buddyEl.replaceChildren(window.ShellbySprite.grid(b.pixels, b.palette, { px: Math.min(Math.max(2, Math.round(px * 0.85)), fit) }));
+}
+api.onBuddy(b => {
+  buddyArt = b && Array.isArray(b.pixels) && b.pixels.length && b.palette ? b : null;
+  drawBuddy();
 });
 
 // ---- a friend's crab, visiting (src/main/friends.js). It stands closest to
@@ -883,8 +903,8 @@ api.onVisitor(v => {
   crewHost.prepend(el);
   visitorEl = el;
 });
-// A new size (Settings → Look) redraws the visitor along with everyone else.
-api.onSkin(() => { if (visitorEl && visitorLook) visitorEl.querySelector('svg')?.replaceWith(visitorSprite()); });
+// A new size (Settings → Look) redraws the visitor and his buddy along with everyone else.
+api.onSkin(() => { if (visitorEl && visitorLook) visitorEl.querySelector('svg')?.replaceWith(visitorSprite()); drawBuddy(); });
 
 // ---- the two of them doing something together: dance, party, high-five, sing.
 // Main picks what and when (src/main/friends.js); the moves are one body class

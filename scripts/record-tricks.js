@@ -4,7 +4,7 @@
 // ffmpeg recording one patch of the screen per clip. It moves windows and the
 // cursor and types into its own Notepad, so leave the mouse alone while it runs.
 //   node scripts/record-tricks.js [clip ...]   (no names: every clip)
-// Writes docs/tricks-<clip>.gif; the README uses ride, close, wall, pals,
+// Writes docs/img/tricks-<clip>.gif; the README uses ride, close, wall, pals,
 // typing and pounce. Needs imageio-ffmpeg (pip install imageio-ffmpeg).
 const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
@@ -21,7 +21,7 @@ const PORT = 9371;
 const FPS = 30;
 const GIF_FPS = 20;
 const GIF_SCALE = 0.75; // GIF pixels per DIP, the same in every clip
-const OUT = path.join(ROOT, 'docs');
+const OUT = path.join(ROOT, 'docs', 'img');
 const RAW = process.env.SHELLBY_TRICKS_RAW || fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-tricks-'));
 const wait = ms => new Promise(r => setTimeout(r, ms));
 

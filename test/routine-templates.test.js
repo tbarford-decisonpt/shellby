@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { TEMPLATES, checkupPrompt } = require('../src/main/routine-templates');
+const { TEMPLATES, checkupPrompt } = require('../src/main/routines/templates');
 const { validateRoutine } = require('../src/main/routines');
 const { checkupOf } = require('../src/main/checkup');
 

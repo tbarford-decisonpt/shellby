@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const eff = require('./efficiency');
 const mcpAdmin = require('./mcpadmin');
-const { scanTranscripts, totalUses } = require('./usagescan');
+const { scanTranscripts, totalUses } = require('./usage/scan');
 const { scanToolbox } = require('./toolbox');
 
 const SAVE_MS = 5000;                        // calls come in bursts; one write when they settle

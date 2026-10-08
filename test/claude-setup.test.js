@@ -8,7 +8,7 @@ const {
   scanSetup, scanHooks, scanMemory, validateHook, withHook, withoutHook, replaceHook, hookEntry, hasHook,
   changeHooks, readMemory, writeMemory,
   scanPermissions, explainRule, validateRule, withRule, withoutRule, changeSettings,
-} = require('../src/main/claude-setup');
+} = require('../src/main/claude/setup');
 
 const dirs = [];
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-setup-')); dirs.push(d); return d; };
@@ -133,7 +133,7 @@ test('scanSetup: bundles hooks, settings, memory and the event list', () => {
 });
 
 test('HOOK_EVENTS: every moment has a plain label, and says what it can stop', () => {
-  const { HOOK_EVENTS } = require('../src/main/claude-setup');
+  const { HOOK_EVENTS } = require('../src/main/claude/setup');
   for (const e of HOOK_EVENTS) {
     assert.match(e.label, /^[A-Z]/, e.name);
     assert.ok(e.blocks === null || typeof e.blocks === 'string', e.name);
@@ -144,7 +144,7 @@ test('HOOK_EVENTS: every moment has a plain label, and says what it can stop', (
 });
 
 test('scanHooks: each row says what it does, by recipe or by its command', () => {
-  const { RECIPES } = require('../src/main/hook-recipes');
+  const { RECIPES } = require('../src/main/hooks/recipes');
   const home = tmp();
   const guard = RECIPES.find(r => r.id === 'guard-git');
   put(path.join(home, '.claude', 'settings.json'), { hooks: {

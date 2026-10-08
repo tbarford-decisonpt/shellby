@@ -1,15 +1,15 @@
 // Stickers on the glass of his tank (docs/plans/tank-decor.md §4, Phase 3):
 // every project in the Sticker Book can go on the front glass, once, as its
-// small drawing (sticker-art.js). They're pieces like any other, kept as
+// small drawing (stickers/art.js). They're pieces like any other, kept as
 // `sticker:<projectId>` refs, which the tank keeps and syncs with its layout.
 //
-// They never go on the calling card: tank-share.js only lets built-in decor
+// They never go on the calling card: tank/share.js only lets built-in decor
 // and finds out, and a sticker's id would say which projects you have.
 // A project you hid in the Sticker Book doesn't come up in the tray.
 // Pure: see test/tank-glass.test.js.
 
-const stickers = require('./stickers');
-const stickerArt = require('./sticker-art');
+const stickers = require('../stickers');
+const stickerArt = require('../stickers/art');
 
 const PREFIX = 'sticker:';
 const CATEGORY = 'sticker';

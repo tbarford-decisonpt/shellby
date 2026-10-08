@@ -87,7 +87,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'moving-in', name: 'Moving In', icon: '🪴', description: 'Put the first piece of decor in his tank', stat: 'tankPieces', goal: 1, rewards: ['sunken-chest'] },
   { id: 'interior-designer', name: 'Interior Designer', icon: '🏰', description: 'Have 15 pieces in his tank at once', stat: 'tankPieces', goal: 15, rewards: ['coral-fan'] },
   { id: 'house-guest', name: 'House Guest', icon: '🛋️', description: "A friend's crab drops by while his tank is on your calling card", stat: 'houseGuests', goal: 1, rewards: ['guest-bench'] },
-  // His life in it (src/main/tank-life.js).
+  // His life in it (src/main/tank/life.js).
   { id: 'aquascaper', name: 'Aquascaper', icon: '🌿', description: 'Have 5 different plants in his tank at once', stat: 'tankPlants', goal: 5, rewards: ['anubias'] },
   { id: 'on-display', name: 'On Display', icon: '🖼️', description: 'Put 3 complete sets of finds on display in his tank', stat: 'setsShown', goal: 3, rewards: ['display-plinth'] },
   { id: 'upsized', name: 'Upsized', icon: '📦', description: 'Move him into the 30 gallon tank', stat: 'tankSize', goal: 3, rewards: ['old-anchor'] },
@@ -223,7 +223,7 @@ const MAXIMA = {
   streak: 'longestStreak', level: 'level',
   // The pieces in his tank (src/main/tank.js), reported when you save it.
   'tank-pieces': 'tankPieces',
-  // ...and its life (src/main/tank-life.js): plants on show, sets on display, the biggest tank (SIZES index + 1).
+  // ...and its life (src/main/tank/life.js): plants on show, sets on display, the biggest tank (SIZES index + 1).
   'tank-plants': 'tankPlants', 'sets-shown': 'setsShown', 'tank-size': 'tankSize',
   // The Bugdex (src/main/bugdex.js) reports how many kinds of bug, and of ghost, it has caught.
   'bug-species': 'bugSpecies', 'ghost-species': 'ghostSpecies',
