@@ -17,8 +17,9 @@
   const DRAG_START = 4;      // css px before a press becomes a drag
   const THUMB = 44;          // device px, the tray's pictures
   const TALL = 10;           // pieces this tall go to the back row by default
+  const TANK_SHARE = 0.5;    // of the tab's height, the most the tank takes
 
-  const stage = $('tkStage'), canvas = $('tkCanvas'), hits = $('tkHits');
+  const view = $('tankView'), stage = $('tkStage'), canvas = $('tkCanvas'), hits = $('tkHits');
   const ctx = canvas.getContext('2d');
 
   let v = null;              // the tank, from main
@@ -59,8 +60,12 @@
     if (!v) return;
     const { world } = scene();
     const dpr = window.devicePixelRatio || 1;
-    const cssW = stage.clientWidth || 420;
-    K = Math.max(1, Math.floor((cssW * dpr) / world.w));
+    const pad = parseFloat(getComputedStyle(stage).paddingLeft) * 2 || 0;
+    const cssW = (stage.clientWidth || 420) - pad;
+    // Width alone made him fill a maximized panel; the tray has to stay in
+    // reach below the glass while you decorate, so he gets about half its height.
+    const cssH = (view.clientHeight || 600) * TANK_SHARE;
+    K = Math.max(1, Math.floor(Math.min((cssW * dpr) / world.w, (cssH * dpr) / world.h)));
     u = K / dpr;
     canvas.width = world.w * K;
     canvas.height = world.h * K;
@@ -883,7 +888,9 @@
   api.onUnlocked?.(later);
   api.onLife?.(later);
   api.onSkin?.(() => { crabKey = null; if (state.view === 'tank') loadCrab(); });
-  new ResizeObserver(() => { if (state.view === 'tank' && v) { size(); keepingFocus(renderHits); kick(); } }).observe(stage);
+  const resized = new ResizeObserver(() => { if (state.view === 'tank' && v) { size(); keepingFocus(renderHits); kick(); } });
+  resized.observe(stage);
+  resized.observe(view); // a taller or shorter window changes his share, not the stage's width
   document.addEventListener('visibilitychange', kick);
   // ...and the calm lifting (or falling) is the same: back to life, or one still frame.
   let wasCalm = calm();
