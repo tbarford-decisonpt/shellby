@@ -7,6 +7,7 @@ const { ClaudeSession } = require('./session');
 const { cleanTitle } = require('./history');
 const review = require('./review-inbox');
 const turncost = require('./turncost');
+const planPace = require('./plan-pace');
 const mods = require('./mods');
 
 // Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
@@ -99,6 +100,7 @@ class SessionManager extends EventEmitter {
     session.on('context', (now, before) => { this.emit('context', tab.id, now, before, tab); this.changed(); });
     session.on('busy', () => this.changed());
     session.on('tokens', () => this.changed());
+    session.on('plan', () => this.changed());
     session.on('crew', () => this.changed());
     session.on('exit', () => {
       // Its mods ended with it: their status lines go too (plugin null: all of them).
@@ -386,6 +388,7 @@ class SessionManager extends EventEmitter {
     return [...this.tabs.values()].map(t => ({
       id: t.id, title: t.title, cwd: t.session.cwd, busy: t.session.busy, busySince: t.session.busySince,
       turnTokens: t.session.turn?.tokens || 0, // the running turn's so far, beside its clock
+      plan: planPace.outlook(t.session.turn?.plan), // its step through Claude's to-do list and when that ends
       pending: t.session.pending.size, crew: t.session.runningCrew().length,
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
       nudge: turncost.nudge(t.session.context, t.session.growths),

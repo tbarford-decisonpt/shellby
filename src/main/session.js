@@ -14,6 +14,7 @@ const { troubleOf } = require('./trouble');
 const { weightOf } = require('./spend');
 const ctx = require('./context');
 const turncost = require('./turncost');
+const planPace = require('./plan-pace');
 const eff = require('./efficiency');
 const { claudeEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
@@ -146,6 +147,7 @@ class ClaudeSession extends EventEmitter {
     // before: context tokens when it began }. Its result carries it (turncost.js).
     this.turn = null;
     this.growths = [];             // how much the last few turns grew the context, for the crowded nudge
+    this.plan = null;              // Claude's own to-do list, statuses only (plan-pace.js); the turn keeps its pace
   }
 
   buildArgs() {
@@ -656,10 +658,21 @@ class ClaudeSession extends EventEmitter {
     }
     const content = event.message?.content;
     if (!Array.isArray(content)) return;
+    if (event.type === 'assistant') this.trackPlan(content);
     for (const b of content) {
       if (event.type === 'assistant' && b.type === 'tool_use') this.openTools.add(b.id);
       if (event.type === 'user' && b.type === 'tool_result') this.openTools.delete(b.tool_use_id);
     }
+  }
+
+  // Claude's to-do list moved: the running turn's step and pace, beside its clock.
+  trackPlan(content) {
+    const plan = planPace.read(this.plan, content);
+    if (plan === this.plan) return;
+    this.plan = plan;
+    if (!this.turn) return;
+    this.turn.plan = planPace.track(this.turn.plan, planPace.counts(plan), Date.now());
+    this.emit('plan');
   }
 
   // A tool call on the main thread has finished (or failed). What you queued
