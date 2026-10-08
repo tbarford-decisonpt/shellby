@@ -1,6 +1,8 @@
 // One ranked list of what to work on in a project (docs/plans/next-up.md):
-// your tasks (.shellby/tasks.md), the repository's open issues, and the loose
-// ends in its code, in three tiers.
+// your tasks (.shellby/tasks.md), the repository's open issues, the loose
+// ends in its code and new production errors from Sentry, in three tiers.
+// An error new today, escalating or back after being resolved is Now; one
+// new this week is Up next.
 //
 //   Now:      tasks under ## Now; issues in a milestone due within 3 days (or
 //             overdue) or labelled urgent, that are yours or nobody's
@@ -87,6 +89,30 @@ function scoreIssue(issue, { login, nearest, now }) {
   return { score, reasons, mine, free, urgent, soon, inNearest };
 }
 
+/**
+ * A production error's (backlog/sentry.js) score, reasons and tier: new today,
+ * escalating or back after being resolved is Now; new this week is Up next.
+ */
+function scoreError(e, now) {
+  const signals = [];
+  const add = (points, text) => signals.push({ points, text });
+  const age = Number.isFinite(e.firstSeen) ? now - e.firstSeen : null;
+  const today = age !== null && age <= DAY;
+  if (e.substatus === 'escalating') add(6, 'Escalating');
+  if (e.substatus === 'regressed') add(5, 'Back after being resolved');
+  if (today) add(5, 'New today');
+  else if (age !== null && age <= 7 * DAY) add(2, 'New this week');
+  if (e.count) add(Math.log2(1 + e.count), plural(e.count, 'event'));
+  if (e.users) add(1.5 * Math.log2(1 + e.users), plural(e.users, 'user'));
+  if (e.level === 'fatal') add(2, 'Fatal');
+  else if (e.unhandled) add(1, 'Unhandled');
+  // Why it's here (new, escalating) first, then how big it is.
+  const reasons = signals.map(s => s.text);
+  const score = signals.reduce((s, x) => s + x.points, 0);
+  const tier = today || e.substatus === 'escalating' || e.substatus === 'regressed' ? 'now' : age !== null && age <= 7 * DAY ? 'next' : 'later';
+  return { score, reasons, tier };
+}
+
 function issueTier(s, issue) {
   const forUs = s.mine || s.free;
   if (forUs && (s.soon || s.urgent)) return 'now';
@@ -113,9 +139,10 @@ const issueItem = (issue, s, tier) => ({
  *   todos: loose ends ({ file, line, tag, text, ref }). repo: owner/name or null.
  *   notes: to-dos kept in Shellby for a project with no clone ({ id, text, from }).
  *   complete: issues holds every open one (so a "#42" not in it has closed), not just the first page.
+ *   errors: new production errors from Sentry (backlog/sentry.js errorOf).
  * -> { items: [{ id, kind, tier, title, reason, reasons, ... }], milestone }
  */
-function rank({ tasks = [], notes = [], issues = null, complete = true, milestones = [], todos = [], repo = null, login = null, now = Date.now() } = {}) {
+function rank({ tasks = [], notes = [], issues = null, complete = true, milestones = [], todos = [], errors = [], repo = null, login = null, now = Date.now() } = {}) {
   const known = Array.isArray(issues);
   const nearest = nearestMilestone(milestones);
   const byNumber = new Map();
@@ -182,8 +209,16 @@ function rank({ tasks = [], notes = [], issues = null, complete = true, mileston
     if (it.todos.length) it.reasons = [...it.reasons, plural(it.todos.length, 'loose end') + ' in the code'];
   }
 
+  for (const e of Array.isArray(errors) ? errors : []) {
+    const s = scoreError(e, now);
+    scored[s.tier].push({
+      id: `se:${e.id}`, kind: 'error', tier: s.tier, title: e.title,
+      reason: s.reasons[0] || e.shortId, reasons: s.reasons, score: s.score, error: e,
+    });
+  }
+
   const byScore = (a, b) => b.score - a.score
-    || (b.issue?.updatedAt || 0) - (a.issue?.updatedAt || 0)
+    || (b.issue?.updatedAt || b.error?.lastSeen || 0) - (a.issue?.updatedAt || a.error?.lastSeen || 0)
     || (a.issue?.number || Infinity) - (b.issue?.number || Infinity)
     || String(a.todo?.file || '').localeCompare(String(b.todo?.file || ''))
     || (a.todo?.line || 0) - (b.todo?.line || 0);
@@ -195,4 +230,4 @@ function rank({ tasks = [], notes = [], issues = null, complete = true, mileston
   };
 }
 
-module.exports = { rank, scoreIssue, nearestMilestone, dueText, TIERS };
+module.exports = { rank, scoreIssue, scoreError, nearestMilestone, dueText, TIERS };

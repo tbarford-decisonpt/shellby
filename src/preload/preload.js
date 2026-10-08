@@ -308,6 +308,7 @@ contextBridge.exposeInMainWorld('shellby', {
   backlogHide: invoke('backlog:hide'),
   backlogCommit: invoke('backlog:commit'),
   backlogHand: invoke('backlog:hand'),
+  backlogSentry: invoke('backlog:sentry'), // connect (the token goes in, never comes back), link, unlink, snooze, disconnect
   backlogTab: invoke('backlog:tab'),
   backlogOpenPr: invoke('backlog:open-pr'),
   backlogTickLinked: invoke('backlog:tick-linked'),
