@@ -145,6 +145,9 @@ const DEFAULTS = {
   healthLog: [],      // recent health alerts, newest first
   channels: null,     // where to send "he needs you" when you're away (see channels.js)
   obs: null,          // { enabled, port }: the browser source for a stream (see obs.js)
+  streamDeck: null,   // { enabled }: Allow, Deny, Stop, Bring it home and Ready to review on a Stream Deck (see deck.js)
+  streamDeckToken: null, // the Stream Deck plugin's way in, encrypted by Windows (wiring/deck.js)
+  streamDeckAdded: false, // the plugin has been handed to Stream Deck's installer at least once
   rgb: null,          // { enabled, port }: his mood on the desk lighting (see rgb.js)
   rgbSaved: null,     // [{ id, name, saved }]: each device's own mode before Shellby painted it, put back on switching off
   nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)

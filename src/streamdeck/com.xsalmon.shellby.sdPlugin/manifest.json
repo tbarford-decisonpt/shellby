@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "UUID": "com.xsalmon.shellby",
+  "Name": "Shellby",
+  "Author": "x-salmon",
+  "Description": "Allow, Deny, Stop, Bring it home and Ready to review for Shellby's Claude Code conversations, each key showing what's waiting.",
+  "URL": "https://github.com/x-salmon/shellby",
+  "Version": "1.0.0.0",
+  "SDKVersion": 2,
+  "Software": { "MinimumVersion": "7.1" },
+  "OS": [{ "Platform": "windows", "MinimumVersion": "10" }],
+  "Nodejs": { "Version": "24" },
+  "CodePath": "plugin.js",
+  "Icon": "imgs/plugin",
+  "Category": "Shellby",
+  "CategoryIcon": "imgs/category",
+  "Actions": [
+    {
+      "UUID": "com.xsalmon.shellby.allow",
+      "Name": "Allow",
+      "Tooltip": "Allow the oldest permission prompt",
+      "Icon": "imgs/allow-icon",
+      "States": [{ "Image": "imgs/allow", "ShowTitle": false }],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"]
+    },
+    {
+      "UUID": "com.xsalmon.shellby.deny",
+      "Name": "Deny",
+      "Tooltip": "Deny the oldest permission prompt",
+      "Icon": "imgs/deny-icon",
+      "States": [{ "Image": "imgs/deny", "ShowTitle": false }],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"]
+    },
+    {
+      "UUID": "com.xsalmon.shellby.stop",
+      "Name": "Stop",
+      "Tooltip": "Stop the conversation that's working",
+      "Icon": "imgs/stop-icon",
+      "States": [{ "Image": "imgs/stop", "ShowTitle": false }],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"]
+    },
+    {
+      "UUID": "com.xsalmon.shellby.home",
+      "Name": "Bring it home",
+      "Tooltip": "Bring the conversation on screen home: merge its copy into your branch",
+      "Icon": "imgs/home-icon",
+      "States": [{ "Image": "imgs/home", "ShowTitle": false }],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"]
+    },
+    {
+      "UUID": "com.xsalmon.shellby.review",
+      "Name": "Ready to review",
+      "Tooltip": "Open the conversations with finished work waiting for you",
+      "Icon": "imgs/review-icon",
+      "States": [{ "Image": "imgs/review", "ShowTitle": false }],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"]
+    }
+  ]
+}

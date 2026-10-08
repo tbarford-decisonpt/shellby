@@ -1587,6 +1587,19 @@
           <p class="small ext-status" id="obsStatus"></p>
         </div>
       </details>
+
+      <details class="setting-group setting-fold" id="deckGroup" data-nav="Stream Deck" data-fold-on="deckBody">
+        <summary><h3>Stream Deck</h3><span class="fold-state"></span></summary>
+        <p class="small muted ext-lede">Hardware keys for <b>Allow</b>, <b>Deny</b>, <b>Stop</b>, <b>Bring it home</b> and <b>Ready to review</b>, each showing what's waiting. Like answering from your phone, a question, a plan or anything the card would warn about says <b>Look</b> instead, and opens here. Needs Stream Deck 7.1 or newer.</p>
+        <label class="toggle"><input type="checkbox" id="deckEnabled"><span class="switch"></span>Answer from a Stream Deck</label>
+        <div class="deck-body" id="deckBody" hidden>
+          <div class="row wrap">
+            <button type="button" class="btn slim-btn" id="deckAdd">Add the keys to Stream Deck</button>
+            <p class="small ext-status" id="deckStatus"></p>
+          </div>
+          <p class="small muted">Stream Deck asks before it installs them. Then drag the keys you want from <b>Shellby</b> in its list of actions.</p>
+        </div>
+      </details>
       </div>
 
     <div class="settings-panel" role="tabpanel" id="setPanel-claude" data-tab="claude" aria-labelledby="setTab-claude" hidden>

@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld('shellby', {
   popInTab: (tabId, carry) => ipcRenderer.send('tab:pop-in', { tabId, carry }),
   popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
+  shownTab: fire('tab:shown'), // the Stream Deck's Stop and Bring it home follow it
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
@@ -541,6 +542,13 @@ contextBridge.exposeInMainWorld('shellby', {
   getObs: invoke('obs:get'),
   setObs: invoke('obs:set'),
   onObs: on('obs'),
+
+  // hardware keys on a Stream Deck
+  getDeck: invoke('deck:get'),
+  setDeck: invoke('deck:set'),
+  addToStreamDeck: invoke('deck:add'),
+  onDeck: on('deck'),
+  onDeckPress: on('deck:press'), // { what: 'home' | 'review', tabId? }: a key that needs the panel
 
   // his mood on the desk lighting
   getRgb: invoke('rgb:get'),
