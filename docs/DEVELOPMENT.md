@@ -48,7 +48,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one) |
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
 | `npm run panel:html` | Builds `src/renderer/panel/panel.html` from the files in `src/renderer/panel/html/` (a frame plus one per screen, `<!-- @include x.html -->`). Run it after editing any of them; `-- --check` says if it's stale |
-| `npm run typecheck` | TypeScript's checker over the JSDoc in `src/preload` and `src/main`'s `ipc`, `flaky`, `remote`, `backlog` and `bugdex` (jsconfig.json), with no build step |
+| `npm run typecheck` | TypeScript's checker over the JSDoc in `src/preload` and `src/main`'s `ipc`, `flaky`, `remote`, `backlog`, `bugdex`, `depwatch`, `tank`, `stickers`, `usage`, `weather`, `hooks`, `claude` and `routines` (jsconfig.json), with no build step |
 | `npm run packs` | Validates the built-in wardrobe packs in `src/wardrobe/` |
 | `npm run packs:format` | Rewrites those packs in the house style: pivot and palette on one line, one pixel row per line |
 | `npm run packs:sheet` | A contact sheet of every built-in pack worn by the crab (Python), to eyeball new art |

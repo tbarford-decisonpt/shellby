@@ -10,7 +10,7 @@ in an area you haven't touched.
 
 ```powershell
 npm run lint
-npm run typecheck   # jsconfig over src/preload and src/main/{ipc,flaky,remote,backlog,bugdex} only
+npm run typecheck   # jsconfig over src/preload and some src/main folders (see jsconfig.json)
 npm test            # node:test, a fake Claude CLI stands in for the real one
 npm run e2e:ci      # the real app over CDP; `npm run e2e:ci -- queue voice` runs only those
 ```
