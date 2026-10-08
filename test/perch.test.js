@@ -293,6 +293,17 @@ test('wantsToPerch: off never, cooldown respected, temperament matters', () => {
   assert.equal(perch.settingOf('nope'), 'sometimes');
 });
 
+test('hidden: a window over half his body or more hides him on the desktop', () => {
+  const geo = { ...GEO, body: 52 };
+  const pos = { x: 500, y: 900 }; // body: x 536..624, y 966..1018
+  assert.equal(perch.hidden(pos, [], geo), false, 'nothing open');
+  assert.equal(perch.hidden(pos, [{ x: 0, y: 0, width: 1920, height: 1040 }], geo), true, 'a big window right over him');
+  assert.equal(perch.hidden(pos, [{ x: 0, y: 0, width: 800, height: 600 }], geo), false, 'a window somewhere else');
+  assert.equal(perch.hidden(pos, [{ x: 0, y: 0, width: 560, height: 1040 }], geo), false, 'only his edge behind it');
+  assert.equal(perch.hidden(pos, [{ x: 0, y: 0, width: 600, height: 1040 }], geo), true, 'most of him behind it');
+  assert.equal(perch.hidden(pos, [null, { x: 0, y: 0, width: 1920, height: 960 }], geo), false, 'it ends just above him');
+});
+
 test('stayFor: minutes, longer for a sleepy crab', () => {
   const chipper = perch.stayFor('chipper', () => 0.5);
   assert.ok(chipper >= 2 * 60000 && chipper <= 6 * 60000);

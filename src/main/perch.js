@@ -391,6 +391,26 @@ function wantsToPerch({ setting, temperament, sinceLast }, rand = Math.random) {
   return rand() < CHANCE[s] * (KEEN[temperament] || 1);
 }
 
+/**
+ * Is he out of sight on the desktop? He lives under every app, so any window
+ * over at least half of his body hides him, and going up on his own from there
+ * looks like a crab popping out of nowhere and vanishing again on the way home.
+ * `windows` are the frames (DIPs) of the windows that could be over him: not
+ * his own, not the desktop's, not minimized, cloaked or click-through.
+ */
+function hidden(pos, windows, geo) {
+  const cx = centerOf(pos, geo);
+  const feet = pos.y + geo.height - geo.foot;
+  const body = { x: cx - geo.half, y: feet - geo.body, width: geo.half * 2, height: geo.body };
+  const area = body.width * body.height;
+  return area > 0 && windows.some(f => {
+    if (!f) return false;
+    const w = Math.min(f.x + f.width, body.x + body.width) - Math.max(f.x, body.x);
+    const h = Math.min(f.y + f.height, body.y + body.height) - Math.max(f.y, body.y);
+    return w > 0 && h > 0 && w * h >= area / 2;
+  });
+}
+
 /** How long he stays up before hopping down (ms). */
 function stayFor(temperament, rand = Math.random) {
   return Math.round((STAY_MIN + rand() * (STAY_MAX - STAY_MIN)) * (STAY[temperament] || 1));
@@ -438,5 +458,5 @@ module.exports = {
   perchable, ledgeOf, standAt, centerOf, visibleLedges, flightLedges, ledgeUnder, pickSpot,
   hopDuration, hopLift, hopPoint, hopFlips,
   spring, reversals, peakVelocity, movingRuns, judgeRide, classify, startRide, strollOnLedge, rideStep,
-  settingOf, wantsToPerch, stayFor, chooseLedge, recordPerch, favouriteOf, appName,
+  settingOf, wantsToPerch, hidden, stayFor, chooseLedge, recordPerch, favouriteOf, appName,
 };

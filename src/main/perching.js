@@ -11,6 +11,7 @@
 // crossing your apps rather than happening behind them.
 const perch = require('./perch');
 const native = require('./native-windows');
+const { DESKTOP_CLASSES } = require('./desktop-layer');
 
 const READ_IDLE_MS = 90;        // a still window is read ~11×/s; a moving one every frame
 const LEAN_EVERY_MS = 70;       // how often his lean is sent to the renderer while riding
@@ -226,11 +227,23 @@ function createPerching(d) {
     return seg ? goUp(seg, { eye }) : false;
   }
 
+  /** Behind one of your windows, where you can't see him go up or come home. */
+  function outOfSight() {
+    if (d.onTop?.()) return false; // drawn over your apps: always in sight
+    const me = self();
+    const frames = native.topLevelWindows().filter(h => h !== me).map(h => {
+      const w = describeDip(h);
+      if (!w?.frame || w.minimized || w.cloaked || w.clickThrough || w.pid === process.pid || DESKTOP_CLASSES.has(w.cls)) return null;
+      return w.frame;
+    });
+    return perch.hidden(d.getPos(), frames, d.geo());
+  }
+
   /** The idle tick's roll of the dice. */
   function maybeGoUp() {
     if (!allowed() || attached) return false;
     const want = perch.wantsToPerch({ setting: setting(), temperament: d.temperament(), sinceLast: Date.now() - lastEnd });
-    return want && tryGoUp();
+    return want && !outOfSight() && tryGoUp();
   }
 
   // ---------------------------------------------------------------- up there
