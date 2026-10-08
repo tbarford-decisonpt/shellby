@@ -109,9 +109,12 @@
       ]
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "runAfterFinish": true,
       "include": "packaging/nsis/installer.nsh",
       "artifactName": "Shellby-Setup-${version}.${ext}"
     },
