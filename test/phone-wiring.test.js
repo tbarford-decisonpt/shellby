@@ -34,6 +34,8 @@ function stubFetch(answers = []) {
 
 const busy = status => ({ ok: false, status, headers: { get: k => (k === 'retry-after' ? '0' : null) }, text: async () => 'busy' });
 const settle = async (n = 5) => { for (let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
+// Until ok() holds, for what takes more than a few turns of the loop on a slow CI box.
+const until = async (ok, ms = 2000) => { const end = Date.now() + ms; while (!ok() && Date.now() < end) await new Promise(r => setTimeout(r, 5)); };
 
 function wired(provider = 'ntfy', target = 'shellby-abcdefghjkmnpqrstuvw') {
   const notes = [];
@@ -72,6 +74,7 @@ test('a permission prompt is retried once when the server is busy', async () => 
   try {
     d.remote = { register: () => 'n', sent: () => {}, forget: () => {} };
     d.tellChannel({ kind: 'asking', project: 'shellby', message: 'Bash wants to run npm test' });
+    await until(() => net.sent.length >= 2 && d.channelsView().lastDeliveryError === null);
     await settle(10);
     assert.equal(net.sent.length, 2);
     assert.equal(d.channelsView().lastDeliveryError, null, 'it went in the end');
