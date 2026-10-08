@@ -44,6 +44,7 @@ function wireServices(d) {
     get flashState() { return d.flashState; },
     get tellChannel() { return d.tellChannel; },
     get sayText() { return d.sayText; },
+    get sendEveryWindow() { return d.sendEveryWindow; },
     markActive: () => { d.lastActivity = Date.now(); },
     routines: () => routineService.routines(),
     heldViews: () => heldService.heldViews(),

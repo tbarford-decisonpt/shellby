@@ -38,12 +38,20 @@ const FIXED = Object.freeze({
   go: 'go test ./...',
   pytest: 'python -m pytest -q',
 });
+// A Python project's own virtualenv, where its pytest lives: these paths
+// (relative to the folder, fixed here), first one that exists wins. bin\ is
+// the POSIX layout (MSYS2 and Cygwin pythons make those on Windows too).
+const VENV_PYTHONS = Object.freeze(['.venv\\Scripts\\python.exe', '.venv\\bin\\python.exe', 'venv\\Scripts\\python.exe', 'venv\\bin\\python.exe']);
+const pytestWith = python => `${python} -m pytest -q`;
+const VENV_PYTEST = Object.freeze(VENV_PYTHONS.map(pytestWith));
 const SCRIPT_CMD_RE = /^(npm|pnpm|yarn|bun) run [A-Za-z0-9][A-Za-z0-9:._-]{0,63}$/;
+// "python -m pytest" with no pytest: the python on PATH isn't the project's.
+const NO_PYTEST_RE = /No module named '?pytest'?(?![\w.])/;
 
 /** Is this a command line checks.js would have built? Anything else never runs. */
 function isSafeCommand(cmd) {
   if (typeof cmd !== 'string' || cmd.length > 100) return false;
-  return SCRIPT_CMD_RE.test(cmd) || Object.values(FIXED).includes(cmd);
+  return SCRIPT_CMD_RE.test(cmd) || Object.values(FIXED).includes(cmd) || VENV_PYTEST.includes(cmd);
 }
 
 function parseJson(text) {
@@ -75,9 +83,9 @@ const usesPytest = ({ pyproject = '', setupCfg = '', hasIni = false } = {}) =>
 /**
  * What a folder holds -> the commands to run. A Node project wins over the
  * rest (a repo with both usually tests through npm). Pure.
- *   facts: { pkgText, files: [names], pyproject, setupCfg }
+ *   facts: { pkgText, files: [names], pyproject, setupCfg, venvPython: one of VENV_PYTHONS that exists }
  */
-function pickCommands({ pkgText = null, files = [], pyproject = '', setupCfg = '' } = {}) {
+function pickCommands({ pkgText = null, files = [], pyproject = '', setupCfg = '', venvPython = null } = {}) {
   const names = new Set(files);
   if (pkgText != null) {
     const fromPkg = pickFromPackage(pkgText, names);
@@ -85,7 +93,9 @@ function pickCommands({ pkgText = null, files = [], pyproject = '', setupCfg = '
   }
   if (names.has('Cargo.toml')) return [FIXED.cargo];
   if (names.has('go.mod')) return [FIXED.go];
-  if (usesPytest({ pyproject, setupCfg, hasIni: names.has('pytest.ini') })) return [FIXED.pytest];
+  if (usesPytest({ pyproject, setupCfg, hasIni: names.has('pytest.ini') })) {
+    return [VENV_PYTHONS.includes(venvPython) ? pytestWith(venvPython) : FIXED.pytest];
+  }
   return [];
 }
 
@@ -94,6 +104,12 @@ function readSmall(file) {
     const st = fs.statSync(file);
     return st.isFile() && st.size <= MAX_PKG_BYTES ? fs.readFileSync(file, 'utf8') : null;
   } catch { return null; }
+}
+
+/** The first of VENV_PYTHONS that's a file in dir, or null. Never throws. */
+function venvPythonIn(dir, files = []) {
+  if (!files.includes('.venv') && !files.includes('venv')) return null;
+  return VENV_PYTHONS.find(rel => { try { return fs.statSync(path.join(dir, rel)).isFile(); } catch { return false; } }) || null;
 }
 
 /** A folder -> the commands its checks are. [] when there's nothing to run. Never throws. */
@@ -106,6 +122,7 @@ function detect(dir) {
       files,
       pyproject: files.includes('pyproject.toml') ? readSmall(path.join(dir, 'pyproject.toml')) || '' : '',
       setupCfg: files.includes('setup.cfg') ? readSmall(path.join(dir, 'setup.cfg')) || '' : '',
+      venvPython: venvPythonIn(dir, files),
     });
   } catch { return []; }
 }
@@ -117,17 +134,25 @@ function tailOf(output, n = TAIL_LINES) {
   return lines.slice(-n).map(l => (l.length > MAX_TAIL_LINE ? `${l.slice(0, MAX_TAIL_LINE)}…` : l)).join('\n');
 }
 
+/** pytest never started because the python that ran it hasn't got it. Pure. */
+const missingPytest = (cmd, output) => (cmd === FIXED.pytest || VENV_PYTEST.includes(cmd)) && NO_PYTEST_RE.test(String(output || ''));
+
 /**
- * One finished command -> { cmd, ok, durationMs, failed, tail, timedOut?, error? }. Pure.
+ * One finished command -> { cmd, ok, durationMs, failed, tail, timedOut?, error?, needsEnv? }. Pure.
  * The exit code is the truth (it's our own run, nothing masks it); the output
  * is only read for which tests failed (flaky.js knows the runners' formats).
+ * pytest missing from the python that ran it isn't a failing test: that's an
+ * error (needsEnv), and it doesn't hold up bringing a copy home.
  */
 function commandVerdict({ cmd, exitCode = null, timedOut = false, error = null, output = '', durationMs = 0 }) {
   const ok = !timedOut && !error && exitCode === 0;
+  const needsEnv = !ok && !timedOut && !error && missingPytest(cmd, output);
+  if (needsEnv) error = "pytest isn't installed for this python: it needs its virtualenv.";
   const failed = ok ? [] : flaky.parse(output, cmd).failed.slice(0, MAX_FAILED_SHOWN);
   return {
     cmd, ok, durationMs: Math.max(0, Math.round(durationMs) || 0), failed, tail: tailOf(output),
     ...(timedOut ? { timedOut: true } : {}), ...(error ? { error: String(error).slice(0, 200) } : {}),
+    ...(needsEnv ? { needsEnv: true } : {}),
   };
 }
 
@@ -172,9 +197,15 @@ function homeGate({ gate, force, commands, last, tree }) {
   return 'run';
 }
 
-/** A gate's verdict -> carry on, or stop and say so. Pure. */
+/**
+ * A gate's verdict -> carry on, or stop and say so. Pure. Checks that only
+ * couldn't find their virtualenv (needsEnv) say nothing about the code, so
+ * they don't stop it either.
+ */
 function gatePasses(verdict) {
-  return !verdict || verdict.status === 'pass';
+  if (!verdict || verdict.status === 'pass') return true;
+  const bad = (verdict.commands || []).filter(c => !c.ok);
+  return verdict.status === 'error' && bad.length > 0 && bad.every(c => c.needsEnv);
 }
 
 /** "2 tests failing", for a red gate. c: failingOf's names plus the status. Pure. */
@@ -315,7 +346,7 @@ function runAll(commands, cwd, opts = {}) {
 const timeoutMs = minutes => (TIMEOUTS_MIN.includes(minutes) ? minutes : DEFAULT_TIMEOUT_MIN) * 60000;
 
 module.exports = {
-  DEFAULT_TIMEOUT_MIN, TIMEOUTS_MIN, STATUSES, FIXED, TAIL_LINES,
+  DEFAULT_TIMEOUT_MIN, TIMEOUTS_MIN, STATUSES, FIXED, VENV_PYTHONS, TAIL_LINES,
   isSafeCommand, pickFromPackage, pickCommands, usesPytest, detect,
   tailOf, commandVerdict, statusOf, buildVerdict, failingOf, homeGate, gatePasses, redHeadline, fixPrompt,
   projectKey, trustOf, withTrust, checkEnv, runCommand, runAll, timeoutMs,

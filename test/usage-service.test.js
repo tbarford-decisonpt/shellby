@@ -39,6 +39,7 @@ function setup(over = {}) {
     heldViews: () => [],
     every: (fn, ms) => { calls.every.push(ms); return { unref() {} }; },
     powerMonitor: { getSystemIdleState: () => 'active', getSystemIdleTime: () => 0 },
+    ...over.d,
   };
   return { usage: createUsage(d), config, calls };
 }
@@ -124,6 +125,25 @@ test('the outlook watch goes through main\'s every(), so quitting clears it', ()
   usage.watchOutlook();
 
   assert.deepEqual(calls.every, [OUTLOOK_TICK_MS]);
+});
+
+test('the outlook goes to every window, so a popped-out conversation can offer "Send after the reset"', () => {
+  const everywhere = [];
+  let tick = null;
+  const { usage, config, calls } = setup({ d: {
+    sendEveryWindow: (channel, payload) => everywhere.push({ channel, payload }),
+    every: fn => { tick = fn; return { unref() {} }; }, // main's every(), stepped by hand
+  } });
+
+  usage.sendOutlook();
+  assert.equal(everywhere.filter(s => s.channel === 'outlook').length, 1);
+  assert.equal(calls.send.filter(s => s.channel === 'outlook').length, 0, 'not the panel alone');
+
+  // The watch noticing it has changed (here, keep-awake turned off) goes everywhere too.
+  usage.watchOutlook();
+  config.set({ queueKeepAwake: false });
+  tick();
+  assert.equal(everywhere.filter(s => s.channel === 'outlook').length, 2);
 });
 
 test('resetTarget is the limit you are held at, else the 5-hour window\'s next reset', t => {

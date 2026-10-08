@@ -58,6 +58,17 @@ function pairs(text, sep) {
   return { list: out };
 }
 
+// npx, pnpm and the rest are .cmd scripts on Windows, which Claude Code can't
+// start as a server by themselves: its docs say to run them through `cmd /c`.
+// (One typed as `cmd /c npx …` already is, and is left alone.)
+const CMD_SHIM = /^(?:npx|npm|pnpm|pnpx|yarn|bunx)(?:\.cmd)?$/i;
+
+/** A stdio server's words -> the ones that start it on this platform. Pure. */
+function withCmdWrapper(words, platform = process.platform) {
+  if (platform !== 'win32' || !words.length) return words;
+  return CMD_SHIM.test(path.win32.basename(words[0])) ? ['cmd', '/c', ...words] : words;
+}
+
 /**
  * input: { name, transport, target, scope, env, headers }
  * -> { args, summary } for `claude <args>`, or { error }.
@@ -65,9 +76,10 @@ function pairs(text, sep) {
  *
  * -e and --header each take several values, so "--" ends the options before
  * the name: everything after it is the name, then the command or URL (checked
- * against the real CLI).
+ * against the real CLI). On Windows, npx and friends get `cmd /c` in front
+ * (withCmdWrapper), and summary.target says so: the confirm window shows what runs.
  */
-function addArgs(input) {
+function addArgs(input, { platform = process.platform } = {}) {
   const i = input && typeof input === 'object' ? input : {};
   const name = String(i.name || '').trim();
   if (!NAME.test(name)) return { error: 'Give it a short name: letters, numbers, dots, dashes or underscores.' };
@@ -80,11 +92,13 @@ function addArgs(input) {
   if (transport === 'stdio') {
     const env = pairs(i.env, '=');
     if (env.error) return env;
-    const words = splitArgs(target);
-    if (!words || !words.length) return { error: 'That command has a quote that never closes.' };
+    const typed = splitArgs(target);
+    if (!typed || !typed.length) return { error: 'That command has a quote that never closes.' };
+    const words = withCmdWrapper(typed, platform);
     for (const e of env.list) args.push('-e', e);
     args.push('--', name, ...words);
-    return { args, summary: { name, transport, scope, target, env: env.list.map(e => e.split('=')[0]) } };
+    const shown = words === typed ? target : `cmd /c ${target}`;
+    return { args, summary: { name, transport, scope, target: shown, env: env.list.map(e => e.split('=')[0]) } };
   }
   let url;
   try { url = new URL(target); } catch { return { error: "That isn't a URL." }; }

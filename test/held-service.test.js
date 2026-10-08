@@ -43,6 +43,7 @@ function setup(over = {}) {
     routinesView: () => [],
     runRoutine: r => { calls.runs.push(r.id); return { ok: true }; },
     makeRoomForRoutine: () => {},
+    ...over.d,
   };
   return { q: createHeldQueue(d), data, calls };
 }
@@ -140,4 +141,26 @@ test('a due message whose conversation is busy is retried shortly, not dropped',
   assert.equal(data.held.length, 1);
   assert.ok(data.held[0].at > NOW);
   assert.deepEqual(calls.sent, []);
+});
+
+test('a held message that fails to send for a popped-out conversation goes back to that window, not the panel', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: NOW });
+  const tabs = { 'tab-1': { session: { busy: false } } };
+  const popout = { name: 'popout' };
+  const to = [];
+  const { q, calls } = setup({
+    tabs, data: { held: [{ id: 'h1', kind: 'message', tabId: 'tab-1', text: 'carry on', attachments: [], at: NOW - 1, createdAt: NOW - H }] },
+    d: {
+      tabWindow: id => (id === 'tab-1' ? popout : null),
+      send: (win, channel, payload) => to.push({ win, channel, payload }),
+      sendToTab: () => ({ ok: false, error: 'It stopped.' }),
+    },
+  });
+
+  await q.releaseHeld();
+
+  const back = to.find(s => s.channel === 'held:returned');
+  assert.equal(back?.win, popout);
+  assert.equal(back.payload.text, 'carry on');
+  assert.match(calls.notify.at(-1).body, /back in its conversation's box/);
 });

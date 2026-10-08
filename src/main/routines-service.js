@@ -307,14 +307,20 @@ function createRoutines(d) {
 
   function startScheduler() {
     scheduler = new Scheduler({ getRoutines: routines });
-    scheduler.on('due', r => {
+    scheduler.on('due', (r, { order = 0, late = false } = {}) => {
       // A start that fails outright (runRoutine catch) already said so; a skip
       // (signed out, last run still going) would otherwise vanish without a word.
-      const res = runOrHoldRoutine(r, 'scheduled');
-      if (!res.ok && res.skipped) {
-        d.log.info('Routine skipped', `${r.name}: ${res.error}`);
-        d.notify(`Routine "${r.name}" didn't run`, res.error, null, { tone: 'problem' });
-      }
+      const go = () => {
+        const res = runOrHoldRoutine(r, late ? 'catch-up' : 'scheduled');
+        if (!res.ok && res.skipped) {
+          d.log.info('Routine skipped', `${r.name}: ${res.error}`);
+          d.notify(`Routine "${r.name}" didn't run`, res.error, null, { tone: 'problem' });
+        }
+      };
+      // Several due at once (waking from sleep, or the same time of day): one
+      // after another, like the catch-up at startup.
+      if (order > 0) setTimeout(go, order * CATCH_UP_STAGGER_MS);
+      else go();
     });
     scheduler.start();
     // Catch up on slots missed while the PC was off, staggered so they don't stampede.

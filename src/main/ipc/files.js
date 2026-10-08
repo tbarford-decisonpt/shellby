@@ -44,12 +44,14 @@ function registerFilesIpc(ipcMain, d) {
     };
   });
 
-  ipcMain.handle('panel:zoom', (_e, step) => {
-    const wc = d.panel.webContents;
-    const now = wc.getZoomFactor();
+  // From the panel or a popped-out conversation: a step from where the one that
+  // asked is, and then every one of them at it, as the next to open will be.
+  ipcMain.handle('panel:zoom', (e, step) => {
+    const now = e.sender.getZoomFactor();
     const at = ZOOM_STEPS.reduce((best, z, i) => (Math.abs(z - now) < Math.abs(ZOOM_STEPS[best] - now) ? i : best), 0);
     const next = step === 0 ? 1 : ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, at + Math.sign(Number(step) || 0)))];
-    wc.setZoomFactor(next);
+    for (const win of d.everyWindow?.() || [d.panel]) win.webContents.setZoomFactor(next);
+    e.sender.setZoomFactor(next);
     d.config.set({ panelZoom: next });
     return next;
   });

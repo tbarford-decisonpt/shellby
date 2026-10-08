@@ -222,7 +222,17 @@
     const notes = j?.notes || [];
     const pins = j?.pins || [];
     const [latest, ...older] = notes;
-    const forget = async (what) => { await api.removeFromJournal({ root, ...what }); onChange(); };
+    // Unpin and Forget offer Undo: main keeps the last one taken off and puts it back.
+    const forget = async (what) => {
+      const r = await api.removeFromJournal({ root, ...what }).catch(() => null);
+      onChange();
+      if (!r?.ok) return SB.toast(what.pinId ? "Couldn't unpin that." : "Couldn't forget that note.");
+      SB.toast(what.pinId ? 'Unpinned.' : 'Note forgotten.', { action: 'Undo', onAction: async () => {
+        const back = await api.restoreToJournal({ root, ...what }).catch(() => null);
+        onChange();
+        SB.toast(back?.ok ? (what.pinId ? 'Pinned again.' : 'Note back.') : back?.error || "Couldn't put that back.");
+      } });
+    };
 
     if (pinDraft.root !== root) Object.assign(pinDraft, { root, text: '', kind: 'decision' });
     const text = h('input', { type: 'text', class: 'pj-jn-input', maxlength: '300', placeholder: 'Pin a decision or next step…', 'aria-label': 'Pin a decision or next step', dataset: { keep: 'jn-text' } });

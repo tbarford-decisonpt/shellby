@@ -225,7 +225,8 @@ async function scanProject(project, { tools: found, run = runStep, read = readTe
     const checksUpdates = p.steps.some(s => s.kind === 'outdated');
     const checksVulns = p.steps.some(s => s.kind === 'audit');
     const { outdated, audit } = answers;
-    if (!outdated && !audit) return { ...base, ok: false, error: timedOut ? `${label}'s check took too long` : `${label}'s check didn't answer (offline?)` };
+    if (timedOut && !outdated && !audit) return { ...base, ok: false, error: `${label}'s check took too long` };
+    if (!outdated && !audit) return { ...base, ok: false, offline: true, error: `${label}'s check didn't answer (offline?)` };
     return {
       ...base, ok: true,
       error: checksUpdates && !outdated ? "Couldn't check for updates" : checksVulns && !audit ? "Couldn't check for vulnerabilities" : null,
@@ -341,9 +342,11 @@ class DepWatch extends EventEmitter {
         const results = [];
         for (const p of projects) results.push(await scanProject(p, { tools: found, run: this.deps.run, now }));
         // Nothing answered at all (offline): keep last week's results. A checker
-        // that isn't installed, or a project not checked on purpose, is an answer of its own.
+        // that isn't installed, or a project not checked on purpose, is an answer
+        // of its own, and so is any other error (a folder gone, a check that took
+        // too long): those rows say so for themselves.
         const asked = results.filter(r => !r.needs && !r.refused);
-        if (asked.length && asked.every(r => !r.ok)) return tried("The checks couldn't reach their registries. Shellby will try again tomorrow.");
+        if (asked.length && asked.every(r => !r.ok && r.offline)) return tried("The checks couldn't reach their registries. Shellby will try again tomorrow.");
         this.save({ lastScanAt: now, lastAttemptAt: now, results, error: null });
         // Switched off while it was checking: it keeps the results, but says nothing.
         const notice = scheduled && this.settings.enabled ? noticeOf(results) : null;
@@ -364,6 +367,6 @@ class DepWatch extends EventEmitter {
 }
 
 module.exports = {
-  DepWatch, parseOutdated, parseAudit, hasTests, bumpKind, candidates, summaryOf, noticeOf, needsAttention, worstSeverity,
+  DepWatch, parseOutdated, parseAudit, hasTests, NO_TESTS_RE, bumpKind, candidates, summaryOf, noticeOf, needsAttention, worstSeverity,
   bumpPrompt, routinePrompt, findNpm, npmEnv: tools.npmEnv, scanProject, normalizeSettings, runStep, WEEK, PEEK_BYTES,
 };

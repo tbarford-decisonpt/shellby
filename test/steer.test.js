@@ -244,3 +244,35 @@ test('a steer read mid-turn is kept in the transcript, in its place', async () =
     mgr.closeAll({ kill: true });
   }
 });
+
+test('a queued message taken back by id never reaches Claude; one he has already is too late', async () => {
+  const mgr = makeManager();
+  try {
+    const tab = mgr.open({ tabId: 'steer-x', cwd: os.tmpdir() });
+    const turnId = mgr.send('steer-x', 'steps 3 2000', { kind: 'user', text: 'steps 3 2000' });
+    const q = (id, text) => ({ id, text, attachments: [] });
+    mgr.steer('steer-x', turnId, [q('q1', 'first'), q('q2', 'second'), q('q3', 'third')]);
+    assert.equal(mgr.unsteer('steer-x', 'q2'), true);
+    assert.deepEqual(tab.steers.map(m => m.id), ['q1', 'q3']);
+    const taken = mgr.takeSteers(tab);
+    assert.deepEqual(taken.map(t => t.item.steerId), ['q1', 'q3'], 'the one taken back stays out');
+    assert.equal(mgr.unsteer('steer-x', 'q1'), false, 'Claude has it: too late');
+    assert.equal(mgr.unsteer('closed-tab', 'q9'), true, 'nothing of a closed tab reaches him');
+  } finally {
+    mgr.closeAll({ kill: true });
+  }
+});
+
+test('a steer says which message\'s turn it went into, the rewind point it shares', () => {
+  const mgr = makeManager();
+  try {
+    const tab = mgr.open({ tabId: 'steer-t', cwd: os.tmpdir() });
+    const turnId = mgr.send('steer-t', 'steps 3 2000', { kind: 'user', text: 'steps 3 2000' });
+    mgr.steer('steer-t', turnId, [{ id: 'q1', text: 'also', attachments: [] }]);
+    const [t] = mgr.takeSteers(tab);
+    assert.equal(t.item.turnOf, turnId);
+    assert.equal(t.item.turnId, undefined);
+  } finally {
+    mgr.closeAll({ kill: true });
+  }
+});

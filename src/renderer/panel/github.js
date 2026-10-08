@@ -45,7 +45,7 @@
 
     const syncOn = signedIn && v.features.sync.on && v.features.sync.granted;
     $('ghSyncRow').hidden = !syncOn;
-    $('ghSyncStatus').textContent = v.syncing ? 'Syncing…' : v.lastSyncError || `Last synced ${ago(v.lastSyncAt)}. Sign in on your other PCs to share trophies, XP, outfit and streak.`;
+    $('ghSyncStatus').textContent = v.syncing ? 'Syncing…' : v.lastSyncError || `Last synced ${ago(v.lastSyncAt)}. Sign in on your other PCs to share your progress, friends, settings and his tank.`;
     $('ghSyncStatus').classList.toggle('bad', !!v.lastSyncError && !v.syncing);
     $('ghSyncNow').disabled = !!v.syncing;
 
@@ -121,7 +121,8 @@
       const r = await api.githubSetFeature(f, on);
       render(r.view);
       if (r.needsApproval && r.ok) SB.toast('GitHub needs your OK for that. Code copied: approve it on the page that opened.', { ms: 6000 });
-      else if (r.ok === false && r.error) SB.toast(r.error, { ms: 6000 });
+      // An error with ok: the feature went off, but its gist couldn't be deleted.
+      else if (r.error) SB.toast(r.error, { ms: 6000 });
     });
   }
   // Widening a sign-in opens the device page the same way.

@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('shellby', {
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
   steerTask: (tabId, turnId, items) => ipcRenderer.send('task:steer', { tabId, turnId, items }),
+  unsteerTask: (tabId, id) => ipcRenderer.invoke('task:unsteer', { tabId, id }), // a queued message taken back, unless Claude has it
   freshTab: invoke('tab:fresh'),
   tabCost: invoke('tab:cost'),
   // the terminal's conveniences (parity.js)
@@ -248,7 +249,8 @@ contextBridge.exposeInMainWorld('shellby', {
   setVoice: invoke('wardrobe:set-voice'),
   markSeen: fire('wardrobe:seen'),
   installPack: invoke('wardrobe:install'),
-  removePack: invoke('wardrobe:remove-pack'),
+  removePack: invoke('wardrobe:remove-pack'), // -> { ok, view }: it goes in the trash for a week
+  restorePack: invoke('wardrobe:restore-pack'), // ...and Undo brings it back
   outfitCode: invoke('wardrobe:code'),
   previewOutfitCode: invoke('wardrobe:code-preview'),
   wearOutfitCode: invoke('wardrobe:code-wear'),
@@ -414,6 +416,7 @@ contextBridge.exposeInMainWorld('shellby', {
   useTankLayout: invoke('tank:layout-use'),
   removeTankLayout: invoke('tank:layout-remove'),
   seasonTankLayout: invoke('tank:layout-season'),
+  undoTankLayout: invoke('tank:layout-undo'), // the last put up, replace or remove, taken back
   tankTidy: invoke('tank:tidy'),       // he moves a find now and then (tank-tidy.js)
   undoTankTidy: invoke('tank:tidy-undo'),
   setTankTidy: invoke('tank:tidy-set'),
@@ -482,6 +485,7 @@ contextBridge.exposeInMainWorld('shellby', {
   finishProjectTodo: invoke('projects:todo-done'),
   pinToJournal: invoke('projects:journal-pin'),
   removeFromJournal: invoke('projects:journal-remove'),
+  restoreToJournal: invoke('projects:journal-restore'), // Undo: the pin or note just taken off, back
   onProjectsChanged: on('projects:changed'),
   onProjectsShow: on('projects:show'),
   onCloneProgress: on('projects:clone-progress'),

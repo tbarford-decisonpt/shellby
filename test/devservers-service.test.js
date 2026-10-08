@@ -108,6 +108,45 @@ test("one that dies before it's ever up didn't start", () => {
   } finally { t.done(); }
 });
 
+test("one that never says where it is counts as up once it's run a while, and crashing later isn't \"didn't start\"", () => {
+  const t = setup();
+  try {
+    const { id } = t.svc.start({ root: ROOT, script: 'dev', project: 'site' }).server;
+    t.say(id, 'Compiling...\nWatching for changes\n');
+    t.tick(10_000);
+    t.poll(id, true);
+    assert.equal(t.svc.view().servers[0].status, 'starting', 'too soon to say');
+    t.tick(20_000);
+    t.poll(id, true);
+    let s = t.svc.view().servers[0];
+    assert.equal(s.status, 'up');
+    assert.equal(s.url, null, 'up, with no address to open');
+    assert.equal(t.svc.summary().up, 1);
+    // An address it prints later is still picked up.
+    t.say(id, 'Server on 4000\n');
+    t.poll(id);
+    s = t.svc.view().servers[0];
+    assert.deepEqual([s.status, s.port, s.url], ['up', 4000, 'http://localhost:4000/']);
+    t.tick(3 * 3600_000);
+    t.say(id, 'Error: boom\n[shellby-exit 1]\n');
+    t.poll(id);
+    assert.equal(t.svc.view().servers[0].neverUp, false);
+    assert.equal(t.toasts[0].title, 'site dev server crashed');
+  } finally { t.done(); }
+});
+
+test('gone after the grace period without ever being polled up still crashed, not "didn\'t start"', () => {
+  const t = setup();
+  try {
+    const { id } = t.svc.start({ root: ROOT, script: 'dev', project: 'site' }).server;
+    t.tick(60_000);
+    t.say(id, 'Error: boom\n[shellby-exit 1]\n');
+    t.poll(id);
+    assert.equal(t.svc.view().servers[0].neverUp, false);
+    assert.equal(t.toasts[0].title, 'site dev server crashed');
+  } finally { t.done(); }
+});
+
 test('gone without a marker is a crash with no exit code', () => {
   const t = setup();
   try {

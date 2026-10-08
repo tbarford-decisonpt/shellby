@@ -139,6 +139,14 @@ function registerProjectsIpc(ipcMain, d) {
     if (!id(pinId) && !id(sessionId)) return { ok: false };
     return d.journal()?.remove(known, { pinId: id(pinId), sessionId: id(sessionId) }) ?? { ok: false };
   });
+  // ...and Undo: the one just taken off goes back (main kept it; the page only names it).
+  ipcMain.handle('projects:journal-restore', (_e, { root, pinId, sessionId } = {}) => {
+    const known = P()?.knowsRoot(root);
+    if (!known) return { ok: false };
+    const id = v => (typeof v === 'string' && /^[\w-]{1,64}$/.test(v) ? v : null);
+    if (!id(pinId) && !id(sessionId)) return { ok: false };
+    return d.journal()?.restore?.(known, { pinId: id(pinId), sessionId: id(sessionId) }) ?? { ok: false };
+  });
   ipcMain.handle('projects:install', (_e, root) => {
     const known = P()?.knowsRoot(root);
     return known ? S().start({ root: known, kind: 'install', project: P().nameFor(known) }) : { ok: false, error: 'Unknown project folder.' };

@@ -192,7 +192,8 @@ function wirePhoneTasks(d) {
       active,
       onTelegram: update => {
         const got = pt.parseTelegramMessage(update, d.channelSettings().target, { since: settings().enabledAt, now: Date.now() });
-        if (got) take(got.messageId != null ? `tg:${got.messageId}` : null, got.text);
+        if (got?.late) tooLate(got);
+        else if (got) take(got.messageId != null ? `tg:${got.messageId}` : null, got.text);
       },
       ntfyUrl: () => pt.ntfyTasksUrl(d.channelSettings().target),
       ntfySince: () => d.config.get('phoneTasksCursor') || String(Math.floor(settings().enabledAt / 1000)),
@@ -220,6 +221,20 @@ function wirePhoneTasks(d) {
     if (!pt.messageGate(seen, now)) { d.log.warn('phone tasks: too many messages this hour, ignoring the rest'); return; }
     seen = [...pt.recent(seen, now), now];
     chain = chain.then(() => handle(text)).catch(err => d.log.warn('phone task failed', err.message));
+  }
+
+  // Sent while this PC was off or asleep: it doesn't start, but you hear why,
+  // once. Only Telegram: it is your own private chat with the bot, where a
+  // reply tells nobody else anything. ntfy stays silent.
+  function tooLate(got) {
+    const id = got.messageId != null ? `tg:${got.messageId}` : null;
+    if (!id || done.includes(id)) return;
+    done = [...done, id].slice(-MAX_REMEMBERED);
+    const now = Date.now();
+    if (!pt.messageGate(seen, now)) return;
+    seen = [...pt.recent(seen, now), now];
+    d.log.info(`phone tasks: a message ${got.minutes} minutes late was not started`);
+    chain = chain.then(() => (active() ? sayOnPhone(pt.lateReply(got.minutes)) : null)).catch(err => d.log.warn('phone task failed', err.message));
   }
 
   function projects() {
@@ -313,7 +328,11 @@ function wirePhoneTasks(d) {
     if (!d.channelConfirmed(ch)) return null;
     const built = channels.buildRequest(ch, d.channelSecret, { kind: 'phone', title: 'Shellby', body });
     if (built.error) { d.log.info(`phone tasks: ${built.error}`); return null; }
-    return channels.deliver(built.request).then(r => { if (!r.ok) d.log.info(`phone tasks: reply failed: ${r.error}`); });
+    const place = d.channelPlace(ch);
+    return channels.deliver(built.request).then(r => {
+      if (!r.ok) d.log.info(`phone tasks: reply failed: ${r.error}`);
+      d.noteDelivery?.(r, ch, place);
+    });
   }
 
   function createPhoneTasks() {

@@ -366,12 +366,43 @@ function buildRequest(settings, secret, event) {
   return { request, message };
 }
 
+const RETRY_CAP_MS = 30 * 1000;   // a permission prompt still worth sending after this long
+const RETRY_DEFAULT_MS = 3000;    // when the server is busy and doesn't say how long to wait
+
 /**
- * Actually send it. One attempt: a notification that arrives late is worse than
- * one that doesn't, and the next event will try again anyway.
- *   -> { ok: true } | { ok: false, error }
+ * Actually send it. One attempt, unless retry: a notification that arrives late
+ * is worse than one that doesn't, and the next event will try again anyway. A
+ * permission prompt is the exception (retry: true): he is stuck until you
+ * answer, so a busy server (429, 5xx) gets one more go after the wait it asks
+ * for, up to 30 s.
+ *   -> { ok: true } | { ok: false, error, status?, retryAfterMs? }
  */
-async function deliver(request, { timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch } = {}) {
+async function deliver(request, { retry = false, wait = ms => new Promise(r => setTimeout(r, ms)), ...opts } = {}) {
+  const first = await deliverOnce(request, opts);
+  if (first.ok || !retry || !retryable(first)) return first;
+  await wait(Math.min(RETRY_CAP_MS, first.retryAfterMs ?? RETRY_DEFAULT_MS));
+  return deliverOnce(request, opts);
+}
+
+const retryable = r => r.status === 429 || (r.status >= 500 && r.status <= 599);
+
+/** Retry-After as seconds or an HTTP date, or Telegram's parameters.retry_after. -> ms | undefined */
+function retryAfterOf(res, body, now = Date.now()) {
+  const header = typeof res.headers?.get === 'function' ? res.headers.get('retry-after') : null;
+  if (header) {
+    const secs = Number(header);
+    if (Number.isFinite(secs) && secs >= 0) return secs * 1000;
+    const at = Date.parse(header);
+    if (Number.isFinite(at)) return Math.max(0, at - now);
+  }
+  try {
+    const secs = Number(JSON.parse(body)?.parameters?.retry_after);
+    if (Number.isFinite(secs) && secs >= 0) return secs * 1000;
+  } catch { /* not JSON */ }
+  return undefined;
+}
+
+async function deliverOnce(request, { timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -393,13 +424,64 @@ async function deliver(request, { timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fe
     }
     // The body often says exactly what's wrong ("user key is invalid"), which is
     // worth showing; it can also be a megabyte of HTML, so it is capped.
-    let detail = '';
-    try { detail = clip(await res.text(), 160); } catch { /* no body */ }
-    return { ok: false, error: `${res.status}${detail ? `: ${detail}` : ''}` };
+    let body = '';
+    try { body = String(await res.text()).slice(0, 4000); } catch { /* no body */ }
+    const detail = clip(body, 160);
+    const retryAfterMs = res.status === 429 || res.status >= 500 ? retryAfterOf(res, body) : undefined;
+    return {
+      ok: false, status: res.status, error: `${res.status}${detail ? `: ${detail}` : ''}`,
+      ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
+    };
   } catch (e) {
     return { ok: false, error: e?.name === 'AbortError' ? 'timed out' : clip(e?.message, 120) || 'failed' };
   } finally {
     clearTimeout(timer);
+  }
+}
+
+// ------------------------------------------------------------------ how it's going
+
+const FAILS_BEFORE_TOAST = 3;
+
+/**
+ * A failed delivery in words for Settings. Never the server's own text: it can
+ * quote back a URL or a key, and the log already has it.
+ */
+function plainDeliveryError(result, provider) {
+  const label = PROVIDERS[provider]?.label || 'The service';
+  const s = Number(result?.status);
+  if (s === 401 || s === 403) return `${label} turned down the token or key.`;
+  if (s === 404) return `${label} couldn't find where to send it. Check the settings above.`;
+  if (s === 400) return `${label} didn't accept the message. Check the settings above.`;
+  if (s === 429) return `${label} said too many, too fast.`;
+  if (s >= 500 && s <= 599) return `${label} was having trouble (it said ${s}).`;
+  if (Number.isFinite(s) && s > 0) return `${label} didn't take it (it said ${s}).`;
+  if (result?.error === 'timed out') return `${label} took too long to answer.`;
+  return `Couldn't reach ${label}. Is this PC online?`;
+}
+
+/**
+ * The last delivery that didn't go, per destination, and how many in a row.
+ * place: any string that names the destination (wiring/channels.js channelPlace),
+ * so a new topic, bot or token starts with a clean slate.
+ */
+class DeliveryLog {
+  constructor() { this.places = new Map(); }
+
+  /** -> { toast } true exactly once per run of failures, at the third in a row. */
+  note(place, result, { provider, now = Date.now() } = {}) {
+    if (result?.ok) { this.places.delete(place); return { toast: false }; }
+    const was = this.places.get(place);
+    const fails = (was?.fails || 0) + 1;
+    const error = plainDeliveryError(result, provider);
+    this.places.set(place, { fails, error, at: now });
+    return { toast: fails === FAILS_BEFORE_TOAST, error };
+  }
+
+  /** -> { lastDeliveryError, lastDeliveryErrorAt } (both null when the last one went) */
+  view(place) {
+    const e = this.places.get(place);
+    return { lastDeliveryError: e?.error || null, lastDeliveryErrorAt: e?.at || null };
   }
 }
 
@@ -419,13 +501,20 @@ function replyProblem(settings, { hasSecret = false } = {}) {
   return null;
 }
 
-/** What the renderer is allowed to see: never the secret, only whether there is one. */
-function view(settings, { hasSecret = false } = {}) {
+/**
+ * What the renderer is allowed to see: never the secret, only whether there is one.
+ *   delivery: DeliveryLog#view for this destination; listenProblem: what the
+ *   poller that hears your answers ran into (replies.js), in words
+ */
+function view(settings, { hasSecret = false, delivery = null, listenProblem = null } = {}) {
   const s = normalizeChannelSettings(settings);
   return {
     ...s,
     hasSecret,
     problem: checkSettings(s, { hasSecret }),
+    lastDeliveryError: delivery?.lastDeliveryError || null,
+    lastDeliveryErrorAt: delivery?.lastDeliveryErrorAt || null,
+    listenProblem: listenProblem || null,
     canReply: REPLY_PROVIDERS.has(s.provider),
     replyProblem: s.replies ? replyProblem(s, { hasSecret }) : null,
     // What a phone opens to subscribe; Settings shows it as a QR code.
@@ -448,4 +537,5 @@ module.exports = {
   normalizeChannelSettings, checkSettings, shouldSend, composeMessage,
   buildRequest, deliver, view, ntfyUrl, ntfyReplyUrl, ntfyActions, telegramMarkup, localOrHttps, duration,
   randomTopic, chatFromUpdates, findTelegramChat, REPLY_PROVIDERS, replyProblem,
+  DeliveryLog, plainDeliveryError, FAILS_BEFORE_TOAST, RETRY_CAP_MS,
 };

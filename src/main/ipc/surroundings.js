@@ -85,7 +85,10 @@ function registerSurroundingsIpc(ipcMain, d) {
     if (built.error) return { ok: false, error: built.error };
     // Even a test only goes somewhere you've said yes to.
     if (!(await d.confirmChannelPlace({ testing: true }))) return { ok: false, error: 'Not sent: that destination isn\'t confirmed.' };
-    return channels.deliver(built.request);
+    const r = await channels.deliver(built.request);
+    // A test that gets through clears the last error in Settings.
+    if (r.ok) d.noteDelivery?.(r, d.channelSettings(), d.channelPlace());
+    return r;
   });
 
   // ---- the browser source (obs.js)

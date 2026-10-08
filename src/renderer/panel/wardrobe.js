@@ -230,6 +230,20 @@
   const COUNT_LABELS = [['accessories', 'accessory', 'accessories'], ['effects', 'effect', 'effects'], ['skins', 'color', 'colors'], ['voices', 'voice', 'voices'], ['scenes', 'scene', 'scenes']];
   const packCounts = c => COUNT_LABELS.filter(([k]) => c[k]).map(([k, one, many]) => `${c[k]} ${c[k] === 1 ? one : many}`).join(' · ') || 'empty';
 
+  // A removed pack sits in the trash for a week (src/main/wardrobe/catalog.js), so the toast can bring it back.
+  async function removePack(p) {
+    const r = await api.removePack(p.id).catch(() => null);
+    applyView(r?.view);
+    if (!r?.ok) { SB.toast(`Couldn't remove ${p.name}. Try again in a moment.`); return; }
+    SB.toast(`Removed ${p.name}.`, { action: 'Undo', onAction: () => restorePack(p) });
+  }
+
+  async function restorePack(p) {
+    const r = await api.restorePack(p.id).catch(() => null);
+    applyView(r?.view);
+    SB.toast(r?.ok ? `${p.name} is back.` : `Couldn't bring ${p.name} back.`);
+  }
+
   function renderPacks() {
     const packs = wd()?.packs || [];
     $('packList').replaceChildren(...packs.map(p => h('li', { class: 'pack' },
@@ -238,7 +252,7 @@
         h('div', { class: 'pack-counts', text: packCounts(p.counts) + (p.warnings ? ` · ${p.warnings} skipped` : '') })),
       p.source === 'builtin' ? h('span', { class: 'src-pill', text: 'built in' }) : null,
       p.source !== 'builtin' && canPublish() ? h('button', { class: 'btn ghost slim-btn publish-btn', type: 'button', title: 'Open a pull request to the community gallery', onclick: e => publish(p, e.currentTarget) }, 'Publish') : null,
-      p.source !== 'builtin' ? h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: async () => { applyView(await api.removePack(p.id)); SB.toast(`Removed ${p.name}`); } }, 'Remove') : null)));
+      p.source !== 'builtin' ? h('button', { class: 'btn ghost slim-btn', type: 'button', 'aria-label': `Remove ${p.name}`, onclick: () => removePack(p) }, 'Remove') : null)));
     for (const err of wd()?.errors || []) $('packList').append(h('li', { class: 'pack bad', text: `⚠ ${err}` }));
   }
 

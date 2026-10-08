@@ -29,6 +29,7 @@ const FULL_NOTES = 2;          // the brief spells out this many, newest first..
 const SHORT_NOTES = 3;         // ...and gives this many more a line each
 const MAX_BRIEF = 2400;        // about 600 tokens, at most
 const PIN_KINDS = ['decision', 'next', 'blocker', 'note'];
+const PIN_BY = ['you', 'claude'];  // who left it: the project's page, or Claude's MCP `journal` tool
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 // A sentence that records a choice. Deliberately narrow: a wrong "decision"
@@ -185,12 +186,14 @@ function normalize(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const isNote = n => n && typeof n.sessionId === 'string' && n.sessionId && typeof n.title === 'string';
   const isPin = p => p && typeof p.id === 'string' && typeof p.text === 'string' && PIN_KINDS.includes(p.kind);
+  // Pins from before they said who left them are yours: they can't be pushed out by Claude's.
+  const byOf = p => (PIN_BY.includes(p.by) ? p : { ...p, by: 'you' });
   return {
     v: 1,
     root: typeof r.root === 'string' ? r.root : null,
     name: typeof r.name === 'string' ? r.name : null,
     notes: (Array.isArray(r.notes) ? r.notes : []).filter(isNote).slice(0, MAX_NOTES),
-    pins: (Array.isArray(r.pins) ? r.pins : []).filter(isPin).slice(0, MAX_PINS),
+    pins: (Array.isArray(r.pins) ? r.pins : []).filter(isPin).slice(0, MAX_PINS).map(byOf),
   };
 }
 
@@ -214,8 +217,25 @@ function record(book, note) {
   return { ...b, notes };
 }
 
-/** A pin of your own, or Claude's (the MCP `journal` tool): a decision, a next step, a blocker. */
-function pin(book, { kind = 'note', text } = {}, now) {
+const FULL_OF_YOURS = `The journal holds ${MAX_PINS} pins, all left on the project's page. Unpin one first.`;
+
+// A pin into the list, newest first. Past MAX_PINS, the oldest of Claude's
+// already there goes to make room; yours never do, so with every pin yours
+// it's refused.
+// -> pins, or null when there's no room.
+function withPin(pins, p) {
+  const all = [...pins, p].sort((x, y) => (y.at || 0) - (x.at || 0));
+  if (all.length <= MAX_PINS) return all;
+  const oldest = all.findLastIndex(x => x.by === 'claude' && x !== p);
+  return oldest < 0 ? null : all.toSpliced(oldest, 1);
+}
+
+/**
+ * A pin of your own (by: 'you', the project's page), or Claude's (by:
+ * 'claude', the MCP `journal` tool): a decision, a next step, a blocker.
+ * -> { book, id } | { book, error }
+ */
+function pin(book, { kind = 'note', text, by = 'you' } = {}, now) {
   const b = normalize(book);
   const t = clip(text, MAX_PIN_TEXT);
   if (!t) return { book: b, error: 'A pin needs some text.' };
@@ -224,11 +244,28 @@ function pin(book, { kind = 'note', text } = {}, now) {
   let n = 0;
   while (b.pins.some(p => p.id === `p${now.toString(36)}-${n}`)) n++;
   const id = `p${now.toString(36)}-${n}`;
-  return { book: { ...b, pins: [{ id, kind: k, text: t, at: now }, ...b.pins].slice(0, MAX_PINS) }, id };
+  const pins = withPin(b.pins, { id, kind: k, text: t, at: now, by: by === 'claude' ? 'claude' : 'you' });
+  if (!pins) return { book: b, error: FULL_OF_YOURS };
+  return { book: { ...b, pins }, id };
 }
 
 const unpin = (book, id) => { const b = normalize(book); return { ...b, pins: b.pins.filter(p => p.id !== id) }; };
 const forget = (book, sessionId) => { const b = normalize(book); return { ...b, notes: b.notes.filter(n => n.sessionId !== sessionId) }; };
+
+/**
+ * Undo an unpin or a forget: a pin or a note that was taken off goes back
+ * where it was, by its date. One that's back already changes nothing.
+ * -> { book } | { book, error } (no room: every pin is yours now).
+ */
+function putBack(book, { pin: p = null, note = null } = {}) {
+  const b = normalize(book);
+  if (note) return { book: record(b, normalize({ notes: [note] }).notes[0]) };
+  const [clean] = normalize({ pins: [p] }).pins;
+  if (!clean) return { book: b, error: 'That pin can’t go back.' };
+  if (b.pins.some(x => x.id === clean.id)) return { book: b };
+  const pins = withPin(b.pins, clean);
+  return pins ? { book: { ...b, pins } } : { book: b, error: FULL_OF_YOURS };
+}
 
 // ------------------------------------------------------------------ reading it back
 
@@ -300,6 +337,6 @@ function draft(book, { name, now }) {
 }
 
 module.exports = {
-  parseLines, promptOf, noteFrom, normalize, record, pin, unpin, forget, brief, draft, ago,
-  MAX_NOTES, MAX_PINS, MAX_PIN_TEXT, MAX_BRIEF, PIN_KINDS, UNTRUSTED_NOTE,
+  parseLines, promptOf, noteFrom, normalize, record, pin, unpin, forget, putBack, brief, draft, ago,
+  MAX_NOTES, MAX_PINS, PIN_BY, MAX_PIN_TEXT, MAX_BRIEF, PIN_KINDS, UNTRUSTED_NOTE,
 };

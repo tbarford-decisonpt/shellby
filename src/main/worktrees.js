@@ -161,25 +161,47 @@ function suggestedName(text) {
  * Claude Code keeps a conversation under <config>/projects/<folder, every
  * character but letters and digits as "-">/<session id>.jsonl, and only
  * resumes it from that folder. Copying it across lets the same conversation
- * carry on in the copy. -> true | false
+ * carry on in the copy. Async, since the folder of subagent transcripts beside
+ * it can be large, and this runs as a conversation moves. -> Promise<true | false>
  */
 const projectDirName = dir => path.resolve(dir).replace(/[^a-zA-Z0-9]/g, '-');
 const SESSION_ID = /^[\w-]{8,64}$/;
-function carryTranscript({ configDir, sessionId, from, to }) {
+async function carryTranscript({ configDir, sessionId, from, to }) {
   if (!SESSION_ID.test(sessionId || '')) return false;
-  return copySession({ configDir, file: path.join(configDir, 'projects', projectDirName(from), `${sessionId}.jsonl`), to });
+  const where = sessionPaths({ configDir, file: path.join(configDir, 'projects', projectDirName(from), `${sessionId}.jsonl`), to });
+  if (!where) return false;
+  const { id, file, src, dst } = where;
+  const there = p => fs.promises.access(p).then(() => true, () => false);
+  try {
+    if (!await there(file)) return false;
+    if (path.resolve(src).toLowerCase() === path.resolve(dst).toLowerCase()) return true;
+    await fs.promises.mkdir(dst, { recursive: true });
+    await fs.promises.copyFile(file, path.join(dst, `${id}.jsonl`));
+    if (await there(path.join(src, id))) await fs.promises.cp(path.join(src, id), path.join(dst, id), { recursive: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The file's id, and the folders it's copied from and to; null for a file that isn't a conversation.
+function sessionPaths({ configDir, file, to }) {
+  const id = path.basename(String(file || ''), '.jsonl');
+  if (!SESSION_ID.test(id) || !String(file).endsWith('.jsonl')) return null;
+  return { id, file, src: path.dirname(file), dst: path.join(configDir, 'projects', projectDirName(to)) };
 }
 
 /**
  * Copy one of Claude Code's conversation files (and the folder of subagent
  * transcripts and large tool results beside it) to where Claude Code looks
  * for conversations in `to`. Leaves one that's already there alone. -> true | false
+ * Synchronous, for the callers that aren't async (wiring/handoff.js, branching.js);
+ * moving a conversation into a copy uses carryTranscript.
  */
 function copySession({ configDir, file, to }) {
-  const id = path.basename(String(file || ''), '.jsonl');
-  if (!SESSION_ID.test(id) || !String(file).endsWith('.jsonl')) return false;
-  const src = path.dirname(file);
-  const dst = path.join(configDir, 'projects', projectDirName(to));
+  const where = sessionPaths({ configDir, file, to });
+  if (!where) return false;
+  const { id, src, dst } = where;
   try {
     if (!fs.existsSync(file)) return false;
     if (path.resolve(src).toLowerCase() === path.resolve(dst).toLowerCase()) return true;

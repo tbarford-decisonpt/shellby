@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('shellby', {
     onStickerGlint: on('critter:sticker-glint'),
     pet: fire('critter:pet'),
     hit: fire('critter:hit'),
+    // Windows' animation effects off (prefers-reduced-motion): main holds his window still too.
+    reducedMotion: on => ipcRenderer.send('critter:reduced-motion', on === true),
     onPerch: on('critter:perch'),
     onSurface: on('critter:surface'), // which way up he is: on the floor, a wall or the ceiling (src/main/climbing.js)
     // His life between tasks (src/main/life.js, playtime.js): where your cursor

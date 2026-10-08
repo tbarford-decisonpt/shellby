@@ -317,14 +317,16 @@ async function cutRelease(root, opts, deps) {
   const out = { ok: true, version, tag, commit: sha, pushed: false };
   if (!opts.push) return out;
   const pushed = await pushRelease(root, { tag }, deps);
-  return pushed.ok ? { ...out, pushed: true, remote: pushed.remote } : { ...out, pushError: pushed.error };
+  if (pushed.ok) return { ...out, pushed: true, remote: pushed.remote };
+  return { ...out, pushError: pushed.error, ...(pushed.secrets ? { secrets: pushed.secrets } : {}) };
 }
 
 /**
  * Push the branch and its release tag together (--atomic: both or neither).
- * -> { ok: true, remote, branch } | { ok: false, error }
+ * deps.gate(root, { rev, remote }): the secret scan, null to push on (secret-gate.js).
+ * -> { ok: true, remote, branch } | { ok: false, error, cancelled?, secrets? }
  */
-async function pushRelease(root, { tag }, { git, env = () => ({}) }) {
+async function pushRelease(root, { tag }, { git, env = () => ({}), gate = null }) {
   if (!R.parseTag(tag)) return fail('That isn\'t a release tag.');
   const [branchR, tagR, upR] = await Promise.all([
     git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: READ_MS }),
@@ -344,6 +346,10 @@ async function pushRelease(root, { tag }, { git, env = () => ({}) }) {
   if (!remote || !REMOTE_RE.test(remote)) return fail('This clone has no remote to push to.');
   const dest = up.startsWith(`${remote}/`) ? up.slice(remote.length + 1) : branch;
   if (!BRANCH_RE.test(dest)) return fail('This clone\'s upstream branch has an odd name.');
+  // The secret scan (secret-gate.js) over every commit of the branch this remote
+  // hasn't got, not just the release's: the tag is on the branch, so that's all of it.
+  const stopped = gate ? await gate(root, { rev: `refs/heads/${branch}`, remote }) : null;
+  if (stopped) return stopped;
   const push = await git(root, [...NO_HOOKS, 'push', '--atomic', '--quiet', remote, `refs/heads/${branch}:refs/heads/${dest}`, `refs/tags/${tag}:refs/tags/${tag}`],
     { timeout: PUSH_MS, env: env() || {} });
   if (!push.ok) return fail(`The push didn't go through: ${firstLine(push.error) || 'git refused it.'}`);

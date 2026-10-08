@@ -57,6 +57,94 @@ test('prefs: changedKeys sees real changes to synced settings only', () => {
   assert.deepEqual(prefs.changedKeys({ chatter: 'quiet', critterPos: { x: 1 }, sounds: false }, prev), ['chatter']);
 });
 
+test('prefs: a PC in Autonomous keeps it through a sync, and its mode syncs again once it leaves', () => {
+  const gist = prefs.snapshot({ ...DEFAULTS, mode: 'plan' }, { mode: 5 });
+  const data = { ...DEFAULTS, mode: 'autonomous' };
+  const local = prefs.snapshot(data, { mode: 50 });
+  const merged = prefs.merge(local, gist);
+  assert.equal(merged.mode.v, 'plan', "the gist's mode stays the gist's");
+  assert.equal(prefs.apply(local, merged).values.mode, 'plan', 'without holding it back, a sync would switch him out');
+  assert.deepEqual(prefs.heldBack(data), ['mode']);
+  const { values } = prefs.apply(local, merged, prefs.heldBack(data));
+  assert.ok(!('mode' in values), 'held: still Autonomous');
+  assert.deepEqual(prefs.heldBack({ ...DEFAULTS, mode: 'ask' }), []);
+  // Back to Ask first on this PC: that's a change of its own, and it syncs.
+  const stamps = prefs.restamp({ mode: 'ask' }, data, { mode: 5 }, 1000);
+  assert.equal(stamps.mode, 1000);
+  assert.equal(prefs.merge(prefs.snapshot({ ...data, mode: 'ask' }, stamps), gist).mode.v, 'ask');
+});
+
+// What a PC holds after you change its snippets (config.onSet, restamp).
+const pcWith = (list, stamps, now, before = DEFAULTS.snippets) => ({
+  data: { ...DEFAULTS, snippets: list },
+  stamps: prefs.restamp({ snippets: list }, { ...DEFAULTS, snippets: before }, stamps, now),
+});
+const snip = (name, text = `do ${name}`) => ({ name, text });
+const names = entry => entry.v.map(s => s.name);
+
+test('prefs: snippets merge one by one, so one added on each PC both stay', () => {
+  const base = [snip('review')];
+  const pc1 = pcWith([...base, snip('deploy')], {}, 100, base);
+  const pc2 = pcWith([...base, snip('lint')], {}, 200, base);
+  const m = prefs.merge(prefs.snapshot(pc1.data, pc1.stamps), prefs.snapshot(pc2.data, pc2.stamps));
+  assert.deepEqual(names(m.snippets).sort(), ['deploy', 'lint', 'review']);
+  const { values } = prefs.apply(prefs.snapshot(pc1.data, pc1.stamps), m);
+  assert.deepEqual(values.snippets.map(s => s.name).sort(), ['deploy', 'lint', 'review'], 'pc1 picks up lint');
+});
+
+test('prefs: a deleted snippet stays deleted, an edit follows the newer one, and adding it back wins', () => {
+  const base = [snip('review'), snip('tests')];
+  const pc1 = pcWith([snip('tests')], {}, 300, base); // review deleted at 300
+  const pc2 = pcWith([snip('review'), snip('tests', 'write tests, please')], {}, 200, base); // tests edited at 200
+  const m = prefs.merge(prefs.snapshot(pc2.data, pc2.stamps), prefs.snapshot(pc1.data, pc1.stamps));
+  assert.deepEqual(m.snippets.v, [snip('tests', 'write tests, please')]);
+  assert.equal(m.snippets.gone.review, 300);
+  // Added back later on pc2 (with the merge applied there first).
+  const applied = prefs.apply(prefs.snapshot(pc2.data, pc2.stamps), m);
+  const back = pcWith([...applied.values.snippets, snip('review', 'look again')], applied.stamps, 400, applied.values.snippets);
+  const again = prefs.merge(prefs.snapshot(pc1.data, pc1.stamps), prefs.snapshot(back.data, back.stamps));
+  assert.deepEqual(names(again.snippets).sort(), ['review', 'tests']);
+  assert.ok(!('review' in again.snippets.gone));
+});
+
+test('prefs: pins merge by kind and name, deletes included', () => {
+  const pin = (kind, name) => ({ kind, name });
+  const pins = (list, before, now) => ({ data: { ...DEFAULTS, pinnedTools: list }, stamps: prefs.restamp({ pinnedTools: list }, { ...DEFAULTS, pinnedTools: before }, {}, now) });
+  const base = [pin('skill', 'review'), pin('snippet', 'review')];
+  const pc1 = pins([pin('skill', 'review'), pin('snippet', 'review'), pin('agent', 'docs')], base, 100);
+  const pc2 = pins([pin('skill', 'review')], base, 200); // unpinned the snippet
+  const m = prefs.merge(prefs.snapshot(pc1.data, pc1.stamps), prefs.snapshot(pc2.data, pc2.stamps));
+  assert.deepEqual(m.pinnedTools.v.map(p => `${p.kind}:${p.name}`).sort(), ['agent:docs', 'skill:review']);
+});
+
+test('prefs: a list from an older Shellby still merges, and what it dropped stays dropped', () => {
+  // An older Shellby writes the whole list and one stamp, no per-item ones.
+  const old = { snippets: { v: [snip('tests')], at: 500 } };
+  const fresh = prefs.snapshot({ ...DEFAULTS }, {}); // the starters, never touched
+  const m = prefs.merge(fresh, old);
+  assert.deepEqual(names(m.snippets), ['tests'], "the starters it deleted don't come back");
+  // One added here after that list was written is kept.
+  const pc = pcWith([snip('review'), snip('mine')], {}, 900, [snip('review')]);
+  const m2 = prefs.merge(prefs.snapshot(pc.data, pc.stamps), old);
+  assert.deepEqual(names(m2.snippets).sort(), ['mine', 'tests']);
+  // And an older Shellby reading the new format still finds a plain list and a stamp.
+  const entry = JSON.parse(JSON.stringify(m2.snippets));
+  assert.ok(Array.isArray(entry.v) && entry.at === 900);
+  assert.deepEqual(prefs.PREFS.snippets(entry.v).map(s => s.name).sort(), ['mine', 'tests']);
+});
+
+test('prefs: two PCs with the same snippets in a different order agree on one', () => {
+  const a = prefs.snapshot({ ...DEFAULTS, snippets: [snip('a'), snip('b')] }, { snippets: 50 });
+  const b = prefs.snapshot({ ...DEFAULTS, snippets: [snip('b'), snip('a')] }, { snippets: 50 });
+  assert.deepEqual(prefs.merge(a, b).snippets.v, prefs.merge(b, a).snippets.v);
+});
+
+test('prefs: describe names synced settings the way Settings does', () => {
+  assert.equal(prefs.describe(['chatter', 'snippets', 'pinnedTools']), 'chatter, snippets, pins');
+  assert.equal(prefs.describe(['workMode', 'workOverrides']), 'Work mode', 'said once');
+  for (const k of prefs.KEYS) assert.ok(prefs.LABELS[k], k);
+});
+
 // ------------------------------------------------------------------ friends
 
 test('friends: the list merges by the latest add or remove for each login', () => {
@@ -122,5 +210,37 @@ test('sync: friends and settings follow you to a second PC, and removals stick',
 
     const again = await syncNow(gh, io(pc1));
     assert.deepEqual([again.pulled, again.pushed], [false, false], 'settled');
+  } finally { await mock.close(); }
+});
+
+test('sync: a PC in Autonomous stays in it, and the gist keeps the other mode', async () => {
+  const mock = await startMockGitHub();
+  try {
+    const gh = new GitHubApi({ token: mock.state.token, api: mock.base });
+    const pc1 = new MemConfig({ mode: 'plan', syncStamps: { prefs: { mode: 100 } } });
+    const pc2 = new MemConfig({ mode: 'autonomous', syncStamps: { prefs: { mode: Date.now() } } });
+    await syncNow(gh, io(pc1));
+    await syncNow(gh, io(pc2));
+    assert.equal(pc2.get('mode'), 'autonomous');
+    await syncNow(gh, io(pc1));
+    assert.equal(pc1.get('mode'), 'plan', 'Autonomous never leaves its PC');
+  } finally { await mock.close(); }
+});
+
+test('sync: snippets added on two PCs both arrive, and it settles', async () => {
+  const mock = await startMockGitHub();
+  try {
+    const gh = new GitHubApi({ token: mock.state.token, api: mock.base });
+    const one = pcWith([snip('deploy')], {}, 100, []);
+    const two = pcWith([snip('lint')], {}, 200, []);
+    const pc1 = new MemConfig({ snippets: one.data.snippets, syncStamps: { prefs: one.stamps } });
+    const pc2 = new MemConfig({ snippets: two.data.snippets, syncStamps: { prefs: two.stamps } });
+    await syncNow(gh, io(pc1));
+    await syncNow(gh, io(pc2));
+    await syncNow(gh, io(pc1));
+    assert.deepEqual(pc1.get('snippets').map(s => s.name).sort(), ['deploy', 'lint']);
+    assert.deepEqual(pc2.get('snippets').map(s => s.name).sort(), ['deploy', 'lint']);
+    const [a, b] = [await syncNow(gh, io(pc2)), await syncNow(gh, io(pc1))];
+    assert.deepEqual([a.pulled, a.pushed, b.pulled, b.pushed], [false, false, false, false], 'settled');
   } finally { await mock.close(); }
 });

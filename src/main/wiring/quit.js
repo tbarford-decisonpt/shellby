@@ -36,6 +36,7 @@ function wireQuit(d) {
     d.remote?.shutdown();
     d.dictation?.stop();
     d.media?.stop(); // its PowerShell loop never reads stdin, so it won't notice we've gone
+    d.history?.flush(); // transcript lines and index changes still waiting (history.js)
     if (d.PRIMARY && !d.CAPTURE) crashReport.endRun(d.LOG_DIR); // quit on purpose: nothing to report next time
   });
   // close() gives a process 3 s to finish on its own, which Shellby quitting never

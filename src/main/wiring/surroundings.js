@@ -193,7 +193,8 @@ function wireSurroundings(d) {
       guarding: () => focus.guarding(d.config.get('focus'), Date.now()),
       music: () => !!d.nowPlaying?.playing,
       seasons: () => activeSeasons(new Date(), d.seasonsWhere()).map(x => x.id),
-      calm: () => d.calmReason === 'locked',
+      calm: () => !!d.crabCalm?.().calm, // covered, under a game, away or locked (wiring/windows.js)
+      locked: () => d.calmReason === 'locked',
       // Where his eyes are on screen: 4 cells right of centre and about 12 up from his feet.
       eyePoint: () => {
         if (!d.critter || d.critter.isDestroyed()) return null;

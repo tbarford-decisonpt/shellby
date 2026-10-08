@@ -40,6 +40,9 @@
   const seen = new Set();    // decor refs already reported as seen this session
 
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Nobody looking (boot.js onCalm: the panel's behind your windows, you're away,
+  // a game's up or the screen's locked): he holds still, like a hidden tab.
+  const calm = () => document.body.classList.contains('calm');
   const clone = o => JSON.parse(JSON.stringify(o));
   const plural = (n, one, many) => SB.plural(n, one, many, x => x.toLocaleString());
   const listOf = parts => (parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`);
@@ -187,14 +190,17 @@
   // ------------------------------------------------------------ the loop
 
   // Ten frames a second while you're looking (plants sway, bubbles rise, he
-  // walks); one still frame when the motion is turned down; nothing at all
-  // when the tab is hidden or you're somewhere else.
+  // walks); one still frame when the motion is turned down or the panel is
+  // calm (he doesn't get up to anything, so nothing counts toward his
+  // favourite); nothing at all when the tab is hidden or you're somewhere else.
   const kick = () => { if (!timer) timer = setTimeout(tick, 0); };
 
   function tick() {
     timer = 0;
     if (state.view !== 'tank' || !v || document.hidden) { flushLived(); return; }
     const now = performance.now();
+    // Calm: the frame as it stands, where he stands (no jump to his still spot).
+    if (calm() && !drag) { flushLived(); draw(now, reduced()); dirty = false; lastTick = 0; return; }
     const dt = lastTick ? Math.min(0.25, (now - lastTick) / 1000) : 0;
     lastTick = now;
     const still = reduced();
@@ -879,6 +885,9 @@
   api.onSkin?.(() => { crabKey = null; if (state.view === 'tank') loadCrab(); });
   new ResizeObserver(() => { if (state.view === 'tank' && v) { size(); keepingFocus(renderHits); kick(); } }).observe(stage);
   document.addEventListener('visibilitychange', kick);
+  // ...and the calm lifting (or falling) is the same: back to life, or one still frame.
+  let wasCalm = calm();
+  new MutationObserver(() => { if (calm() !== wasCalm) { wasCalm = calm(); kick(); } }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   document.addEventListener('sb:tank-gauges', () => { dirty = true; kick(); }); // live decor changed (tank-gauges.js)
   window.addEventListener('pagehide', flushLived); // what he did while you watched, before the panel goes
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', () => { dirty = true; kick(); });
