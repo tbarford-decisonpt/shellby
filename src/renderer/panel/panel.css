@@ -199,6 +199,7 @@ body:not([data-view="chat"]) .subbar { display: none; }
 .menu-item .mi-title { font-weight: 700; font-size: var(--fs-13); }
 .menu-item .mi-sub { color: var(--sand-dim); font-size: var(--fs-12); line-height: 1.35; }
 .menu-item .mi-check { width: 14px; flex: none; color: var(--glass); font-weight: 700; }
+.menu-item .mi-check svg { display: block; width: 14px; height: 14px; margin-top: 2px; }
 .menu-item.path { font: var(--fs-11-5) var(--font-mono); font-stretch: 88%; color: var(--sand-dim); align-items: center; }
 .menu-item.path:hover { color: var(--sand); }
 .menu-sep { height: 1px; background: var(--line); margin: 5px 4px; }
