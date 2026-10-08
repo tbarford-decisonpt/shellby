@@ -66,6 +66,11 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:reviewed', (_e, { tabId, reviewed = true, after = null } = {}) =>
     d.isStr(tabId) && d.manager.setReviewed(tabId, reviewed !== false, d.isStr(after) ? after : null));
 
+  // The effort chip: this conversation's own effort ('' is Auto).
+  ipcMain.handle('tab:effort', (_e, { tabId, effort } = {}) => {
+    try { d.isStr(tabId) && d.manager.setTabEffort(tabId, effort); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; }
+  });
+
   ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
     text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);
     const files = (Array.isArray(attachments) ? attachments : []).filter(d.isStr).slice(0, 20);

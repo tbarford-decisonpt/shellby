@@ -3,7 +3,8 @@
 // up into one state for the desktop critter.
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
-const { ClaudeSession } = require('./session');
+const { ClaudeSession, EFFORTS } = require('./session');
+const { pickEffort } = require('./effort-pick');
 const { cleanTitle } = require('./history');
 const review = require('./review-inbox');
 const turncost = require('./turncost');
@@ -27,9 +28,11 @@ class SessionManager extends EventEmitter {
   //   getSelfAware() -> { note, tools } | null, read when a tab's process is made
   //   onTool(tab, name, args) -> Promise<{ text, isError? }>, a crab tool was called
   //   decorate(tab, prompt) -> the prompt Claude actually receives
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null }) {
+  // getEffort() is the effort new conversations start on; with it on Auto ('')
+  // and getEffortPick() true, each one is sized from its first message instead (effort-pick.js).
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getEffortPick = () => false, getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getEffortPick, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate });
     this.tabs = new Map();
   }
 
@@ -44,12 +47,14 @@ class SessionManager extends EventEmitter {
     if (!exe) throw new Error('Claude Code is not installed.');
     const aware = this.getSelfAware();
     let tab = null; // the tools are only ever called once it exists
+    // Its own effort, kept in History: you chose it, or Shellby picked it.
+    const ownEffort = ['you', 'picked'].includes(historyEntry?.effortBy) && (historyEntry.effort === '' || EFFORTS.includes(historyEntry.effort)) ? historyEntry.effort : null;
     const session = new ClaudeSession({
       exe, argsPrefix: this.argsPrefix,
       cwd: historyEntry?.cwd || cwd,
       mode: mode || this.getMode(),
       model: this.getModel() || null,
-      effort: this.getEffort() || '',
+      effort: ownEffort ?? (this.getEffort() || ''),
       outputStyle: this.getOutputStyle() || '',
       resumeId: historyEntry?.claudeSessionId || null,
       resumeAt: historyEntry?.resumeAt || null,
@@ -87,6 +92,9 @@ class SessionManager extends EventEmitter {
       steeredIds: new Set(),       // ...and what of it has gone in already
       usageTold: 0,                // the usage level Claude was last told about (selfaware.usageNote)
       offered: new Set(),          // features suggested in this conversation
+      // Who set its effort: 'you' (the chip), 'picked' (Shellby, from its first
+      // message) or null, following the default for new conversations.
+      effortBy: ownEffort === null ? null : historyEntry.effortBy,
     };
     // A reopened conversation remembers what it already offered.
     if (historyEntry) for (const i of this.history.load?.(tabId) || []) if (i?.kind === 'suggest') tab.offered.add(i.feature);
@@ -188,6 +196,7 @@ class SessionManager extends EventEmitter {
       if (tab.worktree) this.history.update(tab.id, { worktree: tab.worktree });
       tab.title = this.history.get(tab.id).title;
       tab.saved = true;
+      if (tab.effortBy) this.keepEffort(tab); // chosen on the chip before its first message
     } else if (this.history.get(tab.id)?.done) {
       // You've just given it more to do, so it plainly isn't done any more.
       this.history.setDone(tab.id, false);
@@ -212,6 +221,7 @@ class SessionManager extends EventEmitter {
       tab.preambleSent = true;
     }
     if (this.decorate) prompt = this.decorate(tab, prompt);
+    this.maybePickEffort(tab, userItem);
     tab.session.send(prompt, this.prepareTurn?.(tab) || null);
     // On disk at once, so a power cut mid-turn still leaves it marked unfinished.
     this.history.markTurn?.(tab.id, { turnId: userItem.turnId, at: Date.now() });
@@ -375,8 +385,35 @@ class SessionManager extends EventEmitter {
     for (const tab of this.tabs.values()) if (!tab.pinnedMode) tab.session.setMode(mode);
   }
 
+  // The default changed: the conversations following it follow it now. One
+  // with its own (chosen or picked) keeps that.
   setEffort(effort) {
-    for (const tab of this.tabs.values()) tab.session.setEffort(effort);
+    for (const tab of this.tabs.values()) if (!tab.effortBy) tab.session.setEffort(effort);
+  }
+
+  /** This conversation's own effort ('' is Auto), from the chip. From its next turn, or this one's next step. */
+  setTabEffort(tabId, effort) {
+    const tab = this.require(tabId);
+    if (effort !== '' && !EFFORTS.includes(effort)) throw new Error('bad effort');
+    tab.effortBy = 'you';
+    tab.session.setEffort(effort);
+    this.keepEffort(tab);
+    this.changed();
+  }
+
+  // Sized from what it was asked, once: only while it follows a default of
+  // Auto with picking on. A /command waits for the next real message.
+  maybePickEffort(tab, userItem) {
+    if (tab.effortBy || this.getEffort() || !this.getEffortPick()) return;
+    const level = pickEffort(userItem.text, Array.isArray(userItem.attachments) ? userItem.attachments.length : 0);
+    if (!level) return;
+    tab.effortBy = 'picked';
+    tab.session.setEffort(level);
+    this.keepEffort(tab);
+  }
+
+  keepEffort(tab) {
+    if (tab.saved) this.history.update(tab.id, { effort: tab.session.effort, effortBy: tab.effortBy });
   }
 
   require(tabId) {
@@ -402,6 +439,7 @@ class SessionManager extends EventEmitter {
       // Its latest changes and whether you've reviewed them (review-inbox.js): the panel's review inbox.
       ready: t.ready ? { ...t.ready, paths: [...t.ready.paths] } : null,
       inTerminal: t.inTerminal || null,
+      effort: t.session.effort || '', effortBy: t.effortBy || null, // the effort chip
     }));
   }
 

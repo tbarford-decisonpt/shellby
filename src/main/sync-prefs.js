@@ -43,6 +43,7 @@ const PREFS = {
   mode: v => (MODES.includes(v) && v !== 'autonomous' ? v : undefined),
   model: v => (isModel(v) ? v : undefined),
   effort: v => (v === '' || EFFORTS.includes(v) ? v : undefined),
+  effortPick: bool,
   outputStyle: v => (typeof v === 'string' ? outputStyles.clean(v) : undefined),
   hotkey: v => (typeof v === 'string' && /^[A-Za-z0-9+]{0,60}$/.test(v) ? v : undefined),
   critterScale: oneOf([0.75, 1, 1.5, 2]),
@@ -87,7 +88,7 @@ const MAX_GONE = 200;
 
 // What a sync names when it brings one in ("Synced from your other PC: ...").
 const LABELS = Object.freeze({
-  mode: 'mode', model: 'model', effort: 'effort', outputStyle: 'output style', hotkey: 'hotkey', critterScale: 'his size',
+  mode: 'mode', model: 'model', effort: 'effort', effortPick: 'effort picking', outputStyle: 'output style', hotkey: 'hotkey', critterScale: 'his size',
   notifications: 'notifications', recap: 'recaps', claudeTricks: 'new tricks', plainCards: 'plain words', leaveGuard: 'shutdown guard', crabOnly: 'just the crab', workMode: 'Work mode',
   wander: 'wandering', onTop: 'always on top', sounds: 'his voice', soundFx: 'sound effects', needsOn: 'snacks and naps',
   forecast: 'forecast', spendGuard: 'limit guard', holdBigTasks: 'holding big tasks', flakyTests: 'flaky tests', surprises: 'surprises',

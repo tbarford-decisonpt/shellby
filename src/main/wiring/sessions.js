@@ -55,6 +55,7 @@ function wireSessions(d) {
       getMode: () => d.config.get('mode'),
       getModel: () => d.config.get('model'),
       getEffort: () => d.config.get('effort'),
+      getEffortPick: () => d.config.get('effortPick') !== false,
       getOutputStyle: () => outputStyles.clean(d.config.get('outputStyle')),
       getEnv: () => d.github?.claudeEnv() || {},
       compose: (text, files) => d.composePrompt(text, files),

@@ -46,6 +46,7 @@
       ready: summary.ready !== undefined ? summary.ready : tab.ready || null,
       nudge: summary.nudge !== undefined ? summary.nudge : tab.nudge || null,
       inTerminal: summary.inTerminal !== undefined ? summary.inTerminal : tab.inTerminal || null,
+      effort: summary.effort ?? tab.effort, effortBy: summary.effortBy !== undefined ? summary.effortBy : tab.effortBy || null, // the effort chip
     });
     return tab;
   };
@@ -64,6 +65,7 @@
     renderAttachments();
     applyFolderLabel(tab.cwd || state.cwd, tab);
     syncContextUi();
+    SB.applyEffort?.(); // its own effort (composer.js)
     syncBusyUi();
     SB.renderBattleChip?.(); // a bug battle in this conversation (bugdex-battle.js)
     if (tab.unread) api.seenTab(tabId);
@@ -121,6 +123,7 @@
     const active = SB.activeTab();
     if (active) applyFolderLabel(active.cwd || state.cwd, active); // its first change can move it into its own copy
     syncContextUi();
+    SB.applyEffort?.();
     SB.renderTabStrip();
   };
 
