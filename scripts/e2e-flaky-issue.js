@@ -1,3 +1,4 @@
+// ci: a flaky test filed as a GitHub issue: no button without GitHub, asks first, labelled and linked
 // A flaky test filed as a GitHub issue, end to end against a mock GitHub: no
 // button until GitHub can take it, a question first (Cancel files nothing),
 // then one issue labelled shellby and assigned to you, with the evidence, and

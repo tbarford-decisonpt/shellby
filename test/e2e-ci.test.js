@@ -5,7 +5,25 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { SUITE, pick, reap, reapScript } = require('../scripts/e2e-ci');
+const os = require('os');
+const { SUITE, discover, pick, reap, reapScript } = require('../scripts/e2e-ci');
+
+test('a script is a check when its first line is a "// ci:" mark, and only then', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-e2e-ci-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'e2e-b.js'), '// ci: the b screen\nconsole.log(1);\n');
+    fs.writeFileSync(path.join(dir, 'a-check.js'), '// ci: a\n');
+    fs.writeFileSync(path.join(dir, 'e2e-manual.js'), '// Needs a real Claude account.\n// ci: not on the first line\n');
+    fs.writeFileSync(path.join(dir, 'e2e-empty.js'), '// ci: \n');
+    fs.writeFileSync(path.join(dir, 'notes.md'), '// ci: not a script\n');
+    assert.deepEqual(discover(dir), ['a-check', 'e2e-b']);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the suite is the marked scripts in scripts/', () => {
+  assert.ok(SUITE.includes('e2e-queue') && SUITE.includes('ui-regressions'));
+  assert.ok(!SUITE.includes('e2e-ci') && !SUITE.includes('e2e-on-top'), 'the runner, and a check that needs the desktop to itself, are not');
+});
 
 test('every check is in exactly one shard, whatever the number of shards', () => {
   for (const n of [1, 2, 3, 4, 7]) {

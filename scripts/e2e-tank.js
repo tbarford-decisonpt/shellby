@@ -1,3 +1,4 @@
+// ci: his tank: decorating by keyboard, what main refuses, the Health porthole, kept after a restart
 // End-to-end for his tank (Shellby's screen → Tank) over the Chrome DevTools
 // Protocol: decorating with the keyboard alone (tray, arrow keys, flip, undo),
 // what's locked staying locked, Done keeping it (and earning Moving In), main

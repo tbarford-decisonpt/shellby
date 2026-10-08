@@ -1,3 +1,4 @@
+// ci: a project's Helpers and the port doctor: before-start notes, a taken port moved, bisect, docs and the tour waiting unsent
 // End-to-end check of a project page's helpers and the port doctor, against
 // the dev app over CDP with the fake Claude CLI (throwaway profile and repo,
 // no account, no network):

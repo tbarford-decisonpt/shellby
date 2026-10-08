@@ -1,3 +1,4 @@
+// ci: a turn's diff and Undo, a worktree per tab, answering from the phone
 // Three things that reach outside the panel, end to end against the fake CLI:
 //   1. what a turn changed: the block, a file's diff, and Undo
 //   2. a copy of the repo per tab: the branch chip, and bringing it home

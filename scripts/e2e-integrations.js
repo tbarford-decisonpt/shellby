@@ -1,3 +1,4 @@
+// ci: MCP actions, the shellby command's token, the browser source, editor names
 // End-to-end check of the things that let something else drive the crab, or
 // let him reach out. Drives the real app over CDP on real ports.
 //   1. the MCP server's actions: say, celebrate, wear, status

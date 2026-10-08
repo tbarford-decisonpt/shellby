@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCopyDeps, installDir, refusal, registryOnly, depsSentence, ARGS } = require('../src/main/copy-deps');
+const { installCopyDeps, installDir, refusal, registryOnly, installedAlready, depsSentence, ARGS } = require('../src/main/copy-deps');
 const { findNpm } = require('../src/main/depwatch');
 
 const W = { root: path.resolve('/repo'), path: path.resolve('/home/abc123/repo'), cwd: path.resolve('/home/abc123/repo/app') };
@@ -76,6 +76,21 @@ test('only registry tarballs: a git, file or plain-http package would run its bu
   assert.equal(registryOnly(JSON.stringify({ lockfileVersion: 1, dependencies: {} })), false, 'an old lockfile says too little');
 });
 
+test('installedAlready: every package the very same tarball as one installed, or no', () => {
+  const a = { resolved: 'https://registry.npmjs.org/a/-/a-1.0.0.tgz', integrity: 'sha512-a' };
+  const b = { resolved: 'https://registry.npmjs.org/b/-/b-2.0.0.tgz', integrity: 'sha512-b' };
+  const link = { link: true, resolved: 'packages/l' };
+  const have = lock({ 'node_modules/a': a, 'node_modules/b': b, 'node_modules/l': link });
+  assert.equal(installedAlready(lock({ 'node_modules/a': a, 'node_modules/l': link }), have), true, 'fewer is fine');
+  assert.equal(installedAlready(lock({ 'node_modules/a': a, 'node_modules/c': b }), have), false, 'a package not installed');
+  assert.equal(installedAlready(lock({ 'node_modules/a': { ...a, integrity: 'sha512-other' } }), have), false, 'another tarball');
+  assert.equal(installedAlready(lock({ 'node_modules/a': { ...a, resolved: 'https://elsewhere.example/a.tgz' } }), have), false, 'from somewhere else');
+  assert.equal(installedAlready(lock({ 'node_modules/a': { resolved: a.resolved } }), have), false, 'nothing to match on');
+  assert.equal(installedAlready(lock({ 'node_modules/l': { link: true, resolved: 'elsewhere' } }), have), false);
+  assert.equal(installedAlready('not json', have), false);
+  assert.equal(installedAlready(lock({}), '{}'), false);
+});
+
 test('the copy gets packages only when they are exactly the ones installed in your checkout', () => {
   const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-copydeps-')));
   try {
@@ -93,6 +108,16 @@ test('the copy gets packages only when they are exactly the ones installed in yo
     const old = new Date(Date.now() - 60000);
     fs.utimesSync(hidden, old, old);
     assert.match(refusal(w, copy), /changed after you last installed/);
+    // ...unless what you have installed already covers it: nothing new comes onto the PC.
+    fs.writeFileSync(hidden, lock({ 'node_modules/a': { resolved: 'https://registry.npmjs.org/a/-/a-1.0.0.tgz', integrity: 'sha512-a' } }));
+    fs.utimesSync(hidden, old, old);
+    assert.match(refusal(w, copy), /changed after you last installed/, 'the lockfile gives no integrity to match on');
+    const pinned = lock({ 'node_modules/a': { resolved: 'https://registry.npmjs.org/a/-/a-1.0.0.tgz', integrity: 'sha512-a' } });
+    for (const dir of [root, copy]) fs.writeFileSync(path.join(dir, 'package-lock.json'), pinned);
+    fs.utimesSync(hidden, old, old);
+    assert.equal(refusal(w, copy), null);
+    for (const dir of [root, copy]) fs.writeFileSync(path.join(dir, 'package-lock.json'), text);
+    fs.writeFileSync(hidden, '{}');
     fs.utimesSync(hidden, new Date(), new Date());
 
     fs.writeFileSync(path.join(copy, 'package-lock.json'), lock({ 'node_modules/a': { resolved: 'git+https://evil.example/a.git' } }));

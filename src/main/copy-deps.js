@@ -13,8 +13,9 @@
 //     or plain-http package is left for you (or Claude, asking) to install.
 //   - Only what you've installed yourself: the copy's lockfile is the one in
 //     your checkout, byte for byte, and your node_modules was installed after
-//     that lockfile last changed. Then the copy gets nothing you haven't
-//     already got on this PC.
+//     that lockfile last changed (or already holds every package it names,
+//     the same tarball). Then the copy gets nothing you haven't already got
+//     on this PC.
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -42,6 +43,24 @@ function registryOnly(lockText) {
     if (p.link === true) return typeof p.resolved === 'string' && !/^[a-z][a-z+]*:/i.test(p.resolved) && !path.isAbsolute(p.resolved);
     if (p.resolved === undefined) return p.inBundle === true; // bundled with its parent, which came from the registry
     return typeof p.resolved === 'string' && /^https:\/\//i.test(p.resolved);
+  });
+}
+
+/**
+ * Is every package in this lockfile already installed, the very same tarball,
+ * per the record npm keeps in node_modules (`installed`)? Then installing it
+ * gets nothing new onto this PC. Pure.
+ */
+function installedAlready(lockText, installedText) {
+  let lock;
+  let have;
+  try { lock = JSON.parse(lockText); have = JSON.parse(installedText); } catch { return false; }
+  if (!lock?.packages || typeof lock.packages !== 'object' || !have?.packages || typeof have.packages !== 'object') return false;
+  return Object.entries(lock.packages).every(([key, p]) => {
+    if (key === '') return true;
+    const h = have.packages[key];
+    if (!p || !h) return false;
+    return p.link === true ? h.link === true && h.resolved === p.resolved : !!p.integrity && h.integrity === p.integrity && h.resolved === p.resolved;
   });
 }
 
@@ -76,7 +95,12 @@ function refusal(w, dir) {
   try { text = fs.readFileSync(copyLock, 'utf8'); theirs = fs.readFileSync(path.join(mine, LOCK), 'utf8'); } catch { return "your checkout's package-lock.json couldn't be read"; }
   if (text !== theirs) return "its package-lock.json isn't the one installed in your checkout";
   try {
-    if (fs.statSync(path.join(mine, HIDDEN_LOCK)).mtimeMs < fs.statSync(path.join(mine, LOCK)).mtimeMs) return 'package-lock.json changed after you last installed';
+    // A pull that brought a new lockfile, with no install since. Still fine
+    // when every package it names is one your checkout already has.
+    if (fs.statSync(path.join(mine, HIDDEN_LOCK)).mtimeMs < fs.statSync(path.join(mine, LOCK)).mtimeMs
+      && !installedAlready(text, fs.readFileSync(path.join(mine, HIDDEN_LOCK), 'utf8'))) {
+      return "package-lock.json changed after you last installed, and names packages your checkout doesn't have (npm ci there, and the next copies get them)";
+    }
   } catch { return "your checkout's node_modules wasn't installed by npm"; }
   if (!registryOnly(text)) return 'it has packages from git or a folder, which npm would build by running their scripts';
   return null;
@@ -129,4 +153,4 @@ function depsSentence(result, w) {
   return "It has every committed file; anything uncommitted or ignored in the original (node_modules, build output) isn't in it. ";
 }
 
-module.exports = { installCopyDeps, installDir, refusal, registryOnly, depsSentence, ARGS };
+module.exports = { installCopyDeps, installDir, refusal, registryOnly, installedAlready, depsSentence, ARGS };

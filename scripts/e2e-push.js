@@ -1,3 +1,4 @@
+// ci: Push from the folder menu: take in the remote's work, send yours, a hook's refusal
 // Sending your checkout to its remote, end to end: the folder menu counts what
 // would go, Push takes in what the remote has first and sends the rest, and
 // the conversation and XP say so. A bare repo in a temp folder stands in for

@@ -1,3 +1,4 @@
+// ci: lots of tabs: edge markers, the list of every open one, closing the quiet ones
 // Lots of open conversations (tab-overview.js): the strip's edge markers count
 // what's scrolled out of sight and jump to one that needs you, and the list of
 // every open conversation groups, filters, opens, closes and tidies up.

@@ -1,3 +1,4 @@
+// ci: the Bugdex: a failure seen, a fix caught into a jar, no catch for no change, a deleted test or a grep
 // The Bugdex, end to end against the fake CLI: a failed command shows a bug
 // (seen, on the loose, nothing paid); an edit and the same command passing
 // catches it (XP, the jar, the page); the same bug again soon isn't counted

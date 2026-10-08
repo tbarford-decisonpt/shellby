@@ -364,10 +364,11 @@ async function bringHome(w, { message }) {
   if (bad) return { ok: false, error: bad };
   if (!fs.existsSync(w.path)) return { ok: false, error: 'The copy is gone (deleted outside Shellby).' };
 
+  const said = String(message || 'Work from Shellby').slice(0, 400);
   const dirty = await git(w.path, ['status', '--porcelain'], { timeout: 15000 });
   if (dirty.ok && dirty.out.trim()) {
     const add = await git(w.path, ['add', '-A']);
-    const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', String(message || 'Work from Shellby').slice(0, 400)]);
+    const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', said]);
     if (!commit?.ok) return { ok: false, error: `Couldn't commit the copy's changes: ${firstLine(commit?.error || add.error)}` };
   }
 
@@ -378,8 +379,11 @@ async function bringHome(w, { message }) {
     if (!on.ok || on.out.trim() !== w.base) {
       return { ok: false, error: `Your checkout is on ${on.out.trim() || 'no branch'} now. Switch back to ${w.base} to bring this home.` };
     }
+    // Titled with what the work is, so `git log --first-parent` reads as a list
+    // of changes (release drafts skip merges, so it isn't counted twice).
     // In English whatever git's language, so its refusals can be read below.
-    const merge = await git(w.root, [...NO_HOOKS, 'merge', '--no-verify', '--no-edit', '-m', `Bring home ${w.branch}`, w.branch], { timeout: 60000, env: { LC_ALL: 'C' } });
+    const title = `${said.split('\n')[0]}\n\nBrought home from ${w.branch}`;
+    const merge = await git(w.root, [...NO_HOOKS, 'merge', '--no-verify', '--no-edit', '-m', title, w.branch], { timeout: 60000, env: { LC_ALL: 'C' } });
     if (!merge.ok) {
       const conflict = /CONFLICT|Automatic merge failed/i.test(merge.out + merge.error);
       if (conflict) await git(w.root, ['merge', '--abort'], { timeout: 15000 });

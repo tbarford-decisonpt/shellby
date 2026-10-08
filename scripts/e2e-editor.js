@@ -1,3 +1,4 @@
+// ci: an edit's diff on its card and row, file links, Ctrl+F, zoom, Ctrl+Shift+P, Settings → Editor
 // End-to-end check of the editor touches against the dev app over CDP with
 // the fake CLI, in a throwaway folder: an edit's permission card shows its diff
 // with line numbers, the tool row folds open to it, paths in replies are links

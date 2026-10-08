@@ -1,3 +1,4 @@
+// ci: "just the crab": Health as home, Claude features hidden
 // End-to-end check of "just the crab" mode against the dev app over CDP, as a
 // brand-new user (throwaway profile, fake hot GPU so Health has something to say).
 //   node scripts/e2e-crab-only.js [screenshotDir]

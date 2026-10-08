@@ -1,3 +1,4 @@
+// ci: try again from any turn: a new tab in its own copy, the fence, compare, keep one
 // End-to-end check of branching a conversation, against the dev app over CDP
 // with the fake Claude CLI (test/fixtures/fake-claude.js):
 //   - "Try again from here" on a message: a new tab, resumed up to just before

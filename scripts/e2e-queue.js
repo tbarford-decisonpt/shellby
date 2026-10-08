@@ -1,3 +1,4 @@
+// ci: queued messages: queue, edit, drain, stop, error pauses
 // End-to-end check of queued messages against the dev app over CDP, driven by
 // the fake Claude CLI (test/fixtures/fake-claude.js): no account, no usage.
 // Type while Shellby works -> messages queue -> they send one by one when each

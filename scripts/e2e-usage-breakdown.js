@@ -1,3 +1,4 @@
+// ci: the meters' breakdown by tab, routine and project
 // The usage meters say who filled them: clicking 5h/7d opens a breakdown by tab
 // and routine, or by project. Seeds a routine's spend from earlier, then runs a
 // real (fake-CLI) conversation and checks it lands in the breakdown too.

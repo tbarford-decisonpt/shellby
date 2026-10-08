@@ -1,3 +1,4 @@
+// ci: team packs in throwaway repos: noticed, listed, snippets scoped to the repo, Make a team pack
 // End-to-end check of team packs against the dev app over CDP, in a throwaway
 // profile and throwaway repos: opening a repo with a .shellby/team.json says so,
 // Toolbox → Team lists it, "Use these snippets" makes /ship work there (and only
