@@ -58,7 +58,7 @@
 
   // The three modes, and the one switch between them: his right-click menu and
   // the tray (panel:mode), Ctrl+K and Settings all come through here.
-  SB.MODES = [
+  SB.APP_MODES = [
     { id: 'claude', icon: '💬', title: 'Claude Code', sub: 'Your tasks, and a lively crab' },
     { id: 'work', icon: '🛠️', title: 'Work mode', sub: 'The tools up front, and a quiet crab' },
     { id: 'crab', icon: '🦀', title: 'Just the crab', sub: 'Health, the Wardrobe and trophies, no Claude' },
@@ -69,7 +69,7 @@
   };
 
   SB.switchMode = async id => {
-    if (!SB.MODES.some(m => m.id === id) || id === SB.modeNow()) return;
+    if (!SB.APP_MODES.some(m => m.id === id) || id === SB.modeNow()) return;
     // Out of just the crab with no Claude Code yet: its setup first, which lands in the mode asked for.
     if (id !== 'crab' && needsSetup()) {
       SB.startClaudeSetup();
