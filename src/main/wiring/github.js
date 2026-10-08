@@ -231,7 +231,7 @@ function wireGithub(d) {
           temperament: voice.temperamentOf(voice.normalize(d.config.get('voice')).seed),
           find: gifts.favourite(d.config.get('finds'))?.id || null,
           tank: tankShare.forCard(d.config.get('tank')), // only if you share it
-          bugdex: d.config.get('shareBugdex') ? bugdex.shared(d.config.get('bugdex')) : null, // only if you share it
+          bugdex: d.config.get('shareBugdex') ? bugdex.shared(d.config.get('bugdex'), Date.now()) : null, // only if you share it: kinds, badges, this month's tally
         };
       },
       sharesTank: () => !!tankShare.forCard(d.config.get('tank')), // a visit then counts for House Guest

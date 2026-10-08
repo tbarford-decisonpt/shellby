@@ -42,6 +42,8 @@ const DEVICE_RE = /^[a-z0-9-]{4,40}$/;
 const PROJECT_RE = /^[0-9a-z]{6,40}$/i;
 const HEX12 = /^[0-9a-f]{12}$/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const MAX_MONTHS = 3;                           // this month and the two before, for the friends' board (board.js)
 const LOCAL = 'local';
 
 const pos = v => (Number.isFinite(v) && v > 0 ? v : 0);
@@ -50,6 +52,7 @@ const MAX_COUNT = 1e6;
 const count = v => Math.min(MAX_COUNT, Math.floor(pos(v)));
 const own = (map, key) => (Object.hasOwn(map, key) ? map[key] : 0);
 const sum = map => Object.values(map).reduce((n, v) => n + v, 0);
+const monthKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 
@@ -74,6 +77,57 @@ function cleanEntry(raw, { keepLocal = true } = {}) {
     projects: (Array.isArray(e.projects) ? e.projects : []).filter(p => typeof p === 'string' && PROJECT_RE.test(p)).slice(0, MAX_PROJECTS),
     seenAt: pos(e.seenAt), lastEscapeAt: pos(e.lastEscapeAt),
   };
+}
+
+const HABITAT_IDS = new Set(HABITATS.map(h => h.id));
+
+/** One PC's count for a month. */
+function cleanTally(raw) {
+  const r = obj(raw);
+  const habitats = {};
+  for (const [id, n] of Object.entries(obj(r.habitats))) if (HABITAT_IDS.has(id) && count(n)) habitats[id] = count(n);
+  return { jars: count(r.jars), shinies: count(r.shinies), habitats };
+}
+
+/** The last few months' catches, per PC: { 'YYYY-MM': { device: tally } }. */
+function cleanMonths(raw, { keepLocal = true } = {}) {
+  const out = {};
+  const keys = Object.keys(obj(raw)).filter(k => MONTH_RE.test(k)).sort().slice(-MAX_MONTHS);
+  for (const k of keys) {
+    const devs = {};
+    for (const [dev, t] of Object.entries(obj(raw[k])).slice(0, MAX_DEVICES)) {
+      if (!DEVICE_RE.test(dev) || (!keepLocal && dev === LOCAL)) continue;
+      const tally = cleanTally(t);
+      if (tally.jars) devs[dev] = tally;
+    }
+    if (Object.keys(devs).length) out[k] = devs;
+  }
+  return out;
+}
+
+const maxTally = (a, b) => {
+  const x = cleanTally(a), y = cleanTally(b);
+  const habitats = {};
+  for (const id of new Set([...Object.keys(x.habitats), ...Object.keys(y.habitats)])) habitats[id] = Math.max(own(x.habitats, id), own(y.habitats, id));
+  return { jars: Math.max(x.jars, y.jars), shinies: Math.max(x.shinies, y.shinies), habitats };
+};
+function mergeMonths(a, b) {
+  const out = {};
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    const devs = {};
+    for (const dev of new Set([...Object.keys(a[k] || {}), ...Object.keys(b[k] || {})])) devs[dev] = maxTally(a[k]?.[dev], b[k]?.[dev]);
+    out[k] = devs;
+  }
+  return cleanMonths(out);
+}
+
+/** A month's catches, every PC together: { jars, shinies, habitats }. */
+function monthOf(stateIn, key) {
+  const s = normalize(stateIn);
+  const devs = Object.values(s.months[key] || {});
+  const habitats = {};
+  for (const t of devs) for (const [id, n] of Object.entries(t.habitats)) habitats[id] = (habitats[id] || 0) + n;
+  return { jars: devs.reduce((n, t) => n + t.jars, 0), shinies: devs.reduce((n, t) => n + t.shinies, 0), habitats };
 }
 
 const caughtOf = entry => sum(entry?.byDevice || {});
@@ -109,6 +163,8 @@ function normalize(raw) {
     lastMomentAt: pos(r.lastMomentAt),
     // When the book was started over: sync drops counts from before it (see merge).
     resetAt: pos(r.resetAt),
+    // Catches per month, per PC, for the friends' board (board.js). Synced like the counts.
+    months: cleanMonths(r.months),
     // Jars friends brought when they visited: decoration, never a catch (and never synced).
     gifts: (Array.isArray(r.gifts) ? r.gifts : [])
       .filter(g => g && BY_ID.has(g.species) && g.species !== 'missingno' && typeof g.from === 'string' && LOGIN_RE.test(g.from) && pos(g.at))
@@ -222,6 +278,7 @@ function recordCatch(stateIn, c, now) {
     todayBySpecies: { ...state.todayBySpecies, [sp.id]: own(state.todayBySpecies, sp.id) + 1 },
     unseen: [...state.unseen.filter(id => id !== sp.id), sp.id].slice(-60),
     log: [{ at: now, species: sp.id, form: forms.includes('golden') ? 'golden' : forms[0] || null, new: isNew, project: typeof c.name === 'string' ? c.name.slice(0, 80) : null }, ...state.log].slice(0, MAX_LOG),
+    months: tallied(state.months, monthKey(now), dev, sp, forms.includes('shiny')),
   };
   const fin = finishedHabitats(state, now);
   state = { ...state, habitats: fin.habitats };
@@ -234,6 +291,13 @@ function recordCatch(stateIn, c, now) {
   const moment = !!loud || now - state.lastMomentAt >= MOMENT_GAP;
   if (moment) state = { ...state, lastMomentAt: now };
   return { state, counted: true, pays, isNew, forms, stage, evolved, completed: fin.done, moment, badge, league, fame };
+}
+
+/** This month's tally with one more catch in it. */
+function tallied(months, key, dev, sp, shiny) {
+  const was = cleanTally(months[key]?.[dev]);
+  const habitats = sp.habitat ? { ...was.habitats, [sp.habitat]: own(was.habitats, sp.habitat) + 1 } : was.habitats;
+  return cleanMonths({ ...months, [key]: { ...(months[key] || {}), [dev]: { jars: was.jars + 1, shinies: was.shinies + (shiny ? 1 : 0), habitats } } });
 }
 
 // ------------------------------------------------------------------ encounters (see lifecycle.js)
@@ -390,14 +454,21 @@ function giftCounts(stateIn) {
 function cleanShared(raw) {
   const r = obj(raw);
   const caught = [...new Set((Array.isArray(r.caught) ? r.caught : []).filter(id => typeof id === 'string' && BY_ID.has(id)))].slice(0, SPECIES.length);
-  return { caught, badges: Math.min(HABITATS.length, count(r.badges)), hall: r.hall === true };
+  const m = obj(r.month);
+  const month = MONTH_RE.test(m.key || '') ? { key: m.key, ...cleanTally(m) } : null;
+  return { caught, badges: Math.min(HABITATS.length, count(r.badges)), hall: r.hall === true, month };
 }
 
-/** What your card says about your Bugdex when you share it: which kinds, and badges. No counts, no projects. */
-function shared(stateIn) {
+/**
+ * What your card says about your Bugdex when you share it: which kinds, badges,
+ * and this month's catches for the friends' board (how many, how many
+ * sparkly, in which habitats). No projects, no errors, no bug's own count.
+ */
+function shared(stateIn, now = Date.now()) {
   const s = normalize(stateIn);
   const l = leagueView(s);
-  return { caught: Object.keys(s.species).filter(id => caughtOf(s.species[id]) > 0).sort(), badges: l.earned, hall: !!l.hall };
+  const key = monthKey(now);
+  return { caught: Object.keys(s.species).filter(id => caughtOf(s.species[id]) > 0).sort(), badges: l.earned, hall: !!l.hall, month: { key, ...monthOf(s, key) } };
 }
 
 // ------------------------------------------------------------------ the view
@@ -529,7 +600,7 @@ function syncable(stateIn) {
     const { byDevice, seen, first, last, fastest, escapes, forms, langs } = e;
     species[id] = { byDevice, seen, first, last, fastest, escapes, forms, langs };
   }
-  return { species, habitats: s.habitats, resetAt: s.resetAt };
+  return { species, habitats: s.habitats, resetAt: s.resetAt, months: s.months };
 }
 
 /** Another PC's syncable part, cleaned (its 'local' bucket means nothing here). */
@@ -541,7 +612,7 @@ function normalizeSync(raw) {
     const { projects: _p, seenAt: _s, lastEscapeAt: _l, ...rest } = cleanEntry(e, { keepLocal: false });
     species[id] = rest;
   }
-  return { species, habitats: normalize({ habitats: r.habitats }).habitats, resetAt: Math.min(pos(r.resetAt), 8.64e15) };
+  return { species, habitats: normalize({ habitats: r.habitats }).habitats, resetAt: Math.min(pos(r.resetAt), 8.64e15), months: cleanMonths(r.months, { keepLocal: false }) };
 }
 
 const minPos = (a, b) => (a && b ? Math.min(a, b) : a || b);
@@ -551,7 +622,7 @@ const maxMap = (a, b) => Object.fromEntries([...new Set([...Object.keys(a), ...O
 function merge(aIn, bIn) {
   // A book started over wins: whatever the other side counted before that is gone.
   const resetAt = Math.max(normalizeSync(aIn).resetAt, normalizeSync(bIn).resetAt);
-  const kept = raw => { const x = normalizeSync(raw); return x.resetAt >= resetAt ? x : { species: {}, habitats: {}, resetAt }; };
+  const kept = raw => { const x = normalizeSync(raw); return x.resetAt >= resetAt ? x : { species: {}, habitats: {}, resetAt, months: {} }; };
   const a = kept(aIn), b = kept(bIn);
   const species = {};
   for (const id of new Set([...Object.keys(a.species), ...Object.keys(b.species)])) {
@@ -568,7 +639,7 @@ function merge(aIn, bIn) {
     const x = a.habitats[id], y = b.habitats[id];
     habitats[id] = { doneAt: minPos(x?.doneAt || 0, y?.doneAt || 0), of: Math.max(x?.of || 0, y?.of || 0) };
   }
-  return { species, habitats, resetAt };
+  return { species, habitats, resetAt, months: mergeMonths(a.months, b.months) };
 }
 
 /** This PC's book with the merged counts in, keeping what never leaves it. */
@@ -584,7 +655,7 @@ function applySync(localIn, merged) {
     const both = merge({ species: { [id]: { ...mine, byDevice: Object.fromEntries(Object.entries(mine.byDevice).filter(([k]) => k !== LOCAL)) } } }, { species: { [id]: e } }).species[id];
     species[id] = { ...mine, ...both, byDevice: { ...both.byDevice, ...(own(mine.byDevice, LOCAL) ? { [LOCAL]: mine.byDevice[LOCAL] } : {}) }, projects: mine.projects, seenAt: mine.seenAt, lastEscapeAt: mine.lastEscapeAt };
   }
-  return normalize({ ...local, species, habitats: { ...m.habitats, ...local.habitats } });
+  return normalize({ ...local, species, habitats: { ...m.habitats, ...local.habitats }, months: mergeMonths(local.months, m.months) });
 }
 
 /** Move catches made before this PC had its id onto it (xp.js withDevice does the same for XP). */
@@ -599,7 +670,14 @@ function withDevice(stateIn, device) {
     const { [LOCAL]: _, ...rest } = e.byDevice;
     return [id, { ...e, byDevice: { ...rest, [device]: own(rest, device) + n } }];
   }));
-  return changed ? { ...s, species } : s;
+  const months = {};
+  let moved = false;
+  for (const [k, devs] of Object.entries(s.months)) {
+    const { [LOCAL]: mine, ...rest } = devs;
+    if (mine) { moved = true; rest[device] = { ...maxTally(rest[device], null), jars: (rest[device]?.jars || 0) + mine.jars, shinies: (rest[device]?.shinies || 0) + mine.shinies, habitats: Object.fromEntries([...new Set([...Object.keys(mine.habitats), ...Object.keys(rest[device]?.habitats || {})])].map(id => [id, own(mine.habitats, id) + own(rest[device]?.habitats || {}, id)])) }; }
+    months[k] = rest;
+  }
+  return changed || moved ? { ...s, species, months } : s;
 }
 
 module.exports = {
@@ -608,4 +686,5 @@ module.exports = {
   catchLine, nameAt, favourite, jarFor, artFor, view, markSeen, setFavourite, summary, poolOf,
   hallOf, leagueView, giftFor, addGift, giftCounts, cleanShared, shared,
   syncable, normalizeSync, merge, applySync, withDevice, caughtOf, stageOf,
+  monthKey, monthOf, MONTH_RE,
 };

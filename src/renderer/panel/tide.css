@@ -138,3 +138,17 @@
 .fd-big:has(svg + svg) { grid-auto-flow: column; width: auto; gap: 10px; }
 .fd-big svg + svg { filter: drop-shadow(0 0 8px rgba(255, 241, 168, .6)); }
 .fd-sparkly { color: #fff1a8; }
+
+/* ---------------------------------------------------------------- the friends' board (bugdex.js) */
+.bd-board { margin: 0 0 16px; padding: 12px 14px; border-radius: 14px; background: var(--reef); border: 1px solid var(--line-soft); }
+.bd-board-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bd-board-tabs { margin: 8px 0; }
+.bd-board-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.bd-board-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; font-size: var(--fs-12-5); }
+.bd-board-row.me { background: var(--glass-dim); box-shadow: inset 0 0 0 1px rgba(127, 214, 194, .35); }
+.bd-board-row.first { background: color-mix(in srgb, var(--amber) 12%, transparent); }
+.bd-board-row.me.first { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 60%, transparent); }
+.bd-board-place { font: 600 var(--fs-14) var(--font-mono); text-align: center; color: var(--sand-dim); }
+.bd-board-name { color: var(--sand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-board-n { font: var(--fs-11-5) var(--font-mono); color: var(--sand-dim); }
+.bd-board-note { margin: 8px 0 0; }

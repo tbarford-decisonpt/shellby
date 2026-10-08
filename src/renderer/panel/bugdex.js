@@ -34,6 +34,7 @@
 
   let selected = null; // the species whose card is open
   let filter = 'all';  // all, caught, seen, or a habitat id
+  let boardTab = 'all'; // the friends' board: all, a habitat id, or sparkles
   let seenTimer = null;
 
   SB.NAV_SECTION.bugdex = 'wardrobe'; // a tab of the Shellby screen, like Finds
@@ -69,6 +70,7 @@
     if (!v) return;
     renderHero(v);
     renderLeague(v);
+    renderBoard(v);
     renderFriends(v);
     renderLoose(v);
     renderHabitats(v);
@@ -133,6 +135,41 @@
         h('h3', { class: 'bd-section-title', text: l.open ? 'The league' : 'The league · opens with every badge' })),
       h('ul', { class: `bd-league-row${l.open ? ' open' : ''}`, 'aria-label': 'The Deep Four and the champion' }, [...l.elite, l.champion].map(member)),
       l.hall ? h('p', { class: 'bd-hall', text: `🏆 Hall of Fame, ${day(l.hall)}. Every badge, the Deep Four and the champion.` }) : '');
+  }
+
+  // The friends' board (src/main/board.js): this month, you and friends who share their Bugdex.
+  function renderBoard(v) {
+    const b = v.board;
+    $('bdBoard').hidden = !b;
+    if (!b) return;
+    if (!b.tabs.some(t => t.id === boardTab)) boardTab = 'all';
+    $('bdBoardTitle').textContent = `${b.month}: the friends' board`;
+    $('bdBoardTabs').replaceChildren(...b.tabs.map(t => h('button', {
+      type: 'button', role: 'tab', 'aria-selected': String(t.id === boardTab), dataset: { board: t.id },
+    }, `${t.icon} ${t.label}`)));
+    const unit = boardTab === 'sparkles' ? ['sparkly', 'sparklies'] : ['bug', 'bugs'];
+    $('bdBoardList').replaceChildren(...b.rows[boardTab].map(r => h('li', { class: `bd-board-row${r.me ? ' me' : ''}${r.place === 1 && r.value ? ' first' : ''}` },
+      h('span', { class: 'bd-board-place', 'aria-label': `Place ${r.place}` }, r.medal || String(r.place)),
+      h('b', { class: 'bd-board-name', text: r.me ? `You${r.login !== 'you' ? ` (@${r.login})` : ''}` : `@${r.login}` }),
+      h('span', { class: 'bd-board-n', text: plural(r.value, unit[0], unit[1]) }))));
+  }
+
+  function shareBoard() {
+    const b = dex()?.board;
+    if (!b) return;
+    const rows = b.rows.all;
+    const me = rows.find(r => r.me);
+    const top = rows.slice(0, 3).map(r => `${r.medal || r.place} ${r.me ? 'me' : `@${r.login}`}: ${r.value}`);
+    SB.momentCard.share('board', {
+      eyebrow: `🫙 The friends' board · ${b.month}`, title: me?.place === 1 && me.value ? 'Top crab!' : `${me ? SB.ordinal(me.place) : '?'} of ${rows.length}`,
+      sub: top.join('   '), accent: '#ffc15e', glints: me?.place === 1,
+      art: dex().species.find(s => s.id === dex().favourite && s.state === 'caught') || null,
+      stats: [['bugs this month', me?.value ?? 0], ['crabs on the board', rows.length]],
+    }, {
+      title: `The friends' board, ${b.month}`,
+      alt: `The friends' board for ${b.month}: ${top.join(', ')}`,
+      post: `🦀 ${b.month} on the friends' board: ${me ? `${SB.ordinal(me.place)} of ${rows.length}` : ''}, with ${plural(me?.value || 0, 'bug')} Claude fixed and my Shellby jarred.`,
+    });
   }
 
   function renderFriends(v) {
@@ -393,6 +430,13 @@
     render();
   });
   $('bdForget').addEventListener('click', startOver);
+  $('bdBoardTabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-board]');
+    if (!b || b.dataset.board === boardTab) return;
+    boardTab = b.dataset.board;
+    renderBoard(dex());
+  });
+  $('bdBoardShare').addEventListener('click', shareBoard);
 
   api.onBugdex(apply);
   api.onBugdexFocus(m => focusOn(m?.id));

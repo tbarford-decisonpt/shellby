@@ -26,6 +26,7 @@ const { projectOf } = require('../gitinfo');
 const { activeSeasons } = require('../wardrobe/seasons');
 const { normalizeXp } = require('../xp');
 const events = require('../events');
+const boards = require('../board');
 
 // Everything that can be seen: the book's live species, and the hidden one.
 const LIVE = new Set([...live().map(s => s.id), 'missingno']);
@@ -128,7 +129,30 @@ function wireBugdex(d) {
 
   function view() {
     const tabs = new Set(d.manager ? [...d.manager.tabs.keys()] : []);
-    return bugdex.view(state(), Date.now(), { names: nameMap(), tabs, friends: friendBooks(), event: eventInfo() });
+    return { ...bugdex.view(state(), Date.now(), { names: nameMap(), tabs, friends: friendBooks(), event: eventInfo() }), board: board() };
+  }
+
+  // The friends' board (board.js): only when you share your Bugdex, and someone else does too.
+  function board() {
+    if (!d.config.get('shareBugdex')) return null;
+    const friends = friendBooks();
+    if (!friends.length) return null;
+    const now = Date.now();
+    const b = boards.board({ me: { login: d.github?.view?.().login || null, month: bugdex.shared(state(), now).month }, friends, key: bugdex.monthKey(now) });
+    const r = boards.settle(d.config.get('boardLast'), b);
+    if (JSON.stringify(r.state) !== JSON.stringify(d.config.get('boardLast'))) d.config.set({ boardLast: r.state });
+    if (r.ended) monthOver(r.ended);
+    return b;
+  }
+
+  // A month on the board is over: where you finished goes in the journal, and first is a trophy.
+  function monthOver(e) {
+    d.log.info(`board: ${e.month} over, ${e.place} of ${e.of}`);
+    d.life?.remember?.('board-month', { place: `${boards.ordinal(e.place)} of ${e.of}`, month: e.month });
+    if (e.place === 1) {
+      d.stat('board-won');
+      d.send(d.panel, 'life:moment', { eyebrow: 'The friends\' board', icon: '🥇', title: `Top crab in ${e.month}`, text: `More bugs fixed than any of your ${e.of - 1} friends on the board.` });
+    }
   }
 
   // His favourite catch follows him round the desk (critter.js #buddy): its art, or null.

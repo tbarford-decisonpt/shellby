@@ -118,14 +118,39 @@ test('a gift jar does the same for one you\'ve never met', () => {
   assert.deepEqual(slug.giftFrom, ['bro']);
 });
 
-test('what your card shares: which kinds and how many badges, nothing else', () => {
+test('what your card shares: which kinds, how many badges and this month\'s tally, nothing else', () => {
   let s = caught(null, 'nullfish', T0).state;
   s = caught(s, HABITATS[0].boss, T0 + DAY).state;
-  const out = b.shared(s);
-  assert.deepEqual(Object.keys(out).sort(), ['badges', 'caught', 'hall']);
+  const out = b.shared(s, T0 + DAY);
+  assert.deepEqual(Object.keys(out).sort(), ['badges', 'caught', 'hall', 'month']);
   assert.deepEqual(out.caught, [HABITATS[0].boss, 'nullfish'].sort());
   assert.equal(out.badges, 1);
-  assert.deepEqual(b.cleanShared({ caught: ['nullfish', 'nullfish', 5, 'nope'], badges: 99, hall: 'yes' }), { caught: ['nullfish'], badges: HABITATS.length, hall: false });
+  assert.deepEqual(Object.keys(out.month).sort(), ['habitats', 'jars', 'key', 'shinies'], 'counts only: no projects, no species');
+  assert.equal(out.month.key, b.monthKey(T0));
+  assert.equal(out.month.jars, 2);
+  assert.deepEqual(b.cleanShared({ caught: ['nullfish', 'nullfish', 5, 'nope'], badges: 99, hall: 'yes' }), { caught: ['nullfish'], badges: HABITATS.length, hall: false, month: null });
+});
+
+test('the month\'s tally: per PC, by habitat, sparklies apart, and junk on a card dropped', () => {
+  const s = caught(null, 'nullfish', T0).state;
+  const m = b.monthOf(s, b.monthKey(T0));
+  assert.equal(m.jars, 1);
+  assert.equal(m.habitats.shallows, 1);
+  assert.equal(b.monthOf(s, '1999-01').jars, 0);
+  const card = b.cleanShared({ caught: [], month: { key: '2026-10', jars: 1e12, shinies: -3, habitats: { shallows: 4, '<x>': 9 } } });
+  assert.deepEqual(card.month, { key: '2026-10', jars: 1e6, shinies: 0, habitats: { shallows: 4 } });
+  assert.equal(b.cleanShared({ month: { key: '2026-13', jars: 3 } }).month, null);
+});
+
+test('monthly tallies sync as a max per PC, and only the last three months are kept', () => {
+  const a = { months: { '2026-08': { 'pc-aaaa': { jars: 1 } }, '2026-09': { 'pc-aaaa': { jars: 3, habitats: { wreck: 2 } } }, '2026-10': { 'pc-aaaa': { jars: 2 } }, '2026-07': { 'pc-aaaa': { jars: 9 } } } };
+  const c = { months: { '2026-10': { 'pc-aaaa': { jars: 1 }, 'pc-bbbb': { jars: 4, shinies: 1 } } } };
+  const merged = b.merge(a, c);
+  assert.deepEqual(Object.keys(merged.months), ['2026-08', '2026-09', '2026-10']);
+  assert.equal(b.monthOf({ months: merged.months }, '2026-10').jars, 6);
+  assert.equal(b.monthOf({ months: merged.months }, '2026-10').shinies, 1);
+  const local = b.applySync({ months: { '2026-10': { local: { jars: 1 } } } }, merged);
+  assert.equal(b.monthOf(local, '2026-10').jars, 7, 'this PC\'s own bucket stays its own');
 });
 
 test('every species has a field note and a tip, unlocked at stage II and III', () => {
