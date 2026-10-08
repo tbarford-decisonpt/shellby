@@ -1,0 +1,173 @@
+/* What Claude Code does by itself, made visible: its to-do list and what it
+   left running (native-strip.js), messages between agents, skills, memories
+   and plans in the feed (feed-native.js), what it remembers (Toolbox → Memory,
+   toolbox-automemory.js) and its cloud routines (routines-cloud.js). */
+
+/* ---------------------------------------------------------------- to-dos above the box */
+.todos {
+  margin: 0 0 8px; padding: 6px 8px 6px 10px; border-radius: var(--r-sm);
+  background: var(--reef); border: 1px solid var(--line); border-left: 2px solid var(--glass);
+  font-size: var(--fs-12); animation: fadein .18s var(--ease-out);
+}
+.todos[hidden], .jobs[hidden] { display: none; }
+.todo-title { margin: 0 0 2px; font: 600 var(--fs-9-5) var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--glass); }
+.todo-head {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 2px 0;
+  border: 0; background: none; color: var(--sand); font: inherit; text-align: left; cursor: pointer;
+}
+.todo-head:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 4px; }
+.todo-chev { flex: none; width: 10px; color: var(--sand-faint); }
+.todo-head b { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
+.todo-bar { flex: none; width: 64px; height: 4px; border-radius: 99px; background: var(--reef-3); overflow: hidden; position: relative; }
+.todo-bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--done, 0%); background: var(--glass); border-radius: inherit; transition: width .3s var(--ease-out); }
+.todo-now { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand-dim); }
+.todo-list { list-style: none; margin: 4px 0 0; padding: 0 0 0 18px; display: grid; gap: 2px; max-height: 168px; overflow-y: auto; }
+.todo { display: flex; gap: 7px; align-items: baseline; color: var(--sand-dim); }
+.todo-mark { flex: none; width: 12px; font: 700 var(--fs-11) var(--font-mono); color: var(--sand-faint); }
+.todo.completed .todo-text { text-decoration: line-through; text-decoration-color: var(--sand-faint); color: var(--sand-faint); }
+.todo.completed .todo-mark { color: var(--glass); }
+.todo.in_progress { color: var(--sand); }
+.todo.in_progress .todo-mark { color: var(--coral); }
+
+/* ---------------------------------------------------------------- the background tray */
+.jobs {
+  margin: 0 0 8px; padding: 6px 8px 6px 10px; border-radius: var(--r-sm);
+  background: var(--reef); border: 1px solid var(--line); border-left: 2px solid var(--amber);
+  font-size: var(--fs-12); animation: fadein .18s var(--ease-out);
+}
+.job-title { margin: 0 0 4px; }
+.job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.job-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.job-icon { flex: none; width: 14px; text-align: center; color: var(--amber); }
+.job.done .job-icon { color: var(--glass); }
+.job.failed .job-icon { color: var(--danger); }
+.job.stopped .job-icon { color: var(--sand-faint); }
+.job.running .job-icon { animation: job-spin 2.4s steps(8) infinite; }
+@keyframes job-spin { to { transform: rotate(360deg); } }
+.job-what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand); }
+.job-state { flex: none; font: var(--fs-11) var(--font-mono); font-stretch: 88%; font-variant-numeric: tabular-nums; color: var(--sand-dim); }
+.job.failed .job-state { color: var(--danger); }
+.job-row .slim-btn { height: 24px; flex: none; }
+.job-summary { margin: 2px 0 0 22px; }
+.job-out {
+  margin: 4px 0 2px 22px; max-height: 160px; overflow: auto; padding: 6px 8px; border-radius: var(--r-sm);
+  background: var(--abyss); border: 1px solid var(--line-soft);
+  font: var(--fs-11) var(--font-mono); font-stretch: 88%; color: var(--sand-dim); white-space: pre-wrap; word-break: break-word;
+}
+.job-out.err { font-family: var(--font-body); color: var(--danger); white-space: normal; }
+@media (prefers-reduced-motion: reduce) { .job.running .job-icon { animation: none; } }
+
+/* ---------------------------------------------------------------- in the feed */
+/* One agent writing to another (SendMessage). */
+.agent-msg {
+  margin: 6px 0 10px; padding: 7px 10px; border-radius: var(--r-sm);
+  background: var(--reef); border: 1px solid var(--line); border-left: 2px solid #8fb8ff;
+  font-size: var(--fs-12-5);
+}
+.agent-msg.sub { margin-left: 4px; }
+.agent-msg-head { display: flex; align-items: baseline; gap: 2px; flex-wrap: wrap; color: var(--sand); }
+.agent-msg-icon { margin-right: 6px; }
+.agent-msg-sum { font-size: var(--fs-11-5); }
+.agent-msg-text { margin-top: 3px; color: var(--sand-dim); white-space: pre-wrap; word-break: break-word; }
+
+/* A skill Claude reached for: what it's for. A memory it wrote down. */
+.tool.skill-use > summary .t-label { color: var(--glass); }
+.skill-why, .memory-why {
+  margin: 4px 0 6px 22px; padding: 6px 9px; border-radius: var(--r-sm); background: var(--glass-dim);
+  font-size: var(--fs-12); color: var(--sand-dim);
+}
+.skill-why b { color: var(--sand); font-weight: 600; }
+.skill-why .link-btn, .memory-why .link-btn { margin-left: 6px; }
+.tool.memory-write > summary .t-label { color: var(--amber); }
+.first-badge {
+  flex: none; margin-left: 6px; padding: 0 6px; border-radius: 99px;
+  font: 700 var(--fs-9-5)/16px var(--font-mono); color: var(--ink); background: var(--glass);
+}
+/* The to-do and background calls the strip above the box already shows: a step back. */
+.tool.quiet-tool:not([open]) { opacity: .6; }
+.tool.quiet-tool:not([open]):hover { opacity: 1; }
+.plan-mark { color: #b9d8ff; }
+
+/* ---------------------------------------------------------------- the plan card */
+.plan-card .ask-head { align-items: flex-start; }
+.plan-card .ask-head > div { flex: 1; min-width: 0; }
+.plan-line { position: relative; border-radius: 4px; }
+.plan-line:hover { background: rgba(255, 255, 255, .035); }
+.plan-line.noted { box-shadow: inset 2px 0 0 #8fb8ff; background: rgba(143, 184, 255, .07); }
+.plan-line-note {
+  position: absolute; right: -2px; top: 0; padding: 0 4px; border: 0; border-radius: 4px;
+  background: var(--reef-3); color: var(--sand); font-size: var(--fs-11); line-height: 18px; cursor: pointer;
+  opacity: 0; transition: opacity .12s;
+}
+.plan-line:hover > .plan-line-note, .plan-line-note:focus-visible { opacity: 1; }
+.decided .plan-line-note { display: none; }
+.plan-note-box { display: block; width: 100%; margin: 4px 0 6px; font-size: var(--fs-12-5); }
+.plan-notes { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.plan-notes[hidden] { display: none; }
+.plan-note {
+  position: relative; padding: 6px 28px 6px 10px; border-radius: var(--r-sm);
+  background: rgba(143, 184, 255, .08); border-left: 2px solid #8fb8ff; font-size: var(--fs-12-5);
+}
+.plan-note-quote { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-note-text { color: var(--sand); white-space: pre-wrap; }
+.plan-note-x { position: absolute; right: 4px; top: 4px; }
+.plan-overall { display: block; width: 100%; margin: 8px 0 0; font-size: var(--fs-12-5); }
+.decided .plan-overall:placeholder-shown { display: none; }
+
+/* ---------------------------------------------------------------- the effort a turn ran at */
+.effort-badge {
+  display: inline-block; margin-right: 8px; padding: 0 7px; border-radius: 99px;
+  border: 1px solid var(--line); color: var(--sand-dim); background: var(--reef);
+}
+.effort-badge.effort-high, .effort-badge.effort-xhigh { color: var(--glass); border-color: rgba(127, 214, 194, .35); }
+.effort-badge.effort-max { color: var(--coral); border-color: rgba(255, 122, 92, .4); }
+.effort-badge.effort-low { color: var(--sand-faint); }
+
+/* ---------------------------------------------------------------- Toolbox → Memory: what Claude remembers */
+.auto-memory { margin: 14px 0 6px; padding: 10px 12px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line); }
+.auto-memory[hidden] { display: none; }
+.am-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.am-top h3 { margin: 0; font-size: var(--fs-14); }
+.am-top .src-pill { margin-right: auto; }
+.am-intro { margin: 6px 0 4px; }
+.am-group h4 { margin: 12px 0 4px; font: 600 var(--fs-10) var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--glass); }
+.am-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.am-item { padding: 5px 6px 5px 8px; border-radius: var(--r-sm); border: 1px solid transparent; }
+.am-item:hover, .am-item.open { border-color: var(--line); background: var(--reef-2); }
+.am-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.am-head .slim-btn { height: 24px; flex: none; }
+.am-toggle {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  border: 0; background: none; color: var(--sand); font: inherit; text-align: left; cursor: pointer; padding: 0;
+}
+.am-toggle:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 4px; }
+.am-toggle strong { font-weight: 600; font-size: var(--fs-12-5); }
+.am-desc { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-12); color: var(--sand-dim); }
+.am-when { flex: none; }
+.am-body { margin: 6px 0 2px; font-size: var(--fs-12-5); }
+.am-edit { margin-top: 6px; }
+.am-text { display: block; width: 100%; min-height: 90px; font-size: var(--fs-12-5); }
+.am-actions { gap: 6px; margin-top: 6px; align-items: center; }
+.am-actions .muted { margin-right: auto; }
+.btn.danger { color: var(--danger); border-color: rgba(255, 90, 74, .45); }
+
+/* ---------------------------------------------------------------- Toolbox: a skill Claude never reaches for */
+.tool-hint { margin: 6px 0 2px; padding: 6px 9px; border-radius: var(--r-sm); border-left: 2px solid var(--amber); background: rgba(255, 193, 94, .07); font-size: var(--fs-12); color: var(--sand-dim); }
+.tool-hint p { margin: 0 0 6px; }
+
+/* ---------------------------------------------------------------- Routines → In Claude's cloud */
+.deps-list .cloud-routine { display: block; } /* a card of two rows: what it is, then its runs */
+.cloud-routine .cr-top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-start; }
+.cloud-routine .cr-main { flex: 1 1 220px; }
+.cloud-routine.paused { opacity: .7; }
+.cr-icon { flex: none; width: 18px; text-align: center; color: #b9d8ff; font-size: var(--fs-14); }
+.cr-main { min-width: 0; }
+.cr-name { display: flex; gap: 8px; align-items: center; }
+.cr-when { margin-top: 1px; }
+.cloud-routine .ar-actions { display: flex; flex-wrap: wrap; gap: 4px; flex: 0 1 auto; margin-left: auto; }
+.cloud-routine .slim-btn { height: 26px; }
+.cr-runs { margin: 6px 0 0 28px; }
+.cr-run-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.cr-run-list li { display: flex; gap: 8px; align-items: center; font-size: var(--fs-12); }
+.cloud-actions { gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.cloud-note { padding: 4px 0; }

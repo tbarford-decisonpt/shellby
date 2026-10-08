@@ -68,7 +68,34 @@ function windowShare({ weight, windowWeight, windowPct }) {
 function turnCost(turn, context) {
   const { fresh, read } = tokensOf(turn?.usages);
   if (!fresh && !read) return null;
-  return { tokens: fresh, read, weight: num(turn?.weight), share: null, contextPct: Number.isFinite(context?.pct) ? context.pct : null };
+  return {
+    tokens: fresh, read, weight: num(turn?.weight), share: null, contextPct: Number.isFinite(context?.pct) ? context.pct : null,
+    // How hard it was asked to think ('' is Claude Code's own default), and how much it did.
+    effort: EFFORT_NAMES[turn?.effort] ? turn.effort : '',
+    thinking: Number.isFinite(turn?.thinking) && turn.thinking >= 0 ? turn.thinking : null,
+  };
+}
+
+const EFFORT_NAMES = { '': 'auto', low: 'low', medium: 'medium', high: 'high', xhigh: 'extra high', max: 'max' };
+
+/**
+ * The effort a turn ran at and the thinking it did, for the badge beside its
+ * cost: { text, level, detail } ("high · 2.1k thinking"), or null for a turn
+ * from before Shellby kept them.
+ */
+function effortBadge(cost) {
+  if (!cost || typeof cost.effort !== 'string') return null;
+  const name = EFFORT_NAMES[cost.effort] ?? 'auto';
+  const thought = Number.isFinite(cost.thinking) ? cost.thinking : null;
+  const text = thought === null ? `${name} effort` : thought ? `${name} · ${compact(thought)} thinking` : `${name} · no thinking`;
+  const share = thought && cost.tokens ? Math.round((100 * thought) / cost.tokens) : null;
+  return {
+    text, level: cost.effort || 'auto',
+    detail: [
+      cost.effort ? `Effort: ${name}. Change it with the effort chip or /effort.` : 'Effort: auto. Claude Code chose how hard to think. Pick one with the effort chip or /effort.',
+      thought ? `Claude thought for ${thought.toLocaleString('en-GB')} tokens before answering${share ? `, about ${share}% of this turn's new tokens` : ''}.` : thought === 0 ? 'It answered without thinking first.' : null,
+    ].filter(Boolean).join('\n'),
+  };
 }
 
 /** 18000 -> "18k", 1240000 -> "1.2M", as the panel's other counts read. */
@@ -183,7 +210,7 @@ function nudge(context, growths) {
 }
 
 module.exports = {
-  mergeUsage, tokensOf, windowShare, turnCost, compact, shareText, costLine, costDetail,
+  mergeUsage, tokensOf, windowShare, turnCost, compact, shareText, costLine, costDetail, effortBadge,
   turnsOf, topTurns, tabTotal, addGrowth, turnsLeft, nudge,
   SOON_PCT, SOON_TURNS, RECENT_TURNS, TOP_TURNS,
 };

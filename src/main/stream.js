@@ -12,8 +12,53 @@ const TOOL_VERBS = {
   MultiEdit: 'Edited', NotebookEdit: 'Edited', Glob: 'Searched files', Grep: 'Searched for',
   WebFetch: 'Fetched', WebSearch: 'Searched the web', Task: 'Delegated', Agent: 'Delegated',
   TodoWrite: 'Updated plan', ExitPlanMode: 'Proposed a plan', Skill: 'Used skill',
-  AskUserQuestion: 'Asked you',
+  AskUserQuestion: 'Asked you', EnterPlanMode: 'Started planning',
+  TaskCreate: 'Added a to-do', TaskUpdate: 'Updated a to-do', TaskList: 'Checked the to-dos', TaskGet: 'Read a to-do',
+  TaskStop: 'Stopped a background task', TaskOutput: 'Checked a background task', Monitor: 'Watching',
+  SendMessage: 'Messaged', RemoteTrigger: 'Cloud routines',
 };
+
+// To-do statuses Claude Code uses (TaskUpdate, TodoWrite); 'deleted' drops one.
+const TODO_STATUSES = new Set(['pending', 'in_progress', 'completed']);
+const TODO_TEXT = 300;
+const todoText = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, TODO_TEXT) : '');
+const todoStatus = v => (TODO_STATUSES.has(v) ? v : v === 'deleted' ? 'deleted' : null);
+
+/**
+ * What a to-do tool call does to Claude's list, or null. TodoWrite replaces the
+ * whole list; TaskCreate adds one (its id comes back in the result, see
+ * todoIdOf); TaskUpdate changes one by id. Checked against Claude Code 2.1.293.
+ */
+function todoOf(name, input) {
+  const i = input || {};
+  if (name === 'TodoWrite' && Array.isArray(i.todos)) {
+    return {
+      op: 'set',
+      items: i.todos.slice(0, 100).filter(t => t && todoText(t.content))
+        .map(t => ({ subject: todoText(t.content), status: TODO_STATUSES.has(t.status) ? t.status : 'pending', activeForm: todoText(t.activeForm) })),
+    };
+  }
+  if (name === 'TaskCreate' && todoText(i.subject)) return { op: 'create', subject: todoText(i.subject), activeForm: todoText(i.activeForm) };
+  if (name === 'TaskUpdate' && (typeof i.taskId === 'string' || Number.isFinite(i.taskId))) {
+    const t = { op: 'update', id: String(i.taskId).slice(0, 40) };
+    const status = todoStatus(i.status);
+    if (status) t.status = status;
+    if (todoText(i.subject)) t.subject = todoText(i.subject);
+    if (todoText(i.activeForm)) t.activeForm = todoText(i.activeForm);
+    return t;
+  }
+  return null;
+}
+
+/** The id TaskCreate gave a new to-do: from its result's data, or its words ("Task #3 created…"). */
+function todoIdOf(ev, text) {
+  const id = ev?.tool_use_result?.task?.id;
+  if (typeof id === 'string' || Number.isFinite(id)) return String(id).slice(0, 40);
+  const m = /^Task #([\w-]{1,40}) created/.exec(text || '');
+  return m ? m[1] : null;
+}
+
+const STATUS_WORDS = { pending: 'to do', in_progress: 'started', completed: 'done', deleted: 'dropped' };
 
 // The crab's own tools, as served to Shellby's conversations (crabmcp.js):
 // verb, and which input field is worth showing.
@@ -49,6 +94,20 @@ function describeTool(name = '', input = {}) {
   if (name === 'AskUserQuestion') {
     const qs = questionsOf(i);
     return { label: TOOL_VERBS.AskUserQuestion, detail: qs.map(q => q.question).join(' · ').slice(0, 400) || 'a question' };
+  }
+  if (name === 'TodoWrite') {
+    const n = Array.isArray(i.todos) ? i.todos.length : 0;
+    return { label: TOOL_VERBS.TodoWrite, detail: `${n} to-do${n === 1 ? '' : 's'}` };
+  }
+  if (name === 'TaskUpdate' && i.taskId != null) {
+    const what = [todoText(i.subject), STATUS_WORDS[i.status]].filter(Boolean).join(' → ');
+    return { label: TOOL_VERBS.TaskUpdate, detail: `#${String(i.taskId).slice(0, 40)}${what ? ` ${what}` : ''}` };
+  }
+  if (name === 'TaskCreate') return { label: TOOL_VERBS.TaskCreate, detail: todoText(i.subject) };
+  if (name === 'SendMessage') {
+    const to = todoText(i.to ?? i.recipient);
+    const text = todoText(i.message ?? i.content ?? i.summary);
+    return { label: TOOL_VERBS.SendMessage, detail: [to, text].filter(Boolean).join(': ') };
   }
   const own = /^mcp__shellby__(\w+)$/.exec(name);
   if (own && SHELLBY_TOOLS[own[1]]) {
@@ -128,6 +187,16 @@ function toolItem(b, sub) {
   const input = b.input || {};
   const item = { kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, input), ...sub };
   if (b.name === 'ExitPlanMode') item.plan = input.plan;
+  const todo = todoOf(b.name, input);
+  if (todo) item.todo = todo;
+  // A skill Claude reached for by itself: which one (feed.js says what it's for).
+  if (b.name === 'Skill' && typeof input.skill === 'string') item.skill = input.skill.slice(0, 200);
+  // One agent writing to another (SendMessage): who to, and what it said.
+  if (b.name === 'SendMessage') {
+    const to = input.to ?? input.recipient;
+    const text = input.message ?? input.content;
+    if (typeof to === 'string' && to) item.message = { to: to.slice(0, 120), text: typeof text === 'string' ? text.slice(0, 2000) : '', summary: todoText(input.summary) };
+  }
   // What it's doing, in plain words, for the Working bar (plain-words.js).
   const plain = plainWords.describe(b.name, input);
   if (plain) item.doing = plain.doing;
@@ -141,6 +210,8 @@ function toolItem(b, sub) {
       description: typeof input.description === 'string' ? input.description : '',
       background: !!input.run_in_background,
     };
+    // The name other agents write to it by (SendMessage { to }).
+    if (typeof input.name === 'string' && input.name.trim()) item.agent.name = input.name.trim().slice(0, 80);
   }
   return item;
 }
@@ -154,6 +225,8 @@ function taskItem(ev) {
   const item = { kind: 'task', phase, taskId: ev.task_id || null, toolUseId: ev.tool_use_id || null };
   if (ev.description) item.description = String(ev.description).slice(0, 200);
   if (ev.subagent_type) item.subagentType = ev.subagent_type;
+  // local_agent is a helper; local_bash a command or a Monitor left running in the background.
+  if (typeof ev.task_type === 'string') item.taskType = ev.task_type.slice(0, 40);
   if (phase === 'started') { item.background = !!ev.is_backgrounded; item.depth = ev.spawn_depth ?? 1; }
   if (ev.last_tool_name) item.lastTool = ev.last_tool_name;
   if (ev.usage) item.usage = { tokens: u.total_tokens ?? null, toolUses: u.tool_uses ?? null, durationMs: u.duration_ms ?? null };
@@ -240,6 +313,12 @@ function toItems(ev) {
         // Test runners print their failures last: main reads the end of a
         // long result for the flaky test detective (flaky.js), then drops it.
         if (full.length > MAX_RESULT_CHARS) item.tail = full.slice(-MAX_RESULT_CHARS);
+        // TaskCreate's result names the new to-do's id.
+        const todoId = item.isError ? null : todoIdOf(ev, full);
+        if (todoId) item.todoId = todoId;
+        // A command sent to the background says where its output is going.
+        const out = /^Command running in background with ID: [\w-]+\. Output is being written to: (.+?\.output)\./.exec(full);
+        if (out) item.outputFile = out[1];
         // Subagent results carry run stats alongside the text.
         const r = ev.tool_use_result;
         if (r && typeof r === 'object' && r.agentId) {
@@ -257,6 +336,8 @@ function toItems(ev) {
         // What the whole turn used, for the per-turn ledger (usage-ledger.js).
         tokens: tokensOf(ev.usage),
         costUsd: Number.isFinite(ev.total_cost_usd) ? ev.total_cost_usd : null,
+        // How much of what Claude wrote was thinking (turncost.js shows it beside the effort).
+        thinkingTokens: Number.isFinite(ev.usage?.output_tokens_details?.thinking_tokens) ? ev.usage.output_tokens_details.thinking_tokens : null,
       }];
     case 'rate_limit_event':
       return [usageFrom(ev)];
@@ -288,7 +369,9 @@ const KNOWN = Object.freeze({
   // init, task_*, compact_boundary, a mod's ui_* and commands_changed become items; the rest is progress chatter.
   system: new Set(['init', 'task_started', 'task_progress', 'task_updated', 'task_notification', 'compact_boundary',
     'ui_log', 'ui_toast', 'ui_status', 'commands_changed',
-    'hook_started', 'hook_progress', 'hook_response', 'status', 'api_retry', 'thinking_tokens']),
+    'hook_started', 'hook_progress', 'hook_response', 'status', 'api_retry', 'thinking_tokens',
+    // The whole list of what runs in the background: task_* says the same a task at a time.
+    'background_tasks_changed']),
   // can_use_tool becomes a permission card; hook_callback is answered by session.js.
   control: new Set(['can_use_tool', 'hook_callback']),
 });
@@ -302,4 +385,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { questionsOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };
+module.exports = { questionsOf, todoOf, todoIdOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };

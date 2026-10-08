@@ -111,7 +111,6 @@ test('a hostile folder name stays a folder name', () => {
   assert.equal(wt.args.includes('-d'), false, 'a ; would start another Windows Terminal tab, so -d is left out');
   const script = scriptOf(wt);
   assert.match(script, /Set-Location -LiteralPath 'C:\\x''; Start-Process calc; ''\u2019\u2019 & echo %PATH% ;wt'/);
-  const cmd = r.plans.find(p => p.shell === 'cmd');
   for (const p of r.plans.filter(x => x.shell !== 'wt')) {
     assert.equal(p.args.join(' ').includes(cwd), false, `${p.shell} gets the folder as its working directory, never on its line`);
   }
@@ -385,4 +384,21 @@ test('Continue in terminal refuses mid-turn and before the first message, withou
   history.create({ id: 'blank', title: 't', cwd: project, mode: 'ask' });
   assert.match((await h.continueInTerminal('blank')).error, /send this conversation something first/);
   assert.equal((await h.continueInTerminal('gone')).ok, false);
+});
+
+test('launchPlans can start a fresh session on the ultra review, and on nothing else', () => {
+  const r = handoff.launchPlans({ exe: EXE, cwd: CWD, prompt: handoff.TERMINAL_PROMPTS.ultraReview, ...SYS });
+  assert.equal(r.ok, true);
+  const script = scriptOf(r.plans.find(p => p.shell === 'powershell'));
+  assert.ok(script.includes(`& '${EXE}' '/code-review ultra'`), 'a literal, never expanded');
+  assert.ok(!script.includes('--resume'));
+  const line = r.plans.find(p => p.shell === 'cmd').args.at(-1);
+  assert.ok(line.endsWith(`/k "${EXE}" "/code-review ultra"`), line);
+  assert.ok(!line.includes('--resume'));
+  for (const p of Object.values(handoff.TERMINAL_PROMPTS)) assert.ok(!/["%^&|<>!]/.test(p), 'nothing cmd reads as its own');
+  for (const prompt of ['/code-review ultra; calc', 'rm -rf /', '', 42]) {
+    assert.equal(handoff.launchPlans({ exe: EXE, cwd: CWD, prompt, ...SYS }).ok, false, String(prompt));
+  }
+  // No prompt: still a resume, and still only of a real session id.
+  assert.equal(handoff.launchPlans({ exe: EXE, cwd: CWD, ...SYS }).ok, false);
 });

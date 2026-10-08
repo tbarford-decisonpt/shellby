@@ -47,6 +47,7 @@
     SB.renderResetQueue?.();
     renderDeps();
     renderFlaky();
+    SB.renderCloudRoutines?.(); // Claude Code's own, in the cloud (routines-cloud.js)
     // The explainer is for before your first routine; after that the list says it.
     $('routinesView').querySelector('.view-lede').hidden = routines.length > 0;
     if (!routines.length) {

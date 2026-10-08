@@ -182,6 +182,7 @@
     pane.replaceChildren(h('div', { class: 'setup-intro' },
       h('p', { text: 'CLAUDE.md files are instructions Claude Code reads at the start of every session: how you like to work, how a project builds, what to avoid.' }),
       s.memory.some(m => m.exists) ? askBtn(null, 'Review with Claude') : null),
+    SB.autoMemorySection?.(), // what Claude wrote down by itself (toolbox-automemory.js)
     learnedSection());
     const items = s.memory.filter(m => !q || m.path.toLowerCase().includes(q) || (MEMORY_TITLE[m.scope] || '').toLowerCase().includes(q));
     list.replaceChildren(...(items.length ? items.map(memoryRow) : [h('li', { class: 'history-empty', text: 'No matches.' })]));

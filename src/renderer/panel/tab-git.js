@@ -198,6 +198,10 @@
         h('span', { class: 'mi-check', text: '✓' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Bring it home and finish' }), h('div', { class: 'mi-sub', text: 'Merge, then tidy the copy away. The conversation and its diffs move to Done in History' }))),
       ...fromBacklog,
+      // Claude Code's own cloud review of the branch, in a terminal where its launch dialog asks first.
+      h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); SB.ultraReview(tab); } },
+        h('span', { class: 'mi-check', text: '☁' }),
+        h('span', {}, h('div', { class: 'mi-title', text: 'Ultra review this branch…' }), h('div', { class: 'mi-sub', text: "Claude Code's deep review in the cloud, in a terminal. It says what it costs and asks first" }))),
       h('button', { class: 'menu-item', role: 'menuitemcheckbox', 'aria-checked': String(checksHome(tab)), onclick: () => { SB.closeMenus(); tab.checkHome = !checksHome(tab); SB.toast(tab.checkHome ? "He'll run the tests in this copy before bringing it home." : "He won't run the tests before bringing this one home."); } },
         h('span', { class: 'mi-check', 'aria-hidden': 'true', text: checksHome(tab) ? '✓' : '' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Check before bringing home' }), h('div', { class: 'mi-sub', text: 'Run the tests in the copy first, and stop if any fail' }))),
@@ -219,6 +223,15 @@
       ] : []),
     ]);
   });
+
+// /code-review ultra: a multi-agent review of the branch in Claude's cloud,
+  // billed apart from your plan. It needs Claude Code's own launch dialog, so it
+  // opens in a terminal in this conversation's folder (main's handoff.js).
+  SB.ultraReview = async (tab) => {
+    if (!tab) return;
+    const r = await api.ultraReview(tab.id).catch(() => null);
+    SB.toast(r?.ok ? r.text : r?.error || "Couldn't open a terminal for it.", { ms: r?.ok ? 7000 : 8000 });
+  };
 
   // The Tries card (tries.js) uses both.
   SB.compareWith = (tab, other) => compareWith(tab, other);

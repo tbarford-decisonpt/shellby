@@ -58,6 +58,7 @@ const { wireHandoff } = require('./wiring/handoff');
 const { wireJournal } = require('./wiring/journal');
 const { wireCrew } = require('./wiring/crew');
 const { wireSurprises } = require('./wiring/surprises');
+const { wireNative } = require('./wiring/native');
 const { wireQuit } = require('./wiring/quit');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -306,6 +307,7 @@ share({ handoff: wireHandoff(shared) });
 const { journal } = share({ journal: wireJournal(shared) }); // handoff notes per project, read from Claude Code's own files
 share({ crewRoster: wireCrew(shared) }); // one lasting helper crab per agent type
 share({ surprises: wireSurprises(shared) }); // crit hits and clean landings, now and then
+share({ native: wireNative(shared) }); // the crab noticing Claude's own to-dos, background commands, memories and skills
 
 // ================================================================ boot
 

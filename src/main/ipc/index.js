@@ -46,6 +46,7 @@ const { registerBacklogIpc } = require('./backlog');
 const { registerProjectToolsIpc } = require('./project-tools');
 const { registerNotesIpc } = require('./notes');
 const { registerCrewIpc } = require('./crew');
+const { registerNativeIpc } = require('./native');
 const { registerReleasesIpc } = require('../projects/releases-ipc');
 
 /**
@@ -194,6 +195,7 @@ function registerIpc(electronIpcMain, d) {
   registerProjectToolsIpc(ipcMain, d);
   registerNotesIpc(ipcMain, d);
   registerCrewIpc(ipcMain, d);
+  registerNativeIpc(ipcMain, d);
   registerReleasesIpc(ipcMain, d);
 }
 

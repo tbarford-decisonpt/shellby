@@ -81,6 +81,26 @@
     return next === 'acceptEdits' ? 'acceptEdits' : next === 'bypassPermissions' ? null : 'ask';
   }
 
+  // Notes on a plan (feed-asks.js): each one is about a line of it. What Claude
+  // gets back instead of an approval, so it revises the plan before anything changes.
+  const PLAN_NOTES_MAX = 3800;
+  const PLAN_QUOTE_MAX = 160;
+  function planNotesMessage(notes, extra = '') {
+    const list = (Array.isArray(notes) ? notes : []).filter(n => n && typeof n.note === 'string' && n.note.trim());
+    const more = typeof extra === 'string' ? extra.trim() : '';
+    if (!list.length && !more) return null;
+    const quote = q => {
+      const t = String(q || '').replace(/\s+/g, ' ').trim();
+      return t.length > PLAN_QUOTE_MAX ? `${t.slice(0, PLAN_QUOTE_MAX - 1)}…` : t;
+    };
+    const parts = ['The user read your plan and wants it revised before anything changes.'];
+    if (list.length) parts.push(`Their notes on it:\n\n${list.map(n => (n.quote ? `> ${quote(n.quote)}\n${n.note.trim()}` : n.note.trim())).join('\n\n')}`);
+    if (more) parts.push(list.length ? `And overall: ${more}` : `What they said: ${more}`);
+    parts.push('Revise the plan with these in mind and present it again for approval.');
+    const text = parts.join('\n\n');
+    return text.length > PLAN_NOTES_MAX ? `${text.slice(0, PLAN_NOTES_MAX - 1)}…` : text;
+  }
+
   const DECISION_WORDS = { allow: 'Allowed', always: 'Always allowed', deny: 'Denied', cancelled: 'Cancelled' };
   const VIA_WORDS = { phone: ' from your phone', deck: ' from the Stream Deck' };
 
@@ -182,7 +202,7 @@
   }
 
   const api = {
-    files, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, suggestionLabel, modeAfterPlan,
+    files, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, suggestionLabel, modeAfterPlan, planNotesMessage,
     decisionVerdict, questionVerdict, resultLabel, diffRows, laneMeta, laneFirstLine,
     cutOffLine, cutOffToast, CARRY_ON, quizWorthy, quizResult, QUIZ_MIN_LINES,
   };

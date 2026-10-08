@@ -31,7 +31,7 @@ const COOLDOWN_SCALE = Object.freeze({ quiet: Infinity, work: 1, normal: 1, chat
 // What 'work' still says: a task done or failed, a new trick, a trophy's one
 // line, a dev server falling over, a fix or a merge. Asking is the raised claw (see OCCASIONS),
 // and a red build is the renderer's, so both show whatever he's set to.
-const WORK_OCCASIONS = new Set(['success', 'error', 'learned', 'newTricks', 'unlocked', 'serverDown', 'fixed', 'merged']);
+const WORK_OCCASIONS = new Set(['success', 'error', 'learned', 'newTricks', 'unlocked', 'serverDown', 'fixed', 'merged', 'todosAll', 'jobFailed']);
 // The bubble holds two short lines. Longer than this and he'd be clipped.
 const MAX_LINE = 24;
 
@@ -67,6 +67,15 @@ const OCCASIONS = Object.freeze({
   crew: { every: 4 * MINUTE, ttl: 6 * SECOND },
   longTask: { every: 8 * MINUTE, ttl: 6 * SECOND },
   serverDown: { every: 2 * MINUTE, ttl: 7 * SECOND }, // a dev server fell over (devservers/service.js)
+
+  // --- what Claude Code does by itself (wiring/native.js)
+  todoDone: { every: 90 * SECOND, ttl: 4 * SECOND },  // a to-do on Claude's own list ticked off
+  todosAll: { every: 0, ttl: 6 * SECOND },            // ...and that was the last one
+  jobDone: { every: MINUTE, ttl: 6 * SECOND },        // a command it left running in the background finished
+  jobFailed: { every: MINUTE, ttl: 7 * SECOND },
+  remembered: { every: 5 * MINUTE, ttl: 6 * SECOND }, // it wrote a memory down (auto memory)
+  skillFirst: { every: 0, ttl: 7 * SECOND },          // the first time it used a skill here
+  planning: { every: 5 * MINUTE, ttl: 5 * SECOND },   // it switched itself to planning
 
   // --- he's on your wallpaper all day; he may as well notice
   morning: { every: 20 * HOUR, ttl: 8 * SECOND },
@@ -170,6 +179,13 @@ const LINES = Object.freeze({
   crew: ['all claws in', "it's crowded", 'the lads'],
   longTask: ['still going…', 'bear with me', 'nearly'],
   serverDown: ['your server tipped over', 'server down!', 'it fell over'],
+  todoDone: ['one down', 'ticked it', 'next!', 'check!'],
+  todosAll: ['list done!', 'every box ticked', 'all ticked off'],
+  jobDone: ['that one finished', 'background done', "it's back"],
+  jobFailed: ['the background one broke', 'that one failed', 'background: ow'],
+  remembered: ['noted!', "I'll remember", 'into my notebook'],
+  skillFirst: ['first time with that!', 'new trick in use!', 'ooh, a skill'],
+  planning: ['plotting…', 'drawing a map', 'thinking it through'],
   morning: ['morning', "you're up", 'morning!'],
   latenight: ['you too?', 'late one', 'still up?'],
   back: ["you're back!", 'missed you', 'where were you?'],

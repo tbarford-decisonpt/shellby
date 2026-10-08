@@ -131,8 +131,9 @@ function wireSessions(d) {
       // Claude Code stopping mid-turn sends no result: a routine's row still has to say it failed
       // (and offer Fix with Claude), not "started 2h ago" for ever.
       if (failed && item.kind === 'error' && d.routineTabs.has(tabId)) d.routineService.updateRoutine(d.routineTabs.get(tabId), { lastStatus: 'error' });
-      if (item.kind === 'task' && item.phase === 'started') d.stat('helper-spawned');
+      if (item.kind === 'task' && item.phase === 'started' && !tab.session?.jobs?.byId.has(item.taskId)) d.stat('helper-spawned'); // a command left running isn't a helper (jobs.js)
       d.crewRoster?.onItem(tabId, item, tab); // each helper's run goes on its crew member's record (wiring/crew.js)
+      d.native?.onItem(tabId, item, tab); // a skill's first use, a memory written down (wiring/native.js)
       if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
         const dir = tab.session?.cwd || '';
         const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
@@ -202,6 +203,7 @@ function wireSessions(d) {
       if (s && agg.crew.length > s.maxCrew) d.stat('crew-size', { n: agg.crew.length });
       if (s && agg.busy > s.maxParallel) d.stat('parallel', { n: agg.busy });
     });
+    d.native?.attach(d.manager); // to-dos ticked off, background commands finishing (wiring/native.js)
     setInterval(() => {
       const stopped = d.manager.stopIdle(d.TAB_IDLE_STOP_MS);
       if (stopped.length) d.log.info('Stopped idle tabs', `${stopped.length} quiet for ${d.TAB_IDLE_STOP_MS / 60000} min`);

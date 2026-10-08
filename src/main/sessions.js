@@ -3,7 +3,7 @@
 // up into one state for the desktop critter.
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
-const { ClaudeSession, EFFORTS } = require('./session');
+const { ClaudeSession, EFFORTS, TALK_MS } = require('./session');
 const { pickEffort } = require('./effort-pick');
 const workPose = require('./work-pose');
 const { cleanTitle } = require('./history');
@@ -11,6 +11,23 @@ const review = require('./review-inbox');
 const turncost = require('./turncost');
 const planPace = require('./plan-pace');
 const mods = require('./mods');
+const todos = require('../renderer/shared/todos');
+
+// What a helper is saying, or was just told, for a few seconds (session.js noteMessage): null when quiet.
+function talkOf(c, now = Date.now()) {
+  const said = c.said && now - c.said.at < TALK_MS ? c.said : null;
+  const heard = c.heard && now - c.heard.at < TALK_MS ? c.heard : null;
+  const last = said && (!heard || said.at >= heard.at) ? 'said' : heard ? 'heard' : null;
+  if (last === 'said') return { kind: 'said', text: said.text.slice(0, 80), to: said.to };
+  if (last === 'heard') return { kind: 'heard', text: heard.text.slice(0, 80), from: heard.from };
+  return null;
+}
+
+// A tab's to-do list in the summary: the counts and what Claude is on, or null with none.
+function todoGlance(list) {
+  const s = todos.summary(list);
+  return s.total ? { total: s.total, done: s.done, current: s.current } : null;
+}
 
 // Tabs left quiet shed their process (stopIdle), so an open tab is cheap; a busy
 // one is a running CLI, and nothing limits how many of those run at once. The cap
@@ -114,6 +131,10 @@ class SessionManager extends EventEmitter {
     session.on('tokens', () => this.changed());
     session.on('plan', () => this.changed());
     session.on('crew', () => this.changed());
+    // Background commands, Claude's to-do list and planning: the panel and the crab both show them.
+    session.on('jobs', view => { this.emit('jobs', tab.id, view, tab); this.changed(); });
+    session.on('todos', s => { this.emit('todos', tab.id, s, tab); this.changed(); });
+    session.on('planning', () => this.changed());
     session.on('tool', () => this.changed());
     session.on('exit', () => {
       // Its mods ended with it: their status lines go too (plugin null: all of them).
@@ -149,7 +170,7 @@ class SessionManager extends EventEmitter {
       let share = null;
       try { share = this.windowShare?.(item.cost.weight, tab) ?? null; } catch { /* no reading to go on: tokens and context still show */ }
       const cost = { ...item.cost, share: Number.isFinite(share) ? share : null };
-      item.cost = { ...cost, line: turncost.costLine(cost), detail: turncost.costDetail(cost) };
+      item.cost = { ...cost, line: turncost.costLine(cost), detail: turncost.costDetail(cost), effortBadge: turncost.effortBadge(cost) };
     }
     if (item.kind === 'result') {
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
@@ -442,23 +463,30 @@ class SessionManager extends EventEmitter {
       ready: t.ready ? { ...t.ready, paths: [...t.ready.paths] } : null,
       inTerminal: t.inTerminal || null,
       effort: t.session.effort || '', effortBy: t.effortBy || null, // the effort chip
+      // Claude's to-do list at a glance (shared/todos.js), what it left running (jobs.js), and whether it's planning.
+      todos: todoGlance(t.session.todos),
+      jobs: t.session.jobView(),
+      planning: !!t.session.planning,
     }));
   }
 
   // One state for the critter: asking beats working beats idle.
   get aggregate() {
-    let pending = 0, busy = 0;
-    const crew = [], tools = [];
+    let pending = 0, busy = 0, planning = 0, plans = 0;
+    const crew = [], tools = [], jobs = [];
     for (const t of this.tabs.values()) {
       pending += t.session.pending.size;
       if (t.session.busy) { busy++; tools.push({ tool: t.session.tool, toolAt: t.session.toolAt }); }
+      if (t.session.busy && t.session.planning) planning++;
+      for (const p of t.session.pending.values()) if (p.toolName === 'ExitPlanMode') plans++;
+      for (const j of t.session.jobView()) if (j.status === 'running') jobs.push({ ...j, tabId: t.id });
       for (const c of t.session.runningCrew()) {
-        crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'general-purpose' }); // Claude Code's own default
+        crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'general-purpose', bubble: talkOf(c) }); // Claude Code's own default
       }
     }
     // What the busy tab that moved last is doing, for how the crab works (work-pose.js).
     const latest = workPose.latest(tools);
-    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, tool: latest?.tool || null, toolAt: latest?.toolAt || null };
+    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, jobs, planning, plans, tool: latest?.tool || null, toolAt: latest?.toolAt || null };
   }
 
   changed() {
@@ -478,4 +506,4 @@ function withPreamble(prompt, preamble) {
   return [{ type: 'text', text: preamble }, ...(Array.isArray(prompt) ? prompt : [{ type: 'text', text: String(prompt) }])];
 }
 
-module.exports = { SessionManager, MAX_TABS, IN_TERMINAL, withPreamble };
+module.exports = { SessionManager, MAX_TABS, IN_TERMINAL, withPreamble, talkOf, todoGlance };

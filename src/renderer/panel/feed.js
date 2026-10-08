@@ -8,6 +8,7 @@
 (function () {
   const { h, api, state } = SB;
   const F = window.ShellbyFeedLogic;
+  const T = window.ShellbyTodos;
 
 
   // Top-level blocks kept in one conversation's feed. Past this the oldest are
@@ -51,6 +52,8 @@
       this.asks = new Map();      // requestId -> card
       this.lanes = new Map();     // Agent tool_use_id -> lane
       this.taskLane = new Map();  // task_id -> Agent tool_use_id
+      this.todos = T.create();    // Claude's own to-do list, as its tool calls build it (shared/todos.js)
+      this.jobs = [];             // what it left running in the background, from main's summary (jobs.js)
       this.trimmed = 0;           // blocks dropped off the top (see trim())
       this.trimmedNotice = null;
       // Not a live region: every tool step would be read out. The turn's end
@@ -164,6 +167,8 @@
 
     // ------------------------------------------------------------ items
     render(item, { replay = false } = {}) {
+      // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it).
+      if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item) && this.isActive) SB.renderTodos?.(this);
       switch (item.kind) {
         case 'user':
           // Something you just sent always comes into view, even if you'd scrolled up.
@@ -177,7 +182,11 @@
           if (!replay && !item.sub) this.setStatus('Thinking…');
           return;
         case 'tool':
-          return item.agent ? this.renderLane(item, replay) : this.renderTool(item, replay);
+          if (item.agent) return this.renderLane(item, replay);
+          // One agent writing to another, a skill, a memory, Claude switching to planning (feed-native.js).
+          if (item.message) return this.renderMessage(item, replay);
+          if (item.name === 'EnterPlanMode' && !item.sub) this.renderPlanning(item);
+          return this.renderTool(item, replay);
         case 'tool_result': return this.renderToolResult(item);
         case 'task': return this.renderTask(item, replay);
         case 'permission':
@@ -235,11 +244,13 @@
       this.asks.clear();
       this.lanes.clear();
       this.taskLane.clear();
+      this.todos = T.create();
       this.trimmed = 0;
       this.trimmedNotice = null;
       this.shellPending = null;
       this.empty.hidden = false;
       for (const item of items) this.render(item, { replay: true });
+      if (this.isActive) SB.renderTodos?.(this);
       this.scrollToEnd();
     }
 
@@ -307,10 +318,13 @@
         unbuiltDiffs.set(el, { text: edits.map(e => `${e.old || ''}\n${e.new || ''}`).join('\n').toLowerCase(), build });
         el.addEventListener('toggle', () => { if (el.open) build(); });
       }
+      SB.decorateTool?.(this, el, item); // a skill says what it's for, a memory what was kept (feed-native.js)
       this.tools.set(item.id, el);
       this.append(el, item.parent);
-      // In plain words when there are some (plain-words.js), else the step as Claude Code names it.
-      const now = state.settings.plainCards !== false && item.doing ? `${item.doing}…` : `${item.label} ${item.detail}`.trim();
+      // In plain words when there are some (plain-words.js), else the step as Claude Code names it;
+      // a to-do ticked over: what Claude is on now, as its list words it.
+      const todoNow = item.todo ? T.summary(this.todos).current : null;
+      const now = todoNow ? `${todoNow}…` : state.settings.plainCards !== false && item.doing ? `${item.doing}…` : `${item.label} ${item.detail}`.trim();
       if (!replay && !item.sub) this.setStatus(now);
       const lane = item.parent && this.lanes.get(item.parent);
       if (lane && !replay) lane.setActivity(now);
@@ -324,7 +338,8 @@
       el.classList.remove('pending');
       el.classList.add(item.isError ? (/declined|denied|interrupted/i.test(item.text) ? 'denied' : 'err') : 'ok');
       // A successful edit's result is "The file … has been updated"; the diff says it better.
-      if (item.text?.trim() && !(el.dataset.edit && !item.isError)) el.append(h('pre', { class: 't-result', text: item.text }));
+      // A message sent, a to-do ticked: what the tool said back is noise unless it went wrong.
+      if (item.text?.trim() && !((el.dataset.edit || el.dataset.quiet) && !item.isError)) el.append(h('pre', { class: 't-result', text: item.text }));
     }
 
     // ------------------------------------------------------------ crew lanes
@@ -338,8 +353,10 @@
     }
 
     renderTask(item, replay) {
-      if (item.toolUseId && item.taskId) this.taskLane.set(item.taskId, item.toolUseId);
-      const lane = this.lanes.get(item.toolUseId || this.taskLane.get(item.taskId));
+      // A helper sent another message (SendMessage) starts again under that call's id:
+      // it's still the lane its Agent call made, so the first id it had wins.
+      if (item.toolUseId && item.taskId && (this.lanes.has(item.toolUseId) || !this.taskLane.has(item.taskId))) this.taskLane.set(item.taskId, item.toolUseId);
+      const lane = this.lanes.get(this.taskLane.get(item.taskId)) || this.lanes.get(item.toolUseId);
       if (!lane) return;
       lane.update(item, replay);
     }
@@ -355,7 +372,13 @@
       this.append(h('div', { class: `meta${item.ok || item.interrupted ? '' : ' bad'}${waiting ? ' waiting' : ''}${cost ? ' has-cost' : ''}`, title: waiting ? 'This turn ended, but something it started is still running.' : null },
         h('span', { text: [label, SB.duration(item.durationMs), item.turns ? `${item.turns} turns` : null].filter(Boolean).join(' · ') }), fork));
       // What the turn cost (src/main/turncost.js): the context chip's menu scrolls back to it.
-      if (cost) this.append(h('div', { class: 'turn-cost', title: cost.detail || null, dataset: turnId ? { turn: turnId } : {}, text: cost.line }));
+      if (cost) {
+        // How hard it thought, beside what it cost (turncost.js effortBadge).
+        const badge = cost.effortBadge;
+        this.append(h('div', { class: 'turn-cost', title: cost.detail || null, dataset: turnId ? { turn: turnId } : {} },
+          badge ? h('span', { class: `effort-badge effort-${badge.level}`, title: badge.detail, text: badge.text }) : null,
+          h('span', { class: 'turn-cost-line', text: cost.line })));
+      }
       // A turn whose process went (main's session.js ended()): its error block is just above.
       if (!item.ok && !item.interrupted && item.error && !item.crashed) this.append(this.troubleBlock(item.trouble, item.error));
       // ...and its helpers went with it.

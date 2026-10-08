@@ -136,6 +136,23 @@ test('laneFirstLine is the first line with words, without markdown, at most 120 
   assert.equal(F.laneFirstLine('\n#\n'), null);
 });
 
+test('notes on a plan go back as one message: each quoted line, its note, anything else, and what to do', () => {
+  const m = F.planNotesMessage([{ quote: '2. Add a   cache\nlayer', note: ' Skip the cache. ' }, { quote: '', note: 'Name the branch fix/parser' }, { quote: 'x', note: '   ' }], ' Keep it small ');
+  assert.equal(m, [
+    'The user read your plan and wants it revised before anything changes.',
+    'Their notes on it:',
+    '> 2. Add a cache layer\nSkip the cache.',
+    'Name the branch fix/parser',
+    'And overall: Keep it small',
+    'Revise the plan with these in mind and present it again for approval.',
+  ].join('\n\n'));
+  assert.equal(F.planNotesMessage([], '  '), null, 'nothing to say: nothing sent');
+  assert.match(F.planNotesMessage(null, 'Smaller, please'), /What they said: Smaller, please/);
+  const long = F.planNotesMessage([{ quote: 'q'.repeat(500), note: 'n'.repeat(5000) }]);
+  assert.ok(long.length <= 3800 && long.endsWith('…'));
+  assert.ok(long.includes(`> ${'q'.repeat(159)}…`), 'a long line is quoted short');
+});
+
 test('quizWorthy: a quiz is offered on turns of a real size, the same mark main checks', () => {
   assert.equal(F.QUIZ_MIN_LINES, require('../src/main/quiz').MIN_LINES);
   assert.equal(F.quizWorthy({ added: 20, removed: 10 }), true);

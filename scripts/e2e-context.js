@@ -61,7 +61,8 @@ function connect(url) {
     check(await ev("getComputedStyle(document.querySelector('.tab.active .tab-ctx')).getPropertyValue('--fill').trim() === '0.3'"), 'the hairline under the tab is 30% long');
     check(await ev("!SB.$('ctxChip').hidden && SB.$('ctxLabel').textContent === '30%'"), 'the chip reads 30%');
     check(await ev("SB.$('crowded').hidden"), 'no crowded offer at 30%');
-    check(await ev("/^this turn: [\\d.]+k? tokens · .*30% of context$/.test(SB.activeTab().el.querySelector('.turn-cost')?.textContent || '')"), 'the turn ends with what it cost');
+    check(await ev("/^this turn: [\\d.]+k? tokens · .*30% of context$/.test(SB.activeTab().el.querySelector('.turn-cost .turn-cost-line')?.textContent || '')"), 'the turn ends with what it cost');
+    check(/^(low|medium|high|extra high|max|auto)\b/.test(await ev("SB.activeTab().el.querySelector('.turn-cost .effort-badge')?.textContent || ''")), 'beside the effort it ran at');
 
     // 2. A big jump: at that pace it'll be crowded in a turn, so a quieter offer first.
     await type('big 140000');
