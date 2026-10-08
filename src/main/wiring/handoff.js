@@ -66,6 +66,19 @@ function wireHandoff(d) {
       sessionId, resumeAt: s ? s.resumeAt : entry?.resumeAt,
     });
     if (!check.ok) return check;
+    // A conversation on another computer carries on in a terminal over there.
+    const place = d.remoteService?.placeOf(s?.cwd || entry?.cwd);
+    if (place) {
+      if (s) await s.stop();
+      const r = await d.remoteService.resumeInTerminal(place, sessionId);
+      if (!r.ok) return r;
+      const at = Date.now();
+      if (tab) d.manager.setInTerminal(id, at);
+      else d.history.update(id, { inTerminal: at });
+      note(id, { kind: 'handoff', to: 'terminal', shell: r.shell });
+      d.log.info(`handoff: to ${r.shell} on another computer`);
+      return { ok: true, shell: r.shell, text: `Carrying on in a terminal on ${place.host}.` };
+    }
     const cwd = handoff.terminalCwd({ cwd: s?.cwd || entry?.cwd, worktree: tab?.worktree || entry?.worktree }, isDir);
     if (!cwd) return { ok: false, error: "That conversation's folder isn't there any more." };
     // Ended cleanly first: it's idle, so this is a moment, not an interruption.

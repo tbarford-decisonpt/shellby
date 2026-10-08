@@ -10,7 +10,8 @@ const readline = require('readline');
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { parseLine, spendFrom } = require('./stream');
-const { troubleOf } = require('./trouble');
+const { troubleOf, remoteTroubleOf } = require('./trouble');
+const remoteSsh = require('./remote/ssh');
 const { weightOf } = require('./spend');
 const ctx = require('./context');
 const turncost = require('./turncost');
@@ -107,9 +108,14 @@ class ClaudeSession extends EventEmitter {
   //
   // systemNote: appended to Claude Code's system prompt (see selfaware.js).
   // mcp: { tools, call(name, args) } -> the crab's tools, hosted here (see crabmcp.js).
-  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null, systemNote = null, mcp = null }) {
+  //
+  // remote: () => { exe, host, dir, env, extra?, argsPrefix? } | null, read each time
+  // the process starts: a folder on another computer (remote/service.js), whose
+  // Claude Code runs there over ssh. exe is ssh, env what it needs to ask for a
+  // passphrase in Shellby, extra more of ssh's options; argsPrefix, as above, is for tests.
+  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null, systemNote = null, mcp = null, remote = () => null }) {
     super();
-    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig, systemNote, mcp });
+    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig, systemNote, mcp, remote });
     // Set by rewindTo(): the next start resumes the conversation only up to this
     // transcript entry, as a fork, so the original is left as it was. Kept in
     // History too (sessions.js), so a restart before the next message honours it.
@@ -195,14 +201,26 @@ class ClaudeSession extends EventEmitter {
     if (this.proc) return;
     // The servers' definitions can hold tokens, so they go in a file of the
     // process's own rather than on its command line, and the file goes with it.
-    const configFile = this.mcpConfig ? writeConfig(this.fullMcpConfig()) : null;
-    this.mcpConfigFile = configFile;
-    const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
-      // SHELLBY_CRAB_TOOLS: the crab's tools are served from here, so the plugin's
-      // MCP server leaves its copies of them out of every request.
-      cwd: this.cwd, env: { ...claudeEnv(), ...(this.mcp ? { SHELLBY_CRAB_TOOLS: '1' } : {}), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    // On another computer the config goes over stdin instead (remote/ssh.js MCP_FILE).
+    const remote = this.remote?.() || null;
+    this.remoteHost = remote?.host || null;
+    const configFile = this.mcpConfig && !remote ? writeConfig(this.fullMcpConfig()) : null;
+    this.mcpConfigFile = remote && this.mcpConfig ? remoteSsh.MCP_FILE : configFile;
+    // SHELLBY_CRAB_TOOLS: the crab's tools are served from here, so the plugin's
+    // MCP server leaves its copies of them out of every request.
+    const crabEnv = this.mcp ? { SHELLBY_CRAB_TOOLS: '1' } : {};
+    const proc = remote
+      // Only Shellby's own markers go over: your GitHub token and the rest of
+      // this PC's environment stay here.
+      ? spawn(remote.exe, [...(remote.argsPrefix || []), ...remoteSsh.sshArgs(remote.host, remoteSsh.sessionScript({ dir: remote.dir, args: this.buildArgs(), env: { SHELLBY_OWNED: '1', ...crabEnv } }), { extra: remote.extra || [] })], {
+        cwd: os.homedir(), env: { ...process.env, ...remote.env }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      : spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
+        cwd: this.cwd, env: { ...claudeEnv(), ...crabEnv, ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      });
     this.proc = proc;
+    // The remote end reads its MCP config from the first line, before Claude Code starts.
+    if (remote && this.mcpConfig) this.proc.stdin.write(JSON.stringify(this.fullMcpConfig()) + '\n');
     // Everything Claude starts joins this job, so ending the conversation can
     // end it too: MCP servers, shells, app copies it ran (process-job.js).
     const job = processJob.adopt(proc.pid);
@@ -244,7 +262,7 @@ class ClaudeSession extends EventEmitter {
     proc.on('error', err => {
       removeFile(configFile);
       const text = `Couldn't start Claude Code: ${err.message}`;
-      this.emitItem({ kind: 'error', text, trouble: troubleOf(text, { start: true }) });
+      this.emitItem({ kind: 'error', text, trouble: this.troubleOf(text, { start: true }) });
     });
     // 'exit', not 'close': a leftover holding one of claude's pipes would hold
     // 'close' back until it ended on its own, which is what this is here to stop.
@@ -254,6 +272,12 @@ class ClaudeSession extends EventEmitter {
       if (this.job === job) this.job = null;
     });
     proc.on('close', code => { if (this.proc === proc) this.ended(code, stderr); });
+  }
+
+  // What went wrong, as the panel says it. On another computer, ssh's own
+  // failures (no route, sign-in refused, no Claude Code there) come first.
+  troubleOf(text, opts) {
+    return this.remoteHost ? remoteTroubleOf(text, opts, remoteSsh.troubleOf) : troubleOf(text, opts);
   }
 
   // The process is gone (or let go of): nothing it had going can finish. What
@@ -289,7 +313,7 @@ class ClaudeSession extends EventEmitter {
         const result = { kind: 'result', ok: false, interrupted: stopped, error: null, durationMs: this.busySince ? Date.now() - this.busySince : 0 };
         if (!stopped) {
           const text = stderr.trim().split('\n').slice(-6).join('\n') || `Claude Code exited (code ${code}).`;
-          const trouble = troubleOf(text, { exited: true });
+          const trouble = this.troubleOf(text, { exited: true });
           // Its history is gone (or never was): resuming it again would only fail
           // again, so the next message here starts a new conversation.
           if (trouble.kind === 'resume-failed') { this.sessionId = null; this.resumeAt = null; }

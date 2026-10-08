@@ -28,9 +28,11 @@ class SessionManager extends EventEmitter {
   //   getSelfAware() -> { note, tools } | null, read when a tab's process is made
   //   onTool(tab, name, args) -> Promise<{ text, isError? }>, a crab tool was called
   //   decorate(tab, prompt) -> the prompt Claude actually receives
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null }) {
+  // getRemote(cwd) -> how to start Claude Code on another computer when cwd is
+  // one of its folders, or null (remote/service.js launch): read at each start.
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null, getRemote = () => null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate, getRemote });
     this.tabs = new Map();
   }
 
@@ -42,10 +44,12 @@ class SessionManager extends EventEmitter {
     if (this.tabs.has(tabId)) return this.tabs.get(tabId);
     if (this.tabs.size >= MAX_TABS) throw new Error(`Shellby can run up to ${MAX_TABS} conversations at once. Close one first.`);
     const exe = this.getExe();
-    if (!exe) throw new Error('Claude Code is not installed.');
+    // A folder on another computer needs Claude Code there, not here.
+    if (!exe && !this.getRemote(historyEntry?.cwd || cwd)) throw new Error('Claude Code is not installed.');
     const aware = this.getSelfAware();
     let tab = null; // the tools are only ever called once it exists
     const session = new ClaudeSession({
+      remote: () => this.getRemote(session.cwd), // only ever called once it exists
       exe, argsPrefix: this.argsPrefix,
       cwd: historyEntry?.cwd || cwd,
       mode: mode || this.getMode(),

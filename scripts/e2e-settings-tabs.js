@@ -44,9 +44,9 @@ async function launch(profile) {
 }
 
 const TABS = {
-  shellby: ['Look', 'Moving around', 'Personality', 'Sound', 'Mischief', 'Music', 'Typing along', 'Weather', 'Desk lighting', 'On a stream'],
-  claude: ['Claude Code', 'Mode', 'Model', 'Folder', 'Editor', 'Dev servers', 'Everywhere'],
-  connect: ['Elsewhere', 'GitHub'],
+  shellby: ['Look', 'Moving around', 'Personality', 'Sound', 'Mischief', 'Music', 'Typing along', 'Weather', 'Desk lighting', 'Discord', 'On a stream', 'Stream Deck'],
+  claude: ['Claude Code', 'Mode', 'Model', 'Folder', 'Other computers', 'Editor', 'Dev servers', 'Everywhere'],
+  connect: ['Elsewhere', 'GitHub', 'GitLab'],
   general: ['System', 'Usage limit', 'Safety nets', 'Shortcut', 'About'],
 };
 

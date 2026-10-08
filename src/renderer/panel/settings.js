@@ -71,7 +71,7 @@
   function renderSettings() {
     SB.renderModeCards($('modeCards'));
     $('autonomousConfirm').hidden = true;
-    $('settingsFolder').textContent = state.cwd;
+    $('settingsFolder').textContent = SB.remotePlace(state.cwd) || state.cwd;
     $('settingsFolder').title = state.cwd;
     renderSkins();
     $('scaleSelect').value = String(state.settings.critterScale || 1);

@@ -160,6 +160,25 @@ contextBridge.exposeInMainWorld('shellby', {
   pickUpHere: invoke('handoff:pickup'),
   bringIntoShellby: (id, force = false) => ipcRenderer.invoke('handoff:bring', { id, force }),
 
+  // Settings → Other computers: Claude Code over ssh (src/main/remote/)
+  remoteView: invoke('remote:view'),
+  remoteAdd: invoke('remote:add'),
+  remoteCreate: invoke('remote:create'),
+  remoteRemove: invoke('remote:remove'),
+  remoteCheck: invoke('remote:check'),
+  remoteInstall: invoke('remote:install'),
+  remoteSignIn: invoke('remote:sign-in'),
+  remoteSetupKey: invoke('remote:setup-key'),
+  remoteAgentOn: invoke('remote:agent-on'),
+  remoteUnlock: invoke('remote:unlock'),
+  remoteBrowse: (alias, dir) => ipcRenderer.invoke('remote:browse', { alias, dir }),
+  remoteAddFolder: (alias, dir) => ipcRenderer.invoke('remote:add-folder', { alias, dir }),
+  remoteRemoveFolder: invoke('remote:remove-folder'),
+  remoteWorkHere: invoke('remote:work-here'),
+  remoteAnswer: (id, answer) => ipcRenderer.invoke('remote:answer', { id, answer }),
+  onRemoteAsk: on('remote:ask'), // ssh needs a passphrase or password (src/main/remote/askpass.js)
+  onRemoteAsked: on('remote:asked'), // ...and stopped waiting for it
+
   // settings
   setSettings: invoke('settings:set'),
   onSettings: on('settings'), // changed on another PC (sync)

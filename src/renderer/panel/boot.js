@@ -184,7 +184,7 @@
     if (b.outlook) SB.applyOutlook(b.outlook);
     SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear
     SB.loadEditors(); // what file links open in (Settings → Editor, the palette)
-    $('settingsFolder').textContent = b.cwd;
+    $('settingsFolder').textContent = SB.remotePlace(b.cwd) || b.cwd;
     SB.applyMode(state.settings.mode);
     SB.applyEffort?.();
     SB.applyCrabOnly();

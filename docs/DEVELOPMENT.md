@@ -303,6 +303,10 @@ src/main/        Electron main process
   wardrobe/        catalog (packs + validation), seasons, achievements, and the outfit service
   health/          sensors (nvidia-smi, LibreHardwareMonitor, Windows), pure threshold rules, the monitor loop, alerts, his own footprint
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
+  remote/          Claude Code on other computers over ssh: ssh.js (pure: every command line and remote script, the ssh config),
+                   askpass.js (ssh's questions asked in the panel), agent.js (Windows' ssh agent and keys), service.js (computers,
+                   checks, folders and their stand-ins on this PC); wiring/remote.js ties it in, and session.js starts a tab whose
+                   folder is a stand-in through ssh
   deck.js          the Stream Deck keys (pure: what each shows, what a press does) and the token-guarded 127.0.0.1 server
                    the plugin listens to; deck-pack.js zips src/streamdeck/ into a .streamDeckPlugin; wiring/deck.js ties it in
   handoff.js       a conversation to a terminal and back (pure): the launch command per shell, ids, folders

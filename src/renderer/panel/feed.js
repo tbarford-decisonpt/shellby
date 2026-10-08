@@ -406,6 +406,7 @@
       'sign-in': signIn,
       setup: () => { SB.onboardPath = 'claude'; SB.setView('onboarding'); },
       'fresh-tab': () => SB.newTabIn({ cwd: tab?.cwd || state.cwd, draft: ask }),
+      remote: () => SB.showSetting('rcList'),
       hold: async () => {
         if (!tab || !ask) return SB.toast('Type your message again, then hold it with Ctrl+Shift+Enter.');
         const r = await api.holdForReset({ kind: 'message', tabId: tab.id, text: ask, attachments: [] });

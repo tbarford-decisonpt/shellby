@@ -55,6 +55,7 @@ const { wireTries } = require('./wiring/tries');
 const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
+const { wireRemote } = require('./wiring/remote');
 const { wireJournal } = require('./wiring/journal');
 const { wireCrew } = require('./wiring/crew');
 const { wireSurprises } = require('./wiring/surprises');
@@ -158,6 +159,7 @@ const shared = {
   depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
   claudeUpdates: null,             // the daily look at Claude Code's own version (claude-update.js)
   projects: null,                  // the Projects page (projects/service.js)
+  remoteService: null,             // other computers Claude Code runs on, over ssh (remote/service.js)
   devServers: null,                // the dev servers in them (devservers/service.js)
   parityIpc: null,
   teamIpc: null,                   // Toolbox → Team: the repo's .shellby/team.json (team-ipc.js)
@@ -303,6 +305,7 @@ share({ tries: wireTries(shared) }); // Try it N ways: only ever from tries:star
 share(wireShots(shared));
 const { createCorrections } = share(wireCorrections(shared));
 share({ handoff: wireHandoff(shared) });
+const { createComputers } = share(wireRemote(shared)); // Claude Code on your other computers, over ssh
 const { journal } = share({ journal: wireJournal(shared) }); // handoff notes per project, read from Claude Code's own files
 share({ crewRoster: wireCrew(shared) }); // one lasting helper crab per agent type
 share({ surprises: wireSurprises(shared) }); // crit hits and clean landings, now and then
@@ -328,6 +331,7 @@ app.whenReady().then(() => {
   // The README reel shows Shellby big: he's the star.
   if (CAPTURE && process.argv.includes('--reel')) config.set({ critterScale: 2 });
   createGitHub();
+  createComputers(); // before the tabs: a reopened one may be on another computer
   createManager();
   watchClashes();
   createCorrections();

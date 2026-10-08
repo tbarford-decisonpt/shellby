@@ -34,6 +34,7 @@
 <link rel="stylesheet" href="review.css">
 <link rel="stylesheet" href="lessons.css">
 <link rel="stylesheet" href="hooks.css">
+<link rel="stylesheet" href="remote.css">
 <link rel="stylesheet" href="workflows.css">
 <link rel="stylesheet" href="workflow-canvas.css">
 <link rel="stylesheet" href="wf-chat.css">
@@ -1693,6 +1694,40 @@
         <p class="muted small">Two copies (or a copy and your own uncommitted work) that both change a file will clash when they come home. Shellby looks after each turn, marks both tabs with ⚠ and says so once, so you can sort it out early.</p>
       </section>
 
+      <section class="setting-group" id="remoteGroup" data-nav="Other computers">
+        <h3>Other computers</h3>
+        <p class="small muted ext-lede">Run Claude Code on another computer, like a server or a PC that stays on, and work with it here as usual. Shellby connects with ssh, through any computer in between. Add a folder there, and conversations in that folder run over there.</p>
+        <p class="small warn" id="rcNoSsh" hidden>Windows' own ssh isn't installed. Add <b>OpenSSH Client</b> in Windows Settings, under System, Optional features, then come back.</p>
+        <div class="rc-list" id="rcList"></div>
+        <div class="row wrap" id="rcAddRow">
+          <select class="field slim" id="rcPick" aria-label="A computer from your ssh settings"></select>
+          <button type="button" class="btn slim-btn" id="rcAdd">Add</button>
+          <button type="button" class="btn ghost slim-btn" id="rcNew">A new computer…</button>
+        </div>
+        <form class="rc-form" id="rcForm" hidden>
+          <label class="field-label"><span>Name</span><input type="text" class="field" id="rcAlias" placeholder="homebox" spellcheck="false" autocomplete="off" maxlength="63"></label>
+          <label class="field-label"><span>Address</span><input type="text" class="field" id="rcAddress" placeholder="192.168.1.20 or homebox.lan" spellcheck="false" autocomplete="off" maxlength="253"></label>
+          <div class="rc-form-row">
+            <label class="field-label"><span>User</span><input type="text" class="field" id="rcUser" placeholder="you" spellcheck="false" autocomplete="off" maxlength="32"></label>
+            <label class="field-label rc-port"><span>Port</span><input type="text" class="field" id="rcPort" placeholder="22" inputmode="numeric" autocomplete="off" maxlength="5"></label>
+          </div>
+          <label class="field-label"><span>Reach it through</span><select class="field" id="rcJump"></select></label>
+          <p class="small muted">Through another computer if this one is only reachable from there, like a home PC behind a VPS. Shellby adds it to your ssh settings, so your own terminal can use it too.</p>
+          <p class="small warn" id="rcFormError" role="alert" hidden></p>
+          <div class="row wrap end">
+            <button type="button" class="btn ghost slim-btn" id="rcFormCancel">Cancel</button>
+            <button type="submit" class="btn primary slim-btn" id="rcFormSave">Add computer</button>
+          </div>
+        </form>
+        <div class="sl-card" id="rcAgent">
+          <div class="sl-head">
+            <b>Windows' ssh agent</b>
+            <button type="button" class="btn slim-btn" id="rcAgentBtn" hidden></button>
+          </div>
+          <p class="small muted" id="rcAgentText">Checking…</p>
+        </div>
+      </section>
+
       <section class="setting-group" id="editorGroup" data-nav="Editor">
         <h3>Editor</h3>
         <div class="row">
@@ -2255,6 +2290,22 @@
     </div>
   </div>
 
+  <!-- ssh needs a passphrase or a password (remote/askpass.js): asked here, handed back, forgotten -->
+  <div class="card-sheet" id="rcAskSheet" role="dialog" aria-modal="true" aria-labelledby="rcAskTitle" hidden>
+    <form class="card-box rc-ask-box" id="rcAskForm">
+      <div class="card-head">
+        <h2 id="rcAskTitle">Unlock your key</h2>
+      </div>
+      <p class="muted small" id="rcAskLede"></p>
+      <input class="field" id="rcAskInput" type="password" spellcheck="false" autocomplete="off" maxlength="1024" aria-labelledby="rcAskLede">
+      <p class="muted small">Shellby hands it to ssh and doesn't keep it.</p>
+      <div class="row wrap end">
+        <button type="button" class="btn ghost" id="rcAskCancel">Cancel</button>
+        <button type="submit" class="btn primary" id="rcAskOk">Unlock</button>
+      </div>
+    </form>
+  </div>
+
   <!-- a red build or a review on your pull request: exactly what goes to Claude, before it goes (startfrom.js) -->
   <div class="card-sheet" id="sfSheet" role="dialog" aria-modal="true" aria-labelledby="sfTitle" hidden>
     <div class="card-box sf-box">
@@ -2361,6 +2412,8 @@
 <script src="settings-everywhere.js"></script>
 <script src="settings-channels.js"></script>
 <script src="settings-desk.js"></script>
+<script src="remote-logic.js"></script>
+<script src="settings-remote.js"></script>
 <script src="history.js"></script>
 <script src="onboarding.js"></script>
 <script src="wardrobe.js"></script>

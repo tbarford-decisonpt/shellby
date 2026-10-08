@@ -70,7 +70,7 @@
     if (r.error) return SB.toast(r.error);
     state.settings = r.settings;
     state.cwd = r.cwd;
-    $('settingsFolder').textContent = r.cwd;
+    $('settingsFolder').textContent = SB.remotePlace(r.cwd) || r.cwd;
     // A blank tab moves to the new folder; a conversation in progress keeps its own.
     const tab = SB.activeTab();
     if (SB.isBlankTab(tab) && !SB.solo) {
@@ -79,10 +79,10 @@
       state.tabs.delete(tab.id);
       state.activeTab = null;
       await SB.newTab();
-      SB.toast(`Now working in ${SB.basename(r.cwd)}`);
+      SB.toast(`Now working in ${SB.remotePlace(r.cwd) || SB.basename(r.cwd)}`);
     } else {
       applyFolderLabel(tab?.cwd || r.cwd);
-      SB.toast(`New conversations will start in ${SB.basename(r.cwd)}`, SB.solo ? {} : { action: 'Open one', onAction: () => SB.newTab() });
+      SB.toast(`New conversations will start in ${SB.remotePlace(r.cwd) || SB.basename(r.cwd)}`, SB.solo ? {} : { action: 'Open one', onAction: () => SB.newTab() });
     }
   };
 

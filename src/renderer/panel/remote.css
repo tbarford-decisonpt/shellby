@@ -1,0 +1,39 @@
+/* Settings → Other computers (settings-remote.js) and the box ssh asks in. */
+.rc-list { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 10px; }
+.rc-list:empty { display: none; }
+.rc-card .sl-head > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.rc-steps { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rc-step { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: var(--fs-12-5, 12.5px); }
+.rc-step .rc-text { flex: 1 1 180px; min-width: 0; }
+.rc-step .slim-btn { height: 26px; }
+.rc-mark {
+  flex: none; width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center;
+  font: 700 11px var(--font-body); border: 1px solid var(--line); color: var(--sand-dim);
+}
+.rc-step.ok .rc-mark { color: var(--ink); background: var(--sand); border-color: var(--sand); }
+.rc-step.bad .rc-mark { color: var(--ink); background: var(--coral); border-color: var(--coral); }
+.rc-step.bad .rc-text { color: var(--coral); }
+.rc-step.busy .rc-text { color: var(--sand-dim); }
+
+.rc-folders { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.rc-folders .field-label { margin: 0 0 6px; }
+.rc-folder-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rc-folder-list li { display: flex; align-items: center; gap: 6px; }
+.rc-folder-list .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-folder-list .slim-btn { height: 26px; }
+
+.rc-browse { display: flex; flex-direction: column; gap: 6px; }
+.rc-browse .row .field { flex: 1; min-width: 0; font-family: var(--font-mono); }
+.rc-dirs { list-style: none; margin: 0; padding: 4px 0; max-height: 180px; overflow-y: auto; border: 1px solid var(--line-soft); border-radius: var(--r-sm); }
+.rc-dirs li { display: flex; align-items: center; gap: 6px; padding: 2px 8px; }
+.rc-dirs .link-btn { padding: 2px 0; border: 0; background: none; font: 500 var(--fs-12, 12px) var(--font-mono); color: var(--sand); text-align: left; cursor: pointer; }
+.rc-dirs .link-btn:hover, .rc-dirs .link-btn:focus-visible { color: var(--glass); text-decoration: underline; }
+
+.rc-form { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+.rc-form-row { display: flex; gap: 8px; }
+.rc-form-row > :first-child { flex: 1; }
+.rc-port { width: 90px; }
+
+.rc-ask-box { max-width: 380px; display: flex; flex-direction: column; gap: 8px; }
+.rc-ask-box #rcAskLede { overflow-wrap: anywhere; white-space: pre-line; }

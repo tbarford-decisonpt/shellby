@@ -59,9 +59,14 @@ SB.h = function h(tag, attrs = {}, ...children) {
   return el;
 };
 
+// A folder on another computer is named for where it really is: "sandbox: ~/code/app".
+SB.remotePlace = p => window.ShellbyRemoteLogic?.placeName(SB.state.settings?.remoteFolders, p) || null;
+
 SB.tildify = p => {
   const home = SB.state.home;
   if (!p) return '~';
+  const there = SB.remotePlace(p);
+  if (there) return there;
   return home && p.toLowerCase().startsWith(home.toLowerCase()) ? '~' + p.slice(home.length) : p;
 };
 
@@ -69,6 +74,7 @@ SB.tildify = p => {
 SB.shortPath = (p, max = 34) => {
   const t = SB.tildify(p);
   if (t.length <= max) return t;
+  if (SB.remotePlace(p)) return `…${t.slice(-(max - 1))}`;
   const sep = '\\';
   const parts = t.split(/[\\/]/).filter(Boolean);
   const head = parts.shift();

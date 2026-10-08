@@ -31,6 +31,7 @@ const { registerPanelIpc } = require('./panel');
 const { registerFilesIpc } = require('./files');
 const { registerTabsIpc } = require('./tabs');
 const { registerHandoffIpc } = require('./handoff');
+const { registerRemoteIpc } = require('./remote');
 const { registerRepoIpc } = require('./repo');
 const { registerSettingsIpc } = require('./settings');
 const { registerToolboxIpc } = require('./toolbox');
@@ -179,6 +180,7 @@ function registerIpc(electronIpcMain, d) {
   registerFilesIpc(ipcMain, d);
   registerTabsIpc(ipcMain, d);
   registerHandoffIpc(ipcMain, d);
+  registerRemoteIpc(ipcMain, d);
   registerRepoIpc(ipcMain, d);
   registerSettingsIpc(ipcMain, d);
   registerToolboxIpc(ipcMain, d);

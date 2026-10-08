@@ -167,6 +167,8 @@ const DEFAULTS = {
   weather: null,      // { enabled, place, remarks }: dressing for the weather outside (see weather-service.js); off until you pick a town
   weatherNow: null,   // the last reading from Open-Meteo (weather.js parseForecast)
   cli: null,          // { installed }: the `shellby` command (see clipath.js)
+  remoteComputers: [], // [{ alias, added, check }]: other computers Claude Code runs on, over ssh (see remote/service.js)
+  remoteFolders: [],   // [{ host, dir, anchor }]: folders on them, each with a stand-in folder on this PC
   worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees.js)
   clashWarnings: true, // say when two copies (or a copy and your checkout) change the same file (wiring/clashes.js)
   channelSecret: null, // the channel's token, encrypted by Windows (never in the clear)

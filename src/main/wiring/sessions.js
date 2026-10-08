@@ -57,6 +57,11 @@ function wireSessions(d) {
       getEffort: () => d.config.get('effort'),
       getOutputStyle: () => outputStyles.clean(d.config.get('outputStyle')),
       getEnv: () => d.github?.claudeEnv() || {},
+      // A folder on another computer: Claude Code runs there, over ssh (remote/service.js).
+      getRemote: cwd => {
+        const place = d.remoteService?.placeOf(cwd);
+        return place ? d.remoteService.launch(place) : null;
+      },
       compose: (text, files) => d.composePrompt(text, files),
       prepareTurn: async tab => {
         d.usageService.armGuard(tab);
@@ -134,7 +139,8 @@ function wireSessions(d) {
       d.crewRoster?.onItem(tabId, item, tab); // each helper's run goes on its crew member's record (wiring/crew.js)
       if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
         const dir = tab.session?.cwd || '';
-        const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir());
+        // On another computer the folder here is only a stand-in: nothing to compare runs in.
+        const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir()) && !d.remoteService?.placeOf(dir);
         // A test run: the code as it was when it started, so a later run can be compared (flaky.js).
         const tree = inProject && !item.background ? d.flakyTree(item.detail, dir) : null;
         // ...and for a command that could catch a bug still on the loose (wiring/bugdex.js).
@@ -218,7 +224,8 @@ function wireSessions(d) {
   function beginTurn(tab) {
     turnStarts.delete(tab.id);
     const cwd = tab.session?.cwd;
-    if (!cwd || d.CAPTURE) return null;
+    // The files of a folder on another computer are over there: no picture of them here.
+    if (!cwd || d.CAPTURE || d.remoteService?.placeOf(cwd)) return null;
     // A picture of the dev server as it is, alongside and never in the way (wiring/shots.js).
     try { d.shotsBeforeTurn?.(tab); } catch (err) { d.log.info(`shots: ${err.message}`); }
     let late = false;

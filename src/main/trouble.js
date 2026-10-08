@@ -11,6 +11,7 @@
 //   setup      the Claude Code part of setup (install it, or point at it)
 //   fresh-tab  a new tab in the same folder, with the last message in the box
 //   hold       hold the last message until the usage limit resets
+//   remote     Settings, Other computers: a conversation on another computer couldn't start
 //   copy       copy what the program said, for a bug report or a search
 //
 // Pure: no Electron, no I/O. See test/trouble.test.js.
@@ -24,6 +25,7 @@ const ACTIONS = {
   setup: 'Set up Claude Code',
   'fresh-tab': 'Open in a fresh tab',
   hold: 'Send it after the reset',
+  remote: 'Open Other computers',
   copy: 'Copy details',
 };
 
@@ -123,4 +125,15 @@ function troubleOf(raw, { exited = false, start = false } = {}) {
   return { kind: base.kind, message, action: id ? { id, label: ACTIONS[id] } : null };
 }
 
-module.exports = { troubleOf, detailOf, ACTIONS };
+/**
+ * The same for a conversation running on another computer: what ssh or the
+ * other end said first (remote/ssh.js), with Settings' Other computers as the
+ * next step; anything else is Claude Code's own trouble, as above.
+ */
+function remoteTroubleOf(raw, opts = {}, remoteKind = () => null) {
+  const hit = remoteKind(text(raw));
+  if (!hit) return troubleOf(raw, opts);
+  return { kind: hit.kind, message: hit.message, action: { id: 'remote', label: ACTIONS.remote } };
+}
+
+module.exports = { troubleOf, remoteTroubleOf, detailOf, ACTIONS };
