@@ -377,9 +377,10 @@ class Engine {
       case 'ask': {
         const choices = step.choices || DEFAULT_CHOICES;
         const question = expr.render(step.question, ctx);
-        this.set(entry, { status: 'waiting', question, choices });
+        const file = step.path ? renderPath(step.path, ctx) : undefined;
+        this.set(entry, { status: 'waiting', question, choices, file });
         this.record.status = 'waiting';
-        this.record.waiting = { key, question, choices };
+        this.record.waiting = { key, question, choices, file };
         this.changed();
         let choice;
         try {
@@ -388,6 +389,7 @@ class Engine {
           this.record.status = 'running';
           this.record.waiting = null;
           entry.question = undefined;
+          entry.file = undefined;
         }
         if (!choices.includes(choice)) throw new StepFailed('That answer isn\'t one of the choices.');
         if (!step.choices && choice === 'Stop') throw Object.assign(new StopRun('stopped', 'You chose to stop here.'), { choice });

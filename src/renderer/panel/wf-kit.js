@@ -377,12 +377,18 @@
   }
   const leaveEditorIfNeeded = then => (current().name === 'editor' ? W.leaveEditor(then) : then());
 
+  // The file an Ask step names, opened in your editor while it waits.
+  const openFileBtn = file => h('button', {
+    type: 'button', class: 'btn ghost slim-btn', title: `Open ${file} · Shift+click shows it in its folder`,
+    onclick: e => SB.openFile(file, { reveal: e.shiftKey }),
+  }, `Open ${SB.basename(file)}`);
+
   Object.assign(W, {
     pref, PREF, CONTAINERS, clone, current, nav, go, focusFk, keepFocus, debounce, plural, fill, STEP_INFO,
     setMapMode, screen, throttle, editing, uid, TRIGGER_INFO, icon, ICON, iconBtn, popup, menuItem, toInt,
     TRIGGER_FIELDS, STEP_OUTPUTS, menuLabel, putOrDrop, METHODS, FILE_ACTIONS, TELL_TO, FIELD_TYPES, MAX,
     WAIT_UNITS, backBtn, home, RUN_TRIGGER, runDuration, statusPill, firstLine, layoutSwitch, G, STATUS_WORD,
     STATUS_GLYPH, roomBtn, loadView, up, ONCE_TRIGGERS, STEP_GROUPS, MODE_NAME, humanSeconds, leaveEditorIfNeeded,
-    resetNav, show, render,
+    resetNav, show, render, openFileBtn,
   });
 })();
