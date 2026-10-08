@@ -9,6 +9,7 @@ const workmode = require('../workmode');
 const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS, syncable: friendsSyncable } = require('../friends');
 const bugdex = require('../bugdex');
 const gifts = require('../gifts');
+const recap = require('../recap');
 const { TokenStore } = require('../github/auth');
 const { CiHub } = require('../ci-hub');
 const { CiWatcher } = require('../github/ci');
@@ -298,6 +299,7 @@ function wireGithub(d) {
     if (type !== 'comment') d.workflows?.event('ci', { event: type, forge: pr.forge || 'github', ref: where, repo: pr.repo, number: pr.number, title: pr.title || '', url: pr.url || '', branch: pr.branch || '', failing: pr.failing || [] });
     const open = () => openPrUrl(pr);
     if (type === 'failed') d.noteRed(`ci:${where}`);
+    d.noteRecap?.(recap.ciEvent(type, where, pr.title)); // red or back to green, in the while-you-were-away card
     if (type === 'fixed') d.noteFix(`ci:${where}`);
     // A Red Tide (or a Kraken...) on the loose; caught when it goes green with Shellby's help.
     if (type === 'failed') d.bugdex?.ciFailed(pr);

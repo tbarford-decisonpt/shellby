@@ -12,6 +12,7 @@
 const surroundings = require('./surroundings');
 const scenes = require('./scenes');
 const gifts = require('./gifts');
+const moon = require('./moon');
 const bond = require('./bond');
 const banter = require('./banter');
 const voice = require('./voice');
@@ -393,7 +394,7 @@ function createLife(d) {
     if (!manual && !free()) return null;
     care.wear('dig'); // sand in places sand shouldn't be
     const t = now();
-    const r = gifts.dig(getFinds(), { seasons: d.seasons(), night: isNight(t), manual }, t);
+    const r = gifts.dig(getFinds(), { seasons: d.seasons(), night: isNight(t), moon: moon.special(t), manual }, t);
     setFinds(r.state);
     if (!r.find) { if (manual) changed(); return null; }
     present(r.find, r);

@@ -1,6 +1,7 @@
 /* Shellby panel — "While you were away". When you come back after an hour or
    more, main sends a digest (src/main/recap.js): what finished, what failed,
-   what's waiting on you and where the 5-hour window went. It waits above the
+   what's waiting on you, CI that went red or green, held work sent after the
+   reset and where the 5-hour window went. It waits above the
    composer until you dismiss it; a newer one replaces it. */
 'use strict';
 (function () {
@@ -68,6 +69,15 @@
       h('h4', {}, h('span', { class: 'recap-ico', 'aria-hidden': 'true', text: '◔' }), 'Usage'), ...parts);
   }
 
+  // Work held for after the usage reset that Shellby sent while you were out (src/main/held-service.js).
+  // What each one came to is under Finished or Failed.
+  function heldBlock(held) {
+    if (!held?.text) return null;
+    return h('section', { class: 'recap-sec' },
+      h('h4', {}, h('span', { class: 'recap-ico', 'aria-hidden': 'true', text: '⏱' }), 'After the reset'),
+      h('p', { class: 'recap-text', text: `Your usage window reset, and Shellby sent ${held.text}.` }));
+  }
+
   // Bugs Claude fixed while you were out, in the Bugdex's jars (src/main/bugdex.js).
   function bugsBlock(b) {
     if (!b?.caught) return null;
@@ -86,6 +96,9 @@
         section('?', 'Waiting on you', d.waiting, w => row(w, w.external ? `${WAITING[w.what] || WAITING.approval} (outside Shellby)` : WAITING[w.what] || WAITING.approval, 'wait')),
         section('✕', 'Failed', d.failed, r => row(r, r.error ? `${r.error}` : runSub(r), 'fail')),
         section('✓', 'Finished', d.finished, r => row(r, runSub(r), 'ok')),
+        d.ciRed ? section('✕', 'CI went red', d.ciRed, c => row(c, `${c.ref} · ${clock(c.at)}`, 'fail')) : null,
+        d.ciGreen ? section('✓', 'CI back to green', d.ciGreen, c => row(c, `${c.ref} · ${clock(c.at)}`, 'ok')) : null,
+        heldBlock(d.held),
         bugsBlock(d.bugs),
         usageBlock(d.usage, d.limit)),
       h('div', { class: 'cel-actions' },

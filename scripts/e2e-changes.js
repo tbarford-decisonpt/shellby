@@ -127,6 +127,29 @@ const ntfy = http.createServer((req, res) => {
     await idle();
     check(echo && await ev("document.querySelectorAll('.feed:not([hidden]) details.changes').length") === 1, 'a turn that changes nothing adds no block');
 
+    // ---- "Quiz me" on a turn big enough for one (quiz.js; the fake CLI writes the questions, right answer first)
+    const quizButtons = "[...document.querySelectorAll('.feed:not([hidden]) .chg-actions .btn')].filter(b => b.textContent === 'Quiz me')";
+    check(await ev(`${quizButtons}.length`) === 0, 'a one-line turn offers no quiz');
+    const big = Array.from({ length: 40 }, (_, i) => `line${i}`).join('\n');
+    await ev(`SB.send(${JSON.stringify(`edit big.js ${big}`)})`);
+    await idle();
+    check(await until(`${quizButtons}.length === 1`), 'a big enough turn offers a quiz');
+    await ev(`${quizButtons}[0].click()`);
+    check(await until("document.querySelectorAll('.feed:not([hidden]) .quiz-q').length === 3"), 'three questions come back');
+    check(await ev("document.querySelector('.feed:not([hidden]) .quiz-q legend').textContent") === '1. Question 1 about big.js?', 'written from the diff');
+    const choose = (q, text) => ev(`[...document.querySelectorAll('.feed:not([hidden]) .quiz-q')[${q}].querySelectorAll('.quiz-choice')].find(b => b.textContent === ${JSON.stringify(text)}).click()`);
+    const classOf = (q, text) => ev(`[...document.querySelectorAll('.feed:not([hidden]) .quiz-q')[${q}].querySelectorAll('.quiz-choice')].find(b => b.textContent === ${JSON.stringify(text)}).className`);
+    await choose(0, 'right 1');
+    check(await until("document.querySelector('.feed:not([hidden]) .quiz-why')?.textContent === 'Right. Because of big.js.'"), 'a right pick says so, and why');
+    await choose(1, 'wrong 2a');
+    await until("!document.querySelectorAll('.feed:not([hidden]) .quiz-why')[1].hidden");
+    check(/wrong/.test(await classOf(1, 'wrong 2a')) && /right/.test(await classOf(1, 'right 2')), 'a wrong pick is marked, with the right answer beside it');
+    check(await ev("[...document.querySelectorAll('.feed:not([hidden]) .quiz-q')[1].querySelectorAll('.quiz-choice')].every(b => b.disabled)"), 'and the question is answered for good');
+    await choose(2, 'right 3');
+    check(await until("document.querySelector('.feed:not([hidden]) .quiz-result')?.textContent.startsWith('2 of 3 right')"), 'the end says how it went');
+    await shot('3-quiz');
+    fs.unlinkSync(path.join(repo, 'big.js'));
+
     // ---- 2. a copy of the repo per tab
     await ev("shellby.setSettings({ worktrees: true }).then(r => { SB.state.settings = r.settings; })");
     await ev('SB.newTab()');

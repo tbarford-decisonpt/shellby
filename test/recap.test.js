@@ -175,3 +175,25 @@ test('bugs caught while you were away ride along with the runs, by count only', 
   // A catch alone never makes a recap (one always comes with a finished turn).
   assert.equal(recap.build([{ t: NOW + MIN, ...recap.bugEvent('nullfish') }], { since: NOW, until: NOW + H }), null);
 });
+
+test('held work sent after the reset makes a recap of its own, added up across releases', () => {
+  assert.equal(recap.heldEvent([]), null);
+  let log = recap.record([], recap.heldEvent([{ kind: 'message' }, { kind: 'routine' }]), NOW + 10 * MIN);
+  log = recap.record(log, recap.heldEvent([{ kind: 'message' }]), NOW + 20 * MIN);
+  const d = recap.build(log, { since: NOW, until: NOW + 2 * H });
+  assert.deepEqual(d.held, { messages: 2, routines: 1, tasks: 0, text: '2 held messages and a routine' });
+  assert.match(recap.headline(d), /sent 2 held messages and a routine after the reset/);
+  assert.equal(recap.build(log, { since: NOW + H, until: NOW + 2 * H }), null, 'sent before you left: not this absence');
+});
+
+test('CI that went red or back to green, each pull request once, as it last stood', () => {
+  assert.equal(recap.ciEvent('passed', 'me/app#1', 'x'), null, 'pending to green is not a change of colour');
+  assert.equal(recap.ciEvent('failed', '', 'x'), null);
+  let log = recap.record([], recap.ciEvent('failed', 'me/app#1', 'Cart'), NOW + 10 * MIN);
+  log = recap.record(log, recap.ciEvent('fixed', 'me/app#1', 'Cart'), NOW + 30 * MIN);
+  log = recap.record(log, recap.ciEvent('failed', 'me/app#2', 'Login'), NOW + 40 * MIN);
+  const d = recap.build(log, { since: NOW, until: NOW + 2 * H });
+  assert.deepEqual(d.ciRed.items.map(c => [c.ref, c.title, c.tabId]), [['me/app#2', 'Login', null]]);
+  assert.deepEqual(d.ciGreen.items.map(c => c.ref), ['me/app#1'], 'red then green is only back to green');
+  assert.match(recap.headline(d), /^1 build went red · 1 back to green$/);
+});

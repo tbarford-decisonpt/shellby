@@ -145,6 +145,10 @@ if (args.includes('--json-schema')) {
       answer = reading
         ? { error: '', tickets: [{ key: 'ENG-7', title: 'Crab walks sideways', url: 'https://linear.app/crab/issue/ENG-7', status: 'Todo', priority: 'urgent', assignee: '', mine: false, labels: ['Bug'], due: '', current: true, updated: '', description: 'He should walk forwards when asked.' }] }
         : { error: 'Not asked through reading tools only.', tickets: [] };
+    } else if (schema.properties.questions) {
+      // "Quiz me" (quiz.js): three questions on the diff it was given, the right answer always first.
+      const file = (/^diff --git a\/(\S+)/m.exec(prompt) || [])[1] || 'the file';
+      answer = { questions: [1, 2, 3].map(n => ({ question: `Question ${n} about ${file}?`, choices: [`right ${n}`, `wrong ${n}a`, `wrong ${n}b`], answer: 0, why: `Because of ${file}.` })) };
     } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {
       answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };

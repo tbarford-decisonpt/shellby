@@ -202,3 +202,10 @@ test('bugs caught since you last looked are news', () => {
   const state = B.markSeen(null, [], at(10, 13));
   assert.equal(beach({ bugs: caught(12), state }).news, 2);
 });
+
+test('the night sky gets the real moon for the day it is drawn', () => {
+  const v = beach();
+  const real = require('../src/main/moon').phase(NOW);
+  assert.equal(v.moon.name, real.name);
+  assert.ok(Math.abs(v.moon.fraction - real.fraction) < 0.001);
+});

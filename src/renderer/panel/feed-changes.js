@@ -25,6 +25,7 @@
         h('ul', { class: 'chg-files' }, item.files.map(f => this.changeRow(f, ref))),
         item.more ? h('p', { class: 'small muted chg-more', text: `…and ${item.more} more.` }) : null,
         h('div', { class: 'chg-actions' }, undo, note));
+      if (F.quizWorthy(item)) this.addQuiz(el, ref);
 
       // Two presses, so a stray click can't take a turn's work back.
       let armed = null;
@@ -76,6 +77,56 @@
         diff.replaceChildren(...[bar, shown, r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
       });
       return h('li', {}, toggle, diff);
+    }
+
+    // "Quiz me": three questions on what this turn changed (src/main/quiz.js). Main
+    // keeps the answers, so each pick asks it whether that was right. Not kept in
+    // the transcript: it's there until the panel reloads.
+    addQuiz(el, ref) {
+      const start = h('button', { class: 'btn ghost slim-btn', type: 'button', title: 'Claude writes three questions on what this change does. Uses a little of your plan.' }, 'Quiz me');
+      el.querySelector('.chg-actions').append(start);
+      start.addEventListener('click', async () => {
+        start.disabled = true;
+        const box = h('div', { class: 'quiz', role: 'group', 'aria-label': 'Quiz on this change', 'aria-busy': 'true' },
+          h('p', { class: 'small muted quiz-wait', text: 'Claude is writing three questions about this change…' }));
+        el.append(box);
+        el.open = true;
+        const r = await api.startQuiz({ tabId: this.id, ...ref });
+        box.removeAttribute('aria-busy');
+        if (!r?.ok) {
+          start.disabled = false;
+          box.replaceChildren(h('p', { class: 'small warn', text: r?.error || "Couldn't write a quiz." }));
+          return;
+        }
+        start.remove();
+        const result = h('p', { class: 'quiz-result', 'aria-live': 'polite' });
+        box.replaceChildren(...r.questions.map((q, i) => this.quizQuestion(q, i, ref, result, r.questions.length)), result);
+        box.querySelector('.quiz-choice')?.focus();
+      });
+    }
+
+    quizQuestion(q, i, ref, result, total) {
+      const why = h('p', { class: 'small quiz-why', hidden: true, 'aria-live': 'polite' });
+      const choices = q.choices.map(text => h('button', { class: 'quiz-choice', type: 'button', text }));
+      choices.forEach((b, c) => b.addEventListener('click', async () => {
+        choices.forEach(x => { x.disabled = true; });
+        const r = await api.pickQuiz({ tabId: this.id, after: ref.after, question: i, choice: c });
+        if (!r || r.error) {
+          why.hidden = false;
+          why.textContent = r?.error || "Couldn't check that one.";
+          return;
+        }
+        b.classList.add(r.right ? 'right' : 'wrong');
+        if (!r.right) choices[r.answer]?.classList.add('right');
+        b.setAttribute('aria-label', `${b.textContent}: ${r.right ? 'right' : 'not quite'}`);
+        why.hidden = false;
+        why.textContent = `${r.right ? 'Right.' : 'Not quite.'} ${r.why || ''}`.trim();
+        if (r.done) result.textContent = F.quizResult(r.score, total);
+      }));
+      return h('fieldset', { class: 'quiz-q' },
+        h('legend', { text: `${i + 1}. ${q.question}` }),
+        h('div', { class: 'quiz-choices' }, choices),
+        why);
     }
 
     markUndone(item) {

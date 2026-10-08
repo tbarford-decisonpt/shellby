@@ -135,3 +135,16 @@ test('laneFirstLine is the first line with words, without markdown, at most 120 
   assert.equal(F.laneFirstLine(`${'x'.repeat(200)}`).length, 120);
   assert.equal(F.laneFirstLine('\n#\n'), null);
 });
+
+test('quizWorthy: a quiz is offered on turns of a real size, the same mark main checks', () => {
+  assert.equal(F.QUIZ_MIN_LINES, require('../src/main/quiz').MIN_LINES);
+  assert.equal(F.quizWorthy({ added: 20, removed: 10 }), true);
+  assert.equal(F.quizWorthy({ added: 3, removed: 1 }), false);
+  assert.equal(F.quizWorthy({}), false);
+});
+
+test('quizResult: all right, a pass, and a nudge to read the diff', () => {
+  assert.match(F.quizResult(3, 3), /^All 3 right/);
+  assert.match(F.quizResult(2, 3), /^2 of 3 right\. Worth a look/);
+  assert.match(F.quizResult(0, 3), /read through the diff/);
+});
