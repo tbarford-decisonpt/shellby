@@ -153,6 +153,7 @@ const DEFAULTS = {
   streamDeckAdded: false, // the plugin has been handed to Stream Deck's installer at least once
   rgb: null,          // { enabled, port }: his mood on the desk lighting (see rgb.js)
   rgbSaved: null,     // [{ id, name, saved }]: each device's own mode before Shellby painted it, put back on switching off
+  discord: null,      // { enabled, task }: his level and what he's up to on your Discord profile (see discord.js); off until you turn it on
   nowPlaying: null,   // { enabled, headphones, remarks }: listening along (see media.js)
   typing: null,       // { enabled, remarks }: tapping along while you type (see typing.js); off until you turn it on
   typingBest: 0,      // your fastest burst, in words a minute (typing.js)

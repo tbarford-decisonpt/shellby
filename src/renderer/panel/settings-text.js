@@ -127,6 +127,17 @@
     return { text, tone: busy ? '' : v.error ? 'warn' : devices.length ? 'ok' : '' };
   }
 
+  // On your Discord profile: showing, waiting for Discord, or turned down.
+  function discordStatus(v) {
+    if (!v.enabled) return { text: '', tone: '' };
+    if (v.configured === false) return { text: "This build of Shellby has no Discord app set up.", tone: 'warn' };
+    const text = v.status === 'on' ? (v.user ? `Showing on ${v.user}'s profile.` : 'Showing on your profile.')
+      : v.status === 'refused' ? `Discord said no: ${v.error || 'no reason given'}`
+        : v.status === 'looking' ? "Discord isn't open. He'll show up when it is."
+          : 'Looking for Discord…';
+    return { text, tone: v.status === 'on' ? 'ok' : v.status === 'refused' ? 'warn' : '' };
+  }
+
   // What's playing, as Windows tells it.
   function nowPlayingStatus(v) {
     const t = v.track;
@@ -157,7 +168,7 @@
 
   const api = {
     accelerator, BILLING_GUARD, billingState, planLabel, claudeUpdateTitle, claudeUpdateNote, updateStatus, updateButton,
-    sessionState, externalStatus, cliStatus, obsStatus, deckStatus, rgbStatus, nowPlayingStatus, typingStatus, minutesAgo, weatherStatus,
+    sessionState, externalStatus, cliStatus, obsStatus, deckStatus, rgbStatus, discordStatus, nowPlayingStatus, typingStatus, minutesAgo, weatherStatus,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbySettingsText = api;

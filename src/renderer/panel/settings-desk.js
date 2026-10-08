@@ -1,6 +1,6 @@
 /* Shellby panel — Settings: what he picks up around your desk. On a stream
-   (OBS), the Stream Deck's keys, desk lighting (OpenRGB), the music playing,
-   your typing and the weather outside. */
+   (OBS), the Stream Deck's keys, desk lighting (OpenRGB), your Discord
+   profile, the music playing, your typing and the weather outside. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -83,6 +83,20 @@
     : api.setRgb({ enabled: false }).then(v => { renderRgb(v); if (v.error) SB.toast(v.error, { ms: 6000 }); })));
   $('rgbTest').addEventListener('click', () => rgbBusy('starting', api.testRgb));
   $('rgbInstall').addEventListener('click', () => rgbBusy(null, api.installOpenRgb));
+
+  // ---------------------------------------------------------------- on your Discord profile
+  function renderDiscord(v) {
+    $('discordEnabled').checked = !!v.enabled;
+    $('discordBody').hidden = !v.enabled;
+    $('discordTask').checked = !!v.task;
+    const said = T.discordStatus(v);
+    $('discordStatus').textContent = said.text;
+    $('discordStatus').className = `small ext-status ${said.tone}`;
+  }
+  const setDiscord = patch => api.setDiscord(patch).then(renderDiscord);
+  $('discordEnabled').addEventListener('change', e => setDiscord({ enabled: e.target.checked }));
+  $('discordTask').addEventListener('change', e => setDiscord({ task: e.target.checked }));
+  api.onDiscord(v => { if (state.view === 'settings') renderDiscord(v); });
 
   // ---------------------------------------------------------------- listening along
   function renderNowPlaying(v) {
@@ -170,6 +184,7 @@
     api.getObs().then(renderObs);
     api.getDeck().then(renderDeck);
     api.getRgb().then(renderRgb);
+    api.getDiscord().then(renderDiscord);
     api.getNowPlaying().then(renderNowPlaying);
     api.getTyping().then(renderTyping);
     api.getWeather().then(renderWeather);
