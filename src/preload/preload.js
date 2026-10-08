@@ -454,6 +454,18 @@ contextBridge.exposeInMainWorld('shellby', {
   onEvents: on('events'),
   onEventFinished: on('events:finished'),
   onSparkle: on('sparkle:reveal'),
+  // swaps with friends and crab eggs (swaps.js, eggs.js)
+  getSocial: invoke('social:get'),
+  onSocial: on('social'),
+  onSocialFocus: on('social:focus'),
+  onHatched: on('social:hatched'),
+  swapOptions: invoke('swaps:options'),
+  swapOffer: invoke('swaps:offer'),
+  swapCancel: invoke('swaps:cancel'),
+  swapAnswer: invoke('swaps:answer'),
+  layEgg: invoke('eggs:lay'),
+  hatchEgg: invoke('eggs:hatch'),
+  followBaby: invoke('eggs:follow'),
   // the flaky test detective (flaky.js)
   getFlaky: invoke('flaky:get'),
   flakyAct: invoke('flaky:act'),

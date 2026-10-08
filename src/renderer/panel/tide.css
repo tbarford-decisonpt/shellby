@@ -152,3 +152,37 @@
 .bd-board-name { color: var(--sand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bd-board-n { font: var(--fs-11-5) var(--font-mono); color: var(--sand-dim); }
 .bd-board-note { margin: 8px 0 0; }
+
+/* ---------------------------------------------------------------- swaps (social.js) */
+.sw-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.sw-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 6px 10px; border-radius: 10px; background: var(--reef); font-size: var(--fs-12-5); }
+.sw-row.in { box-shadow: inset 3px 0 0 var(--glass); }
+.sw-actions { display: flex; gap: 6px; }
+.sw-item { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 1px 2px; border-radius: 8px; background: rgba(0, 0, 0, .22); vertical-align: middle; }
+.sw-item.sparkly { box-shadow: inset 0 0 0 1px rgba(255, 241, 168, .55); }
+.sw-picker { margin: 6px 0 10px 40px; padding: 10px 12px; border-radius: 12px; background: var(--reef); border: 1px solid var(--line-soft); }
+.sw-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .sw-cols { grid-template-columns: 1fr; } }
+.sw-cols h5 { margin: 0 0 6px; font-size: var(--fs-12); color: var(--sand-dim); }
+.sw-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.sw-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 4px 6px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--sand); text-align: left; cursor: pointer; }
+.sw-choice:hover { background: var(--reef-2); }
+.sw-choice.on { border-color: var(--glass); background: var(--glass-dim); }
+.sw-choice small { font-size: var(--fs-10-5); color: var(--sand-faint); }
+.sw-choice.finishes small { color: var(--amber); font-weight: 600; }
+.sw-choice.wanted small { color: var(--glass); }
+.sw-go { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; }
+.fr-medals { color: var(--sand-dim); }
+
+/* ---------------------------------------------------------------- eggs and the clutch (social.js) */
+.eg-lay { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.eg-open, .eg-babies { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.eg-egg { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: var(--reef); }
+.eg-code code { display: block; font: var(--fs-11-5) var(--font-mono); color: var(--sand); word-break: break-all; }
+.eg-actions { display: flex; gap: 6px; }
+.eg-babies { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.eg-baby { display: grid; justify-items: center; gap: 4px; padding: 10px 8px; border-radius: 12px; background: var(--reef); text-align: center; }
+.eg-baby.following { box-shadow: inset 0 0 0 1px var(--glass); }
+.eg-baby small { font-size: var(--fs-10-5); }
+.eg-hatch { margin-top: 12px; gap: 8px; }
+.eg-hatch .field { flex: 1; min-width: 220px; font-family: var(--font-mono); }

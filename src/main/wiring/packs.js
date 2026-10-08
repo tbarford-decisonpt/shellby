@@ -74,9 +74,18 @@ function wirePacks(d) {
       return;
     }
     // The panel must be loaded to switch views and hear the result.
-    const go = () => installFromRegistry(parsed.packId);
+    const go = parsed.action === 'hatch' ? () => hatchFromLink(parsed.code) : () => installFromRegistry(parsed.packId);
     if (d.panel.webContents.isLoading()) d.panel.webContents.once('did-finish-load', go);
     else go();
+  }
+
+  // A crab egg (eggs.js): the Us page, where the clutch is, and the hatch itself.
+  async function hatchFromLink(code) {
+    d.startView = 'us';
+    d.showPanel({ focusInput: false });
+    d.send(d.panel, 'panel:view', 'us');
+    const r = await d.hatchEgg(code);
+    if (!r.ok) d.send(d.panel, 'social', { ...d.socialView(), notice: r.error });
   }
 
   async function installFromRegistry(packId) {

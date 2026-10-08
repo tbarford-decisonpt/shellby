@@ -645,6 +645,7 @@ function createLife(d) {
     start, stop, idleBit, cancel, onPet, onStat, played, visit, digNow, digMenuItem, view, setBirthday, setFavourite, findsSeen,
     presentJar, jarIfFree,
     remember: (kind, data) => remember(kind, data), // a moment for the journal (bond.js MEMORIES)
+    changed: () => changed(), // the shelf moved under it (a swap, a hatch's gift): tell the panel
     hushed: () => onCall, onCall: () => onCall, playing: () => playing, napping, wake,
     busy: () => !!scene || !!presenting,
     lookNow: () => look,

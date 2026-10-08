@@ -61,6 +61,21 @@ function registerGithubIpc(ipcMain, d) {
   ipcMain.handle('friends:remove', (_e, login) => (d.friends && d.isStr(login) ? { ...d.friends.remove(login), view: d.friendsView() } : noFriends));
   ipcMain.handle('friends:invite', (_e, login) => (d.friends && d.isStr(login) ? d.friends.invite(login) : noFriends));
   ipcMain.handle('friends:wave', (_e, login, wave) => (d.friends && d.isStr(login) && d.isStr(wave) ? d.friends.wave(login, wave) : noFriends));
+  // ---- swaps and crab eggs (swaps.js, eggs.js, wiring/social.js). Only ids and logins come from the panel.
+  const ID_RE = /^[a-z0-9](?:[a-z0-9-]{0,39})$/;
+  const item = x => (x && typeof x === 'object' && typeof x.id === 'string' && ID_RE.test(x.id) ? { id: x.id, shiny: x.shiny === true } : null);
+  const sid = x => typeof x === 'string' && /^[a-z0-9]{8}$/.test(x);
+  ipcMain.handle('social:get', () => d.socialView());
+  ipcMain.handle('swaps:options', (_e, login) => (d.isStr(login) ? d.swapOptions(login.slice(0, 40)) : noFriends));
+  ipcMain.handle('swaps:offer', (_e, o) => {
+    const give = item(o?.give), get = item(o?.get);
+    return d.isStr(o?.to) && give && get ? d.swapOffer({ to: o.to.slice(0, 40), give, get }) : { ok: false, error: 'That swap doesn\'t look right.' };
+  });
+  ipcMain.handle('swaps:cancel', (_e, id) => (sid(id) ? d.swapCancel(id) : { ok: false }));
+  ipcMain.handle('swaps:answer', (_e, id, yes) => (sid(id) ? d.swapAnswer(id, yes === true) : { ok: false }));
+  ipcMain.handle('eggs:lay', () => d.layEgg());
+  ipcMain.handle('eggs:hatch', (_e, code) => (d.isStr(code) ? d.hatchEgg(code.slice(0, 300)) : { ok: false, error: 'Paste the egg code.' }));
+  ipcMain.handle('eggs:follow', (_e, id) => d.setBabyFollower(typeof id === 'string' && /^[a-z0-9]{16}$/.test(id) ? id : null));
   ipcMain.handle('ci:get', () => d.ciView());
   ipcMain.handle('ci:poll', async () => { await d.ci?.poll(); return d.ciView(); });
   const knownPr = key => d.isStr(key) && d.ci && [...d.ci.view().prs, ...d.ci.view().reviews].find(p => p.key === key);

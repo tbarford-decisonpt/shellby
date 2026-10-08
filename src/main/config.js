@@ -66,6 +66,8 @@ const DEFAULTS = {
   bugdex: null,      // the bugs Claude has fixed for you, in jars (see bugdex.js)
   events: null,      // tide events: each run's goals, and the medals won (see events.js)
   boardLast: null,   // where you stood on the friends' board last time it was drawn (see board.js)
+  swaps: null,       // swaps with friends: offers out and in, and the last few done (see swaps.js)
+  eggs: null,        // crab eggs: the ones he laid, the one you hatched, your clutch (see eggs.js)
   tideEvents: true,  // tide events on: their banner, goals, bugs and finds (see events.js)
   bond: null,        // how close you are, the days together, the moments he remembers (see bond.js)
   play: null,        // hide and seek and fetch scores (see play.js)

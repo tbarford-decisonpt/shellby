@@ -158,6 +158,8 @@ function wireBugdex(d) {
   // His favourite catch follows him round the desk (critter.js #buddy): its art, or null.
   let buddySent = null;
   function buddy() {
+    const baby = d.babyBuddy?.();
+    if (baby && d.config.get('bugFollower') !== false) return baby;
     if (!on() || d.config.get('bugFollower') === false) return null;
     const s = state();
     const id = bugdex.favourite(s);

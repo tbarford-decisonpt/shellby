@@ -29,7 +29,8 @@ function wireSocial(d) {
       eggs: eggs.view(eggState(), { login: login(), level: d.currentLevel?.() || 1, cardOn: !!on() }, now()),
     };
   }
-  const push = () => { d.send(d.panel, 'social', socialView()); d.life?.refreshFinds?.(); };
+  // notice: a line the panel shows as a toast (a swap declined).
+  const push = (notice = null) => { d.send(d.panel, 'social', { ...socialView(), notice }); d.life?.changed?.(); };
   // What's on your card changed (spares, eggs): publish it.
   const republish = () => d.friends?.republish?.().catch(() => {});
 
@@ -113,8 +114,7 @@ function wireSocial(d) {
       d.sayText(`@${l.from} wants to swap!`, 'wave', 8000);
       d.notify(`@${l.from} would like to swap`, 'Open Visiting crabs to see what for.', () => openFriends(), { pet: true, action: 'See it' });
     }
-    if (r.news === 'declined') d.send(d.panel, 'toast', `@${l.from} said no thanks to the swap. Yours is back on the shelf.`);
-    push();
+    push(r.news === 'declined' ? `@${l.from} said no thanks to the swap. Yours is back on the shelf.` : r.news === 'cancelled' ? `@${l.from} called their swap off.` : null);
     republish();
   }
 
@@ -128,8 +128,7 @@ function wireSocial(d) {
 
   function openFriends() {
     d.showPanel({ focusInput: false });
-    d.send(d.panel, 'panel:view', 'settings');
-    d.send(d.panel, 'settings:section', 'github');
+    d.send(d.panel, 'social:focus', 'friends'); // Settings, at Visiting crabs
   }
 
   // ---------------------------------------------------------------- eggs
