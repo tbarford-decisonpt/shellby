@@ -91,6 +91,17 @@ test('cliStatus is ready only when installed and listening', () => {
   assert.deepEqual(T.cliStatus({ available: true, installed: false }), { text: '', tone: '' });
 });
 
+test('deckStatus says whether the Stream Deck is listening, or what is in the way', () => {
+  const on = { status: 'listening', port: 47915, installed: true, connected: 0 };
+  assert.deepEqual(T.deckStatus({ ...on, connected: 1 }), { text: 'Stream Deck is connected.', tone: 'ok' });
+  assert.equal(T.deckStatus(on).text, 'Add the keys to start.');
+  assert.equal(T.deckStatus({ ...on, added: true }).text, 'Waiting for Stream Deck.');
+  assert.equal(T.deckStatus({ ...on, installed: false }).tone, 'warn');
+  assert.equal(T.deckStatus({ ...on, status: 'busy' }).text, 'Another app is using port 47915.');
+  assert.equal(T.deckStatus({ ...on, error: 'Nope.' }).text, 'Nope.');
+  assert.equal(T.deckStatus({ status: 'off', installed: true }).text, '');
+});
+
 test('obsStatus counts connected sources', () => {
   assert.deepEqual(T.obsStatus({ status: 'listening', viewers: 1 }), { text: '1 source connected.', tone: 'ok' });
   assert.equal(T.obsStatus({ status: 'listening' }).text, 'Waiting for OBS to connect.');
@@ -103,6 +114,15 @@ test('rgbStatus says the step it is on before any error or device count', () => 
   assert.deepEqual(T.rgbStatus({ error: 'No server' }), { text: 'No server', tone: 'warn' });
   assert.deepEqual(T.rgbStatus({ devices: [{}, {}] }), { text: '2 devices.', tone: 'ok' });
   assert.deepEqual(T.rgbStatus({}), { text: '', tone: '' });
+});
+
+test('discordStatus: showing, waiting for Discord, or turned down', () => {
+  assert.deepEqual(T.discordStatus({ enabled: false, status: 'on' }), { text: '', tone: '' });
+  assert.deepEqual(T.discordStatus({ enabled: true, status: 'on', user: 'Crab Fan' }), { text: "Showing on Crab Fan's profile.", tone: 'ok' });
+  assert.equal(T.discordStatus({ enabled: true, status: 'looking' }).text, "Discord isn't open. He'll show up when it is.");
+  assert.deepEqual(T.discordStatus({ enabled: true, status: 'refused', error: 'Invalid Client ID' }), { text: 'Discord said no: Invalid Client ID', tone: 'warn' });
+  assert.equal(T.discordStatus({ enabled: true, status: 'refused', configured: false }).tone, 'warn');
+  assert.equal(T.discordStatus({ enabled: true, status: 'connecting' }).text, 'Looking for Discord…');
 });
 
 test('nowPlayingStatus shows the track, paused or playing, with the app', () => {

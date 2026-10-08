@@ -1,6 +1,7 @@
 // Next up: a ranked backlog on each project's page (docs/plans/next-up.md).
 // Your tasks in .shellby/tasks.md, the repository's open issues and
-// milestones, and the loose ends in its code, in one list (backlog/rank.js),
+// milestones, the loose ends in its code and, once Sentry is connected, its
+// new production errors (wiring/sentry.js), in one list (backlog/rank.js),
 // each with "Do this": a copy on its own branch, a conversation in it, and the
 // prompt waiting in the box for you to read and send.
 //
@@ -353,6 +354,7 @@ function wireBacklog(d) {
       ...(it.note ? { note: it.note } : {}),
       ...(it.todo ? { todo: it.todo } : {}),
       ...(it.todos?.length ? { todos: it.todos } : {}),
+      ...(it.error ? { error: it.error } : {}),
       ...(link ? { doing: { tabId: link.tabId, branch: link.branch, open: !!d.manager?.tabs.has(link.tabId), pr: link.pr || null } } : {}),
     };
   }
@@ -368,10 +370,11 @@ function wireBacklog(d) {
   /** Everything for one project, ranked, with what was hidden taken out (raw: for the CLI and MCP). */
   async function build(p, { fresh = false, kick = false } = {}) {
     const tk = ticketsFor(p, { fresh, kick });
-    const [read, ends, gh] = await Promise.all([
+    const [read, ends, gh, se] = await Promise.all([
       p.root ? readTasks(p.root) : null,
       p.root ? d.looseEnds(p.root, { fresh }) : null,
       issuesFor(p.repo, fresh),
+      d.sentryFor ? d.sentryFor(p, { fresh }).catch(() => ({ state: 'none' })) : { state: 'none' },
     ]);
     const parsed = read?.ok ? tasks.parse(read.text) : { items: [], done: 0, more: 0 };
     const projectKey = d.projects?.keyFor?.(p) || null;
@@ -383,13 +386,14 @@ function wireBacklog(d) {
       milestones: gh.state === 'ok' ? gh.milestones : [],
       todos: ends?.ok ? ends.items : [],
       tickets: tk.state === 'ok' ? tk.tickets : [],
+      errors: se.errors || [],
       repo: p.repo, login: login(), now: Date.now(),
     });
     const hidden = new Set(hiddenAll()[p.key] || []);
     const items = ranked.items.filter(it => !hidden.has(it.id));
     lists.set(p.key, { items, root: p.root, repo: p.repo, name: p.name });
     if (p.root && read?.ok) reads.set(lower(p.root), read.hash);
-    return { read, ends, gh, tk, parsed, ranked, items, projectKey, hiddenCount: ranked.items.length - items.length };
+    return { read, ends, gh, se, tk, parsed, ranked, items, projectKey, hiddenCount: ranked.items.length - items.length };
   }
 
   /**
@@ -413,6 +417,8 @@ function wireBacklog(d) {
       milestones: b.gh.state === 'ok' ? b.gh.milestones.slice(0, 10) : [],
       github: { state: b.gh.state, error: b.gh.error || null, stale: !!b.gh.stale },
       tracker: trackerView(p, b.tk),
+      // none: not a Sentry project (nothing shows). offer, pick, ok, error: wiring/sentry.js forProject.
+      sentry: { state: b.se.state, error: b.se.error || null, stale: !!b.se.stale, project: b.se.project || null, projects: b.se.projects || [], url: d.sentryUrl?.() || null },
       tasks: tasksFile,
       looseEnds: b.ends ? { error: b.ends.ok ? null : b.ends.error, more: b.ends.more || 0 } : null,
       done: b.parsed.done,
@@ -538,6 +544,22 @@ function wireBacklog(d) {
       if (!p.root) return { ok: false, needsClone: true, repo: p.repo, error: 'Clone it first, so Claude has somewhere to work.' };
       const task = { title: item.title, notes: item.task.notes || [] };
       res = await d.startTaskInCopy(p.root, slugOf(item.title), w => prompts.taskPrompt({ project: p.name, task, copy: { branch: w.branch, base: w.base } }), { draft: true });
+    } else if (item.kind === 'error') {
+      if (!p.root) return { ok: false, needsClone: true, repo: p.repo, error: 'Clone it first, so Claude has somewhere to work.' };
+      const error = item.error;
+      const more = await d.sentryDetails(p, error);
+      const slug = `sentry-${slugOf(error.shortId)}`;
+      const title = `${error.shortId} ${error.title}`.slice(0, 80);
+      // Production runs what GitHub has: start there when it's on GitHub, else from your HEAD.
+      const copy = p.repo && d.github?.signedIn ? await d.makeIssueCopy({ repo: p.repo, slug }) : null;
+      const prompt = (w, base, fromGitHub) => prompts.errorPrompt({ project: p.name, error, ...more, copy: { branch: w.branch, base, fromGitHub } });
+      if (copy?.ok) {
+        res = await d.startTaskInCopy(copy.worktree.root, title, w => prompt(w, copy.base, true), { copy: copy.worktree, draft: true });
+        if (!res.ok) await worktrees.remove(copy.worktree, { force: true }).catch(() => {});
+      } else {
+        res = await d.startTaskInCopy(p.root, title, w => prompt(w, w.base, false), { draft: true });
+      }
+      warn = 'Error messages can carry what your users sent: read it before sending.';
     } else {
       const t = item.todo;
       const r = d.looseEndDraft({ root: p.root, file: t.file, line: t.line });
@@ -555,6 +577,7 @@ function wireBacklog(d) {
         start: tab?.unsentCopy?.head || null,
         ...(item.issue ? { issue: item.issue.number } : {}),
         ...(item.ticket ? { ticket: { key: item.ticket.key, url: item.ticket.url, tracker: item.ticket.tracker } } : {}),
+        ...(item.error ? { fixes: item.error.shortId } : {}),
         ...(item.task ? { taskId: item.task.id } : {}),
       },
     });
@@ -612,6 +635,21 @@ function wireBacklog(d) {
     return { ok: true };
   }
 
+  // ---- Sentry (wiring/sentry.js): connecting, and which Sentry project this is
+
+  /** op: connect { token, url } | link { org, slug } (slug null: not a Sentry project) | unlink | snooze | disconnect. */
+  async function sentryOp({ root, op, token, url, org, slug } = {}) {
+    if (!d.sentryConnect) return { ok: false, error: 'Sentry isn\'t ready yet.' };
+    if (op === 'disconnect') return d.sentryDisconnect();
+    if (op === 'connect') return d.sentryConnect({ token, url });
+    const p = await resolve({ root });
+    if (!p.ok) return p;
+    if (op === 'link') return d.sentryLink(p, { org, slug });
+    if (op === 'unlink') return d.sentryUnlink(p);
+    if (op === 'snooze') return d.sentrySnooze(p);
+    return { ok: false, error: 'That isn\'t something Shellby can do with Sentry.' };
+  }
+
   // ---- the finish line (Phase 2)
 
   /** What a conversation's copy menu offers, if the conversation came from Next up. */
@@ -641,7 +679,7 @@ function wireBacklog(d) {
     const commits = log.ok ? log.out.split('\n').map(s => s.trim()).filter(Boolean) : [];
     // Linear and Jira link a pull request by the key in its title.
     const title = link.ticket ? `${link.ticket.key}: ${link.title}`.slice(0, 200) : link.title;
-    const body = prompts.prBody({ issue: link.issue ? { number: link.issue } : null, ticket: link.ticket || null, title: link.issue ? '' : title, commits });
+    const body = prompts.prBody({ issue: link.issue ? { number: link.issue } : null, ticket: link.ticket || null, title: link.issue ? '' : title, commits, fixes: link.fixes || '' });
     const r = await d.openIssuePr({ folder: w.path, title, body, draft: true });
     if (!r.ok) return r;
     const links = { ...(doingAll()[key] || {}) };
@@ -819,6 +857,7 @@ function wireBacklog(d) {
     backlogOpenDoing: openDoing, backlogOpenTodo: openTodo, backlogOpenIssue: openIssue, backlogHide: hide,
     backlogTabInfo: tabInfo, backlogOpenPr: openPr, backlogTick: tickLinked, backlogCommit: commitTasks,
     backlogHand: handToWorkflow, backlogHome: onHome, backlogMerged: onMerged, backlogTabClosed: onTabGone,
+    backlogSentry: sentryOp,
     backlogRepoTasks: { list: repoTodos, add: repoTodoAdd, finish: repoTodoFinish }, backlogForTerminal: forTerminal,
     backlogTrackerChoices: trackerChoices, backlogTrackerSet: trackerSet,
   };

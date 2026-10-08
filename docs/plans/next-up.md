@@ -371,6 +371,25 @@ None to start with. It follows the GitHub sign-in and the **Projects** feature f
 6. The card (run `/impeccable` on it), the swap in `projects.js`, `PROJECTS.md`, screenshots. Ship Phase 1.
 7. Phase 2, then Phase 3.
 
+## Errors from Sentry
+
+A fourth source, out of sight unless a project uses Sentry. User-facing docs: [PROJECTS.md](../PROJECTS.md#errors-from-sentry).
+
+| File | What |
+|---|---|
+| `src/main/backlog/sentry.js` | Detection (an SDK in the manifests; org and project from `.sentryclirc`, `sentry.properties`, `withSentryConfig`/`sentryVitePlugin`), a GET-only client, the new errors, and the latest event's stack as text. Pure but for fetch. |
+| `src/main/wiring/sentry.js` | The token (safeStorage, in `config.sentry`), which Sentry project each project is, the caches, and what Fix this error quotes. |
+| `rank.js` `scoreError` | New today, escalating or regressed: Now. First seen this week: Up next. Else Later. Score from events and users. |
+| `prompts.js` `errorPrompt` | The stack fenced as `<stack-trace>`, secrets blanked, "Fixes SHORT-ID" asked for, the MCP server named when it's set up. |
+| `ipc/backlog.js` `backlog:sentry` | connect, link, unlink, snooze, disconnect. |
+
+States the card gets (`view().sentry.state`): `none` (shows nothing), `offer` (uses Sentry, not connected, not snoozed), `pick` (connected, can't tell which project), `ok`, `error`.
+
+- **Matching:** the project named in its Sentry config, else the only Sentry project whose slug is the repository's or folder's name, else the card asks (only for a project that uses Sentry). "None of these" stores `null` for it.
+- **The list:** `GET /api/0/organizations/{org}/issues/?project={id}&query=is:unresolved firstSeen:-14d&sort=date&statsPeriod=14d&limit=25`, with `environment=production` when `/projects/{org}/{slug}/environments/` has one. Cached 5 minutes, the last list kept (marked old) when Sentry can't be reached.
+- **Fix this error:** `/organizations/{org}/issues/{id}/events/latest/` for the stack and tags, then the issue path: `makeIssueCopy` from the default branch when the project is on GitHub and you're signed in, else a copy from HEAD. The prompt waits in the box like every Do this.
+- **Security:** the token is encrypted by Windows, never sent to the panel, and only sent to the checked address (https, or http on localhost). Redirects are refused rather than followed, so it can't be carried to another host. Error titles, culprits and stacks are cleaned (`clip`) and fenced. A permalink only becomes a link when it points into that Sentry.
+
 ## Not doing
 
 - **Syncing tasks to GitHub issues.** A task is a note to yourself. **Add to my tasks** goes from an issue to a task, never the other way round. Filing an issue is a separate, deliberate act.

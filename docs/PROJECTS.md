@@ -63,6 +63,7 @@ The first card on a project's page answers "what now?" with one ranked list, dra
 - **Its GitHub issues and milestones**, read when you open the page (signed in, with **Show my repositories** on). The nearest milestone gets a strip at the top: *"v0.71 · due in 4 days · 6 of 9 closed"*.
 - **Loose ends:** the TODO, FIXME and HACK comments in its tracked files (anything .gitignore'd or untracked is left out).
 - If you want them, **its Linear or Jira issues**, read through your own MCP server (see [Linear and Jira](#linear-and-jira)).
+- **Production errors from Sentry**, if the project uses it (see [Errors from Sentry](#errors-from-sentry)).
 
 Each row says why it's where it is: *Assigned to you*, *v0.71 · due in 2 days*, *Bug · 4 👍*, *FIXME in src/sync.js*. **Now** holds your `## Now` tasks and issues that are urgent or due within three days. **Up next** holds your other tasks, then issues assigned to you, in the nearest milestone or labelled `shellby`, then FIXMEs. Everything else comes **Later**. A task that says `#42` stands in for issue 42 and puts it where you want it. A `TODO(#42)` in the code is folded into issue 42 and quoted when you start on it.
 
@@ -87,6 +88,17 @@ If your team's issues live in Linear or Jira, they can join the list too, throug
 - **Do this** works as it does for an issue: a copy (from main as GitHub has it, when the project's on GitHub) on a branch named for it (`shellby/eng-123-…`), the description fenced as someone else's words, and the prompt waiting in the box. The draft pull request is titled `ENG-123: …` and, for Linear, says *Fixes ENG-123*, so Linear and Jira link it, and Linear closes the issue when it merges.
 - The link at the end of the card shows what's set (*Linear: ENG*): click it to change it or **Stop showing them**.
 
+### Errors from Sentry
+
+A project that reports to Sentry (a Sentry SDK in its `package.json`, `requirements.txt`, `go.mod` and the like, or a `.sentryclirc`) gets one quiet line on its card: *"It reports errors to Sentry. Show new ones here?"* A project that doesn't use Sentry never shows anything about it.
+
+- **Connect Sentry** takes a [personal token](https://sentry.io/settings/account/api/auth-tokens/) with `event:read`, `project:read` and `org:read`. One token covers every project. It's encrypted by Windows, stays on this PC, and only goes to your Sentry (`sentry.io`, or your own under **Self-hosted Sentry?**).
+- Shellby works out which Sentry project it is from the org and project in its Sentry config, or from the repository's name. When he can't tell, the card asks once. **Not now** asks again in a month.
+- **New errors** are the unresolved ones first seen in the last 14 days, from production when the project has a production environment. One that's new today, escalating, or back after being resolved is **Now**. One from this week is **Up next**, and older ones are **Later**. Each row shows its Sentry id, how many events and users, and why it's there.
+- **Fix this error** works like **Do this**: a copy started from main as GitHub has it (or from your latest commit when it isn't on GitHub), and a conversation with the error's stack trace from its latest event, its release and environment, waiting in the box. Error messages can carry what your users typed, so it's fenced, secrets are blanked, and **nothing goes to Claude until you send it**. Claude is asked to end its commit with *Fixes WEB-1A*, and the draft pull request says it too, so Sentry links the fix to the error.
+- **Sentry's MCP server:** add it in Toolbox → MCP and the prompt tells Claude it's there, so Claude can look up the error's other events, breadcrumbs and tags itself.
+- **Sentry** at the bottom of the card picks another Sentry project, stops showing Sentry on that project, or disconnects (Shellby forgets the token).
+
 ## Notes
 
 Somewhere to put ideas before they're tasks. **Notes** on the bar (<kbd>Ctrl</kbd>+<kbd>8</kbd>, or **New note** in <kbd>Ctrl</kbd>+<kbd>K</kbd>) keeps a list for each project and one **General** list, and opens on the project you're working in. Type a note and press <kbd>Enter</kbd> (<kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line). Each one has three buttons:
@@ -106,7 +118,8 @@ Afterwards the note says *Planned*, *Built* or *Asked*, with a link back to that
 - **Time by hand.** Add a meeting or take off a break on any day, with a note for the invoice.
 - **From your commits.** Days you committed but weren't keeping time can be filled in from the commits, marked as estimates wherever they show.
 - **Timesheets.** **Save PDF** makes a clean timesheet for a client, one project or everything, **Save CSV** gives one row per project per day for your invoicing tool, and **Copy as text** is ready to paste into an email. `shellby time last-week` prints the same summary in a terminal.
-- **Private:** everything stays on this PC and is never synced. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes.
+- **Send to your time tracker.** Under the timesheet, connect Toggl Track, Clockify or Harvest with an API token. Each project is matched to one of yours there, by its name or else its client, and you can change the match in the project's details. Pick a day and **Send**: each project's billed hours go over as one entry, with the day's note (or your commit messages) as its description. Sending a day again updates those entries rather than adding more. Nothing goes until you press it, and the token is kept encrypted by Windows.
+- **Private:** everything stays on this PC and is never synced, except the days you send to your time tracker. The title of the window in front is read only to tell which project it shows, and then forgotten: all that's kept is the project, the day and the minutes.
 
 ## Flaky tests
 

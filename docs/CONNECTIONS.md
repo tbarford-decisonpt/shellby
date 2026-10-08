@@ -1,6 +1,6 @@
 # Out in the world
 
-Your phone, your stream, your desk lights, your pull requests and your GitHub account. All optional, all off until you turn them on. Back to the [README](../README.md).
+Your phone, your stream, your desk lights, your Discord profile, your pull requests and your GitHub account. All optional, all off until you turn them on. Back to the [README](../README.md).
 
 <p align="center"><img src="screenshot-away.png" width="420" alt="Settings → Tell me when I'm away: ntfy selected, a QR code to scan with your phone, and a topic Shellby picked"></p>
 
@@ -17,6 +17,10 @@ Your phone, your stream, your desk lights, your pull requests and your GitHub ac
 ## 💡 Desk lighting
 
 Through [OpenRGB](https://openrgb.org): coral while he works, amber when he needs you, red when a build goes red or something overheats. **Install OpenRGB for me** does it with winget after you confirm, and he starts it in the tray whenever the lighting is on.
+
+## 🎮 On your Discord profile
+
+**Settings → On your Discord profile** puts him under your name the way a game shows up: *Lv 12 Abyssal Admin · working with Claude Code*, with a clock for how long he's been at it. Shellby talks to the Discord app on your PC, so there's nothing to sign in to. **Say what the task is** shows the running task's title instead, never in Work mode. With Visiting crabs on, a **Visit my crab** button links your calling card, so the people who see it can add you.
 
 ## ✅ CI on your pull requests
 
