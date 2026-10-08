@@ -4,6 +4,7 @@
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
 const { ClaudeSession } = require('./session');
+const workPose = require('./work-pose');
 const { cleanTitle } = require('./history');
 const review = require('./review-inbox');
 const turncost = require('./turncost');
@@ -105,6 +106,7 @@ class SessionManager extends EventEmitter {
     session.on('tokens', () => this.changed());
     session.on('plan', () => this.changed());
     session.on('crew', () => this.changed());
+    session.on('tool', () => this.changed());
     session.on('exit', () => {
       // Its mods ended with it: their status lines go too (plugin null: all of them).
       this.emit('item', tab.id, { kind: 'modstatus', plugin: null, text: null }, tab);
@@ -408,15 +410,17 @@ class SessionManager extends EventEmitter {
   // One state for the critter: asking beats working beats idle.
   get aggregate() {
     let pending = 0, busy = 0;
-    const crew = [];
+    const crew = [], tools = [];
     for (const t of this.tabs.values()) {
       pending += t.session.pending.size;
-      if (t.session.busy) busy++;
+      if (t.session.busy) { busy++; tools.push({ tool: t.session.tool, toolAt: t.session.toolAt }); }
       for (const c of t.session.runningCrew()) {
         crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'general-purpose' }); // Claude Code's own default
       }
     }
-    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew };
+    // What the busy tab that moved last is doing, for how the crab works (work-pose.js).
+    const latest = workPose.latest(tools);
+    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, tool: latest?.tool || null, toolAt: latest?.toolAt || null };
   }
 
   changed() {

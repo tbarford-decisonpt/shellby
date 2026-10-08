@@ -311,6 +311,7 @@ src/main/        Electron main process
   bounties.js      the day's three bounties, picked from the date alone
   shells.js        the shells he grows into as he levels up (molting)
   motion.js        throws (release velocity, flight, landing) and idle strolls
+  work-pose.js     how he works (pure): the pose for the tool Claude has running, and which tab or outside session moved last
   voice.js         what he says and when (pure): line pools, cooldowns, temperament, idle habits
   dictation.js     push-to-talk: tap-or-hold on the hotkey, and Windows' offline speech recognizer in one warm PowerShell
   focus.js         focus sessions: focus, break, and what a restart picks up

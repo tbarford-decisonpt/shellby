@@ -19,6 +19,7 @@ const { checkupOf, readCheckup, commandDir } = require('./checkup');
 const { clientOf, describeClient } = require('./clients');
 const bugRead = require('./bugdex/detect');
 const { cmdKey } = require('./flaky/ids');
+const workPose = require('./work-pose');
 
 const DEFAULT_PORT = 47913;
 const MAX_BODY = 2 * 1024 * 1024;       // Write/Edit payloads include file contents
@@ -86,11 +87,12 @@ function applyHookEvent(sessions, evt, now, client = null) {
       s.state = 'idle';
       break;
     case 'UserPromptSubmit':
-      s.state = 'working'; s.tool = null; s.tools = 0; s.turnAt = now;
+      s.state = 'working'; s.tool = null; s.toolAt = now; s.tools = 0; s.turnAt = now;
       break;
     case 'PreToolUse': {
       s.state = 'working';
       s.tool = clip(evt.tool_name, 40) || null;
+      s.toolAt = now;
       s.tools += 1;
       if (HELPER_TOOLS.has(evt.tool_name)) s.helpers = Math.min(s.helpers + 1, 12);
       // A backgrounded command outlives the turn that started it, so it is
@@ -104,6 +106,7 @@ function applyHookEvent(sessions, evt, now, client = null) {
     }
     case 'PostToolUse': {
       if (s.state === 'asking') s.state = 'working'; // the permission was granted
+      s.tool = null; s.toolAt = now; // back to thinking until the next one
       // PostToolUse only fires for commands that succeeded (a failing one gets
       // PreToolUse only), so a test command here means the tests passed. Only
       // the meaning leaves this function, never the command itself.
@@ -133,6 +136,7 @@ function applyHookEvent(sessions, evt, now, client = null) {
     }
     case 'PostToolUseFailure': {
       if (s.state === 'asking') s.state = 'working'; // it was allowed, and then failed
+      s.tool = null; s.toolAt = now; // back to thinking until the next one
       // Failing tests mark the project red, so the pass that fixes them counts
       // as "green again" outside Shellby too. Only the meaning leaves here.
       const cmd = evt.tool_name === 'Bash' || evt.tool_name === 'PowerShell' ? evt.tool_input?.command : null;
@@ -247,8 +251,10 @@ function summarize(sessions) {
   const background = list
     .flatMap(s => (s.bg || []).map(b => ({ project: s.project, program: b.program, at: b.at })))
     .sort((a, b) => b.at - a.at);
+  // What the busy session that moved last is doing, for how the crab works (work-pose.js).
+  const latest = workPose.latest(busy);
   return {
-    state, busy: busy.length, crew, background,
+    state, busy: busy.length, crew, background, tool: latest?.tool || null, toolAt: latest?.toolAt || null,
     sessions: list.sort((a, b) => b.lastAt - a.lastAt).map(viewOf),
   };
 }

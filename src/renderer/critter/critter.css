@@ -149,6 +149,76 @@ html, body {
 .state-working .part-claw { animation: snap .42s steps(1) infinite; }
 .state-working .part-eyes, .state-working .part-stalks { animation: look 1.6s steps(1) infinite; }
 
+/* ---------- working the way Claude is (src/main/work-pose.js, critter.js setPose) ----------
+   One class per pose; 'busy' is the scuttle above. Every loop is a few stepped
+   frames, so a pose draws less than the scuttle's eased hop (see "What he
+   costs when idle" in docs/DEVELOPMENT.md). What a pose doesn't move holds still. */
+body[class*=" work-"] #sprite, body[class*=" work-"] [class*="part-legs"], body[class*=" work-"] .part-eyes,
+body[class*=" work-"] .part-stalks, body[class*=" work-"] .part-claw { animation: none; }
+
+/* thinking (between tools): claw to his chin, tap-tap, eyes up and about */
+body.work-think #sprite { animation: breathe 2.4s steps(1) infinite; }
+body.work-think .part-claw { animation: think-tap 1.6s steps(1) infinite; }
+body.work-think .part-eyes, body.work-think .part-stalks { animation: think-eyes 3.2s steps(1) infinite; }
+@keyframes think-tap {
+  0%, 40%, 60%, 100% { transform: rotate(-40deg) translate(-1px, -2px); }
+  50%, 70% { transform: rotate(-30deg) translate(-1px, -2px); }
+  80% { transform: rotate(-40deg) translate(-1px, -2px); }
+}
+@keyframes think-eyes { 0%, 100% { transform: translateY(-1px); } 45% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, -1px); } }
+
+/* reading: leant in, eyes running along a line and dropping to the next */
+body.work-read #sprite { transform-origin: 50% 100%; transform: rotate(3deg) translateY(1px); }
+body.work-read .part-claw { transform: rotate(8deg); }
+body.work-read .part-eyes, body.work-read .part-stalks { animation: read-scan 2s steps(1) infinite; }
+@keyframes read-scan {
+  0% { transform: translate(-1px, 0); } 20% { transform: translate(0, 0); } 40% { transform: translate(1px, 0); }
+  50% { transform: translate(-1px, 1px); } 70% { transform: translate(0, 1px); } 90% { transform: translate(1px, 1px); }
+}
+
+/* editing: eyes down on the work, claw scribbling, a bob with the strokes */
+body.work-write #sprite { animation: write-bob .5s steps(1) infinite; }
+body.work-write .part-eyes, body.work-write .part-stalks { transform: translateY(1px); }
+body.work-write .part-claw { animation: scribble .5s steps(1) infinite; }
+@keyframes scribble {
+  0%, 100% { transform: rotate(10deg) translateY(1px); } 25% { transform: rotate(-6deg); }
+  50% { transform: rotate(14deg) translate(1px, 1px); } 75% { transform: rotate(-4deg); }
+}
+@keyframes write-bob { 0%, 100% { transform: none; } 50% { transform: translateY(1px); } }
+
+/* a command running: he digs in */
+body.work-run #sprite { animation: run-bob .48s steps(1) infinite; }
+body.work-run .part-claw { animation: run-dig .48s steps(1) infinite; }
+body.work-run [class*="part-legs"] { animation: leg .24s steps(1) infinite; }
+@keyframes run-dig { 0%, 100% { transform: rotate(8deg); } 33% { transform: rotate(-12deg) translateY(1px); } 66% { transform: rotate(-26deg) translateY(3px); } }
+@keyframes run-bob { 0%, 100% { transform: none; } 66% { transform: translateY(1px); } }
+
+/* searching: stalks up, swivelling from one side to the other */
+body.work-search #sprite { transform-origin: 50% 100%; animation: search-turn 2s steps(1) infinite; }
+body.work-search .part-claw { transform: rotate(-10deg); }
+body.work-search .part-eyes, body.work-search .part-stalks { animation: search-look 2s steps(1) infinite; }
+@keyframes search-turn { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes search-look {
+  0%, 100% { transform: translate(-2px, -1px); } 25% { transform: translate(-1px, -1px); }
+  50% { transform: translate(2px, -1px); } 75% { transform: translate(1px, -1px); }
+}
+
+/* on the web: leant back on his toes, claw shading his eyes, gazing a long way off */
+body.work-web #sprite { transform-origin: 50% 100%; animation: tiptoe 2.4s steps(1) infinite; }
+body.work-web .part-claw { transform: rotate(-62deg) translate(0, -2px); }
+body.work-web .part-eyes, body.work-web .part-stalks { animation: far-look 4.8s steps(1) infinite; }
+@keyframes tiptoe { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(-5deg) translateY(-1px) scale(1, 1.04); } }
+@keyframes far-look { 0%, 100% { transform: translate(1px, -2px); } 60% { transform: translate(2px, -2px); } }
+
+/* a subagent on the job: waving the helpers on, a spring in his step */
+body.work-crew #sprite { animation: run-bob .8s steps(1) infinite; }
+body.work-crew .part-claw { animation: wave-on .8s steps(1) infinite; }
+body.work-crew [class*="part-legs"] { animation: leg .4s steps(1) infinite; }
+@keyframes wave-on {
+  0%, 100% { transform: rotate(-20deg); } 25% { transform: rotate(-42deg) translateY(-1px); }
+  50% { transform: rotate(-20deg); } 75% { transform: rotate(-34deg); }
+}
+
 /* ---------- asking: claw up, waiting on you ---------- */
 .state-asking #sprite { animation: sway 1.2s ease-in-out infinite; }
 .state-asking .part-claw { transform: rotate(-35deg) translate(1px, -2px); }

@@ -1,0 +1,2 @@
+### New
+- **He works the way Claude is working.** Instead of one scuttle for everything, he leans in and reads along while Claude reads files, scribbles with his claw while it edits, digs in while a command runs, swivels about while it searches, gazes off into the distance on the web, waves the helpers on when a subagent goes out, and taps his chin while it thinks between steps. Claude Code sessions outside Shellby count too.
