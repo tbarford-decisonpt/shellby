@@ -8,7 +8,8 @@ Shellby doesn't talk to any AI API itself. Each conversation is one long-lived C
 
 ```
 claude -p --input-format stream-json --output-format stream-json --verbose
-       --permission-prompt-tool stdio --permission-mode <mode> [--resume <id>]
+       --permission-prompt-tool stdio --replay-user-messages --permission-mode <mode>
+       --allow-dangerously-skip-permissions [--resume <id>]
 ```
 
 - **Tasks** go in as JSON user messages on stdin. One process holds the whole conversation, so follow-ups keep context.
@@ -125,7 +126,7 @@ Claude Code ships often, and Shellby drives it through flags and a protocol that
 - **Flags.** Every flag `ClaudeSession.buildArgs()` can launch with is listed in `src/main/cli-contract.js`, and a unit test fails if the two drift apart. The documented ones must be in `claude --help`. Two (`--permission-prompt-tool`, `--resume-session-at`) are hidden from it, so the check also launches with every flag at once and fails on `unknown option`.
 - **Values.** Each `--permission-mode` Shellby's modes map to, and each `--effort` level, must be accepted (and a made-up one refused, or the check can't tell). Ask mode launches as `default`, which `--help` no longer lists but the CLI still takes.
 - **Protocol.** The `initialize` control request, with the same hook registration Shellby sends, must be answered. It is answered before sign-in, so this needs no account.
-- **A real turn**, only when the `ANTHROPIC_API_KEY` repository secret is set: one Haiku turn writes a file through an approved permission prompt, and every event it sends must be one `stream.js` understands. `KNOWN` in `stream.js` lists the events Shellby reads past on purpose; an event outside it is reported, and the transcript is kept as a run artifact.
+- **A real turn**, only when the `ANTHROPIC_API_KEY` repository secret is set: one Haiku turn writes a file through an approved permission prompt, and every event it sends must be one `stream.js` understands. `KNOWN` in `stream.js` lists the events Shellby knows, including the ones it reads past on purpose; an event outside it is reported, and the transcript is kept as a run artifact.
 
 A pass updates the **Works with Claude Code** badge in the README (a shields.io endpoint, `cli-compat.json` on the `badges` branch, which the workflow creates on its first run). A failure turns the badge red with the last version that worked, and opens an issue labelled `cli-compat`, or comments on the open one once per new version. The next pass closes it.
 
@@ -237,7 +238,7 @@ per presented frame, whatever draws it. Fewer frames was the win.
 ### The budget CI holds him to
 
 `npm run perf` (scripts/perf-budget.js) measures the numbers above, and a few
-more, on every push, with an isolated profile and the fake Claude CLI. The
+more, on every push to main and every pull request, with an isolated profile and the fake Claude CLI. The
 budgets are in `scripts/perf-budgets.js`, each with a comment saying where the
 number comes from:
 
@@ -295,7 +296,7 @@ src/main/        Electron main process
     streaks.js       streaks and the hourly nudge check
     settings.js      settings' side effects: the hotkey, opening at login, the skins folder
     wardrobe.js      the Wardrobe at boot, its unlocks, the first-run credit from history
-    services.js      usage, held work, routines, away, stickers and copies (the *-service.js files)
+    services.js      usage, held work, routines, away, stickers and copies (their *-service.js files)
     quit.js          what quitting stops, in order
     popouts.js       a conversation in a window of its own, and handing it back to the panel
     notes.js         Notes: Plan, Build and Ask open a task in the right folder and mode

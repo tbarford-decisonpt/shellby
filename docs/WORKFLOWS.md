@@ -86,7 +86,7 @@ to three times per message.
 The editor shows a workflow as a **map**: its triggers along the top, then
 every step as a node, joined by wires in the order they run. An **If** splits
 into a Then lane and an Otherwise lane side by side, and they join again
-below. A **For each** wraps the steps it repeats in a loop.
+below. A **Repeat for each** wraps the steps it repeats in a loop.
 
 - **Press a node** to change it. Its fields open beside the map (or under it,
   when the panel is narrow). <kbd>Esc</kbd> closes them.
@@ -127,18 +127,18 @@ Every workflow can also be run by hand with **Run**.
 
 | Step | Does |
 |---|---|
-| **Claude** | gives Claude Code a task, in a mode you pick. Add **output fields** and Claude hands back data (text, numbers, true/false, lists) for the steps after it. |
-| **Command** | runs a PowerShell command and keeps its output and exit code |
+| **Ask Claude** | gives Claude Code a task, in a mode you pick. Add **output fields** and Claude hands back data (text, numbers, true/false, lists) for the steps after it. |
+| **Run a command** | runs a PowerShell command and keeps its output and exit code |
 | **Web request** | calls a web address (GET, POST…) and keeps the answer, parsed as JSON when it is |
 | **MCP tool** | calls one tool of one of your MCP servers directly ("create an issue in Linear"), with no Claude turn. See [MCP servers](#mcp-servers). |
 | **Ask me** | stops and asks you, with your own choices or Continue / Stop. A notification and your phone say it's waiting. Give it a **file to open** and the question has a button that opens it in your editor, so you can change a file an earlier step wrote before you answer (a **File** step that reads it afterwards gets your version). |
 | **Tell me** | a notification, a message on your phone, a line from the crab, or a line added to a file |
 | **Set values** | names a value for later steps |
 | **If** | runs one list of steps or another |
-| **For each** | repeats steps for every item in a list (up to 100) |
+| **Repeat for each** | repeats steps for every item in a list (up to 100) |
 | **Wait** | for up to 7 days, even across a restart |
 | **File** | reads, writes or adds to a file. In the run, its path is a link that opens the file. |
-| **Run workflow** | runs another workflow and waits for it |
+| **Run a workflow** | runs another workflow and waits for it |
 | **Stop** | ends the run, as done or as failed |
 | **Make a copy** | a copy of a GitHub repository cloned on this PC, on its own branch, started from its main branch on GitHub. Later steps work in it as `{{ copy.path }}`. |
 | **Open a pull request** | commits whatever is left in the copy, pushes its branch and opens a pull request (a draft, unless you untick it) |
@@ -157,7 +157,7 @@ lists what's available there, so you rarely need to type one.
 {{ diagnose.cause }}              a field from the step called "diagnose"
 {{ check.json.items | length }}   with a filter: json, upper, lower, trim, length,
                                   first, last, join ", ", default "x", lines, slice 0 100
-{{ item }}  {{ loop.number }}     inside For each
+{{ item }}  {{ loop.number }}     inside Repeat for each
 {{ now }}  {{ today }}  {{ secrets.API_KEY }}
 ```
 
@@ -288,7 +288,7 @@ or a file), and blanked out of everything a run records.
 
 ## Web hooks
 
-Add the **Web hook** trigger and save, and the workflow gets an address on
+Add the **From a script** trigger and save, and the workflow gets an address on
 Shellby's local port (it needs **Settings → Claude Code everywhere** turned on):
 
 ```powershell
@@ -311,14 +311,15 @@ shellby flow run "Release notes" version=1.2.0
 ```
 
 From a Claude Code session with the plugin: `list_workflows`, `run_workflow`
-and `add_workflow`. Only workflows with the **Claude Code** trigger can be run
+and `add_workflow`. Only workflows with the **When Claude Code asks** trigger can be run
 this way, and Claude can't pick Autonomous for a step.
 
 ## Safety
 
 - Saving a workflow that can act without asking (a command, a web request, a
   file write, an MCP tool step, MCP servers a Claude step may use unasked, a
-  Claude step in Smart, Auto-edit or Autonomous) shows exactly
+  Claude step in Smart, Auto-edit or Autonomous, running another workflow,
+  opening a pull request) shows exactly
   what it may do in Shellby's confirmation window. It asks again only when one
   of those things changes.
 - At most 4 runs go at once, and the rest wait their turn. A workflow that

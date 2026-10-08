@@ -55,8 +55,8 @@ one lands under "Changed" word for word.
 
 - **Line endings are LF.** Edits through Python's text mode on Windows rewrite whole
   files as CRLF. Use the Edit tool, Node `fs`, or `open(..., newline='')`.
-  `claude-plugin/mcp/server.js` diffs as binary (literal control characters in a
-  regex), so read it with `git diff --text`.
+  `claude-plugin/mcp/server.js` has literal control characters in a regex, and its
+  older commits diff as binary, so read those with `git diff --text`.
 - **Temp paths on CI are 8.3 short names** (`C:\Users\RUNNER~1\...`) and git reports
   the long path. Tests that compare paths with git output make their temp dirs with
   `fs.realpathSync.native(fs.mkdtempSync(...))`. The dev PC has no short paths, so

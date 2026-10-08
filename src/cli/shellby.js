@@ -94,8 +94,7 @@ For "flow run", the name is every word before the first key=value (or quote
 it), and each key=value fills in one of the workflow's inputs:
   shellby flow run Red build fixer branch=main
 
-Shellby has to be running. He will ask you before starting the task unless you
-have turned that off in Settings.`;
+Shellby has to be running.`;
 
 // ------------------------------------------------------------------ plumbing
 

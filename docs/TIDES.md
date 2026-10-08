@@ -13,7 +13,7 @@ Six times a year, for a week or so, something's going on at sea. While one's on,
 | ❄️ **Frostbite** | Dec 18 – Jan 1 | your third catch in a day | |
 | 💌 **Pen Pal Week** | Feb 9 – 15 | a bug beaten with a helper crab in the fight | swaps count double toward the trophies |
 | 🌸 **Spring Clean** | Mar 22 – Apr 2 | a fix that deletes more lines than it adds | |
-| 🌊 **Low Tide** | Jul 10 – 21 | any catch in the Shallows | he digs twice as often, and finds sparkle twice as often |
+| 🌊 **Low Tide** | Jul 10 – 21 | any catch in the Shallows | he digs twice as often, and finds and bugs sparkle twice as often |
 
 South of the equator (the town you picked for the weather), Harvest Moon, Spring Clean and Low Tide move six months, like their seasons. The holidays keep their dates.
 
@@ -28,7 +28,7 @@ Switch: **Settings → Safety nets → Tide events**.
 
 ## Sparklies
 
-Now and then a find he digs up comes up **sparkly**: the same find, in colours you'll rarely see. It's 1 in 128 (1 in 64 at Low Tide). Bugs have always had a 1 in 64 shiny form, and they get the same moment now.
+Now and then a find he digs up comes up **sparkly**: the same find, in colours you'll rarely see. It's 1 in 128 (1 in 64 at Low Tide). Bugs have always had a 1 in 64 shiny form (1 in 32 at Low Tide, and for the Wreck's ghosts at The Haunting), and they get the same moment now.
 
 When one turns up, the panel stops for it. A card flips over to show it big, with the odds, how many came before it, and the day, and **📸 Share this** saves it as a picture and copies it. On the shelf, a sparkly find shows both ways, with a ✨ and how many you have.
 

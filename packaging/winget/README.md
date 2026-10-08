@@ -54,7 +54,7 @@ Then fork `microsoft/winget-pkgs`, copy this version folder to
 
 ## Automatic updates after that
 
-The release workflow's last two steps update winget on every tag, using Microsoft's
+Two steps near the end of the release workflow update winget on every tag, using Microsoft's
 [`wingetcreate`](https://github.com/microsoft/winget-create). It reuses the same
 `WINGET_TOKEN` secret as the first submission, so once that's set there is nothing
 further to do. With the secret unset, the steps are skipped and releases behave exactly
