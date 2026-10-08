@@ -433,12 +433,38 @@ const NEED_METERS = new Set(['fullness', 'tidiness', 'energy', 'cheer']);
 let needs = null;
 const needClasses = () => (needs ? [NEED_MOODS.has(needs.mood) ? `need-${needs.mood}` : '', ...(needs.low || []).filter(k => NEED_METERS.has(k)).map(k => `low-${k}`)] : []);
 let stillNow = false; // calm from main (locked, covered, nobody at the desk): see api.onCalm
+
+// ---- how he works (src/main/work-pose.js): reading, editing, running a
+// command, thinking... one body class per pose in critter.css. Claude can
+// switch tools several times a second, so a pose is held a moment before the
+// next takes over. Anything else that has his body (a throw, a walk, a habit,
+// typing along) outranks it, and he scuttles as he always did.
+const WORK_POSES = new Set(['think', 'read', 'write', 'run', 'search', 'web', 'crew', 'busy']);
+const POSE_HOLD_MS = 1500;
+const SHARES_BODY = f => f.startsWith('weather-') || f.startsWith('surface-') || f === 'on-perch';
+let pose = null;   // the pose showing
+let poseAt = 0;    // ...since when
+let wanted = null; // the newest one main asked for
+let poseTimer = null;
+function setPose(next) {
+  wanted = WORK_POSES.has(next) ? next : null;
+  clearTimeout(poseTimer);
+  if (wanted === pose) return false;
+  const wait = pose && wanted ? poseAt + POSE_HOLD_MS - Date.now() : 0;
+  if (wait > 0) { poseTimer = setTimeout(() => { if (setPose(wanted)) paintBody(); }, wait); return false; }
+  pose = wanted;
+  poseAt = Date.now();
+  return true;
+}
+const poseClass = dropping => (state === 'working' && pose && pose !== 'busy' && !molt && !dropping && ![...flags].some(f => !SHARES_BODY(f)) ? `work-${pose}` : '');
+
 function paintBody() {
   const dropping = document.body.classList.contains('dropping');
   document.body.className = [
     `state-${state}`, bubbleOn() || dropping ? 'bubble-on' : '', health ? `health-${health.level}` : '',
     molt?.cls, dropping ? 'dropping' : '', ciFailing && state !== 'sleeping' ? 'ci-red' : '',
     focusing ? `focus-${focusing.phase}` : '', limit ? 'limited' : '', saying() ? 'saying' : '', onCall ? 'on-call' : '',
+    poseClass(dropping),
     stillNow ? 'calm-deep' : '', // kept through every repaint, or the next state push would wake him
     ...needClasses(), ...flags,
   ].filter(Boolean).join(' ');
@@ -448,6 +474,7 @@ function paintBody() {
 api.onState(msg => {
   const wasLoad = clawLoad();
   state = msg.state;
+  setPose(state === 'working' ? msg.work : null);
   health = msg.health || null;
   level = msg.level || level;
   ciFailing = msg.ci?.failing || 0;

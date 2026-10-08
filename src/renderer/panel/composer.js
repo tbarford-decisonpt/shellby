@@ -218,6 +218,7 @@
     { name: 'rewind', kind: 'shellby', description: 'Go back to an earlier message: the conversation, the code, or both (Esc Esc)' },
     { name: 'branch', kind: 'shellby', description: 'Try again from an earlier message in a new tab, with its own copy of the files. This one stays as it is' },
     { name: 'tries', kind: 'shellby', description: 'Try a message 2, 3 or 4 ways at once, each in its own copy, then pick the best: /tries 3 fix the login. Asks first, with the cost' },
+    { name: 'btw', kind: 'shellby', description: 'Ask a quick side question, even while Claude works. It sees the conversation but stays out of it' },
     { name: 'export', kind: 'shellby', description: 'Save this conversation as Markdown (/export clipboard copies it)' },
     { name: 'effort', kind: 'shellby', description: 'How hard Claude thinks here: low, medium, high, xhigh, max or auto. /effort new <level|pick> for new conversations' },
     { name: 'permissions', kind: 'shellby', description: 'The allow, ask and deny rules Claude Code follows' },
@@ -233,6 +234,7 @@
     // Try it N ways (tries.js): main asks first, with what it usually costs.
     tries: (tab, arg) => startTries(tab, arg),
     try: (tab, arg) => startTries(tab, arg),
+    btw: (tab, arg) => askBtw(tab, arg),
     export: async (tab, arg) => {
       if (!tab.saved) return SB.toast('Send it something first: there is nothing to export yet.');
       const to = /^clip/i.test(arg) ? 'clipboard' : 'file';
@@ -277,6 +279,16 @@
       return SB.toast('Say how many ways and what: /tries 3 fix the flaky login test');
     }
     SB.startTries?.(tab, { arg, attachments: [...(tab.attachments || [])] });
+  }
+
+  // /btw what was that file called?: answered in a card of its own (feed-notes.js),
+  // from a fork of the conversation that Claude never sees (btw.js).
+  async function askBtw(tab, question) {
+    if (!question) return SB.toast('Ask something after /btw, like: /btw what was that file called?');
+    const card = tab.renderBtw(question);
+    const r = await api.askBtw(tab.id, question);
+    if (r?.ok) card.answer(r.answer);
+    else card.fail(r?.error || "Couldn't ask that.");
   }
 
   // The last thing you asked Claude, kept as a snippet: "that worked, keep it".

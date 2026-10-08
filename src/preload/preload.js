@@ -103,6 +103,7 @@ contextBridge.exposeInMainWorld('shellby', {
   suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
   promptHistory: invoke('prompt:history'),
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
+  askBtw: (tabId, question) => ipcRenderer.invoke('btw:ask', { tabId, question }),
   rewindPoints: invoke('rewind:points'),
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
