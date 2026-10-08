@@ -4,8 +4,14 @@
 // Finds). Some only turn up in their season, a couple only on special days,
 // and they come in sets worth completing.
 //
+// Now and then one comes up sparkly: the same find in turned colours, with a
+// glint (1 in 128, more during some tide events). The shelf counts them apart.
+// Tide events (events.js) bring two finds each that only turn up while
+// they're on.
+//
 // Pure: no I/O, no clock, no randomness of its own (callers pass `now` and
 // `rand`). src/main/life.js does the digging; see test/gifts.test.js.
+const art = require('./bugdex/art');
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -25,11 +31,14 @@ const FIND_GAP = 20 * MINUTE;      // between idle finds
 const MANUAL_EVERY = 2 * HOUR;     // "Dig for treasure" from his menu
 const LEGENDARY_AFTER = 10;        // finds before a legendary can turn up at all
 const NEW_BIAS = 2;                // something not on the shelf yet is this much likelier
+const EVENT_BIAS = 6;              // a tide event's own finds, while it's on
+const SPARKLE_CHANCE = 1 / 128;    // a sparkly one (events.js can raise it, at most 4×)
+const MAX_SPARKLE_BOOST = 4;
 
 // Each find: pixel art (one character per pixel, '.' is empty), a line for the
 // shelf, and where it belongs. `season` finds only turn up in that season
-// (src/main/wardrobe/seasons.js), `night` ones only after dark, `special` ones
-// only on their day.
+// (src/main/wardrobe/seasons.js), `event` ones only during their tide event
+// (events.js), `night` ones only after dark, `special` ones only on their day.
 const FINDS = Object.freeze([
   // ---- the beach
   { id: 'pebble', name: 'Smooth pebble', rarity: 'common', set: 'beach', blurb: 'Perfectly round. He checked.', palette: { a: '#8d99ae', b: '#b8c2d1', c: '#dfe5ec' }, pixels: ['.bbb.', 'bcbba', 'bbbba', '.aaa.'] },
@@ -139,10 +148,24 @@ const FINDS = Object.freeze([
   { id: 'beach-ball', name: 'Beach ball', rarity: 'uncommon', set: 'seasons', season: 'summer', blurb: 'Bigger than him when it\'s blown up.', palette: { a: '#ff5a4a', b: '#fff4e4', c: '#3a86ff' }, pixels: ['.abc.', 'abcab', 'cabca', '.bca.'] },
   { id: 'acorn', name: 'Acorn', rarity: 'uncommon', set: 'seasons', season: 'autumn', blurb: 'A squirrel is looking for this.', palette: { a: '#c97b4a', b: '#7f5539' }, pixels: ['.bbb.', 'bbbbb', '.aaa.', '.aaa.', '..a..'] },
 
+  // ---- tide events: two each, only while the event is on (events.js)
+  { id: 'golden-wheat', name: 'Golden wheat', rarity: 'rare', set: 'tides', event: 'harvest', blurb: 'From the last field before the moon came up.', palette: { y: '#ffd166', Y: '#e9a23b', g: '#8a6a3a' }, pixels: ['.y.y.', 'yYyYy', '.yYy.', '..g..', '..g..', '.g.g.'] },
+  { id: 'lantern-gourd', name: 'Lantern gourd', rarity: 'rare', set: 'tides', event: 'harvest', blurb: 'Hollowed out, with a light inside. Still warm.', palette: { o: '#e76f51', y: '#ffd166', s: '#3a7d44' }, pixels: ['..s..', '.ooo.', 'oyoyo', 'ooyoo', '.ooo.'] },
+  { id: 'ghost-lantern', name: 'Ghost lantern', rarity: 'rare', set: 'tides', event: 'haunting', blurb: 'Glows green. Nobody lit it.', palette: { k: '#2b2d42', g: '#57cc99', G: '#b8ffd9' }, pixels: ['.kkk.', 'k.k.k', 'kgGgk', 'kGgGk', 'kgGgk', '.kkk.'] },
+  { id: 'cursed-doubloon', name: 'Cursed doubloon', rarity: 'rare', set: 'tides', event: 'haunting', blurb: 'Every time he puts it down it\'s back in his claw.', palette: { a: '#9bb34a', b: '#e0e78f', k: '#2b2d42' }, pixels: ['.aaa.', 'abkba', 'abbba', 'akbka', '.aaa.'] },
+  { id: 'ice-crystal', name: 'Ice crystal', rarity: 'rare', set: 'tides', event: 'frostbite', blurb: 'From a tide pool that froze solid. Doesn\'t melt.', palette: { i: '#8ecae6', w: '#ffffff' }, pixels: ['..w..', '.iwi.', 'iiwii', '.iwi.', '..i..'] },
+  { id: 'frozen-bug', name: 'Bug in ice', rarity: 'rare', set: 'tides', event: 'frostbite', blurb: 'Caught in the ice before anyone could fix it.', palette: { i: '#cdeafe', I: '#8ecae6', r: '#e63946', k: '#2b2d42' }, pixels: ['IIIII', 'IirkI', 'IrrrI', 'IikiI', 'IIIII'] },
+  { id: 'love-letter', name: 'Love letter', rarity: 'rare', set: 'tides', event: 'penpal', blurb: 'Addressed to "the crab on the next desk".', palette: { w: '#fff4e4', b: '#c9b38a', r: '#ff5d8f' }, pixels: ['bbbbbb', 'bwbbwb', 'bwwwwb', 'bwwrwb', 'bbbbbb'] },
+  { id: 'paired-shells', name: 'Paired shells', rarity: 'rare', set: 'tides', event: 'penpal', blurb: 'Two halves of one shell. He keeps one, you keep one.', palette: { a: '#ffb3c6', b: '#ff8fab', c: '#fff4f7' }, pixels: ['.aa..bb.', 'acaa.bcb', 'aaaa.bbb', '.aa...b.'] },
+  { id: 'feather-duster', name: 'Feather duster', rarity: 'rare', set: 'tides', event: 'spring-clean', blurb: 'For the corners of the codebase nobody visits.', palette: { p: '#ffb3c6', y: '#ffd166', b: '#8a6a4a' }, pixels: ['pyp', 'ypy', 'pyp', '.b.', '.b.', '.b.'] },
+  { id: 'pressed-flower', name: 'Pressed flower', rarity: 'rare', set: 'tides', event: 'spring-clean', blurb: 'Found between the pages of an old README.', palette: { p: '#ff8fab', y: '#ffd166', g: '#57cc99', w: '#fff4e4' }, pixels: ['wwwww', 'wpwpw', 'wwyww', 'wpgpw', 'wwgww'] },
+  { id: 'stranded-jelly', name: 'Stranded jellyfish', rarity: 'rare', set: 'tides', event: 'low-tide', blurb: 'The sea went out without it. He put it in a bucket.', palette: { p: '#cdb4db', P: '#9d4edd', w: '#fff4e4' }, pixels: ['.ppp.', 'pwpwp', 'PPPPP', 'P.P.P', '.P.P.'] },
+  { id: 'pearl-oyster', name: 'Pearl oyster', rarity: 'rare', set: 'tides', event: 'low-tide', blurb: 'Left high and dry by the tide. The pearl is still in it.', palette: { a: '#8d99ae', b: '#c0c8d6', w: '#ffffff' }, pixels: ['.aaa.', 'abbba', 'a.w.a', 'abbba', '.aaa.'] },
+
   // ---- keepsakes: only on their day
   { id: 'cake-slice', name: 'Birthday cake', rarity: 'special', special: 'birthday', blurb: 'Dug up on your birthday. Still fresh, somehow.', palette: { r: '#e63946', w: '#fff4e4', p: '#f4a261' }, pixels: ['...r.', '..www', '.wwwp', 'wwwpp', 'ppppp'] },
   { id: 'hatch-candle', name: 'Hatch-day candle', rarity: 'special', special: 'hatchday', blurb: 'From the anniversary of the day he moved in.', palette: { y: '#ffd23f', o: '#ff9f1c', w: '#fff4e4', p: '#ff8fab' }, pixels: ['..y..', '..o..', '.www.', '.wpw.', '.www.'] },
-].map(f => Object.freeze({ set: null, season: null, night: false, special: null, ...f, pixels: Object.freeze([...f.pixels]), palette: Object.freeze({ ...f.palette }) })));
+].map(f => Object.freeze({ set: null, season: null, event: null, night: false, special: null, ...f, pixels: Object.freeze([...f.pixels]), palette: Object.freeze({ ...f.palette }) })));
 
 const SETS = Object.freeze([
   { id: 'beach', name: 'Beach day', icon: '🏖️' },
@@ -156,6 +179,7 @@ const SETS = Object.freeze([
   { id: 'dig-site', name: 'Dig site', icon: '🦴' },
   { id: 'night', name: 'After dark', icon: '🌙' },
   { id: 'seasons', name: 'All year round', icon: '🗓️' },
+  { id: 'tides', name: 'Tide chest', icon: '🧭' },
 ].map(s => Object.freeze({ ...s, members: Object.freeze(FINDS.filter(f => f.set === s.id).map(f => f.id)) })));
 
 const BY_ID = new Map(FINDS.map(f => [f.id, f]));
@@ -171,7 +195,11 @@ function normalize(raw) {
   for (const [id, it] of Object.entries(r.items && typeof r.items === 'object' ? r.items : {})) {
     if (!BY_ID.has(id) || !it || typeof it !== 'object') continue;
     const n = Math.floor(pos(it.n));
-    if (n) items[id] = { n, first: pos(it.first), last: pos(it.last) };
+    if (!n) continue;
+    const shiny = Math.min(n, Math.floor(pos(it.shiny)));
+    // Set aside for a swap (swaps.js): never more than you have.
+    const held = Math.min(n, Math.floor(pos(it.held)));
+    items[id] = { n, first: pos(it.first), last: pos(it.last), ...(shiny ? { shiny, shinyFirst: pos(it.shinyFirst) } : {}), ...(held ? { held } : {}) };
   }
   return {
     items,
@@ -191,11 +219,12 @@ const total = state => Object.values(state.items).reduce((n, it) => n + it.n, 0)
 const kinds = state => Object.keys(state.items).length;
 
 /** Every find that could turn up right now, given the moment. */
-function eligible(state, { seasons = [], night = false, special = null } = {}) {
+function eligible(state, { seasons = [], night = false, special = null, event = null } = {}) {
   if (special) return FINDS.filter(f => f.special === special);
   const legendaryOk = total(state) >= LEGENDARY_AFTER;
   return FINDS.filter(f => !f.special
     && (!f.season || seasons.includes(f.season))
+    && (!f.event || f.event === event)
     && (!f.night || night)
     && (f.rarity !== 'legendary' || legendaryOk));
 }
@@ -204,19 +233,20 @@ function eligible(state, { seasons = [], night = false, special = null } = {}) {
 function pickFind(state, ctx, rand = Math.random) {
   const pool = eligible(state, ctx);
   if (!pool.length) return null;
-  const weights = pool.map(f => (RARITY[f.rarity].weight || 1) * (state.items[f.id] ? 1 : NEW_BIAS));
+  const weights = pool.map(f => (RARITY[f.rarity].weight || 1) * (state.items[f.id] ? 1 : NEW_BIAS) * (f.event ? EVENT_BIAS : 1));
   const sum = weights.reduce((a, b) => a + b, 0);
   let r = rand() * sum;
   for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r < 0) return pool[i]; }
   return pool[pool.length - 1];
 }
 
-function add(state, find, t) {
+function add(state, find, t, shiny = false) {
   const it = state.items[find.id];
   const day = dayKey(t);
+  const sparkle = shiny ? { shiny: (it?.shiny || 0) + 1, shinyFirst: it?.shinyFirst || t } : it?.shiny ? { shiny: it.shiny, shinyFirst: it.shinyFirst } : {};
   return {
     ...state,
-    items: { ...state.items, [find.id]: { n: (it?.n || 0) + 1, first: it?.first || t, last: t } },
+    items: { ...state.items, [find.id]: { n: (it?.n || 0) + 1, first: it?.first || t, last: t, ...sparkle, ...(it?.held ? { held: it.held } : {}) } },
     dry: 0,
     lastFindAt: t,
     unseen: [...state.unseen.filter(id => id !== find.id), find.id].slice(-60),
@@ -226,16 +256,19 @@ function add(state, find, t) {
 }
 
 /**
- * He dug. Did he find anything? Returns { state, find, isNew, completed }:
+ * He dug. Did he find anything? Returns { state, find, isNew, completed, shiny, firstShiny }:
  * `find` is a FINDS entry or null, `isNew` whether it's the first of its kind,
- * `completed` the sets this find just finished.
- *   ctx: { seasons: ['autumn'], night, manual } — `manual` is "Dig for treasure"
- *   from his menu: it always finds something, on its own cooldown.
+ * `completed` the sets this find just finished, `shiny` whether it sparkles
+ * (`firstShiny`: the first sparkly one of that find).
+ *   ctx: { seasons: ['autumn'], night, manual, event, digBoost, shinyBoost }
+ *   `manual` is "Dig for treasure" from his menu: it always finds something, on
+ *   its own cooldown. `event` is the tide event going on; its boosts raise
+ *   the odds of a find (at most 2×) and of a sparkly (at most 4×).
  */
 function dig(stateIn, ctx = {}, now, rand = Math.random) {
   const state = normalize(stateIn);
   const t = Number(now);
-  const nothing = s => ({ state: s, find: null, isNew: false, completed: [] });
+  const nothing = s => ({ state: s, find: null, isNew: false, completed: [], shiny: false, firstShiny: false });
   if (!Number.isFinite(t)) return nothing(state);
   const day = dayKey(t);
   const today = state.day === day ? state.today : 0;
@@ -245,16 +278,25 @@ function dig(stateIn, ctx = {}, now, rand = Math.random) {
     s = { ...s, lastManualAt: t };
   } else {
     const first = total(state) === 0; // his very first dig always turns something up
-    const lucky = first || s.dry + 1 >= DRY_SPELL || rand() < DIG_CHANCE;
+    const lucky = first || s.dry + 1 >= DRY_SPELL || rand() < DIG_CHANCE * clampBoost(ctx.digBoost, 2);
     if (!first && (today >= DAILY_CAP || t - state.lastFindAt < FIND_GAP || !lucky)) return nothing({ ...s, dry: s.dry + 1 });
   }
   const find = pickFind(s, ctx, rand);
   if (!find) return nothing(s);
   const isNew = !s.items[find.id];
-  let next = add(s, find, t);
+  const shiny = rand() < SPARKLE_CHANCE * clampBoost(ctx.shinyBoost, MAX_SPARKLE_BOOST);
+  let next = add(s, find, t, shiny);
   if (!ctx.manual) next = { ...next, today: next.today + 1 };
-  return { state: next, find, isNew, completed: newlyCompleted(s, next) };
+  return { state: next, find, isNew, completed: newlyCompleted(s, next), shiny, firstShiny: shiny && !s.items[find.id]?.shiny };
 }
+
+const clampBoost = (v, max) => Math.max(1, Math.min(max, Number(v) || 1));
+
+/** A find in its sparkly colours (the Bugdex's shiny turn, bugdex/art.js). */
+const sparkly = find => (find ? art.shiny({ pixels: find.pixels, palette: find.palette }) : null);
+
+/** How many sparkly finds there are on the shelf, all kinds together. */
+const sparkles = stateIn => Object.values(normalize(stateIn).items).reduce((n, it) => n + (it.shiny || 0), 0);
 
 /**
  * A keepsake for a special day ('birthday' | 'hatchday'), once per year.
@@ -309,11 +351,12 @@ function foundLine(find, rand = Math.random) {
 }
 
 /** Everything the shelf shows. Finds you haven't got are there as silhouettes. */
-function view(stateIn, now = Date.now(), { seasons = [] } = {}) {
+function view(stateIn, now = Date.now(), { seasons = [], event = null, back = {} } = {}) {
   const state = normalize(stateIn);
   const fav = favourite(state);
   return {
     total: total(state),
+    sparkles: sparkles(state),
     kinds: kinds(state),
     of: FINDS.length,
     digs: state.digs,
@@ -325,8 +368,11 @@ function view(stateIn, now = Date.now(), { seasons = [] } = {}) {
       const it = state.items[f.id];
       return {
         id: f.id, rarity: f.rarity, rarityLabel: RARITY[f.rarity].label, set: f.set,
-        season: f.season, inSeason: !f.season || seasons.includes(f.season), night: f.night, special: f.special,
+        season: f.season, inSeason: (!f.season || seasons.includes(f.season)) && (!f.event || f.event === event), night: f.night, special: f.special,
+        event: f.event, back: f.event && Number.isFinite(back[f.event]) ? back[f.event] : 0,
         owned: !!it, count: it?.n || 0, first: it?.first || 0,
+        shiny: it?.shiny || 0, shinyFirst: it?.shinyFirst || 0, held: it?.held || 0,
+        ...(it?.shiny ? { shinyArt: sparkly(f) } : {}),
         // The name and the line are part of the surprise, except for keepsakes,
         // which say what day to look out for.
         name: it || f.special ? f.name : '???',
@@ -338,10 +384,14 @@ function view(stateIn, now = Date.now(), { seasons = [] } = {}) {
   };
 }
 
+// events.js requires nothing from here, but these names are its: kept in step by test/gifts.test.js.
+const EVENT_NAMES = { harvest: 'Harvest Moon', haunting: 'The Haunting', frostbite: 'Frostbite', penpal: 'Pen Pal Week', 'spring-clean': 'Spring Clean', 'low-tide': 'Low Tide' };
+
 function hintFor(f) {
   if (f.special === 'birthday') return 'Turns up on your birthday (set it on the Us page).';
   if (f.special === 'hatchday') return 'Turns up on the anniversary of the day he moved in.';
   if (f.season) return `Only turns up in ${{ halloween: 'Spooky Season', winter: 'the winter holidays', valentine: 'Valentine’s week', spring: 'spring', summer: 'summer', autumn: 'autumn' }[f.season]}.`;
+  if (f.event) return `Only turns up during ${EVENT_NAMES[f.event] || 'a tide event'}.`;
   if (f.night) return 'Only turns up after dark.';
   if (f.rarity === 'legendary') return 'Legendary. Keep digging.';
   return 'Not found yet.';
@@ -359,5 +409,7 @@ const markSeen = stateIn => ({ ...normalize(stateIn), unseen: [] });
 
 module.exports = {
   FINDS, SETS, RARITY, DIG_CHANCE, DRY_SPELL, DAILY_CAP, FIND_GAP, MANUAL_EVERY, LEGENDARY_AFTER,
+  SPARKLE_CHANCE, EVENT_NAMES,
   normalize, findById, eligible, pickFind, dig, keepsake, canDig, nextDigAt, favourite, foundLine, view, setFavourite, markSeen, total,
+  sparkly, sparkles,
 };

@@ -347,6 +347,33 @@ const SPECIES = Object.freeze([
     palette: { z: '#b9fbc0', Z: '#80ed99', s: '#adb5bd', k: K },
     pixels: ['.k.k..s.', '.z.z.sss', 'zzzzzsks', 'ZzzzZsss', 'z.z.zsss'] },
 
+  // ---- tide events (events.js): no habitat, only about while their event is
+  // on, and only ever along with a real catch. Never in "of N" or a badge.
+  { no: 101, id: 'harvest-mouse', name: 'Harvest Mouse', habitat: null, event: 'harvest', type: 'test', rarity: 'rare', phase: 3,
+    blurb: 'Lives in the wheat. Only comes out for a clean first try.', hint: 'Harvest Moon only: a fix that works first try.',
+    palette: { b: '#c9a26b', B: '#8a6a3a', p: '#ffb4a2', y: '#ffd166', k: K },
+    pixels: ['.....y..', '.bb..y..', 'bpbb.y..', 'bkbbbby.', 'bbbbbbby', '.B.B..y.'] },
+  { no: 102, id: 'will-o-wisp', name: 'Will-o\'-Wisp', habitat: null, event: 'haunting', type: 'ghost', rarity: 'rare', phase: 3,
+    blurb: 'A light over the wreck. Follows anyone still fixing bugs at night.', hint: 'The Haunting only: a fix after 9 pm.',
+    palette: { g: '#b8ffd9', G: '#57cc99', w: '#ffffff', k: K },
+    pixels: ['...g....', '..gGg...', '.gGwGg..', '.GwkwkG.', '.GwwwwG.', '..GwwG..', '...GG.g.', '.g..G...'] },
+  { no: 103, id: 'frost-mite', name: 'Frost Mite', habitat: null, event: 'frostbite', type: 'sys', rarity: 'rare', phase: 3,
+    blurb: 'Too small to see. Turns up on the busiest, coldest days.', hint: 'Frostbite only: your third catch in a day.',
+    palette: { i: '#cdeafe', I: '#8ecae6', w: '#ffffff', k: K },
+    pixels: ['i..w..i.', '.i.w.i..', '..iiii..', 'wiIkIkiw', '..iIIi..', '.i.ii.i.', 'i.i..i.i'] },
+  { no: 104, id: 'lovebug', name: 'Lovebug', habitat: null, event: 'penpal', type: 'runtime', rarity: 'rare', phase: 3,
+    blurb: 'Never found alone. Shows up when two of you work on one bug.', hint: 'Pen Pal Week only: a bug beaten with a helper crab.',
+    palette: { r: '#ff5d8f', R: '#c9184a', p: '#ffb3c6', k: K },
+    pixels: ['.k....k.', '..k..k..', '.rrRrr..', 'rpRRRrr.', 'rRkRkRr.', 'rrRRRrr.', '.r.r.r..'] },
+  { no: 105, id: 'dust-bunny', name: 'Dust Bunny', habitat: null, event: 'spring-clean', type: 'build', rarity: 'rare', phase: 3,
+    blurb: 'Made of code nobody needed. Gets bigger every year.', hint: 'Spring Clean only: a fix that deletes more than it adds.',
+    palette: { g: '#d6d3cc', G: '#a8a39a', p: '#ffb3c6', k: K },
+    pixels: ['.g...g..', '.gp.gp..', '.gg.gg..', 'gggggggG', 'gkggkggG', 'gggpgggG', '.GGGGGG.'] },
+  { no: 106, id: 'tide-pool-nudibranch', name: 'Tide-Pool Nudibranch', habitat: null, event: 'low-tide', type: 'runtime', rarity: 'rare', phase: 3,
+    blurb: 'Stranded when the sea went out. Very happy to be in a jar.', hint: 'Low Tide only: any catch in the Shallows.',
+    palette: { o: '#ff9f1c', O: '#ff5a4a', b: '#4ea8de', w: '#fff4e4', k: K },
+    pixels: ['.o.o.o..', 'o.o.o.o.', '.bbbbbb.', 'bwbbbbbb', 'bkbwwbbO', 'OOOOOOOO'] },
+
   // ---- kept apart: not in any habitat, hidden until caught
   { no: 99, id: 'missingno', name: 'UNDEFINED.', habitat: null, type: 'ghost', rarity: 'special', phase: 3,
     blurb: 'This one isn\'t in any book.', hint: 'Not in any habitat. Something glitchy.',
@@ -354,6 +381,7 @@ const SPECIES = Object.freeze([
     pixels: ['aab.cdaa', 'daceabdc', 'aaadd.ab', 'cbaeadaa', 'aadcabea', 'abaaaacd', 'deacbaaa', 'aabdaeca'] },
 ].map(s => Object.freeze({
   ...s,
+  event: s.event || null,
   evolves: s.evolves ? Object.freeze([...s.evolves]) : null,
   remedies: s.remedies ? Object.freeze([...s.remedies]) : null,
   pixels: Object.freeze([...s.pixels]),
@@ -409,7 +437,10 @@ const bossOf = id => HABITATS.find(h => h.boss === id) || null;
 const BY_ID = new Map(SPECIES.map(s => [s.id, s]));
 const speciesById = id => BY_ID.get(id) || null;
 
+/** The tide events' own bugs (events.js), kept out of every habitat. */
+const eventSpecies = () => SPECIES.filter(s => s.event);
+
 /** The species that count toward "of N": built, and living in a habitat (not the hidden glitch, #099). */
 const live = () => SPECIES.filter(s => s.phase <= LIVE_PHASE && s.habitat);
 
-module.exports = { SPECIES, HABITATS, TYPES, RARITY, BY_ID, LIVE_PHASE, LEAGUE, speciesById, live, leagueOf, bossOf };
+module.exports = { SPECIES, HABITATS, TYPES, RARITY, BY_ID, LIVE_PHASE, LEAGUE, speciesById, live, eventSpecies, leagueOf, bossOf };

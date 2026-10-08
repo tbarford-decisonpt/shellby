@@ -168,7 +168,8 @@ function finishedHabitats(state, now) {
 
 /**
  * A bug was fixed: catch it.
- *   c: { species, fp, project, name?, firstAt, firstTry, remedy, lang, device, seasons, rand }
+ *   c: { species, fp, project, name?, firstAt, firstTry, remedy, lang, device, seasons, rand, shinyBoost }
+ *   shinyBoost: a tide event's (events.js boostsAt), 1 to 4 times the odds
  * -> { state, counted, pays, isNew, forms, stage, evolved, completed, moment }
  *   counted: false inside the cooldown or past the day's caps ("seen again", nothing else)
  *   pays:    whether it pays XP (once a week per bug and project)
@@ -194,7 +195,7 @@ function recordCatch(stateIn, c, now) {
     ...(firstTry ? ['first-try'] : []), ...(swift ? ['swift'] : []), ...(firstTry && swift ? ['golden'] : []),
     ...(isNight(now) ? ['nocturnal'] : []),
     ...(sp.habitat === 'wreck' && (c.seasons || []).includes('halloween') ? ['spectral'] : []),
-    ...(rand() < SHINY_CHANCE ? ['shiny'] : []),
+    ...(rand() < SHINY_CHANCE * Math.max(1, Math.min(4, Number(c.shinyBoost) || 1)) ? ['shiny'] : []),
   ];
   const e = entryOf(state, sp.id);
   const before = caughtOf(e);
@@ -404,9 +405,10 @@ function shared(stateIn) {
 /**
  * Everything the Bugdex page shows. Unknown species come with no pixels (no
  * spoilers); seen ones as silhouettes.
- *   opts: { names: { projectId: name }, tabs: Set of open tab ids }
+ *   opts: { names: { projectId: name }, tabs: Set of open tab ids,
+ *           event: { on: the tide event going on or null, back: { eventId: when it's next on (ms) } } }
  */
-function view(stateIn, now, { names = {}, tabs = null, friends = [] } = {}) {
+function view(stateIn, now, { names = {}, tabs = null, friends = [], event = null } = {}) {
   const state = prune(stateIn, now);
   // Friends who share their Bugdex: who has caught what.
   const pals = (Array.isArray(friends) ? friends : []).filter(f => f && LOGIN_RE.test(f.login || '')).slice(0, 30)
@@ -416,7 +418,10 @@ function view(stateIn, now, { names = {}, tabs = null, friends = [] } = {}) {
   const giftFrom = id => [...new Set(state.gifts.filter(g => g.species === id).map(g => g.from))].slice(0, 3);
   const fav = favourite(state);
   const ids = new Set(live().map(s => s.id));
-  const shown = SPECIES.filter(sp => ids.has(sp.id) || caughtOf(state.species[sp.id]) > 0);
+  // A tide event's own bug is in the book while its event is on, and for good once caught.
+  const eventOn = event && typeof event.on === 'string' ? event.on : null;
+  const backOf = sp => (sp.event && event?.back && Number.isFinite(event.back[sp.event]) ? event.back[sp.event] : 0);
+  const shown = SPECIES.filter(sp => ids.has(sp.id) || caughtOf(state.species[sp.id]) > 0 || (sp.event && sp.event === eventOn));
   const species = shown.map(sp => {
     const e = state.species[sp.id];
     const caught = caughtOf(e);
@@ -429,7 +434,10 @@ function view(stateIn, now, { names = {}, tabs = null, friends = [] } = {}) {
       isNew: state.unseen.includes(sp.id),
       boss: bossOf(sp.id)?.id || null, league: leagueOf(sp.id),
       reportedBy: reporters(sp.id), gifts: gifts[sp.id] || 0, giftFrom: giftFrom(sp.id),
+      event: sp.event, eventOn: !!sp.event && sp.event === eventOn, back: backOf(sp),
     };
+    // Out now: its name and shape are the point (the event says how to catch it).
+    if (st === 'unknown' && base.eventOn) return { ...base, state: 'event', name: sp.name, blurb: sp.hint, ...art.silhouette(sp) };
     // A friend's report (or a jar they brought) puts a name and a silhouette to one you've never met.
     if (st === 'unknown' && (base.reportedBy.length || base.gifts)) return { ...base, state: 'reported', name: sp.name, blurb: sp.hint, ...art.silhouette(sp) };
     if (st === 'unknown') return { ...base, name: '???', blurb: sp.habitat ? `Lives in ${HABITATS.find(h => h.id === sp.habitat).name}.` : 'Nobody knows where it lives.' };
