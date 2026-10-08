@@ -74,6 +74,7 @@ const OCCASIONS = Object.freeze({
   jobDone: { every: MINUTE, ttl: 6 * SECOND },        // a command it left running in the background finished
   jobFailed: { every: MINUTE, ttl: 7 * SECOND },
   remembered: { every: 5 * MINUTE, ttl: 6 * SECOND }, // it wrote a memory down (auto memory)
+  compacted: { every: 5 * MINUTE, ttl: 6 * SECOND }, // the conversation was compacted (/compact, or by itself)
   skillFirst: { every: 0, ttl: 7 * SECOND },          // the first time it used a skill here
   planning: { every: 5 * MINUTE, ttl: 5 * SECOND },   // it switched itself to planning
 
@@ -184,6 +185,7 @@ const LINES = Object.freeze({
   jobDone: ['that one finished', 'background done', "it's back"],
   jobFailed: ['the background one broke', 'that one failed', 'background: ow'],
   remembered: ['noted!', "I'll remember", 'into my notebook'],
+  compacted: ['packed it down', 'travelling light', 'room to think'],
   skillFirst: ['first time with that!', 'new trick in use!', 'ooh, a skill'],
   planning: ['plotting…', 'drawing a map', 'thinking it through'],
   morning: ['morning', "you're up", 'morning!'],

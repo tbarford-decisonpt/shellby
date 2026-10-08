@@ -320,7 +320,7 @@ class ClaudeSession extends EventEmitter {
       this.cancelPending();
       let crewChanged = false;
       for (const [id, t] of this.tasks) {
-        if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped' }); crewChanged = true; }
+        if (t.status === 'running') { this.tasks.set(id, { ...t, status: 'stopped', endedAt: Date.now() }); crewChanged = true; }
       }
       if (crewChanged) this.emit('crew', this.crew);
       if (jobs.stopAll(this.jobs, Date.now())) this.emit('jobs', this.jobView()); // what it left running can't finish now
@@ -593,6 +593,7 @@ class ClaudeSession extends EventEmitter {
     if (item.phase === 'progress' && item.description) next.activity = item.description;
     if (item.status) next.status = item.status === 'completed' ? 'completed' : item.status;
     if (item.phase === 'done' && !item.status) next.status = 'completed';
+    if (prev.status === 'running' && next.status !== 'running') next.endedAt = Date.now(); // the crab window walks it home with how it went
     this.tasks.set(item.taskId, next);
     this.emit('crew', this.crew);
   }
