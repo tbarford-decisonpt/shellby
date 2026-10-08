@@ -126,5 +126,12 @@
     if (dir) { folder = dir; $('routineFolder').textContent = SB.tildify(dir); }
   });
 
+  // A routine drafted elsewhere (a suggestion card): show it in the editor to
+  // check and save. Opening it never saves it.
+  SB.openRoutineEditor = r => {
+    SB.setView('routines');
+    openEditor(r);
+  };
+
   SB.views.routines = { render };
 })();

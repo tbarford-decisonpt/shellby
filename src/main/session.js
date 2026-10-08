@@ -9,15 +9,18 @@ const { parseLine } = require('./stream');
 const { subscriptionEnv } = require('./claude-cli');
 const { CLI_MODE } = require('./config');
 const { annotatePermission } = require('./safety');
+const crabmcp = require('./crabmcp');
 
 const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how they would like to proceed.';
 
 class ClaudeSession extends EventEmitter {
   // argsPrefix lets tests run a fake CLI script: exe=node, argsPrefix=[script].
   // extraEnv: () => {} of variables to add when the process starts (GitHub access).
-  constructor({ exe, cwd, mode, model, resumeId = null, argsPrefix = [], extraEnv = () => ({}) }) {
+  // systemNote: appended to Claude Code's system prompt (see selfaware.js).
+  // mcp: { tools, call(name, args) } -> the crab's tools, hosted here (see crabmcp.js).
+  constructor({ exe, cwd, mode, model, resumeId = null, argsPrefix = [], extraEnv = () => ({}), systemNote = null, mcp = null }) {
     super();
-    Object.assign(this, { exe, cwd, mode, model, resumeId, argsPrefix, extraEnv });
+    Object.assign(this, { exe, cwd, mode, model, resumeId, argsPrefix, extraEnv, systemNote, mcp });
     this.proc = null;
     this.busy = false;
     this.sessionId = resumeId;
@@ -36,6 +39,10 @@ class ClaudeSession extends EventEmitter {
       // unless that mode is actually selected.
       '--allow-dangerously-skip-permissions',
     ];
+    if (this.systemNote) args.push('--append-system-prompt', this.systemNote);
+    // Allowed outright: the crab's tools can't run anything or change anything
+    // that matters, so a permission card for each would only be noise.
+    if (this.mcp) args.push('--mcp-config', crabmcp.mcpConfig(), '--allowedTools', `mcp__${crabmcp.SERVER}`);
     if (this.model) args.push('--model', this.model);
     if (this.sessionId) args.push('--resume', this.sessionId);
     return args;
@@ -51,13 +58,18 @@ class ClaudeSession extends EventEmitter {
 
     readline.createInterface({ input: proc.stdout }).on('line', line => {
       const { event, items } = parseLine(line);
-      if (event?.type === 'control_request' && event.request?.subtype !== 'can_use_tool') {
+      if (event?.type === 'control_request' && event.request?.subtype === 'mcp_message' && this.mcp && event.request.server_name === crabmcp.SERVER) {
+        this.answerMcp(event);
+      } else if (event?.type === 'control_request' && event.request?.subtype !== 'can_use_tool') {
         // Unknown host callbacks (hooks, MCP bridging): answer so the CLI never hangs.
         this.write({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Not supported by Shellby' } });
       }
       for (const item of items) this.handle(item);
     });
     proc.stderr.on('data', d => { stderr = (stderr + d).slice(-4000); });
+    // The SDK handshake: names the servers this side hosts. Claude Code then
+    // connects to them with mcp_message requests before the first turn.
+    if (this.mcp) this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'initialize', sdkMcpServers: [crabmcp.SERVER] } });
     proc.stdin.on('error', () => { /* process gone; 'close' reports it */ });
 
     proc.on('error', err => {
@@ -78,6 +90,11 @@ class ClaudeSession extends EventEmitter {
       }
       this.emit('exit', code);
     });
+  }
+
+  async answerMcp(event) {
+    const response = await crabmcp.handle(event.request.message, this.mcp);
+    this.write({ type: 'control_response', response: { subtype: 'success', request_id: event.request_id, response: { mcp_response: response } } });
   }
 
   handle(item) {

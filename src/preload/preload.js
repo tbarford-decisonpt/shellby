@@ -129,6 +129,8 @@ contextBridge.exposeInMainWorld('shellby', {
   muteProject: (key, muted) => ipcRenderer.invoke('streaks:mute', { key, muted }),
   openProject: fire('streaks:open'),
   reviewProject: invoke('review:start'),
+  reviewFromSuggestion: invoke('suggest:review'),
+  muteSuggestion: invoke('suggest:mute'),
   onStreaks: on('streaks'),
   onNudge: on('nudge'),
   devCheckNudges: invoke('dev:check-nudges'), // dev builds with SHELLBY_NUDGE_TEST only

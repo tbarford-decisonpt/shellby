@@ -30,6 +30,9 @@ const DEFAULTS = {
   wander: true,      // idle strolls near his spot (see motion.js)
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
+  selfAware: true,   // Claude is told it's in Shellby and gets the crab's tools (see selfaware.js)
+  suggestions: true, // ...and may offer Shellby features as one-tap cards
+  mutedSuggestions: [], // features the user said not to offer again
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   xp: null,          // XP and levels (see xp.js); null -> level 1
   home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own

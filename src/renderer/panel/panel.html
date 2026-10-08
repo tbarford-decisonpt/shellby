@@ -506,6 +506,13 @@
       <div class="row wrap">
         <button type="button" class="btn" id="claudeModeBtn"></button>
       </div>
+      <label class="toggle"><input type="checkbox" id="selfAwareToggle"><span class="switch"></span>Tell Claude it's running in Shellby</label>
+      <label class="toggle"><input type="checkbox" id="suggestToggle"><span class="switch"></span>Let Claude offer Shellby features</label>
+      <p class="small muted">Claude gets a short note about Shellby and can make him talk, celebrate or dress up. The note never changes, so Claude Code caches it and it costs very little of your plan. When your usage passes 80%, Claude is told so it can keep things lean. Offers show up as cards and nothing happens unless you tap them. Changes apply to new conversations.</p>
+      <div class="row wrap" id="mutedSuggestRow" hidden>
+        <span class="small muted" id="mutedSuggestText"></span>
+        <button type="button" class="btn slim-btn" id="unmuteSuggestBtn">Offer them again</button>
+      </div>
     </section>
 
     <section class="setting-group" id="externalGroup" data-nav="Everywhere">

@@ -8,9 +8,13 @@ const MAX_TABS = 8;
 const TAB_ID = /^[\w-]{1,64}$/;
 
 class SessionManager extends EventEmitter {
-  constructor({ getExe, history, getMode, getModel, argsPrefix = [], getEnv = () => ({}) }) {
+  // Claude knowing it's in Shellby (see selfaware.js, crabmcp.js), all optional:
+  //   getSelfAware() -> { note, tools } | null, read when a tab's process is made
+  //   onTool(tab, name, args) -> Promise<{ text, isError? }>, a crab tool was called
+  //   decorate(tab, prompt) -> the prompt Claude actually receives
+  constructor({ getExe, history, getMode, getModel, argsPrefix = [], getEnv = () => ({}), getSelfAware = () => null, onTool = null, decorate = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, argsPrefix, getEnv });
+    Object.assign(this, { getExe, history, getMode, getModel, argsPrefix, getEnv, getSelfAware, onTool, decorate });
     this.tabs = new Map();
   }
 
@@ -21,6 +25,8 @@ class SessionManager extends EventEmitter {
     if (this.tabs.size >= MAX_TABS) throw new Error(`Shellby can run up to ${MAX_TABS} conversations at once. Close one first.`);
     const exe = this.getExe();
     if (!exe) throw new Error('Claude Code is not installed.');
+    const aware = this.getSelfAware();
+    let tab = null; // the tools are only ever called once it exists
     const session = new ClaudeSession({
       exe, argsPrefix: this.argsPrefix,
       cwd: historyEntry?.cwd || cwd,
@@ -28,15 +34,21 @@ class SessionManager extends EventEmitter {
       model: this.getModel() || null,
       resumeId: historyEntry?.claudeSessionId || null,
       extraEnv: () => this.getEnv(),
+      systemNote: aware?.note || null,
+      mcp: aware?.tools && this.onTool ? { tools: aware.tools, call: (name, args) => this.onTool(tab, name, args) } : null,
     });
-    const tab = {
+    tab = {
       id: tabId, session, routineId,
       pinnedMode: !!mode,          // routines keep their own mode
       title: historyEntry?.title || title || 'New task',
       saved: !!historyEntry,       // has a history entry (created on first send)
       outcome: null,               // 'ok' | 'error' | 'stopped' after the last turn
       unread: false,
+      usageTold: 0,                // the usage level Claude was last told about (selfaware.usageNote)
+      offered: new Set(),          // features suggested in this conversation
     };
+    // A reopened conversation remembers what it already offered.
+    if (historyEntry) for (const i of this.history.load?.(tabId) || []) if (i?.kind === 'suggest') tab.offered.add(i.feature);
     this.tabs.set(tabId, tab);
 
     session.on('item', item => this.onItem(tab, item));
@@ -71,7 +83,7 @@ class SessionManager extends EventEmitter {
     }
     this.history.append(tab.id, userItem);
     tab.outcome = null;
-    tab.session.send(prompt);
+    tab.session.send(this.decorate ? this.decorate(tab, prompt) : prompt);
     this.changed();
   }
 

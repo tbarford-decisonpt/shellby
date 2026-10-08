@@ -7,6 +7,9 @@
 //   "crash"      -> exits with code 3 mid-turn
 //   "wait <ms>"  -> replies "echo: ..." after a delay
 //   "fail"       -> ends the turn with an error
+//   "args"       -> replies with the command-line flags it was started with
+//   "mcp <tool> <json>" -> calls a tool on the in-app MCP server (see crabmcp.js)
+//                   and replies with its result; "mcp tools" lists them
 //   anything else -> replies "echo: <text>"
 const readline = require('readline');
 
@@ -16,13 +19,39 @@ let mode = args.includes('--permission-mode') ? args[args.indexOf('--permission-
 let turn = 0;
 let pending = null;   // { requestId, onAnswer }
 let slow = null;
+const mcpWaiting = new Map(); // our control request id -> what to do with the answer
+let mcpTools = null;           // from tools/list, once the in-app server answered
+
+// Like the real CLI: an in-app ("sdk") server named in --mcp-config is
+// connected with mcp_message requests once the host's initialize names it.
+const mcpArg = args.includes('--mcp-config') ? JSON.parse(args[args.indexOf('--mcp-config') + 1]) : null;
+const sdkServer = mcpArg && Object.entries(mcpArg.mcpServers).find(([, c]) => c.type === 'sdk')?.[0];
+let mcpSeq = 0;
+function mcpRequest(message, then) {
+  const id = `mcp-${++mcpSeq}`;
+  mcpWaiting.set(id, then);
+  out({ type: 'control_request', request_id: id, request: { subtype: 'mcp_message', server_name: sdkServer, message } });
+}
 
 const out = obj => process.stdout.write(JSON.stringify(obj) + '\n');
 const text = t => out({ type: 'assistant', message: { content: [{ type: 'text', text: t }] }, parent_tool_use_id: null, session_id: sessionId });
 const result = (ok, extra = {}) => out({ type: 'result', subtype: ok ? 'success' : 'error_during_execution', is_error: !ok, duration_ms: 42, num_turns: 1, session_id: sessionId, ...(ok ? { result: 'done' } : {}), ...extra });
 
-readline.createInterface({ input: process.stdin }).on('line', line => {
+const deferred = []; // user messages that arrived before the in-app server connected
+
+readline.createInterface({ input: process.stdin }).on('line', onLine);
+
+function onLine(line) {
   const msg = JSON.parse(line);
+  // The real CLI connects its MCP servers before the first turn runs.
+  if (msg.type === 'user' && sdkServer && mcpTools === null) { deferred.push(line); return; }
+
+  if (msg.type === 'control_response' && mcpWaiting.has(msg.response.request_id)) {
+    const then = mcpWaiting.get(msg.response.request_id);
+    mcpWaiting.delete(msg.response.request_id);
+    then(msg.response.response?.mcp_response);
+    return;
+  }
 
   if (msg.type === 'control_response' && pending && msg.response.request_id === pending.requestId) {
     const p = pending; pending = null;
@@ -32,7 +61,18 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 
   if (msg.type === 'control_request') {
     const sub = msg.request.subtype;
-    if (sub === 'interrupt') {
+    if (sub === 'initialize') {
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { commands: [] } } });
+      if (sdkServer && (msg.request.sdkMcpServers || []).includes(sdkServer)) {
+        mcpRequest({ method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {} }, jsonrpc: '2.0', id: 0 }, () => {
+          mcpRequest({ jsonrpc: '2.0', method: 'notifications/initialized' }, () => {});
+          mcpRequest({ method: 'tools/list', jsonrpc: '2.0', id: 1 }, r => {
+            mcpTools = r?.result?.tools || [];
+            for (const l of deferred.splice(0)) onLine(l);
+          });
+        });
+      }
+    } else if (sub === 'interrupt') {
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { still_queued: [] } } });
       if (slow) { clearTimeout(slow); slow = null; }
       out({ type: 'user', message: { content: [{ type: 'text', text: '[Request interrupted by user]' }] } });
@@ -65,6 +105,17 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return;
   }
 
+  if (content === 'args') { text(`args: ${JSON.stringify(args)}`); result(true); return; }
+  if (content.startsWith('mcp ')) {
+    const [, tool, ...rest] = content.split(' ');
+    if (tool === 'tools') { text(`tools: ${(mcpTools || []).map(t => t.name).join(',')}`); result(true); return; }
+    mcpRequest({ method: 'tools/call', params: { name: tool, arguments: rest.length ? JSON.parse(rest.join(' ')) : {} }, jsonrpc: '2.0', id: 100 + turn }, r => {
+      const res = r?.result || {};
+      text(`mcp${res.isError ? ' error' : ''}: ${(res.content || []).map(c => c.text).join(' ')}`);
+      result(true);
+    });
+    return;
+  }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }
   // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)
@@ -171,4 +222,4 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 
   text(`echo: ${content} (mode=${mode})`);
   result(true);
-});
+}

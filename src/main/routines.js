@@ -259,4 +259,4 @@ class Scheduler extends EventEmitter {
   }
 }
 
-module.exports = { nextRun, previousRun, dueRoutines, missedOnStartup, validateRoutine, describeSchedule, Scheduler };
+module.exports = { nextRun, previousRun, dueRoutines, missedOnStartup, validateRoutine, describeSchedule, scheduleError, Scheduler };

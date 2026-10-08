@@ -28,6 +28,8 @@ const { itemHash } = require('./wardrobe/codes');
 const { HealthService } = require('./health/service');
 const { ExternalSessions, DEFAULT_PORT: HOOK_PORT } = require('./external');
 const crabtools = require('./crabtools');
+const crabmcp = require('./crabmcp');
+const selfaware = require('./selfaware');
 const clipath = require('./clipath');
 const channels = require('./channels');
 const { ObsServer } = require('./obs');
@@ -570,6 +572,14 @@ function createManager() {
     getMode: () => config.get('mode'),
     getModel: () => config.get('model'),
     getEnv: () => github?.claudeEnv() || {},
+    getSelfAware,
+    onTool: crabTool,
+    decorate: (tab, prompt) => {
+      if (!config.get('selfAware')) return prompt;
+      const u = selfaware.usageNote(config.get('lastUsage'), tab.usageTold, Date.now());
+      tab.usageTold = u.told;
+      return selfaware.withUsageNote(prompt, u.text);
+    },
   });
 
   manager.on('item', (tabId, item, tab) => {
@@ -925,6 +935,42 @@ function applyCrabIntent(body) {
   }
   if (intent.text) sayText(intent.text, 'mcp');
   return { text: crabtools.ackReply(intent) };
+}
+
+// ================================================================ Claude knowing it's in Shellby
+
+/** The note and tools a new conversation's process gets (see selfaware.js), or null when off. */
+function getSelfAware() {
+  if (!config.get('selfAware')) return null;
+  const suggestions = !!config.get('suggestions');
+  return { note: selfaware.systemNote({ suggestions }), tools: crabmcp.toolsFor({ suggestions }) };
+}
+
+/**
+ * A crab tool called from one of Shellby's own conversations. The cosmetic
+ * ones go through exactly the checks the plugin's do; `suggest` only ever
+ * puts up a card, and the card's button is the user's to press.
+ */
+async function crabTool(tab, name, args) {
+  if (name === 'suggest') return suggestCard(tab, args);
+  const r = applyCrabIntent({ action: name, args });
+  return r.ok === false ? { text: r.error, isError: true } : { text: r.text };
+}
+
+async function suggestCard(tab, args) {
+  const feature = args?.feature;
+  const checked = selfaware.checkSuggestion(args, {
+    enabled: !!config.get('suggestions'),
+    muted: config.get('mutedSuggestions') || [],
+    offered: tab.offered,
+    focusOn: !!focusState()?.phase,
+    notifyOn: channelSettings().enabled,
+    inRepo: feature === 'review' && !!(await repoOf(tab.session.cwd)),
+  });
+  if (!checked.ok) return { text: checked.reason, isError: true };
+  tab.offered.add(checked.card.feature);
+  manager.onItem(tab, { kind: 'suggest', id: randomUUID(), ...checked.card });
+  return { text: selfaware.suggestReply(checked.card) };
 }
 
 /** Everything `status` reports, gathered from the parts that own it. */
@@ -1942,7 +1988,7 @@ function registerIpc() {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'selfAware', 'suggestions']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -1967,7 +2013,7 @@ function registerIpc() {
     if (allowed.autonomousAcknowledged === false) delete allowed.autonomousAcknowledged; // can't be un-acknowledged silently either
     if ('critterScale' in allowed) allowed.critterScale = [0.75, 1, 1.5, 2].includes(allowed.critterScale) ? allowed.critterScale : 1;
     if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds', 'selfAware', 'suggestions']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
     if (allowed.wander === false) motion?.stop();
     const prevHotkey = config.get('hotkey');
@@ -2144,6 +2190,24 @@ function registerIpc() {
     const r = startTask(reviewPrompt(p.name), `Look over ${p.name}`, { mode: 'ask', cwd: key });
     if (r.ok) showPanel({ focusInput: false, tabId: r.tabId });
     return r;
+  });
+
+  // ---- suggestion cards (see suggestCard): the user tapped one
+  // A review from a card runs on the conversation's own folder, under the same
+  // rules as the shield button: read-only prompt, Ask-first mode.
+  ipcMain.handle('suggest:review', async (_e, tabId) => {
+    const tab = isStr(tabId) && manager.tabs.get(tabId);
+    const repo = tab && await repoOf(tab.session.cwd);
+    if (!repo) return { ok: false, error: "That folder isn't a git repository any more." };
+    const r = startTask(reviewPrompt(repo.name), `Look over ${repo.name}`, { mode: 'ask', cwd: repo.root });
+    if (r.ok) showPanel({ focusInput: false, tabId: r.tabId });
+    return r;
+  });
+  ipcMain.handle('suggest:mute', (_e, feature, muted = true) => {
+    if (feature !== null && !selfaware.FEATURES[feature]) return config.get('mutedSuggestions');
+    const list = (config.get('mutedSuggestions') || []).filter(f => selfaware.FEATURES[f] && f !== feature);
+    config.set({ mutedSuggestions: feature === null ? [] : muted ? [...list, feature] : list });
+    return config.get('mutedSuggestions');
   });
 
   // ---- Claude Code status line
