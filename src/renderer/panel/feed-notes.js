@@ -95,6 +95,31 @@
       return this.append(el);
     }
 
+    // ------------------------------------------------------------ /btw side questions (btw.js)
+    // Not kept in the transcript, and Claude never sees it: × puts it away.
+    renderBtw(question) {
+      const body = h('div', { class: 'btw-body muted', text: 'Thinking…' });
+      const el = h('div', { class: 'btw-card pending', role: 'note', 'aria-busy': 'true' },
+        h('div', { class: 'btw-head' },
+          h('span', { class: 'btw-tag', text: 'by the way' }),
+          h('span', { class: 'btw-q', text: question, title: question }),
+          h('button', { class: 'btw-close', type: 'button', title: 'Put it away', 'aria-label': 'Put this side question away', onclick: () => el.remove() }, '×')),
+        body,
+        h('div', { class: 'btw-foot small muted', text: 'A side question: Claude answered from the conversation, which carries on without it.' }));
+      this.stuck = true;
+      this.append(el);
+      const done = () => { el.classList.remove('pending'); el.removeAttribute('aria-busy'); };
+      return {
+        answer: text => {
+          done();
+          body.className = 'btw-body msg assistant';
+          body.textContent = '';
+          SB.linkifyPaths(SB.renderMarkdownInto(body, text));
+        },
+        fail: error => { done(); el.classList.add('err'); body.textContent = error; },
+      };
+    }
+
     // Shown while a ! command runs; its result replaces it. null clears it.
     renderShellPending(command) {
       if (!command) { this.shellPending?.remove(); this.shellPending = null; return; }

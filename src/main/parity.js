@@ -19,6 +19,8 @@ const claudeSetup = require('./claude-setup');
 const mcpAdmin = require('./mcpadmin');
 const outputStyles = require('./outputstyles');
 const changes = require('./changes');
+const btw = require('./btw');
+const { run: runCli, skipSettings } = require('./claude-cli');
 
 const MAX_PROMPTS = 100;
 const MAX_PROMPT_CHARS = 4000;
@@ -42,7 +44,7 @@ function addPrompt(list, text) {
  *   runClaude(args, timeout, { cwd }), currentCwd(), toolbox(), lastInit(),
  *   turnEnding(tabId) -> promise of that tab's last diff being noted,
  *   correctionFromTurns(tabId, kind, refs), noteCorrection(tabId, event),
- *   dataDir, stat(event), noteUndone(turns) -> the weekly card's turns taken back }
+ *   dataDir, stat(event), noteUndone(turns) -> the weekly card's turns taken back, log }
  */
 function register(deps) {
   const { ipcMain, manager, history, config, confirm, dialog, clipboard, app } = deps;
@@ -120,6 +122,25 @@ function register(deps) {
     rememberPrompt(`!${cmd}`);
     deps.stat('shell-run');
     return { ok: true, code: r.code };
+  });
+
+  // ---- /btw: a side question, answered from a fork of the conversation (btw.js)
+  // The tab's own CLI (the fake one in tests), in its folder, so --resume finds it.
+  ipcMain.handle('btw:ask', async (_e, { tabId, question } = {}) => {
+    const tab = tabOf(tabId);
+    if (!tab) return { ok: false, error: 'That conversation is closed.' };
+    if (tab.btwAsking) return { ok: false, error: 'One side question at a time: the last one is still being answered.' };
+    const s = tab.session;
+    tab.btwAsking = true;
+    let r;
+    try {
+      r = await btw.ask({
+        question, sessionId: s.sessionId, resumeAt: s.resumeAt, model: s.model, cwd: s.cwd, lean: skipSettings(os.homedir()),
+      }, (args, timeout, opts) => runCli(s.exe, [...(s.argsPrefix || []), ...args], timeout, opts));
+    } finally { tab.btwAsking = false; }
+    if (r.detail) deps.log?.warn?.(`btw: ${r.detail}`);
+    if (r.ok) deps.stat('btw');
+    return { ok: r.ok, answer: r.answer, error: r.error };
   });
 
   // ---- rewind
