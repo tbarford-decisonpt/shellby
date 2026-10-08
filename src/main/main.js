@@ -41,6 +41,7 @@ const { wireProjects } = require('./wiring/projects');
 const { wirePacks } = require('./wiring/packs');
 const { wireStartFrom } = require('./wiring/startfrom');
 const { wireBacklog } = require('./wiring/backlog');
+const { wireSentry } = require('./wiring/sentry');
 const { wireNotes } = require('./wiring/notes');
 const { wireClaudeUpdates } = require('./wiring/claude-updates');
 const { wireTray } = require('./wiring/tray');
@@ -279,6 +280,7 @@ share(wireSnippets(shared));
 const { createDepWatch, createProjects, createWorkflows } = share(wireProjects(shared));
 const { onDeepLink } = share(wirePacks(shared));
 share(wireStartFrom(shared));
+share(wireSentry(shared)); // new production errors on Next up, once Sentry is connected
 share(wireBacklog(shared)); // Next up on each project's page (docs/plans/next-up.md)
 share(wireNotes(shared)); // the Notes page: ideas per project and General, run as Plan, Build or Ask
 const { createClaudeUpdates } = share(wireClaudeUpdates(shared));
