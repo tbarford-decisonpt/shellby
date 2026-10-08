@@ -43,6 +43,7 @@ const { registerTriesIpc } = require('./tries');
 const { registerCorrectionsIpc } = require('./corrections');
 const { registerStartFromIpc } = require('./startfrom');
 const { registerBacklogIpc } = require('./backlog');
+const { registerProjectToolsIpc } = require('./project-tools');
 const { registerNotesIpc } = require('./notes');
 const { registerCrewIpc } = require('./crew');
 const { registerReleasesIpc } = require('../projects/releases-ipc');
@@ -190,6 +191,7 @@ function registerIpc(electronIpcMain, d) {
   registerCorrectionsIpc(ipcMain, d);
   registerStartFromIpc(ipcMain, d);
   registerBacklogIpc(ipcMain, d);
+  registerProjectToolsIpc(ipcMain, d);
   registerNotesIpc(ipcMain, d);
   registerCrewIpc(ipcMain, d);
   registerReleasesIpc(ipcMain, d);

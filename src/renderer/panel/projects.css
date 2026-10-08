@@ -431,3 +431,34 @@ body[data-view="projects"] .view-projects {
 .bl-title { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .bl-title b { min-width: 0; font-size: var(--fs-13); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bl-from { flex: none; }
+
+/* ---------- the port and environment doctor (projects-servers.js) ---------- */
+.pj-doctor {
+  margin-bottom: 8px; padding: 8px 10px; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--amber) 7%, var(--abyss));
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+}
+.pj-doctor-title { margin: 0 0 4px; font-weight: 700; font-size: var(--fs-12-5); }
+.pj-doctor ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.pj-doctor li { line-height: 1.45; }
+.pj-doctor li .btn { margin-left: 8px; }
+.pj-port {
+  margin-top: 10px; padding: 10px; border-radius: var(--r-sm); display: grid; gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 6%, var(--abyss));
+}
+.pj-port p { margin: 0; }
+.pj-port-title { font-weight: 700; font-size: var(--fs-13); }
+.pj-moved { margin: 8px 0 0; }
+
+/* ---------- Helpers: when did this break, the tour, the docs (project-tools.js) ---------- */
+.pt-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.pt-row:first-of-type { border-top: none; padding-top: 0; }
+.pt-text { flex: 1 1 220px; min-width: 0; }
+.pt-text p { margin: 0; }
+.pt-title { font-weight: 700; font-size: var(--fs-13); margin-bottom: 2px !important; }
+.pt-acts { flex: 0 1 auto; justify-content: flex-end; margin-left: auto; }
+.pt-form { display: grid; gap: 8px; margin: 0 0 10px; padding: 10px; border-radius: var(--r-sm); background: var(--abyss); border: 1px solid var(--line-soft); }
+.pt-what { width: 100%; box-sizing: border-box; resize: vertical; min-height: 54px; }
+.pt-field { display: grid; gap: 4px; }
+.pt-foot { margin: 8px 0 0; }
