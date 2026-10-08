@@ -58,7 +58,7 @@ function cleanCard(raw) {
 }
 
 /** Just the look, for "did anything change since we last published?" */
-const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers, c.temperament, c.find, c.tank, c.bugdex]); };
+const lookOf = card => { const c = cleanCard(card); return JSON.stringify([c.login, c.skin, c.home, c.level, c.outfit, c.stickers, c.temperament, c.find, c.tank, c.bugdex, c.swap, c.eggs, c.medals]); };
 
 const content = card => JSON.stringify({ ...cleanCard(card), note: "Shellby calling card: how this crab looks (and his tank, if shared), so friends' crabs can visit. Turn off Visiting crabs in Shellby to delete it." }, null, 1);
 

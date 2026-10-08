@@ -419,3 +419,52 @@ test('together: a visit plans a few shared moments, skips them while he is busy,
   t.mock.timers.tick(200000);
   assert.equal(did.length, 2, 'nothing after the visitor has gone');
 });
+
+// ------------------------------------------------------------------ letters: swaps and eggs, over real cards
+
+test('letters: a swap goes there and back over two crabs\' cards, and a stranger\'s hatch comes through', async () => {
+  const swaps = require('../src/main/swaps');
+  const gifts = require('../src/main/gifts');
+  const eggs = require('../src/main/eggs');
+  const world = fakeGitHub('sam');
+  const shelf = items => gifts.normalize({ items: Object.fromEntries(Object.entries(items).map(([id, n]) => [id, { n, first: 1, last: 1 }])) });
+  let samFinds = shelf({ pebble: 3 }), alexFinds = shelf({ 'red-leaf': 2 });
+  const sam = service({ me: 'sam', world, myCard: () => ({ ...looks(), swap: swaps.forCard(samFinds) }) }).f;
+  const alex = service({ me: 'alex', world, myCard: () => ({ ...looks(), swap: swaps.forCard(alexFinds) }) }).f;
+  await alex.refresh(); await sam.refresh();
+  await sam.add('alex'); await alex.add('sam');
+  await alex.refresh(); await sam.refresh(); // both cards up, each seen by the other
+  const got = { sam: [], alex: [] };
+  sam.on('letter', l => got.sam.push(l));
+  alex.on('letter', l => got.alex.push(l));
+
+  // Sam offers a pebble for a red leaf.
+  const o = swaps.offer(null, samFinds, { sid: 'abcd1234', to: 'alex', give: { id: 'pebble' }, get: { id: 'red-leaf' }, theirCard: sam.friend('alex').card.swap }, 2e12);
+  assert.equal(o.ok, true, o.error);
+  samFinds = o.finds;
+  assert.equal((await sam.letter('alex', o.letter.marker, o.letter.words)).ok, true);
+  await alex.refresh();
+  assert.equal(got.alex.length, 1);
+  const r = swaps.onLetter(null, alexFinds, got.alex[0], { friend: got.alex[0].friend, theirCard: alex.friend('sam').card.swap }, 2e12);
+  assert.equal(r.news, 'offer');
+  // Alex says yes.
+  const a = swaps.answer(r.swaps, alexFinds, 'abcd1234', true, 2e12);
+  alexFinds = a.finds;
+  assert.equal((await alex.letter('sam', a.letter.marker, a.letter.words)).ok, true);
+  await sam.refresh();
+  const done = swaps.onLetter(o.swaps, samFinds, got.sam.at(-1), { friend: true }, 2e12);
+  samFinds = done.finds;
+  assert.equal(samFinds.items['red-leaf'].n, 1);
+  assert.equal(alexFinds.items.pebble.n, 1);
+
+  // Someone who isn't a friend yet hatches one of Sam's eggs: it still comes through, for the egg to check.
+  const id = 'aaaa1111aaaa1111';
+  const newbie = service({ me: 'newbie', world }).f;
+  assert.equal((await newbie.letter('sam', `shellby-hatch:${id}`, 'hatched one of your eggs!')).ok, true);
+  await sam.refresh();
+  const hatch = got.sam.find(l => l.kind === 'hatch');
+  assert.ok(hatch, 'the hatch letter arrived');
+  assert.equal(hatch.friend, false);
+  const laid = eggs.lay(null, id, { level: 10, cardOn: true, login: 'sam' }, 1e12).state;
+  assert.equal(eggs.onHatch(laid, hatch, 2e12).baby.name, eggs.hatchling(id).name);
+});

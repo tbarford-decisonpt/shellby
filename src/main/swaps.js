@@ -68,8 +68,9 @@ function cleanCardSwap(raw) {
   const r = obj(raw);
   const offers = [];
   for (const x of (Array.isArray(r.offers) ? r.offers : []).slice(0, 12)) {
+    // As you write it ('pearl*'), or as a card that's been cleaned once carries it ({ id, shiny }).
     const m = typeof x === 'string' ? CARD_ITEM_RE.exec(x) : null;
-    const it = m && cleanItem({ id: m[1], shiny: m[2] === '*' });
+    const it = m ? cleanItem({ id: m[1], shiny: m[2] === '*' }) : cleanItem(x);
     if (it && !offers.some(o => o.id === it.id && o.shiny === it.shiny)) offers.push(it);
   }
   const wants = [...new Set((Array.isArray(r.wants) ? r.wants : []).filter(id => typeof id === 'string' && cleanItem({ id })))];

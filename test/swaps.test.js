@@ -118,3 +118,11 @@ test('your card\'s lists, and what a swap would finish', () => {
   assert.equal(gifts.finishes(shelf({ 'sea-glass-green': { n: 1 }, 'sea-glass-blue': { n: 1 }, 'sea-glass-amber': { n: 1 } }), 'sea-glass-red'), 'Sea glass rainbow');
   assert.deepEqual(sw.cleanCardSwap({ offers: ['pebble', 'pebble', '<img>', 'cake-slice', 'pearl*'], wants: ['nope', 'pebble'] }), { offers: [{ id: 'pebble', shiny: false }, { id: 'pearl', shiny: true }], wants: ['pebble'] });
 });
+
+test('a card cleaned once still reads back the same', () => {
+  const card = require('../src/main/github/card');
+  const once = card.cleanCard({ swap: { offers: ['pebble', 'pearl*'], wants: ['red-leaf'] } });
+  assert.deepEqual(card.cleanCard(once).swap, once.swap);
+  assert.deepEqual(once.swap.offers, [{ id: 'pebble', shiny: false }, { id: 'pearl', shiny: true }]);
+  assert.notEqual(card.lookOf({ swap: { offers: ['pebble'] } }), card.lookOf({ swap: { offers: [] } }), 'a change to what you swap republishes the card');
+});
