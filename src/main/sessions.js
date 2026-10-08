@@ -6,6 +6,20 @@ const { ClaudeSession } = require('./session');
 
 const MAX_TABS = 8;
 const TAB_ID = /^[\w-]{1,64}$/;
+const UUID = /^[0-9a-f-]{8,64}$/i;
+
+// Claude keeps its memory of the conversation when files are rewound, so the
+// next message says what changed underneath it. Shown in the feed as well.
+function rewoundNote(files) {
+  const list = files.slice(0, 30).map(f => `- ${f}`);
+  if (files.length > 30) list.push(`- …and ${files.length - 30} more`);
+  return [
+    '[Shellby: the user rewound file changes back to an earlier point in this conversation. These files are back to how they were then:',
+    ...list,
+    'Re-read them before relying on what you remember of their contents.]',
+    '', '',
+  ].join('\n');
+}
 
 class SessionManager extends EventEmitter {
   constructor({ getExe, history, getMode, getModel, argsPrefix = [], getEnv = () => ({}) }) {
@@ -36,6 +50,7 @@ class SessionManager extends EventEmitter {
       saved: !!historyEntry,       // has a history entry (created on first send)
       outcome: null,               // 'ok' | 'error' | 'stopped' after the last turn
       unread: false,
+      rewound: [],                 // files rewound since the last message: Claude hears about them next
     };
     this.tabs.set(tabId, tab);
 
@@ -71,8 +86,29 @@ class SessionManager extends EventEmitter {
     }
     this.history.append(tab.id, userItem);
     tab.outcome = null;
-    tab.session.send(prompt);
+    tab.session.send(tab.rewound.length ? rewoundNote(tab.rewound) + prompt : prompt);
+    tab.rewound = [];
     this.changed();
+  }
+
+  /**
+   * "Rewind files" on a message you sent: dryRun first to say what would
+   * change, then for real. A real rewind is recorded in the conversation (so it
+   * shows on replay) and remembered for the next message to Claude.
+   */
+  async rewind(tabId, uuid, dryRun) {
+    const tab = this.require(tabId);
+    if (!UUID.test(uuid || '')) throw new Error('That message has no checkpoint.');
+    const preview = await tab.session.rewind(uuid, { dryRun: true });
+    if (dryRun || !preview.canRewind) return preview;
+    // The real call only says whether it worked, so the files come from the preview.
+    const r = await tab.session.rewind(uuid);
+    if (r.canRewind) {
+      const files = r.filesChanged.length ? r.filesChanged : preview.filesChanged;
+      tab.rewound = [...new Set([...tab.rewound, ...files])];
+      this.onItem(tab, { kind: 'rewound', uuid, files, insertions: preview.insertions, deletions: preview.deletions });
+    }
+    return { ...r, filesChanged: r.filesChanged.length ? r.filesChanged : preview.filesChanged };
   }
 
   respond(tabId, requestId, decision, message, answers) {

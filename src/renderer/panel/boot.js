@@ -31,6 +31,7 @@
       if (!tab.isActive) tab.unread = true;
       SB.onTurnEnded(tab, item);
       api.listSessions().then(s => { state.sessions = s; });
+      if (tab.isActive) SB.refreshGitSoon();
     }
     if (item.kind === 'decision' || item.kind === 'result') SB.syncBusyUi();
   });
@@ -119,6 +120,7 @@
       toolbox: b.toolbox, pinned: b.pinned, learned: b.learned, routines: b.routines, updates: b.updates,
     });
     SB.renderUpdates(); // an update downloaded before the panel opened is waiting on the gear
+    SB.loadEditors();
     $('settingsFolder').textContent = b.cwd;
     SB.applyMode(state.settings.mode);
     SB.applyCrabOnly();

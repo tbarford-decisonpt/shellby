@@ -48,6 +48,14 @@ contextBridge.exposeInMainWorld('shellby', {
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
   stopTask: fire('task:stop'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
+  rewindFiles: (tabId, uuid, dryRun) => ipcRenderer.invoke('task:rewind', { tabId, uuid, dryRun }),
+
+  // files: the @ picker, opening one in your editor, the branch chip
+  suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
+  openFile: (tabId, target, { line, reveal } = {}) => ipcRenderer.invoke('file:open', { tabId, target, line, reveal }),
+  getEditors: invoke('editors:get'),
+  gitStatus: invoke('git:status'),
+  zoom: invoke('panel:zoom'),
 
   // history
   listSessions: invoke('session:list'),

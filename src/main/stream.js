@@ -1,5 +1,6 @@
 // Turns Claude Code stream-json events into a small set of UI items.
 // Pure functions: no Electron, no I/O — see test/stream.test.js.
+const { editsOf } = require('../renderer/shared/diff');
 
 const MAX_RESULT_CHARS = 8000;
 
@@ -96,7 +97,7 @@ function toolItem(b, sub) {
   const item = { kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, input), ...sub };
   if (b.name === 'ExitPlanMode') item.plan = input.plan;
   const fp = writtenPath(b.name, input);
-  if (fp) { item.filePath = fp; item.writeChars = writeChars(b.name, input); }
+  if (fp) { item.filePath = fp; item.writeChars = writeChars(b.name, input); item.edits = editsOf(b.name, input); }
   if (AGENT_TOOLS.has(b.name)) {
     item.agent = {
       type: typeof input.subagent_type === 'string' ? input.subagent_type : 'general-purpose',
@@ -154,6 +155,9 @@ function toItems(ev) {
       return out;
     }
     case 'user': {
+      // Our own message, echoed back (--replay-user-messages) with the id Claude
+      // Code's file checkpoints are keyed by: what "Rewind files" goes back to.
+      if (ev.isReplay && ev.uuid && !ev.parent_tool_use_id) return [{ kind: 'checkpoint', uuid: String(ev.uuid) }];
       const content = ev.message?.content;
       if (!Array.isArray(content)) return [];
       return content.filter(b => b.type === 'tool_result').map(b => {
@@ -183,7 +187,7 @@ function toItems(ev) {
         const r = ev.request;
         return [{
           kind: 'permission', requestId: ev.request_id, toolName: r.tool_name, toolUseId: r.tool_use_id,
-          agentId: r.agent_id || null, filePath: writtenPath(r.tool_name, r.input),
+          agentId: r.agent_id || null, filePath: writtenPath(r.tool_name, r.input), edits: editsOf(r.tool_name, r.input),
           input: r.input, description: r.description || null,
           suggestions: Array.isArray(r.permission_suggestions) ? r.permission_suggestions : [],
           ...describeTool(r.tool_name, r.input),

@@ -42,7 +42,9 @@ const { CritterMotion } = require('./motion');
 const voice = require('./voice');
 const statusLine = require('./statusline');
 const streaks = require('./streaks');
-const { repoOf, lastCommitAt } = require('./gitinfo');
+const { repoOf, lastCommitAt, statusOf } = require('./gitinfo');
+const editor = require('./editor');
+const { listFiles, rankFiles } = require('./fileindex');
 const { reviewPrompt } = require('./review');
 const notes = require('./notes');
 const { FAKE_SCENARIOS } = require('./health/fake');
@@ -329,6 +331,7 @@ function createPanel() {
   });
   secureWindow(panel);
   panel.loadFile(path.join(RENDERER, 'panel', 'panel.html'));
+  panel.webContents.on('did-finish-load', () => panel.webContents.setZoomFactor(config.get('panelZoom') || 1));
   panel.on('close', e => { if (!app.isQuitting) { e.preventDefault(); panel.hide(); } });
   panel.on('resized', () => { const [width, height] = panel.getSize(); config.set({ panelSize: { width, height } }); });
 }
@@ -1781,6 +1784,9 @@ function userSkinsDir() {
 // ================================================================ IPC
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
+const ZOOM_STEPS = [0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.5];
+// VS Code and friends register a URL scheme when they install.
+const isEditorInstalled = scheme => !!app.getApplicationNameForProtocol(`${scheme}://`);
 
 function registerIpc() {
   // ---- critter
@@ -1964,6 +1970,57 @@ function registerIpc() {
     return manager.respond(tabId, requestId, decision, typeof message === 'string' ? message.slice(0, 500) : undefined, clean);
   });
 
+  // "Rewind files" on a message you sent: dryRun says what would change.
+  ipcMain.handle('task:rewind', async (_e, { tabId, uuid, dryRun } = {}) => {
+    if (!isStr(tabId) || !isStr(uuid)) return { ok: false, error: 'Nothing to rewind to.' };
+    try {
+      const r = await manager.rewind(tabId, uuid, !!dryRun);
+      if (!dryRun && r.canRewind) stat('files-rewound');
+      return { ok: r.canRewind, ...r, error: r.canRewind ? null : r.error || "Claude Code doesn't have a checkpoint for that message." };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // ---- files: the @ picker, opening them where you edit, the branch chip
+  const tabCwd = tabId => (isStr(tabId) && manager.tabs.get(tabId)?.session.cwd) || currentCwd();
+  ipcMain.handle('files:suggest', async (_e, { tabId, query } = {}) => {
+    const root = tabCwd(tabId);
+    const q = typeof query === 'string' ? query.slice(0, 200) : '';
+    return { root, items: rankFiles(await listFiles(root), q, 10) };
+  });
+  ipcMain.handle('file:open', async (_e, { tabId, target, line, reveal } = {}) => {
+    const t = editor.parseTarget(target, tabCwd(tabId));
+    if (!t) return { ok: false, error: "That doesn't look like a file." };
+    let st;
+    try { st = await fs.promises.stat(t.file); } catch { return { ok: false, error: `Couldn't find ${path.basename(t.file)}.` }; }
+    if (Number.isInteger(line) && line > 0) t.line = line;
+    if (reveal) { shell.showItemInFolder(t.file); return { ok: true, how: 'folder' }; }
+    const id = editor.pickEditor(config.get('editor'), isEditorInstalled);
+    if (id) { shell.openExternal(editor.editorUrl(id, t.file, st.isFile() ? t.line : null, st.isFile() ? t.col : null)); return { ok: true, how: editor.EDITORS[id].label }; }
+    // No editor: Windows' default app, but never one that would run the file.
+    if (st.isFile() && editor.runsWhenOpened(t.file)) { shell.showItemInFolder(t.file); return { ok: true, how: 'folder' }; }
+    const err = await shell.openPath(t.file);
+    return err ? { ok: false, error: err } : { ok: true, how: 'default' };
+  });
+  ipcMain.handle('editors:get', () => {
+    const resolved = editor.pickEditor(config.get('editor'), isEditorInstalled);
+    return {
+      choice: config.get('editor'),
+      installed: Object.keys(editor.EDITORS).filter(id => isEditorInstalled(editor.EDITORS[id].scheme)),
+      using: resolved ? editor.EDITORS[resolved].label : null,
+    };
+  });
+  ipcMain.handle('git:status', async (_e, tabId) => statusOf(tabCwd(tabId)));
+  ipcMain.handle('panel:zoom', (_e, step) => {
+    const now = panel.webContents.getZoomFactor();
+    const at = ZOOM_STEPS.reduce((best, z, i) => (Math.abs(z - now) < Math.abs(ZOOM_STEPS[best] - now) ? i : best), 0);
+    const next = step === 0 ? 1 : ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, at + Math.sign(step)))];
+    panel.webContents.setZoomFactor(next);
+    config.set({ panelZoom: next });
+    return next;
+  });
+
   // ---- history
   ipcMain.handle('session:list', () => history.list());
   ipcMain.handle('session:open', (_e, id) => {
@@ -1990,7 +2047,7 @@ function registerIpc() {
   // ---- settings
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'wander', 'chatter', 'sounds', 'editor']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -2017,6 +2074,7 @@ function registerIpc() {
     if ('model' in allowed && !['', 'opus', 'sonnet', 'haiku'].includes(allowed.model)) delete allowed.model;
     for (const k of ['openAtLogin', 'notifications', 'onboarded', 'autonomousAcknowledged', 'crabOnly', 'wander', 'sounds']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('chatter' in allowed && !voice.CHATTER.includes(allowed.chatter)) delete allowed.chatter;
+    if ('editor' in allowed && !editor.CHOICES.includes(allowed.editor)) delete allowed.editor;
     if (allowed.wander === false) motion?.stop();
     const prevHotkey = config.get('hotkey');
     let hotkeyError = null;

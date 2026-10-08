@@ -141,9 +141,11 @@
           if (!replay) this.stuck = true;
           return this.renderUser(item);
         case 'text': {
-          const el = SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text);
+          const el = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text));
           return this.append(el, item.parent);
         }
+        case 'checkpoint': return this.attachCheckpoint(item);
+        case 'rewound': return this.renderRewound(item);
         case 'thinking':
           if (!replay && !item.sub) this.setStatus('Thinking…');
           return;
@@ -165,12 +167,26 @@
     }
 
     renderTool(item, replay) {
-      const el = h('details', { class: `tool pending${item.sub ? ' sub' : ''}` },
+      // Files it touched are links to your editor; edits fold open to their diff.
+      const file = item.filePath || (item.name === 'Read' && item.detail ? item.detail : null);
+      const edits = item.edits?.length ? item.edits : null;
+      const el = h('details', { class: `tool pending${item.sub ? ' sub' : ''}${edits ? ' edit' : ''}` },
         h('summary', {},
           h('span', { class: 't-state' }),
           h('span', { class: 't-label', text: item.label }),
-          h('span', { class: 't-detail', text: item.detail, title: item.detail })));
+          file
+            ? SB.fileLink(file, { line: item.line, text: SB.relPath(file, this.cwd), cls: 't-detail' })
+            : h('span', { class: 't-detail', text: item.detail, title: item.detail }),
+          edits ? SB.diffStats(edits) : null));
       el.dataset.toolId = item.id; // so trim() can forget it with the element
+      if (edits) {
+        el.dataset.edit = '1';
+        // Built on first open: a long conversation has hundreds of these.
+        el.addEventListener('toggle', () => {
+          if (!el.open || el.querySelector('.diff')) return;
+          el.querySelector('summary').after(SB.diffView(edits, { line: item.line }));
+        });
+      }
       this.tools.set(item.id, el);
       this.append(el, item.parent);
       if (!replay && !item.sub) this.setStatus(`${item.label} ${item.detail}`.trim());
@@ -185,7 +201,70 @@
       if (!el) return;
       el.classList.remove('pending');
       el.classList.add(item.isError ? (/declined|denied|interrupted/i.test(item.text) ? 'denied' : 'err') : 'ok');
-      if (item.text?.trim()) el.append(h('pre', { class: 't-result', text: item.text }));
+      // A successful edit's result is "The file … has been updated"; the diff says it better.
+      if (item.text?.trim() && !(el.dataset.edit && !item.isError)) el.append(h('pre', { class: 't-result', text: item.text }));
+      if (el.dataset.edit && !item.isError) SB.refreshGitSoon();
+    }
+
+    // ------------------------------------------------------------ rewind
+    // The id Claude Code keeps a file checkpoint under arrives just after the
+    // message it belongs to: the newest message of yours that doesn't have one.
+    attachCheckpoint(item) {
+      const msg = [...this.el.querySelectorAll(':scope > .msg.user:not([data-uuid])')].pop();
+      if (!msg) return;
+      msg.dataset.uuid = item.uuid;
+      // The label is drawn by CSS, so the message's text stays exactly what you sent.
+      msg.append(h('button', {
+        class: 'msg-rewind', type: 'button', 'aria-label': 'Rewind files',
+        title: 'Put the files Claude changed back the way they were before this message',
+        onclick: () => this.rewindTo(msg),
+      }));
+    }
+
+    async rewindTo(msg) {
+      if (this.busy) return SB.toast('Wait until Shellby has finished, or stop him first.');
+      this.el.querySelector('.rewind-box')?.remove();
+      const box = h('div', { class: 'rewind-box', role: 'group', 'aria-label': 'Rewind files' },
+        h('div', { class: 'rewind-title', text: 'Checking what changed since this message…' }));
+      const close = () => { box.remove(); msg.querySelector('.msg-rewind')?.focus({ preventScroll: true }); };
+      box.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
+      msg.after(box);
+      box.scrollIntoView({ block: 'nearest' });
+      const cancel = h('button', { class: 'btn ghost', type: 'button', onclick: close }, 'Close');
+
+      const r = await api.rewindFiles(this.id, msg.dataset.uuid, true);
+      if (!box.isConnected) return;
+      if (!r.ok || !r.filesChanged.length) {
+        box.replaceChildren(h('div', { class: 'rewind-title', text: r.ok ? 'Nothing to rewind: no files have changed since this message.' : r.error }), h('div', { class: 'ask-actions' }, cancel));
+        cancel.focus();
+        return;
+      }
+      const n = r.filesChanged.length;
+      const go = h('button', {
+        class: 'btn allow', type: 'button',
+        onclick: async () => {
+          go.disabled = true;
+          const done = await api.rewindFiles(this.id, msg.dataset.uuid, false);
+          if (!done.ok) { go.disabled = false; return SB.toast(done.error); }
+          box.remove();
+          SB.refreshGitSoon();
+        },
+      }, `Rewind ${n} file${n === 1 ? '' : 's'}`);
+      cancel.textContent = 'Cancel';
+      box.replaceChildren(
+        h('div', { class: 'rewind-title' }, `Put ${n === 1 ? 'this file' : `these ${n} files`} back the way ${n === 1 ? 'it was' : 'they were'} before this message?`,
+          h('span', { class: 'dstat' }, r.insertions ? h('b', { class: 'add', text: `+${r.insertions}` }) : null, r.deletions ? h('b', { class: 'del', text: `−${r.deletions}` }) : null)),
+        h('ul', { class: 'rewind-files' }, r.filesChanged.slice(0, 12).map(f => h('li', {}, SB.fileLink(f, { text: SB.relPath(f, this.cwd) }))),
+          n > 12 ? h('li', { class: 'muted', text: `…and ${n - 12} more` }) : null),
+        h('p', { class: 'rewind-note', text: 'Only files go back. The conversation stays as it is, and Shellby tells Claude about the rewind with your next message.' }),
+        h('div', { class: 'ask-actions' }, go, cancel));
+      go.focus();
+    }
+
+    renderRewound(item) {
+      const n = item.files?.length || 0;
+      this.append(h('div', { class: 'meta rewound', title: (item.files || []).join('\n') },
+        `↺ Rewound ${n} file${n === 1 ? '' : 's'} to before an earlier message · Claude hears about it with your next message`));
     }
 
     // ------------------------------------------------------------ crew lanes
@@ -223,9 +302,19 @@
         }
       };
 
+      const edits = !isPlan && item.filePath && item.edits?.length ? item.edits : null;
       const body = isPlan
         ? h('div', { class: 'ask-body' }, SB.renderMarkdownInto(h('div', { class: 'ask-plan msg assistant' }), item.plan || 'No plan text.'))
-        : h('div', { class: 'ask-body' },
+        : edits
+          // An edit shows what it changes, the way an editor would, before you say yes.
+          ? h('div', { class: 'ask-body' },
+              h('div', { class: 'ask-file' },
+                SB.fileLink(item.filePath, { line: item.line, text: SB.relPath(item.filePath, this.cwd) }),
+                item.line ? h('span', { class: 'ask-line', text: `line ${item.line}` }) : null,
+                SB.diffStats(edits)),
+              SB.diffView(edits, { line: item.line }),
+              item.description ? h('p', { class: 'ask-desc', text: item.description }) : null)
+          : h('div', { class: 'ask-body' },
             h('code', { class: 'ask-cmd', text: item.detail || item.toolName }),
             item.description && item.description !== item.detail ? h('p', { class: 'ask-desc', text: item.description }) : null);
 

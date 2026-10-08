@@ -5,7 +5,8 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 // Items worth replaying later. Transient ones (thinking, usage, raw logs) are skipped.
-const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task']);
+// checkpoint: the id "Rewind files" goes back to; rewound: that it happened.
+const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'checkpoint', 'rewound']);
 
 // How many conversations the index remembers. Transcripts past this are deleted
 // with their entry, rather than being left in the folder with nothing listing them.
@@ -81,7 +82,7 @@ class History {
   append(id, item) {
     if (!PERSISTED.has(item.kind)) return;
     if (item.kind === 'task' && (item.phase === 'progress' || item.phase === 'updated')) return; // start + finish are enough to replay
-    const rec = item.kind === 'permission' ? { ...item, input: undefined } : item;
+    const rec = item.kind === 'permission' ? { ...item, input: undefined, edits: undefined } : item;
     // Guarded: a full disk, or a file locked by antivirus or a cloud-sync folder,
     // used to throw from here straight into the session's item handler, in the
     // middle of a running task. Losing a transcript line is the lesser problem.

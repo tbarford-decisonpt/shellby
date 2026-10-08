@@ -24,6 +24,17 @@
     });
   }
 
+  // The keys a VS Code hand reaches for: Ctrl+Shift+P for the palette, and
+  // Ctrl+= / Ctrl+- / Ctrl+0 to size the text.
+  document.addEventListener('keydown', e => {
+    if (state.view === 'onboarding' || !e.ctrlKey || e.altKey || e.metaKey) return;
+    if (document.querySelector('.card-sheet:not([hidden])')) return;
+    if (e.shiftKey && e.key.toLowerCase() === 'p') { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); return SB.zoom(1); }
+    if (e.key === '-' || e.key === '_') { e.preventDefault(); return SB.zoom(-1); }
+    if (e.key === '0' && !e.shiftKey) { e.preventDefault(); return SB.zoom(0); }
+  });
+
   document.addEventListener('keydown', e => {
     if (state.view === 'onboarding' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
     // A dialog (share card, upsell, outfit code) owns the keyboard until it closes.
@@ -202,6 +213,21 @@
     }));
   }
 
+  function editorEntries() {
+    const chat = run => () => { SB.setView('chat'); run(); };
+    const ed = state.editors?.using;
+    const here = SB.activeTab()?.cwd || state.cwd;
+    const g = state.git;
+    return [
+      claude() && { icon: '🔎', title: 'Find in this conversation', sub: 'Ctrl+F', keys: 'search text match', run: chat(() => SB.find.open()) },
+      { icon: '➕', title: 'Zoom in', sub: 'Ctrl+= · bigger text', keys: 'font size larger scale', run: () => SB.zoom(1) },
+      { icon: '➖', title: 'Zoom out', sub: 'Ctrl+- · smaller text', keys: 'font size smaller scale', run: () => SB.zoom(-1) },
+      { icon: '🔍', title: 'Reset zoom', sub: 'Ctrl+0', keys: 'font size actual normal 100', run: () => SB.zoom(0) },
+      claude() && { icon: '↗', title: ed ? `Open working folder in ${ed}` : 'Open working folder', sub: SB.shortPath(here, 40), keys: 'editor vscode code cursor windsurf project explorer', run: () => SB.openFile(here) },
+      claude() && g && { icon: '⎇', title: `Changed files on ${g.branch || 'this branch'}`, sub: `${g.files.length + g.more} changed in ${g.name}`, keys: 'git branch status diff source control modified', run: chat(() => SB.openGitMenu()) },
+    ].filter(Boolean).map(e => ({ ...e, group: 'Editor' }));
+  }
+
   // Every word has to appear somewhere; titles that start with the query rank first.
   function score(entry, q, words) {
     const title = entry.title.toLowerCase();
@@ -214,14 +240,14 @@
     return 3;
   }
 
-  const GROUP_RANK = { Screens: 0, Focus: 1, Settings: 2, 'Permission mode': 3, Conversations: 4, Skills: 5, Commands: 6 };
+  const GROUP_RANK = { Screens: 0, Focus: 1, Editor: 2, Settings: 3, 'Permission mode': 4, Conversations: 5, Skills: 6, Commands: 7 };
   const focusEntries = () => (SB.focusCommands?.() || []).map(e => ({ ...e, group: 'Focus' }));
 
   function search(raw) {
     const q = raw.trim().toLowerCase();
     if (!q) return [...screenEntries(), ...settingEntries()];
     const words = q.split(/\s+/);
-    return [...screenEntries(), ...focusEntries(), ...settingEntries(), ...modeEntries(), ...tabEntries(), ...conversationEntries(), ...toolEntries()]
+    return [...screenEntries(), ...focusEntries(), ...editorEntries(), ...settingEntries(), ...modeEntries(), ...tabEntries(), ...conversationEntries(), ...toolEntries()]
       .map(entry => ({ entry, s: score(entry, q, words) }))
       .filter(x => x.s >= 0)
       .sort((a, b) => a.s - b.s || GROUP_RANK[a.entry.group] - GROUP_RANK[b.entry.group])

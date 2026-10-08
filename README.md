@@ -130,6 +130,9 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 
 - **Helper crabs:** each subagent gets its own lane in the panel and its own crab on your desktop.
 - **Parallel tabs,** each its own Claude Code process. Keep typing while he works and your messages queue up.
+- **See an edit before it happens:** when Claude wants to change a file, the card shows the change in red and green, with line numbers, before you say yes. Every edit in the conversation folds open to its diff too.
+- **Rewind files:** hover over a message you sent and **↺ Rewind files** puts everything Claude changed since then back the way it was. It shows you which files first, and tells Claude about it with your next message.
+- **Works next to your editor:** file paths in a conversation are links that open in VS Code, Cursor or Windsurf at the right line. Type <kbd>@</kbd> to hand Claude a file from the project.
 - **Toolbox:** every skill, agent, command and MCP server Claude Code can use. When he writes himself a new one, he celebrates.
 - **Skill Shop** installs plugins from Claude Code's marketplaces, asking first every time.
 - **Routines** run tasks on a schedule, like "every Friday at 5, tidy Downloads".
@@ -145,6 +148,9 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 - **Status line:** `🦀💨 Shellby working · Lv 5 Claw Coder ▰▰▰▱▱ · 🥵 GPU 84°C · +25 XP`, right under the prompt in the terminal and VS Code. Turn it on in **Settings → Claude Code everywhere → Status line** (it asks first, keeps a backup, and restores your old status line if you remove it), or run `/shellby:statusline`. In the classic cmd.exe console, which can't draw emoji, it switches to a plain-text line.
 - **Queue:** Enter queues a message while he's busy, and it's sent when the current turn finishes. Click a queued message (or press <kbd>↑</kbd>) to edit it. Stopping hands the queue back to you instead of firing it.
 - **Tabs:** build a tool in one tab while you use it in another. The desktop crab shows how many are running. <kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>W</kbd> and <kbd>Ctrl</kbd>+<kbd>Tab</kbd> work like a browser, and so does dragging one along the strip to reorder it — the order you leave them in is the order they come back in. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>PageUp</kbd>/<kbd>PageDown</kbd> moves one without the mouse.
+- **Editor links:** **Settings → Editor** picks VS Code, Cursor, Windsurf or VS Code Insiders, or *Automatic* for whichever is installed. They're opened through the editor's own `vscode://`-style link, so nothing is run through a shell. With none of them, a file opens in Windows' default app, except anything that would run (a script, an `.exe`), which is shown in its folder instead. <kbd>Shift</kbd>+click always shows it in its folder.
+- **<kbd>@</kbd> files:** the list comes from `git ls-files` in a repo, or a quick capped look around anywhere else. Claude Code reads an `@path` the same way it does in the terminal, and picking a folder keeps the list open inside it.
+- **Rewind files** uses Claude Code's own file checkpoints, the same ones `/rewind` uses in the terminal. It only puts files back; the conversation isn't cut short. It isn't offered while he's working, and conversations from before this version have no checkpoints to go back to.
 - **Toolbox:** MCP servers show their connection status. New skills and agents are tagged **new** and can be pinned as one-click chips on the start screen, and <kbd>/</kbd> in the composer autocompletes all of them.
 - **Skill Shop:** **Toolbox → Get more** lists every plugin in your marketplaces, most popular first. Add marketplaces from GitHub, and every install asks first in an isolated confirmation window. It uses Claude Code's own plugin system, so whatever you install works in your terminal and editor too.
 - **Routines:** each run opens its own tab with its own permission mode, and missed runs catch up when your PC wakes up.
@@ -154,7 +160,9 @@ More hats, effects and colors from other people at **[x-salmon.github.io/shellby
 ## 🧭 Easy to get around
 
 - **A bar along the bottom:** Shellby, Chat, Toolbox, Routines, Health and History, labeled, with the current screen lit up.
-- **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill.
+- **<kbd>Ctrl</kbd>+<kbd>K</kbd> jumps anywhere:** any screen, Settings section, permission mode, past conversation or skill. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> opens it too, for VS Code hands.
+- **<kbd>Ctrl</kbd>+<kbd>F</kbd> finds text** in a conversation, opening the step it's in. <kbd>Ctrl</kbd>+<kbd>=</kbd> and <kbd>Ctrl</kbd>+<kbd>-</kbd> size the panel's text, and he remembers it.
+- **The branch you're on** sits next to the working folder, with how many files have changed. Click it for the list, each one a click away from your editor.
 - **<kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>6</kbd>** for the bar, <kbd>Esc</kbd> goes back up one level, and Settings has section links that stay on screen as you scroll.
 - **Also:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens him from anywhere, plus a live 5-hour and weekly usage meter, resumable history, a tray menu, notifications and [custom skins](docs/SKINS.md).
 - **Updates are a button:** **Settings → About** shows what version he's on and whether a new one is waiting, with **Restart and update** when it has downloaded. The tray menu has the same button, and he checks on his own in the background.

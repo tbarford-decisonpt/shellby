@@ -19,7 +19,7 @@ npm start
 | `npm start` | Run in development |
 | `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one) |
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
-| `npm run e2e:ci` | The thirteen end-to-end checks that need no Claude account, no GitHub and no network, one after another (~4 min). This is what CI runs, and the only automated coverage the renderer has |
+| `npm run e2e:ci` | The seventeen end-to-end checks that need no Claude account, no GitHub and no network, one after another (~4 min). This is what CI runs, and the only automated coverage the renderer has |
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
 | `node scripts/e2e-ui.js` | Drives the real UI over CDP: two parallel tabs, a subagent needing approval, helper crabs on the desktop |
 | `node scripts/overlay-visual-test.js` | Proves the critter never paints over apps: covers it with a window, cycles every mood, and counts real screen pixels |
@@ -30,6 +30,7 @@ npm start
 | `node scripts/e2e-plugin.js` | A **real** `claude -p` session with `--plugin-dir ./claude-plugin` drives a dev Shellby: the crab works, then celebrates. Also checks the hook is instant when Shellby is closed (uses one tiny prompt) |
 | `node scripts/e2e-outfit-code.js` | Outfit codes: read your code, undress, paste it back for the same look; locked items, a community item traced to its pack in the live gallery, a typo, the code on the crab card |
 | `node scripts/e2e-questions.js` | Claude's multiple-choice questions: a real question card, number keys, multi-select and your own words, Skip, and exactly what Claude receives |
+| `node scripts/e2e-editor.js [folder]` | The editor features in a throwaway git repo: an edit's card shows its diff with line numbers, the tool row folds open to it, Rewind files puts the file back, @ picks a file (and drills into folders), Ctrl+F counts and steps through matches, Ctrl+= zooms, Ctrl+Shift+P opens the palette, the branch chip counts and lists changes, and paths in replies become links (checked, never clicked). Screenshots go in `[folder]` |
 | `node scripts/e2e-feed-cap.js` | A very long conversation stops growing the DOM: 3,600 blocks pumped through one tab, the cap holds, the tool and lane maps let go with the elements, a result for a long-trimmed tool is ignored, and replay is capped too |
 | `node scripts/e2e-feed-scroll.js` | Your prompt is fully visible after sending, with the Working bar and queued messages, even when scrolled up; replies don't yank you out of history |
 | `node scripts/e2e-streaks.js` | Streaks and nudges with a real throwaway git repo (last commit 6 days ago): the streak starts, the repo root is found from a subfolder, the nudge fires once, and "Pick it up" opens a tab there |
@@ -114,7 +115,9 @@ src/main/        Electron main process
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
   github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), and the service tying them together
-  streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo and its last commit
+  streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo, its last commit, its branch and changed files
+  editor.js        opening a file in VS Code, Cursor or Windsurf at the line (their URL schemes), or safely in the default app
+  fileindex.js     the files behind the composer's @ picker: git ls-files or a capped walk, and fuzzy ranking
   desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude-cli.js    finds the CLI, checks auth, scrubs billing env vars
   history.js       local conversation index + transcripts
@@ -126,7 +129,7 @@ src/main/        Electron main process
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   critter/         the desktop crab: critter.js (moods, bubble, habits) · chirp.js (WebAudio blips, no audio files)
-  panel/           core · nav (bottom bar, Ctrl+K) · feed (crew lanes) · tabs · toolbox · shop · routines · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · outfitcode · github · boot
+  panel/           core · files (editor links, diffs, branch chip, zoom) · find (Ctrl+F) · nav (bottom bar, Ctrl+K) · feed (crew lanes, rewind) · tabs · toolbox · shop · routines · settings · wardrobe · xp · streaks · health · card · celebrate · crabonly · outfitcode · github · boot
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 test/            node:test suites and a fake Claude CLI

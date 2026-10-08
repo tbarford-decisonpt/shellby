@@ -8,9 +8,22 @@
 //   "wait <ms>"  -> replies "echo: ..." after a delay
 //   "fail"       -> ends the turn with an error
 //   anything else -> replies "echo: <text>"
+//   "edit <name>" -> asks to edit (or create) <name> in the working folder
+// With --replay-user-messages each message is echoed back with a uuid, and
+// rewind_files puts files back the way they were before that message.
 const readline = require('readline');
+const fs = require('fs');
+const path = require('path');
+const { randomUUID } = require('crypto');
 
 const args = process.argv.slice(2);
+const replay = args.includes('--replay-user-messages');
+const checkpoints = []; // [{ uuid, files: Map(path -> contents before, or null if it didn't exist) }]
+const touched = file => {
+  const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+  for (const c of checkpoints) if (!c.files.has(file)) c.files.set(file, before);
+};
+const lines = s => (s ? s.split('\n').filter(Boolean).length : 0);
 const sessionId = args.includes('--resume') ? args[args.indexOf('--resume') + 1] : 'fake-session-1';
 let mode = args.includes('--permission-mode') ? args[args.indexOf('--permission-mode') + 1] : 'default';
 let turn = 0;
@@ -40,6 +53,20 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     } else if (sub === 'set_permission_mode') {
       mode = msg.request.mode;
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: { mode } } });
+    } else if (sub === 'rewind_files') {
+      const c = checkpoints.find(x => x.uuid === msg.request.user_message_id);
+      const now = f => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null);
+      const changed = c ? [...c.files].filter(([f, was]) => now(f) !== was) : [];
+      let response;
+      if (!c) response = { canRewind: false, error: 'No file checkpoint found for this message.' };
+      else if (msg.request.dry_run) {
+        response = { canRewind: true, filesChanged: changed.map(([f]) => f),
+          insertions: changed.reduce((n, [, was]) => n + lines(was), 0), deletions: changed.reduce((n, [f]) => n + lines(now(f)), 0) };
+      } else {
+        for (const [f, was] of changed) { if (was == null) fs.rmSync(f, { force: true }); else fs.writeFileSync(f, was); }
+        response = { canRewind: true, skippedLinks: 0 };
+      }
+      out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response } });
     } else if (sub === 'get_usage') {
       out({ type: 'control_response', response: { subtype: 'success', request_id: msg.request_id, response: {
         subscription_type: 'max', rate_limits_available: true,
@@ -52,6 +79,11 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (msg.type !== 'user') return;
   turn++;
   const content = String(msg.message.content);
+  if (replay) {
+    const uuid = randomUUID();
+    checkpoints.push({ uuid, files: new Map() });
+    out({ type: 'user', message: { role: 'user', content: msg.message.content }, session_id: sessionId, parent_tool_use_id: null, uuid, isReplay: true });
+  }
   out({ type: 'system', subtype: 'hook_started' });
   out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: process.cwd(), permissionMode: mode, args });
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
@@ -149,6 +181,28 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
         text('SCRIPT DONE');
         result(true);
       } };
+    } };
+    return;
+  }
+
+  // "edit <name>" -> asks to Edit (or Write, if it's new) a real file in the
+  // working folder, and does it when allowed: something "Rewind files" can undo.
+  if (content.startsWith('edit ')) {
+    const file = path.join(process.cwd(), content.slice(5).trim());
+    const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+    const name = before == null ? 'Write' : 'Edit';
+    const after = before == null ? 'hello\nworld\n' : before.replace(/^.*$/m, `changed in turn ${turn}`);
+    const input = before == null ? { file_path: file, content: after } : { file_path: file, old_string: before.split('\n')[0], new_string: `changed in turn ${turn}` };
+    const id = `tu_edit_${turn}`;
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name, input }] }, parent_tool_use_id: null, session_id: sessionId });
+    const requestId = `req-edit-${turn}`;
+    out({ type: 'control_request', request_id: requestId, request: { subtype: 'can_use_tool', tool_name: name, input, tool_use_id: id, permission_suggestions: [] } });
+    pending = { requestId, onAnswer: r => {
+      const ok = r.behavior === 'allow';
+      if (ok) { touched(file); fs.writeFileSync(file, after); }
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, is_error: !ok, content: ok ? `The file ${file} has been updated.` : r.message }] }, parent_tool_use_id: null, session_id: sessionId });
+      text(ok ? 'EDITED' : 'NOT EDITED');
+      result(true);
     } };
     return;
   }

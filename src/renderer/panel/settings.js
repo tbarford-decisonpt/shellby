@@ -47,6 +47,7 @@
     $('wanderToggle').checked = state.settings.wander !== false;
     $('chatterSelect').value = ['quiet', 'normal', 'chatty'].includes(state.settings.chatter) ? state.settings.chatter : 'normal';
     $('soundsToggle').checked = !!state.settings.sounds;
+    renderEditor();
     const st = state.status || {};
     const facts = [
       ['Shellby', `v${state.version}`],
@@ -57,6 +58,24 @@
     ];
     $('facts').replaceChildren(...facts.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v, title: v })]));
   }
+
+  // Where file links open. Editors that aren't installed say so rather than vanish.
+  async function renderEditor() {
+    const ed = await SB.loadEditors();
+    const sel = $('editorSelect');
+    sel.value = ed.choice || 'auto';
+    for (const o of sel.options) {
+      o.textContent = o.dataset.label + (o.value === 'auto' ? ` (${ed.using || 'default app'})` : o.value !== 'system' && !ed.installed.includes(o.value) ? ' (not installed)' : '');
+    }
+    $('editorNote').textContent = ed.using
+      ? `File paths in conversations open in ${ed.using}, at the line. Shift+click shows a file in its folder instead.`
+      : "No VS Code, Cursor or Windsurf found, so files open in Windows' default app. Anything that would run (a script, an .exe) is shown in its folder instead.";
+  }
+  $('editorSelect').addEventListener('change', async e => {
+    const r = await api.setSettings({ editor: e.target.value });
+    state.settings = r.settings;
+    renderEditor();
+  });
 
   $('autonomousYes').addEventListener('click', async () => {
     const r = await api.setSettings({ autonomousAcknowledged: true, mode: 'autonomous' });

@@ -42,7 +42,8 @@
     tab.unread = false;
     SB.renderTabStrip();
     requestAnimationFrame(() => { tab.el.scrollTop = tab.el.scrollHeight; });
-    if (state.view !== 'chat') SB.setView('chat'); else input.focus();
+    if (prev !== tab) { SB.refreshGit(); SB.find.refresh(); }
+    if (state.view !== 'chat') SB.setView('chat'); else if (!SB.find.isOpen) input.focus();
   };
 
   // state.tabs' order is the order the strip shows. Reordered in place, never
@@ -431,7 +432,8 @@
     // Esc backs out one level and stops at home; it never hides the panel, since
     // a stray press there made the whole window vanish. The hotkey and × do that.
     if (e.key === 'Escape') {
-      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden) return SB.closeMenus();
+      if (!$('slashMenu').hidden || !$('modeMenu').hidden || !$('folderMenu').hidden || !$('gitMenu').hidden) return SB.closeMenus();
+      if (SB.find.isOpen) return SB.find.close();
       if (tab?.busy && state.view === 'chat') return stop();
       if (state.view !== SB.homeView() && state.view !== 'onboarding') return SB.goBack();
       return;
@@ -456,10 +458,37 @@
     if (paths.length) { SB.setView('chat'); SB.addAttachments(paths); }
   });
 
-  // ------------------------------------------------------------ slash menu (skills + commands)
+  // ------------------------------------------------------------ slash menu (skills + commands) and @ files
 
+  // One menu, two kinds: / at the start of the box lists skills and commands;
+  // @ anywhere lists files in the conversation's folder. Claude Code expands an
+  // @path into the file itself, the same as in the terminal.
   let slashItems = [];
   let slashIndex = 0;
+  let menuKind = 'slash';
+  let atToken = null;   // { start, end } of the @word being completed
+  let atSeq = 0;
+
+  // The @word the caret is in, or null. @"…" allows spaces.
+  function findAt() {
+    const end = input.selectionStart;
+    if (end !== input.selectionEnd) return null;
+    const m = input.value.slice(0, end).match(/(^|\s)@(?:"([^"]*)|([^\s"@]*))$/);
+    return m ? { start: end - m[0].length + m[1].length, end, query: m[2] ?? m[3] ?? '' } : null;
+  }
+
+  async function updateAt(at) {
+    const seq = ++atSeq;
+    const r = await api.suggestFiles(state.activeTab, at.query).catch(() => null);
+    if (seq !== atSeq) return;
+    const now = findAt();
+    if (!now || now.start !== at.start) return SB.hideSlash();
+    menuKind = 'at';
+    atToken = now;
+    slashItems = r?.items || [];
+    slashIndex = 0;
+    renderSlash();
+  }
 
   function slashCandidates(q) {
     const tb = state.toolbox;
@@ -482,29 +511,63 @@
 
   function updateSlash() {
     const m = input.value.match(/^\/([\w:.-]*)$/);
-    if (!m) return SB.hideSlash();
-    slashItems = slashCandidates(m[1].toLowerCase());
-    slashIndex = 0;
-    renderSlash();
+    if (m) {
+      atSeq++; // a slow @ lookup mustn't replace this
+      menuKind = 'slash';
+      slashItems = slashCandidates(m[1].toLowerCase());
+      slashIndex = 0;
+      return renderSlash();
+    }
+    const at = findAt();
+    if (at) return updateAt(at);
+    atSeq++;
+    SB.hideSlash();
+  }
+  // Moving the caret into or out of an @word opens or closes the file list.
+  input.addEventListener('click', updateSlash);
+  input.addEventListener('keyup', e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) updateSlash(); });
+
+  function slashRow(t) {
+    if (menuKind === 'slash') return [h('span', { class: 'slash-name' }, '/', t.name), h('span', { class: `kind-pill k-${t.kind}`, text: t.kind }), h('span', { class: 'slash-desc', text: t.description || '' })];
+    const parts = t.path.replace(/\/$/, '').split('/');
+    const name = parts.pop();
+    return [h('span', { class: 'slash-name' }, '@', name, t.dir ? '/' : ''), h('span', { class: `kind-pill k-${t.dir ? 'folder' : 'file'}`, text: t.dir ? 'folder' : 'file' }), h('span', { class: 'slash-desc', text: parts.join('/') })];
   }
 
   function renderSlash() {
     const menu = $('slashMenu');
     if (!slashItems.length) return SB.hideSlash();
     menu.hidden = false;
+    menu.setAttribute('aria-label', menuKind === 'slash' ? 'Skills and commands' : 'Files');
     menu.replaceChildren(...slashItems.map((t, i) => h('button', {
       type: 'button', role: 'option', class: `slash-item${i === slashIndex ? ' on' : ''}`, 'aria-selected': String(i === slashIndex),
       onmousedown: e => { e.preventDefault(); pickSlash(i); },
-    }, h('span', { class: 'slash-name' }, '/', t.name), h('span', { class: `kind-pill k-${t.kind}`, text: t.kind }), h('span', { class: 'slash-desc', text: t.description || '' }))));
+    }, slashRow(t))));
   }
 
   function pickSlash(i) {
     const t = slashItems[i];
     if (!t) return;
+    if (menuKind === 'at') return pickFile(t);
     input.value = `/${t.name} `;
     SB.hideSlash();
     autosize();
     input.focus();
+  }
+
+  // A folder keeps the list open to go further in; a file finishes the word.
+  function pickFile(t) {
+    const p = t.path;
+    const word = /[\s"]/.test(p) ? `@"${p}${t.dir ? '' : '"'}` : `@${p}`;
+    const tail = t.dir ? '' : ' ';
+    const { start, end } = atToken;
+    const after = input.value.slice(end).replace(/^[^\s]*/, ''); // the rest of the word being replaced
+    input.value = input.value.slice(0, start) + word + tail + after;
+    const caret = start + word.length + tail.length;
+    input.setSelectionRange(caret, caret);
+    autosize();
+    input.focus();
+    if (t.dir) updateSlash(); else SB.hideSlash();
   }
 
   function slashKeydown(e) {
@@ -519,7 +582,7 @@
     return false;
   }
 
-  SB.hideSlash = () => { $('slashMenu').hidden = true; };
+  SB.hideSlash = () => { $('slashMenu').hidden = true; atToken = null; };
   SB.useTool = (t) => {
     SB.setView('chat');
     const prefix = t.kind === 'agent' ? `Use the ${t.name} agent to ` : `/${t.name} `;
@@ -585,6 +648,7 @@
       applyFolderLabel(tab?.cwd || r.cwd);
       SB.toast(`New conversations will start in ${SB.basename(r.cwd)}`, { action: 'Open one', onAction: () => SB.newTab() });
     }
+    SB.refreshGit();
   };
 
   $('folderChip').addEventListener('click', () => SB.openMenu($('folderMenu'), $('folderChip'), () => {
@@ -594,6 +658,8 @@
     return [
       h('div', { class: 'menu-label', text: tab && !tab.isEmpty ? 'This conversation works in' : 'Working in' }),
       h('div', { class: 'menu-item path', text: here }),
+      state.editors?.using ? h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); SB.openFile(here); } },
+        h('span', { class: 'mi-check', text: '↗' }), h('span', { class: 'mi-title', text: `Open in ${state.editors.using}` })) : null,
       h('div', { class: 'menu-sep' }),
       h('button', { class: 'menu-item', onclick: async () => { SB.closeMenus(); SB.folderChanged(await api.pickFolder()); } }, h('span', { class: 'mi-check', text: '+' }), h('span', { class: 'mi-title', text: 'Choose folder…' })),
       recents.length ? h('div', { class: 'menu-label', text: 'Recent' }) : null,

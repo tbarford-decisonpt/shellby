@@ -30,6 +30,8 @@ const DEFAULTS = {
   wander: true,      // idle strolls near his spot (see motion.js)
   chatter: 'normal', // how much he says and gets up to: quiet | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
+  editor: 'auto',    // where file links open: auto | vscode | cursor | windsurf | insiders | system (see editor.js)
+  panelZoom: 1,      // Ctrl+= / Ctrl+- in the panel
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
   xp: null,          // XP and levels (see xp.js); null -> level 1
   home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own

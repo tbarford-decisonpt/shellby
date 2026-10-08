@@ -199,14 +199,14 @@ SB.openMenu = (menu, anchor, build) => {
 };
 
 SB.closeMenus = () => {
-  for (const id of ['modeMenu', 'folderMenu', 'noteMenu']) SB.$(id).hidden = true;
-  for (const id of ['modeChip', 'folderChip']) SB.$(id).setAttribute('aria-expanded', 'false');
+  for (const id of ['modeMenu', 'folderMenu', 'noteMenu', 'gitMenu']) SB.$(id).hidden = true;
+  for (const id of ['modeChip', 'folderChip', 'gitChip']) SB.$(id).setAttribute('aria-expanded', 'false');
   document.querySelectorAll('.note-more[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
   SB.hideSlash?.();
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .note-more, .slash-menu, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .git-chip, .note-more, .slash-menu, #input')) SB.closeMenus();
 });
 
 // ------------------------------------------------------------------ page never scrolls

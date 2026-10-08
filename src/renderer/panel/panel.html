@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="panel.css">
 <link rel="stylesheet" href="components.css">
 <link rel="stylesheet" href="notes.css">
+<link rel="stylesheet" href="files.css">
 <link rel="stylesheet" href="shop.css">
 <link rel="stylesheet" href="../shared/effects.css">
 <link rel="stylesheet" href="wardrobe.css">
@@ -63,6 +64,10 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6.1c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
       <span id="folderLabel">~</span>
     </button>
+    <button type="button" class="git-chip" id="gitChip" aria-haspopup="menu" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="3.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="4.5" cy="12.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="11.5" cy="5.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 5.1v5.8M11.5 7.1c0 2.6-2.4 2.9-7 3.8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+      <span id="gitBranch"></span><span class="git-changes" id="gitChanges" hidden></span>
+    </button>
     <div class="usage" id="usage" hidden>
       <div class="meter" id="meter5h"><span class="meter-label">5h</span><span class="meter-track"><span class="meter-fill"></span></span></div>
       <div class="meter" id="meter7d"><span class="meter-label">7d</span><span class="meter-track"><span class="meter-fill"></span></span></div>
@@ -72,10 +77,24 @@
   <div class="popover" id="modeMenu" role="menu" hidden></div>
   <div class="popover" id="folderMenu" role="menu" hidden></div>
   <div class="popover" id="noteMenu" role="menu" hidden></div>
+  <div class="popover git-menu" id="gitMenu" role="menu" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
     <div class="feeds" id="feeds"></div>
+    <div class="findbar" id="findBar" role="search" hidden>
+      <input id="findInput" class="field" type="text" placeholder="Find in conversation" aria-label="Find in this conversation" spellcheck="false">
+      <span class="find-count" id="findCount" aria-live="polite"></span>
+      <button type="button" class="icon-btn" id="findPrev" title="Previous match (Shift+Enter)" aria-label="Previous match">
+        <svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="icon-btn" id="findNext" title="Next match (Enter)" aria-label="Next match">
+        <svg viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="icon-btn" id="findClose" title="Close (Esc)" aria-label="Close find">
+        <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
 
     <footer class="composer" id="composer">
       <div class="status" id="status" hidden>
@@ -86,7 +105,7 @@
       <div class="queued" id="queued" hidden></div>
       <div class="attachments" id="attachments" hidden></div>
       <form class="input-row" id="form">
-        <textarea id="input" rows="1" placeholder="Give Shellby a task… (type / for skills)" aria-label="Task for Shellby"></textarea>
+        <textarea id="input" rows="1" placeholder="Give Shellby a task… (/ for skills, @ for files)" aria-label="Task for Shellby"></textarea>
         <button type="submit" class="send-btn" id="sendBtn" aria-label="Send">
           <svg viewBox="0 0 16 16"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -517,6 +536,23 @@
       <p class="muted small">Applies to new conversations.</p>
     </section>
 
+    <section class="setting-group" id="editorGroup" data-nav="Editor">
+      <h3>Editor</h3>
+      <div class="row">
+        <label class="inline-label" for="editorSelect">Open files in</label>
+        <select id="editorSelect" class="field slim">
+          <option value="auto" data-label="Automatic">Automatic</option>
+          <option value="vscode" data-label="VS Code">VS Code</option>
+          <option value="cursor" data-label="Cursor">Cursor</option>
+          <option value="windsurf" data-label="Windsurf">Windsurf</option>
+          <option value="insiders" data-label="VS Code Insiders">VS Code Insiders</option>
+          <option value="system" data-label="Windows' default app">Windows' default app</option>
+        </select>
+      </div>
+      <p class="muted small" id="editorNote"></p>
+      <p class="muted small">In a conversation: <kbd>@</kbd> picks a file, <kbd>Ctrl</kbd>+<kbd>F</kbd> finds text, <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> zoom, and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> opens the palette too.</p>
+    </section>
+
     <section class="setting-group" id="claudeModeGroup" data-nav="Claude Code">
       <h3>Claude Code</h3>
       <p class="small" id="claudeModeText"></p>
@@ -837,9 +873,12 @@
 <script src="../shared/sprite.js"></script>
 <script src="../shared/minishell.js"></script>
 <script src="../shared/markdown.js"></script>
+<script src="../shared/diff.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
 <script src="core.js"></script>
+<script src="files.js"></script>
+<script src="find.js"></script>
 <script src="feed.js"></script>
 <script src="tabs.js"></script>
 <script src="toolbox.js"></script>
