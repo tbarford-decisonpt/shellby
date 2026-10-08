@@ -366,6 +366,7 @@ src/main/        Electron main process
   usage.js         the usage meter without a prompt: a short-lived `claude -p` asked for its /usage data
   notes.js         Notes (pure): a list per project and a General one, their limits
   sync-prefs.js    which settings sync between PCs, each checked by its own rule, and the newest change wins
+  history-sync.js  which conversations sync between PCs (pure): the trimmed copy that travels, the merge, the recap Claude gets; github/history-gist.js moves it
   events.js        tide events (pure): six short named runs inside the seasons, their goals, medals, boosts and the bug that comes along;
                    wiring/events.js counts every stat toward them, says when one starts or ends, and gives the medal (docs/plans/viral.md)
   today.js         the app's one calendar: captureClock for screenshots, SHELLBY_TODAY for dev and test runs, the real day otherwise
@@ -379,7 +380,7 @@ src/main/        Electron main process
   fileindex.js     @ mentions: the files in a conversation's folder and a fuzzy match over them
   statusline.js    Shellby's line for Claude Code's status line, and adding/removing it in Claude's settings
   updates.js       the self-update state machine behind the button in Settings → About (electron-updater is injected, so it's testable)
-  github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), finding your own gists (gists.js), and the service tying them together
+  github/          sign-in (device flow, encrypted token), the REST client, gist sync, pack publishing, CI on your pull requests (ci.js), calling cards and waves for visiting crabs (card.js, mail.js), finding your own gists (gists.js), conversation history through its own gist (history-gist.js), and the service tying them together
   gitlab/          GitLab through the glab CLI (glab.js runs `glab api`, glab keeps the sign-in): which remotes are GitLab
                    projects (remote.js), the merge request watcher (watcher.js, github/ci.js's twin) and the material for
                    Fix this build, Address the review and Releases CI (mrwork.js); wiring/gitlab.js ties it in

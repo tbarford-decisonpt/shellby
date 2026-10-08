@@ -3,7 +3,9 @@
 // Kept out of main.js, which only wires it up.
 const { app, safeStorage, shell } = require('electron');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { randomUUID } = require('crypto');
 const focus = require('../focus');
 const workmode = require('../workmode');
 const { Friends, TOGETHER_EVERY_MS, TOGETHER_FIRST_MS, VISIT_MS, syncable: friendsSyncable } = require('../friends');
@@ -22,6 +24,8 @@ const { ProfileCard } = require('../github/profile-card');
 const { UPSTREAM: PACKS_REPO, publishPack } = require('../github/publish');
 const issueWork = require('../github/pullrequest');
 const { GitHubService } = require('../github/service');
+const { syncHistory, whereFrom } = require('../github/history-gist');
+const historySync = require('../history-sync');
 const { secretGate } = require('../secret-gate');
 const { SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('../marketplace');
 const shells = require('../shells');
@@ -60,7 +64,10 @@ function wireGithub(d) {
         // A friend added on another PC needs their card fetched here.
         if (d.friends && friendsChanged(d.config.data, before)) { d.friends.emit('change', d.friends.view()); d.friends.refresh().catch(() => {}); }
       },
+      syncHistory: d.history ? gh => runHistorySync(gh) : null,
     });
+    // Conversations you delete go to Recently deleted on your other PCs too.
+    if (d.history) d.history.onGone = (ids, at) => { if (d.github?.can('history')) historyState.save({ gone: Object.fromEntries(ids.map(id => [id, at])) }); };
     d.github.on('change', v => d.send(d.panel, 'github', v));
     d.github.on('signed-in', v => d.send(d.panel, 'github:signed-in', v));
     d.github.on('error', message => d.send(d.panel, 'github:error', message));
@@ -87,6 +94,35 @@ function wireGithub(d) {
     d.prBadge = new prBadges.PrBadge({ config: d.config, github: d.github, level: d.currentLevel, web: githubEndpoints().web });
     // The line under him: his title and class, the week's catches, and the tide event's emoji (crab-line.js).
     d.prBadge.summary = () => d.crabSummary();
+  }
+
+  // ---- History sync (history-sync.js): its own file, not settings.json, since
+  // it keeps the gist's index for a 304. pc: this PC's id in it, made once.
+  const historyFile = () => path.join(app.getPath('userData'), 'history-sync.json');
+  const historyState = {
+    load() {
+      try { const v = JSON.parse(fs.readFileSync(historyFile(), 'utf8')); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+    },
+    // Deletion markers merge with what's there: you may delete one mid-sync.
+    save(patch) {
+      const was = this.load();
+      const next = { ...was, ...patch, gone: historySync.mergeGone(was.gone, patch.gone) };
+      const tmp = `${historyFile()}.tmp`;
+      try { fs.writeFileSync(tmp, JSON.stringify(next)); fs.renameSync(tmp, historyFile()); } catch (e) { d.log.warn('history sync state', e.message); }
+    },
+  };
+  async function runHistorySync(gh) {
+    let { pc } = historyState.load();
+    if (!pc) { pc = randomUUID(); historyState.save({ pc }); }
+    const repos = await (d.projects?.localRepos() || Promise.resolve([])).catch(() => []);
+    const r = await syncHistory(gh, {
+      history: d.history, state: historyState,
+      me: { pc, name: os.hostname().slice(0, 64) },
+      open: new Set(d.manager ? d.manager.tabs.keys() : []),
+      where: whereFrom(repos, { exists: p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } }, home: os.homedir() }),
+    });
+    if (r.pulled || r.trashed || r.forked) d.send(d.panel, 'sessions:synced', d.history.list());
+    return r;
   }
 
   // Who's on the friends list (or was removed) differs: not a card fetch or a visit.
@@ -390,6 +426,18 @@ function wireGithub(d) {
         detail: 'A workflow runs on GitHub with access to that repository\'s secrets, so a task that edits one can make them run anything, in any repo you can push to. Without this, pushes that touch a workflow file are refused by GitHub.',
         note: 'Needs "Let Claude tasks push" as well. Shellby will ask GitHub for the extra permission, which means signing in again.',
         buttons: [{ label: 'Allow', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+      if (response !== 0) return { ok: false, canceled: true, view: d.github.view() };
+    }
+    // Your conversations are more than progress: say what goes up, and where.
+    if (feature === 'history' && on) {
+      const response = await d.askOnce({
+        icon: '🗂️',
+        title: 'Sync your conversation history?',
+        message: `Shellby keeps a copy of your ${historySync.MAX_SYNCED} newest conversations in a private gist on your GitHub, so they show in History on every PC you sign in on.`,
+        detail: 'What goes up is what History shows: your messages, Claude\'s replies, and the tools it used, with long output cut short and anything that looks like a key or token blanked. A private gist is hidden, not locked: anyone with its link can read it. Routine runs stay on each PC.',
+        note: 'Carrying a conversation on from another PC starts Claude afresh with a recap, since Claude Code keeps its own record on the PC that ran it. Turning this off stops syncing; the gist stays until you delete it on GitHub.',
+        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
       });
       if (response !== 0) return { ok: false, canceled: true, view: d.github.view() };
     }

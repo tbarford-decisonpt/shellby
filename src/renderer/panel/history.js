@@ -63,6 +63,8 @@
           h('span', { text: SB.shortPath(s.cwd, 30) }),
           s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
           s.inTerminal ? h('span', { class: 'h-term', text: 'in a terminal' }) : null,
+          // Synced from another PC (history-sync.js): Claude picks it up with a recap.
+          s.elsewhere ? h('span', { class: 'h-term', text: `from ${s.elsewhere}` }) : null,
           open ? h('span', { class: 'h-open', text: 'open' }) : null)),
       // Only a conversation Claude Code has a record of can carry on elsewhere.
       s.claudeSessionId ? h('button', { class: 'history-term', type: 'button', title: 'Continue in a terminal', 'aria-label': `Continue ${s.title} in a terminal`, onclick: () => SB.continueInTerminal(s.id) }, '›_') : null,
@@ -200,6 +202,12 @@
     SB.renderTabStrip();
     renderHistory();
     SB.toast('History cleared.');
+  });
+
+  // Conversations synced in from another PC, or deleted there.
+  api.onSessionsSynced?.(list => {
+    state.sessions = list;
+    if (state.view === 'history') SB.views.history.render();
   });
 
   SB.views.history = {

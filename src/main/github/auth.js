@@ -12,6 +12,7 @@ const CLIENT_ID = 'Ov23liUNwzgYRhQoado8';
 const FEATURE_SCOPES = Object.freeze({
   profile: ['read:user'],      // name + avatar
   sync: ['gist'],              // private gist with your progress
+  history: ['gist'],           // private gist with your newest conversations (history-sync.js)
   friends: ['gist'],           // public calling card gist; friends' crabs visit and wave
   profileCard: ['gist'],       // public gist with an SVG of your crab, for your profile README
   prBadge: ['public_repo'],    // "Built with Shellby" on your PRs: his picture in <you>/shellby-badge, and the PR edit

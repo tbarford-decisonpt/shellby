@@ -1,5 +1,7 @@
 // Local conversation history: an index plus one JSONL transcript of UI items per
-// conversation, in %APPDATA%/Shellby/sessions. Never leaves the machine.
+// conversation, in %APPDATA%/Shellby/sessions. It stays on this PC unless you
+// turn on "Sync conversation history" (history-sync.js), which sends a trimmed
+// copy of the newest ones to a private gist of yours.
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
@@ -25,7 +27,9 @@ const APPEND_MS = 100;
 class History {
   // onError: called with (what, err) when the disk refuses a write. History is a
   // convenience, never worth taking the app down for; see append().
-  constructor(dir, { onError = () => {}, indexSaveMs = INDEX_SAVE_MS, appendMs = APPEND_MS } = {}) {
+  // onGone: called with the ids of conversations you deleted (trash, clear),
+  // so history sync can tell your other PCs (history-sync.js).
+  constructor(dir, { onError = () => {}, onGone = () => {}, indexSaveMs = INDEX_SAVE_MS, appendMs = APPEND_MS } = {}) {
     this.dir = dir;
     this.indexSaveMs = indexSaveMs;
     this.appendMs = appendMs;
@@ -37,6 +41,7 @@ class History {
     // list() or get() ever sees one. Their transcripts stay where they were.
     this.trashFile = path.join(dir, 'trash.json');
     this.onError = onError;
+    this.onGone = onGone;
     try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { this.onError('history dir', e); }
     const read = readIndex(this.indexFile);
     this.index = read.index;
@@ -125,6 +130,7 @@ class History {
     const e = this.get(id);
     if (!e) return null;
     if (done) e.done = true; else delete e.done;
+    e.editedAt = Date.now(); // for history sync: a change, though not work
     this.saveIndex();
     return e;
   }
@@ -150,6 +156,7 @@ class History {
     const t = cleanTitle(title);
     if (!e || !t) return null;
     e.title = t;
+    e.editedAt = Date.now();
     this.saveIndex();
     return e;
   }
@@ -248,9 +255,11 @@ class History {
    * Move a conversation to Recently deleted. The transcript stays on disk so
    * restore() can bring it back as it was. Returns the binned entry, or null.
    */
-  trash(id, now = Date.now()) {
+  trash(id, now = Date.now(), { quiet = false } = {}) {
     const e = this.get(id);
     if (!e) return null;
+    // quiet: history sync binning one you deleted on another PC, which knows already.
+    if (!quiet) this.onGone([id], now);
     const binned = { ...e, deletedAt: now };
     this.bin = [binned, ...this.bin.filter(b => b.id !== id)];
     this.saveTrash();
@@ -267,6 +276,8 @@ class History {
     const b = this.bin.find(x => x.id === id);
     if (!b) return null;
     const { deletedAt: _gone, ...entry } = b;
+    // Newer than its deletion, so history sync brings it back on your other PCs too.
+    entry.editedAt = Date.now();
     const rest = this.index.filter(x => x.id !== id);
     const at = rest.findIndex(x => (x.createdAt || 0) < (entry.createdAt || 0));
     this.index = at < 0 ? [...rest, entry] : [...rest.slice(0, at), entry, ...rest.slice(at)];
@@ -304,6 +315,7 @@ class History {
    */
   clear() {
     const gone = this.index.length + this.bin.length;
+    if (gone) this.onGone([...this.index, ...this.bin].map(e => e.id), Date.now());
     this.index = [];
     this.bin = [];
     this.pending.clear();
@@ -361,6 +373,56 @@ class History {
     return bytes;
   }
 
+  // ---------------------------------------------------------- history sync
+  // Bookkeeping for history-sync.js. None of it is update(): bringing a
+  // conversation over from another PC isn't work on it here.
+
+  /**
+   * Put in a conversation from another PC, or replace this PC's copy with a
+   * newer one: the entry as given, the transcript as given. Its place is the
+   * one its start date gives it. A copy in Recently deleted makes way.
+   */
+  putSynced(entry, items) {
+    if (!entry || typeof entry.id !== 'string' || !/^[\w-]{1,64}$/.test(entry.id)) return null;
+    this.pending.delete(entry.id); // replaced wholesale
+    if (!this.rewrite(entry.id, items)) return null;
+    if (this.bin.some(b => b.id === entry.id)) { this.bin = this.bin.filter(b => b.id !== entry.id); this.saveTrash(); }
+    const rest = this.index.filter(x => x.id !== entry.id);
+    const at = rest.findIndex(x => (x.createdAt || 0) < (entry.createdAt || 0));
+    this.index = at < 0 ? [...rest, entry] : [...rest.slice(0, at), entry, ...rest.slice(at)];
+    const dropped = this.index.slice(MAX_ENTRIES);
+    this.index = this.index.slice(0, MAX_ENTRIES);
+    this.saveIndex();
+    for (const e of dropped) this.discard(e.id);
+    return entry;
+  }
+
+  /** Fields only history sync keeps (syncedAt, pc, …), without counting as a change. */
+  markSynced(id, patch) {
+    const e = this.get(id);
+    if (!e) return null;
+    Object.assign(e, patch);
+    this.saveIndexSoon();
+    return e;
+  }
+
+  /**
+   * Give a conversation a new id, transcript and all: when it changed on two
+   * PCs at once, this PC's version moves aside so the other's can take its
+   * place (history-sync.js plan). Returns the entry, or null.
+   */
+  rekey(id, newId, patch = {}) {
+    const e = this.get(id);
+    if (!e || this.get(newId) || !/^[\w-]{1,64}$/.test(newId)) return null;
+    this.flush(id);
+    try { fs.renameSync(this.file(id), this.file(newId)); } catch (err) {
+      if (err.code !== 'ENOENT') { this.onError('transcript rename', err); return null; }
+    }
+    Object.assign(e, patch, { id: newId });
+    this.saveIndex();
+    return e;
+  }
+
   list() { return this.index; }
 
   file(id) {
@@ -411,4 +473,4 @@ function cleanTitle(text) {
   return t.length > 70 ? t.slice(0, 67) + '…' : t;
 }
 
-module.exports = { History, titleFrom, cleanTitle, MAX_ENTRIES, TRASH_DAYS };
+module.exports = { History, titleFrom, cleanTitle, MAX_ENTRIES, TRASH_DAYS, PERSISTED };

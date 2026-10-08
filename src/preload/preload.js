@@ -159,6 +159,7 @@ contextBridge.exposeInMainWorld('shellby', {
   clearSessions: invoke('session:clear'),
   setSessionDone: (id, done) => ipcRenderer.invoke('session:done', { id, done }),
   renameSession: (id, title) => ipcRenderer.invoke('session:rename', { id, title }),
+  onSessionsSynced: on('sessions:synced'),
 
   // between Shellby and a terminal (src/main/handoff.js)
   continueInTerminal: invoke('handoff:terminal'),

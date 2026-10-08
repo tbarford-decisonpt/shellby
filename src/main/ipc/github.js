@@ -16,12 +16,12 @@ function registerGithubIpc(ipcMain, d) {
   ipcMain.handle('plugin:get', () => d.pluginViewListed());
 
   // ---- GitHub
-  const FEATURE_NAMES = new Set(['sync', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
+  const FEATURE_NAMES = new Set(['sync', 'history', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
   ipcMain.handle('github:get', () => d.github.view());
   ipcMain.handle('github:sign-in', async (_e, features) => {
-    // claude, workflows, friends, the profile card and the PR badge are never granted by a first sign-in:
-    // each has its own confirmation, so they can only be turned on deliberately afterwards.
-    const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard', 'prBadge']);
+    // claude, workflows, friends, the profile card, the PR badge and history are never granted by a first
+    // sign-in: each has its own confirmation, so they can only be turned on deliberately afterwards.
+    const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard', 'prBadge', 'history']);
     const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && !GUARDED.has(f)) : [];
     const r = await d.github.signIn(list);
     return { ...r, view: d.github.view() };

@@ -16,12 +16,14 @@ class GitHubApi {
     };
   }
 
-  async request(method, path, body) {
+  async request(method, path, body, extra = {}) {
     const res = await this.fetchImpl(`${this.api}${path}`, {
       method,
-      headers: this.headers(body),
+      headers: { ...this.headers(body), ...extra },
       body: body ? JSON.stringify(body) : undefined,
     });
+    // Asked with If-None-Match and nothing changed: no body, and free against the rate limit.
+    if (res.status === 304) return { notModified: true, data: null, etag: extra['if-none-match'] || null };
     const text = await res.text();
     let data;
     try { data = text ? JSON.parse(text) : null; } catch { data = null; }
@@ -34,7 +36,12 @@ class GitHubApi {
       if (detail) err.detail = detail.slice(0, 300);
       throw err;
     }
-    return { data, scopes: res.headers.get('x-oauth-scopes') };
+    return { data, scopes: res.headers.get('x-oauth-scopes'), etag: res.headers.get('etag') };
+  }
+
+  /** GET unless it's unchanged since `etag`: { notModified, data, etag }. */
+  getFresh(path, etag) {
+    return this.request('GET', path, undefined, etag ? { 'if-none-match': etag } : {});
   }
 
   /**

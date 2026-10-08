@@ -1,12 +1,13 @@
 // GitHub in Shellby: sign-in state, the profile (name + avatar), the features
-// you turned on, progress sync, and the git access Claude tasks may borrow.
+// you turned on, progress sync, history sync (history-gist.js, through the
+// syncHistory it's given), and the git access Claude tasks may borrow.
 // The token stays in the main process: the panel only ever sees the view().
 const { EventEmitter } = require('events');
 const { scopesFor, covers, startDeviceFlow, pollForToken, CLIENT_ID } = require('./auth');
 const { GitHubApi } = require('./api');
 const { syncNow } = require('./sync');
 
-const FEATURES = ['profile', 'sync', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects'];
+const FEATURES = ['profile', 'sync', 'history', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects'];
 const SYNC_EVERY_MS = 15 * 60 * 1000;
 const SYNC_SOON_MS = 20 * 1000;          // after a local change worth sharing
 const AVATAR_MAX_BYTES = 200 * 1024;
@@ -17,6 +18,15 @@ const clip = (s, n) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]
 
 // fetch's own words when there's no network (Node puts the cause's code beside them).
 const OFFLINE = /fetch failed|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENETUNREACH|UND_ERR_CONNECT_TIMEOUT/i;
+
+// "12 conversations in step; 2 too long to send." from a history sync's result.
+function historyNote(h) {
+  const n = h?.synced || 0;
+  const parts = [`${n} conversation${n === 1 ? '' : 's'} in step across your PCs`];
+  if (h?.tooBig) parts.push(`${h.tooBig} too long to send`);
+  if (h?.forked) parts.push(`${h.forked} changed on two PCs at once, so kept twice`);
+  return `${parts.join('; ')}.`;
+}
 
 function normalizeState(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
@@ -29,6 +39,8 @@ function normalizeState(raw) {
     avatar: typeof r.avatar === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.avatar) ? r.avatar : null,
     lastSyncAt: Number.isFinite(r.lastSyncAt) ? r.lastSyncAt : null,
     lastSyncError: clip(r.lastSyncError, 200) || null,
+    // What the last history sync left in step ("12 conversations in step"), or null.
+    historyNote: clip(r.historyNote, 200) || null,
     // GitHub turned the sign-in down (401) since it was made: it needs doing again.
     authLost: r.authLost === true,
   };
@@ -59,11 +71,12 @@ class GitHubService extends EventEmitter {
   /**
    * config: Shellby's Config. store: TokenStore. web/api/clientId: GitHub (or a
    * mock in tests). openUrl/copy: shell helpers. onSynced(before): called after a pull,
-   * with the settings (config.data) from before the sync.
+   * with the settings (config.data) from before the sync. syncHistory(gh): one
+   * history sync (history-gist.js), resolving to its result; null where there's none.
    */
-  constructor({ config, store, web = 'https://github.com', api = 'https://api.github.com', clientId = CLIENT_ID, fetchImpl = fetch, now = () => Date.now(), onSynced = () => {} }) {
+  constructor({ config, store, web = 'https://github.com', api = 'https://api.github.com', clientId = CLIENT_ID, fetchImpl = fetch, now = () => Date.now(), onSynced = () => {}, syncHistory = null }) {
     super();
-    Object.assign(this, { config, store, web, api, clientId, fetchImpl, now, onSynced });
+    Object.assign(this, { config, store, web, api, clientId, fetchImpl, now, onSynced, syncHistory });
     this.auth = this.store.load();
     this.flow = null;       // { user_code, verification_uri, expiresAt, features, abort }
     this.syncing = null;
@@ -95,6 +108,7 @@ class GitHubService extends EventEmitter {
       features: Object.fromEntries(FEATURES.map(f => [f, { on: s.features[f], granted: this.signedIn && covers(this.auth.scopes, f) }])),
       lastSyncAt: s.lastSyncAt,
       lastSyncError: s.lastSyncError,
+      historyNote: this.signedIn ? s.historyNote : null,
       authLost: this.signedIn && s.authLost,
       syncing: !!this.syncing,
       flow: this.flow ? { code: this.flow.user_code, url: this.flow.verification_uri, expiresAt: this.flow.expiresAt } : null,
@@ -147,7 +161,7 @@ class GitHubService extends EventEmitter {
       if (this.stopped) return;
       this.emit('signed-in', this.view());
       this.schedule();
-      if (this.can('sync')) this.sync().catch(() => {});
+      if (this.syncsAnything()) this.sync().catch(() => {});
     } catch (e) {
       if (abort.signal.aborted) return;
       this.flow = null;
@@ -178,7 +192,8 @@ class GitHubService extends EventEmitter {
     if (!FEATURES.includes(feature) || feature === 'profile') return { ok: false };
     if (on && this.signedIn && !covers(this.auth.scopes, feature)) return { ...(await this.signIn([feature])), needsApproval: true };
     this.save({ features: { ...this.state.features, [feature]: !!on } });
-    if (feature === 'sync') { this.schedule(); if (on && this.can('sync')) this.sync().catch(() => {}); }
+    if (feature === 'sync' || feature === 'history') { this.schedule(); if (on && this.can(feature)) this.sync().catch(() => {}); }
+    if (feature === 'history' && !on) this.save({ historyNote: null });
     return { ok: true };
   }
 
@@ -203,9 +218,12 @@ class GitHubService extends EventEmitter {
 
   // ---------------------------------------------------------------- sync
 
+  /** Progress or history: either one keeps the timer going. */
+  syncsAnything() { return this.can('sync') || (this.can('history') && !!this.syncHistory); }
+
   schedule() {
     clearInterval(this.timer);
-    this.timer = this.can('sync') && !this.stopped ? setInterval(() => this.sync().catch(() => {}), SYNC_EVERY_MS) : null;
+    this.timer = this.syncsAnything() && !this.stopped ? setInterval(() => this.sync().catch(() => {}), SYNC_EVERY_MS) : null;
   }
 
   /** Something worth sharing changed locally (outfit, skin, a trophy): sync shortly. */
@@ -215,15 +233,30 @@ class GitHubService extends EventEmitter {
   }
 
   sync() {
-    if (!this.can('sync')) return Promise.resolve({ ok: false, error: 'Sync is off.' });
+    if (!this.syncsAnything()) return Promise.resolve({ ok: false, error: 'Sync is off.' });
     if (this.syncing) return this.syncing;
     this.syncing = (async () => {
       this.emit('change', this.view());
       try {
-        const before = this.config.data;
-        const r = await syncNow(this.gh(), { get: k => this.config.get(k), set: p => this.config.set(p), data: () => this.config.data });
+        let r = {};
+        if (this.can('sync')) {
+          const before = this.config.data;
+          r = await syncNow(this.gh(), { get: k => this.config.get(k), set: p => this.config.set(p), data: () => this.config.data });
+          if (r.pulled) this.onSynced(before);
+        }
+        // History has its own gist: progress has synced whatever happens to it.
+        if (this.can('history') && this.syncHistory) {
+          try {
+            const h = await this.syncHistory(this.gh());
+            r = { ...r, history: h };
+            this.save({ historyNote: historyNote(h) });
+          } catch (e) {
+            if (e.status === 401 || OFFLINE.test(`${e.message} ${e.cause?.code || ''}`)) throw e;
+            this.save({ lastSyncAt: this.now(), lastSyncError: `History sync failed: ${clip(e.message, 150)}` });
+            return { ok: false, error: this.state.lastSyncError };
+          }
+        }
         this.save({ lastSyncAt: this.now(), lastSyncError: null });
-        if (r.pulled) this.onSynced(before);
         return { ok: true, ...r };
       } catch (e) {
         const offline = !e.status && OFFLINE.test(`${e.message} ${e.cause?.code || ''}`);
