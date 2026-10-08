@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.75.0: Mode switch and badge case
+
+### New
+- **Switch modes in one click.** Right-click him (or the tray icon) and pick Mode: Claude Code, Work mode or Just the crab. The same three sit at the top of Settings → Claude Code and in Ctrl+K. Leaving just the crab without Claude Code set up goes straight to its setup.
+
+### Fixed
+- His eyes stay on their stalks when he looks up or down, instead of floating off them.
+- **A passphrase box that couldn't open no longer looks like a wrong password.** On a PC that blocks Shellby's little passphrase helper, the sign-in step says so, instead of "it didn't accept the sign-in".
+- **His favourite catch is little again.** Since 0.74.0 the bug that follows him round the desk wore its big Bugdex portrait, nearly three times his size and drawn over him. It is back to its small desk sprite; the portraits stay in the book.
+
+### Changed
+- **Windows' ssh agent is optional.** When a key with a passphrase won't sign in, the first button is now Type my passphrase. A PC that can't run the agent (a work PC without admin rights) can choose Do without it, and Shellby stops suggesting it there. If turning the agent on fails, the message says you don't need it.
+- **Installing is one click.** No more wizard pages: the installer shows a short progress window with his icon and opens Shellby when it's done. Start with Windows is still in Settings, and an update keeps the folder you installed him in before.
+- **Bugdex badges, redrawn.** All twelve are proper shaded medals now: a tide drop, a grassy burrow, a lighthouse at night, a crystal cluster, a bubbling flask and more. Each has its own shape, so a badge you haven't earned still tells you which one it is.
+- **A real badge case.** Badges sit in sockets in a velvet-lined case with their names underneath. A bar fills as you earn them, a glint runs across the ones you hold, and the rim turns gold once the case is full.
+
 ## 0.74.1: First-run fix
 
 ### Fixed
