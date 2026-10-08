@@ -17,6 +17,7 @@ const MAX_INLINE_BYTES = 3.75 * 1024 * 1024; // 5 MB once base64'd: the API's pe
 const MAX_INLINE_IMAGES = 8;              // more than this and the rest are listed by path
 const MAX_INPUT_BYTES = 25 * 1024 * 1024; // what we'll read or accept at all
 const THUMB_EDGE = 96;
+const PREVIEW_EDGE = 640;                 // a picture Claude made, on its step in the chat
 const KEEP_DAYS = 30;
 
 const imageType = file => IMAGE_TYPES[path.extname(String(file)).toLowerCase()] || null;
@@ -116,12 +117,12 @@ function composeContent(text, files, load) {
 }
 
 /** A small data: URL for a chip (the panel only loads images from itself or data:). */
-function thumbnail(file, { nativeImage, statSize = f => fs.statSync(f).size }) {
+function thumbnail(file, { nativeImage, statSize = f => fs.statSync(f).size, edge = THUMB_EDGE }) {
   if (!imageType(file) || !isLocalPath(file)) return null;
   try {
     if (statSize(file) > MAX_INPUT_BYTES) return null;
     const img = nativeImage.createFromPath(file);
-    return img.isEmpty() ? null : fit(img, THUMB_EDGE).toDataURL();
+    return img.isEmpty() ? null : fit(img, edge).toDataURL();
   } catch {
     return null;
   }
@@ -144,5 +145,5 @@ function prune(dir, now = Date.now()) {
 
 module.exports = {
   imageType, isLocalPath, fit, saveImage, saveNative, loadForClaude, composeContent, thumbnail, prune,
-  MAX_EDGE, MAX_INLINE_BYTES, MAX_INLINE_IMAGES, MAX_INPUT_BYTES,
+  MAX_EDGE, MAX_INLINE_BYTES, MAX_INLINE_IMAGES, MAX_INPUT_BYTES, PREVIEW_EDGE,
 };

@@ -135,6 +135,16 @@ function resultText(content) {
   return content == null ? '' : JSON.stringify(content);
 }
 
+// The pictures in a tool's result (a screenshot it read, a browser capture),
+// as { mediaType, data }: base64 only, and only types the chat can show.
+const PICTURE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+function resultImages(content) {
+  if (!Array.isArray(content)) return [];
+  return content
+    .filter(c => c?.type === 'image' && c.source?.type === 'base64' && PICTURE_TYPES.has(c.source.media_type) && typeof c.source.data === 'string')
+    .map(c => ({ mediaType: c.source.media_type, data: c.source.data }));
+}
+
 function usageFrom(ev) {
   const info = ev.rate_limit_info || {};
   const w = info.unifiedWindows || {};
@@ -313,6 +323,9 @@ function toItems(ev) {
         // Test runners print their failures last: main reads the end of a
         // long result for the flaky test detective (flaky.js), then drops it.
         if (full.length > MAX_RESULT_CHARS) item.tail = full.slice(-MAX_RESULT_CHARS);
+        // Pictures are saved apart and named on the item instead (sessions.js).
+        const images = resultImages(b.content);
+        if (images.length) item.images = images;
         // TaskCreate's result names the new to-do's id.
         const todoId = item.isError ? null : todoIdOf(ev, full);
         if (todoId) item.todoId = todoId;
@@ -385,4 +398,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { questionsOf, todoOf, todoIdOf, toItems, parseLine, describeTool, resultText, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };
+module.exports = { questionsOf, todoOf, todoIdOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };

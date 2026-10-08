@@ -102,6 +102,26 @@ const pngFile = (w, h) => `await new Promise(r => { const c = document.createEle
 
     // 8. The 📎 button is there for everything else.
     check(await ev("!!document.getElementById('attachBtn') && typeof shellby.pickFiles === 'function'"), 'the attach button is wired');
+
+    // 9. A screenshot a tool hands Claude shows under that step, saved apart from the history.
+    await ev('SB.newTab()');
+    await wait(500);
+    await ev("SB.send('snapshot')");
+    check(await until("(SB.activeTab().el.querySelector('.tool + .tool-pics .tool-pic img')?.src || '').startsWith('data:image/png')"), 'a tool\'s screenshot shows under its step');
+    check(await ev("!(SB.activeTab().el.querySelector('.tool .t-result')?.textContent || '').includes('[image]')"), '...in place of the "[image]" in its text');
+    const tabDirs = (() => { try { return fs.readdirSync(path.join(userData, 'tool-pictures')); } catch { return []; } })();
+    check(tabDirs.length === 1 && fs.readdirSync(path.join(userData, 'tool-pictures', tabDirs[0])).length === 1, 'saved once, under tool-pictures');
+    await ev("SB.activeTab().el.querySelector('.tool-pic').click()");
+    check(await ev("SB.activeTab().el.querySelector('.tool-pic').classList.contains('big')"), 'a click shows it bigger');
+    await until('!SB.activeTab().busy');
+
+    // 10. A picture Claude writes shows on its step once it's written.
+    const drawn = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-drawn-')), 'card.png');
+    fs.writeFileSync(`${drawn}.src`, fs.readFileSync(shot));
+    await ev('SB.newTab()');
+    await wait(500);
+    await ev(`SB.send(${JSON.stringify(`drawpic ${drawn}`)})`);
+    check(await until("(SB.activeTab().el.querySelector('.tool + .tool-pics .tool-pic img')?.src || '').startsWith('data:image/png')"), 'a picture Claude wrote shows on its step');
   } catch (e) {
     check(false, e.message);
   } finally {

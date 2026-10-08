@@ -1,7 +1,7 @@
 // Claude Code conversations: the session manager behind the tabs, and the
 // snapshot either side of each turn that says what it changed (changes.js).
 // Kept out of main.js, which only wires it up.
-const { powerMonitor } = require('electron');
+const { app, powerMonitor } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -15,6 +15,7 @@ const recap = require('../recap');
 const selfaware = require('../selfaware');
 const { SessionManager } = require('../sessions');
 const stickers = require('../stickers');
+const toolPictures = require('../tool-pictures');
 const { detailOf } = require('../trouble');
 const usage = require('../usage');
 const voice = require('../voice');
@@ -23,6 +24,15 @@ const { classifyCommand, markRed } = require('../xp');
 /** d: what main shares (main.js `shared`). */
 function wireSessions(d) {
   // ---- sessions
+
+  // Pictures a tool handed Claude (a screenshot it read), shown under that step (tool-pictures.js).
+  const picturesDir = () => path.join(app.getPath('userData'), 'tool-pictures');
+  function savePictures(tabId, toolId, images) {
+    const ids = toolPictures.save(picturesDir(), tabId, toolId, images);
+    if (ids.length) toolPictures.prune(picturesDir(), tabId);
+    return ids;
+  }
+  const toolPicture = (tabId, id) => toolPictures.read(picturesDir(), tabId, id);
 
   // A project's code when its tests last failed (by project, as xp.js marks red).
   const redTrees = new Map();
@@ -87,6 +97,7 @@ function wireSessions(d) {
         tab.usageTold = u.told;
         return selfaware.withUsageNote(prompt, u.text);
       },
+      savePictures,
     });
 
     d.manager.on('spend', (_tabId, s, tab) => d.usageService.onSpend(s, tab));
@@ -324,7 +335,7 @@ function wireSessions(d) {
     refreshUsage();
   }
 
-  return { SNAPSHOT_WAIT_MS, createManager, currentCwd, endTurn, refreshUsage, turnEnds, turnStarts, watchUsage };
+  return { SNAPSHOT_WAIT_MS, createManager, currentCwd, endTurn, refreshUsage, toolPicture, turnEnds, turnStarts, watchUsage };
 }
 
 module.exports = { wireSessions };

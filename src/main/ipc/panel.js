@@ -26,6 +26,8 @@ function registerPanelIpc(ipcMain, d) {
     return r;
   });
   ipcMain.handle('attach:thumb', (_e, file) => (d.isStr(file) ? attach.thumbnail(file, { nativeImage }) : null));
+  // A picture Claude wrote or edited, big enough to see on its step in the chat.
+  ipcMain.handle('pictures:file', (_e, file) => (d.isStr(file) ? attach.thumbnail(file, { nativeImage, edge: attach.PREVIEW_EDGE }) : null));
   ipcMain.handle('attach:pick', async () => {
     const r = await dialog.showOpenDialog(d.panel, {
       title: 'Attach files', properties: ['openFile', 'multiSelections'],

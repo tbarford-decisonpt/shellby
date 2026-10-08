@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('shellby', {
     return { paths, error };
   },
   attachThumb: invoke('attach:thumb'),
+  filePicture: invoke('pictures:file'),            // a picture Claude wrote, sized for its step in the chat
   pickFiles: invoke('attach:pick'),
 
   bootstrap: invoke('app:bootstrap'),
@@ -137,6 +138,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onChecksRunning: on('checks:running'),           // { tabId, after, running, commands? }
   openInEditor: invoke('changes:open-editor'),     // one file of a turn in VS Code's diff (editor.js)
   shotImage: invoke('shots:image'),                // a before/after picture, as a data URL (shots.js)
+  toolPicture: invoke('pictures:tool'),            // a picture a tool handed Claude (tool-pictures.js)
   worktreeStatus: invoke('worktree:status'),
   bringWorktreeHome: invoke('worktree:home'),
   discardWorktree: invoke('worktree:discard'),

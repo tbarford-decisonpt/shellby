@@ -403,6 +403,17 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
   font: var(--fs-11)/1.6 var(--font-mono); font-stretch: 85%; color: var(--sand-dim);
   white-space: pre-wrap; word-break: break-word;
 }
+/* a step's pictures: a screenshot a tool handed Claude, a picture it wrote (feed.js pictureStrip) */
+.tool-pics { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px 10px; }
+.tool-pic {
+  padding: 0; border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+  background: var(--abyss); cursor: zoom-in; overflow: hidden; line-height: 0;
+}
+.tool-pic img { display: block; max-width: 240px; max-height: 160px; }
+.tool-pic img:not([src]) { width: 120px; height: 80px; }
+.tool-pic.big { flex-basis: 100%; cursor: zoom-out; }
+.tool-pic.big img { max-width: 100%; max-height: none; margin: 0 auto; }
+.tool-pic:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* what a turn changed: the files, their diffs, and Undo */

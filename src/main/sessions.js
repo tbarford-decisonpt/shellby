@@ -50,9 +50,9 @@ class SessionManager extends EventEmitter {
   // and getEffortPick() true, each one is sized from its first message instead (effort-pick.js).
   // getRemote(cwd) -> how to start Claude Code on another computer when cwd is
   // one of its folders, or null (remote/service.js launch): read at each start.
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getEffortPick = () => false, getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null, getRemote = () => null }) {
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getEffortPick = () => false, getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null, getRemote = () => null, savePictures = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getEffortPick, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate, getRemote });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getEffortPick, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate, getRemote, savePictures });
     this.tabs = new Map();
   }
 
@@ -155,7 +155,13 @@ class SessionManager extends EventEmitter {
   onItem(tab, raw) {
     // A long tool result's tail is only for main to read (flaky.js): it's
     // neither saved with the tab nor sent to the panel.
-    let { tail, ...item } = raw;
+    let { tail, images, ...item } = raw;
+    // A tool's pictures are saved apart (tool-pictures.js): the item names them.
+    if (images?.length && this.savePictures) {
+      let ids = [];
+      try { ids = this.savePictures(tab.id, item.id, images) || []; } catch { /* no pictures, the step still shows */ }
+      if (ids.length) item.pictures = ids;
+    }
     // A mod's lines and toasts, within its budget: one that says something on
     // every step would bury the conversation and its history (mods.js).
     if (item.kind === 'modlog' || item.kind === 'modtoast') {

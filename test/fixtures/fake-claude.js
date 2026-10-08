@@ -376,6 +376,27 @@ function onLine(line) {
     result(true);
     return;
   }
+  // "snapshot" -> a browser tool hands back a screenshot (an image block in its result).
+  if (content.startsWith('snapshot')) {
+    const id = `tu_snap_${turn}`;
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'mcp__playwright__browser_take_screenshot', input: {} }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: [{ type: 'text', text: 'Took the screenshot' }, { type: 'image', source: { type: 'base64', media_type: 'image/png', data: png } }] }] }, parent_tool_use_id: null, session_id: sessionId });
+    text('there it is');
+    result(true);
+    return;
+  }
+  // "drawpic <path>" -> Claude writes a picture to disk (a real PNG, copied from <path>.src).
+  if (content.startsWith('drawpic ')) {
+    const file = content.slice(8).trim();
+    const id = `tu_draw_${turn}`;
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Write', input: { file_path: file, content: '' } }] }, parent_tool_use_id: null, session_id: sessionId });
+    require('fs').copyFileSync(`${file}.src`, file);
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: `File created successfully at: ${file}` }] }, parent_tool_use_id: null, session_id: sessionId });
+    text('drew it');
+    result(true);
+    return;
+  }
   if (content.startsWith('look')) { text(`saw ${images.length}: ${images.map(i => i.source.media_type).join(',')}`); result(true); return; }
   // "gitenv" -> reports whether Shellby gave this process GitHub access
   if (content === 'args') { text(JSON.stringify(args)); result(true); return; }

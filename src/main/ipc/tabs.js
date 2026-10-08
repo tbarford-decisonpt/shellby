@@ -210,6 +210,11 @@ function registerTabsIpc(ipcMain, d) {
     const url = d.isStr(tabId) && d.isStr(id) ? d.shotImage(tabId, id) : null;
     return url ? { ok: true, url } : { ok: false, error: 'That picture has been tidied away.' };
   });
+  // A picture a tool handed Claude, by the id its tool_result names (tool-pictures.js).
+  ipcMain.handle('pictures:tool', (_e, { tabId, id } = {}) => {
+    const url = d.isStr(tabId) && d.isStr(id) ? d.toolPicture(tabId, id) : null;
+    return url ? { ok: true, url } : { ok: false, error: 'That picture has been tidied away.' };
+  });
 }
 
 module.exports = { registerTabsIpc };

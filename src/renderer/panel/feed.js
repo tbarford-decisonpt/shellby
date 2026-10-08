@@ -323,6 +323,8 @@
             : h('span', { class: 't-detail', text: item.detail, title: item.detail }),
           edits ? SB.diffStats(edits) : null));
       el.dataset.toolId = item.id; // so trim() can forget it with the element
+      // A picture Claude wrote or edited shows on its step once the write is done.
+      if (item.filePath && isPicture(item.filePath)) el.dataset.picture = item.filePath;
       if (edits) {
         el.dataset.edit = '1';
         // Built on first open: a long conversation has hundreds of these. Until
@@ -355,7 +357,16 @@
       el.classList.add(item.isError ? (/declined|denied|interrupted/i.test(item.text) ? 'denied' : 'err') : 'ok');
       // A successful edit's result is "The file … has been updated"; the diff says it better.
       // A message sent, a to-do ticked: what the tool said back is noise unless it went wrong.
-      if (item.text?.trim() && !((el.dataset.edit || el.dataset.quiet) && !item.isError)) el.append(h('pre', { class: 't-result', text: item.text }));
+      // Its pictures stand in for the "[image]" Claude Code's text has where they were.
+      const text = item.pictures?.length ? (item.text || '').replace(/^\[image\]$/gm, '').trim() : item.text;
+      if (text?.trim() && !((el.dataset.edit || el.dataset.quiet) && !item.isError)) el.append(h('pre', { class: 't-result', text }));
+      if (item.isError) return;
+      const label = el.querySelector('.t-label')?.textContent || 'this step';
+      const pictures = [
+        ...(item.pictures || []).map(id => () => api.toolPicture({ tabId: this.id, id }).then(r => (r?.ok ? r.url : null))),
+        ...(el.dataset.picture ? [() => api.filePicture(el.dataset.picture)] : []),
+      ];
+      if (pictures.length) el.after(pictureStrip(pictures, label));
     }
 
     // ------------------------------------------------------------ crew lanes
@@ -424,6 +435,32 @@
     if (!thumbs.has(f)) thumbs.set(f, api.attachThumb(f).catch(() => null));
     thumbs.get(f).then(url => { if (url) img.src = url; else img.remove(); });
     return img;
+  };
+
+  // A step's pictures, under it rather than folded inside it, so they're seen
+  // as the work goes. Fetched once they scroll into view (a long conversation
+  // reopened from History can hold dozens); a click shows one at full width.
+  const pictureStrip = (loaders, label) => {
+    const strip = h('div', { class: 'tool-pics' });
+    for (const load of loaders) {
+      const img = h('img', { alt: `A picture from ${label}` });
+      const btn = h('button', { class: 'tool-pic', type: 'button', title: 'Show bigger', 'aria-pressed': 'false' }, img);
+      btn.addEventListener('click', () => btn.setAttribute('aria-pressed', String(btn.classList.toggle('big'))));
+      btn.load = load;
+      strip.append(btn);
+    }
+    const seen = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      seen.disconnect();
+      for (const btn of [...strip.children]) {
+        Promise.resolve().then(btn.load).catch(() => null).then(url => {
+          if (url) btn.firstChild.src = url; else btn.remove();
+          if (!strip.children.length) strip.remove();
+        });
+      }
+    });
+    seen.observe(strip);
+    return strip;
   };
 
   SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: `att${isPicture(f) ? ' pic' : ''}`, title: f },
