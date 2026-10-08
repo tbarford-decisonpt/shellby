@@ -42,6 +42,10 @@ function setup() {
     broadcastWardrobe: rec.fn('broadcastWardrobe'),
     typingSettings: () => ({ enabled: false, remarks: true }),
     typing: { sync: rec.fn('typing.sync'), view: () => config.get('typing') },
+    presenceSettings: () => ({ enabled: config.get('discord')?.enabled === true, task: config.get('discord')?.task === true }),
+    presenceView: () => ({ discord: config.get('discord') }),
+    presence: { start: rec.fn('presence.start'), stop: rec.fn('presence.stop') },
+    updatePresence: rec.fn('updatePresence'),
   };
   registerSurroundingsIpc(ipc.ipcMain, d);
   return { ipc, config, rec };
@@ -196,4 +200,24 @@ test('typing:set and weather:set ignore a payload that is not an object', async 
   assert.deepEqual(config.get('typing'), { enabled: false, remarks: true });
   assert.deepEqual(rec.of('weather.set'), [[{}]]);
   assert.deepEqual(rec.of('weather.search'), [['']]);
+});
+
+test('discord:set takes only a real true, and starts and stops on the switch alone', async () => {
+  const { ipc, config, rec } = setup();
+
+  await ipc.invoke('discord:set', { enabled: 'yes', task: 1 });
+  assert.deepEqual(config.get('discord'), { enabled: false, task: false });
+  assert.equal(rec.of('presence.start').length, 0);
+
+  await ipc.invoke('discord:set', { enabled: true });
+  await ipc.invoke('discord:set', { task: true });
+  assert.deepEqual(config.get('discord'), { enabled: true, task: true });
+  assert.equal(rec.of('presence.start').length, 1, 'sharing the task is a repaint, not a reconnect');
+
+  await ipc.invoke('discord:set', 'enabled');
+  assert.deepEqual(config.get('discord'), { enabled: true, task: true }, 'a payload that is not an object changes nothing');
+
+  await ipc.invoke('discord:set', { enabled: false });
+  assert.equal(rec.of('presence.stop').length, 1);
+  assert.equal(rec.of('updatePresence').length, 5, 'every call repaints, even one that changed nothing');
 });
