@@ -12,6 +12,7 @@ test('each tool has its pose, and between tools he thinks', () => {
   assert.equal(poseOf('PowerShell'), 'run');
   assert.equal(poseOf('Grep'), 'search');
   assert.equal(poseOf('WebSearch'), 'web');
+  assert.equal(poseOf('TodoWrite'), 'plan');
   assert.equal(poseOf('Agent'), 'crew');
   assert.equal(poseOf('mcp__github__list_issues'), 'busy', 'anything else is the scuttle he always had');
   assert.equal(poseOf('constructor'), 'busy', 'no prototype names');
@@ -20,9 +21,9 @@ test('each tool has its pose, and between tools he thinks', () => {
 test('every pose the renderer knows has a rule in critter.css', () => {
   const fs = require('fs');
   const css = fs.readFileSync(require.resolve('../src/renderer/critter/critter.css'), 'utf8');
-  const js = fs.readFileSync(require.resolve('../src/renderer/critter/critter.js'), 'utf8');
+  const shared = require('../src/renderer/shared/workposes');
+  assert.deepEqual([...shared.POSES].sort(), [...POSES].sort(), 'the renderer knows every pose main sends, and no others');
   for (const p of POSES) {
-    assert.ok(js.includes(`'${p}'`), `critter.js accepts ${p}`);
     if (p !== 'busy') assert.ok(css.includes(`body.work-${p} `), `critter.css draws ${p}`);
   }
 });

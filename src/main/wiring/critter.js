@@ -194,12 +194,14 @@ function wireCritter(d) {
     else if (Date.now() - d.lastActivity > d.SLEEP_AFTER_MS && d.healthMood?.level !== 'critical') state = 'sleeping';
 
     if (d.said && d.said.until <= Date.now()) d.said = null;
+    // How he works: reading, editing, running a command... (work-pose.js), from
+    // whichever of your tabs and outside sessions moved last. The OBS overlay
+    // shows the same (lastStatus below).
+    const work = state === 'working' ? workPose.poseOf(workPose.latest([own, ext])?.tool) : null;
     d.send(d.critter, 'critter:state', {
       state,
       busy: agg.busy,
-      // How he works: reading, editing, running a command... (work-pose.js), from
-      // whichever of your tabs and outside sessions moved last.
-      work: state === 'working' ? workPose.poseOf(workPose.latest([own, ext])?.tool) : null,
+      work,
       // Each helper as its crew member: name, level, colour and hat (wiring/crew.js).
       crew: dressCrew(agg.crew.slice(0, d.MAX_CREW_SHOWN)),
       moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN),
@@ -221,7 +223,7 @@ function wireCritter(d) {
     });
     d.setCrewSlots(Math.min(agg.crew.length, d.MAX_CREW_SHOWN));
     const was = d.lastStatus;
-    d.lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length };
+    d.lastStatus = { state, busy: agg.busy, crew: agg.crew.length, background: agg.background.length, work };
     refreshStatusLine();
     // Whatever the crab is doing, the stream, the desk lighting and Discord follow it.
     d.obsServer?.broadcast(d.obsState());
