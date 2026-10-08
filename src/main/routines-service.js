@@ -212,7 +212,7 @@ function createRoutines(d) {
     routineDrafting = true;
     try {
       const res = await d.runClaudeOnce(routineDraft.draftArgs(checked.text, { home: os.homedir(), defaultFolder: d.currentCwd(), places: routinePlaces() }),
-        routineDraft.DRAFT_TIMEOUT_MS);
+        routineDraft.DRAFT_TIMEOUT_MS, { lean: true });
       if (res.timedOut) return { ok: false, error: 'Claude took too long. Try again.' };
       if (!res.stdout.trim()) {
         d.log.warn('Routine draft failed', lastLines(res.stderr) || res.err?.message);

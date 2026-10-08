@@ -341,6 +341,12 @@ const TOOLS = [
   },
 ];
 
+// Shellby's own conversations get the crab's tools from the app itself
+// (src/main/crabmcp.js) and say so with SHELLBY_CRAB_TOOLS, so these copies
+// would only add their schemas to every request there.
+const CRAB_TOOLS = ['say', 'celebrate', 'wear', 'status'];
+const listedTools = (env = process.env) => (env.SHELLBY_CRAB_TOOLS === '1' ? TOOLS.filter(t => !CRAB_TOOLS.includes(t.name)) : TOOLS);
+
 // ------------------------------------------------------------------ transport
 
 const markerPath = () => path.join(os.tmpdir(), `shellby-hooks-${PORT}`);
@@ -600,7 +606,7 @@ async function handle(msg) {
       result(id, {});
       return;
     case 'tools/list':
-      result(id, { tools: TOOLS });
+      result(id, { tools: listedTools() });
       return;
     case 'tools/call': {
       const { action, args, error } = toAction(params?.name, params?.arguments);
@@ -646,5 +652,5 @@ module.exports = {
   TOOLS, toAction, PROTOCOL_VERSIONS, MOODS, MAX_TEXT, MAX_ROUTINE_PROMPT, ROUTINE_MODES,
   MAX_WORKFLOW_NAME, MAX_WORKFLOW_INPUTS, MAX_INPUT_VALUE, MAX_WORKFLOW_BYTES, INPUT_KEY, WORKFLOW_EXAMPLE,
   MAX_PROJECT, MAX_TODO, LOG_LINES, SCRIPT, TODO_ID, PROJECT_TOOLS, readCrabToken,
-  PIN_KINDS, MAX_PIN,
+  PIN_KINDS, MAX_PIN, CRAB_TOOLS, listedTools,
 };

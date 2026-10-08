@@ -98,6 +98,10 @@ test('fetchArgs: no built-in tools, only the reading ones, and the scope only as
   assert.ok(!at('--system-prompt').includes(scope));
   assert.ok(args.includes('--no-session-persistence'));
   assert.ok(!args.includes('--dangerously-skip-permissions') && !args.includes('--permission-mode'));
+  assert.ok(!args.includes('--strict-mcp-config'), "a server Shellby can't load alone keeps the usual ones");
+  const own = trackers.fetchArgs({ server: 'linear', kind: 'linear', scope }, { allowed: ['mcp__linear__list_issues'], mcpConfigFile: 'C:/tmp/one.json' });
+  assert.ok(own.includes('--strict-mcp-config'));
+  assert.equal(own[own.indexOf('--mcp-config') + 1], 'C:/tmp/one.json');
 });
 
 // ------------------------------------------------------------------ the answer

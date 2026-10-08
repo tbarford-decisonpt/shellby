@@ -187,7 +187,9 @@ class ClaudeSession extends EventEmitter {
     const configFile = this.mcpConfig ? writeConfig(this.fullMcpConfig()) : null;
     this.mcpConfigFile = configFile;
     const proc = spawn(this.exe, [...this.argsPrefix, ...this.buildArgs()], {
-      cwd: this.cwd, env: { ...claudeEnv(), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      // SHELLBY_CRAB_TOOLS: the crab's tools are served from here, so the plugin's
+      // MCP server leaves its copies of them out of every request.
+      cwd: this.cwd, env: { ...claudeEnv(), ...(this.mcp ? { SHELLBY_CRAB_TOOLS: '1' } : {}), ...this.extraEnv() }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
     this.proc = proc;
     // Everything Claude starts joins this job, so ending the conversation can
