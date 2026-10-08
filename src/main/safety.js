@@ -9,18 +9,24 @@
 
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
 
+// Before .claude (and .mcp.json, CLAUDE.md): the start, a space, a quote, =,
+// > (a redirect) or a slash, so a command's bare `> .claude/settings.json`,
+// the project's own, counts as much as a full path under your home folder.
 const SELF_CONFIG = [
   // A mod's code runs inside every Claude Code conversation (mods.js): ahead of the skill it sits beside.
-  { re: /[\\/]\.claude[\\/]skills[\\/][^\\/]+[\\/](hooks|\.claude-plugin)([\\/]|$)/i, what: 'a mod, code that runs inside every Claude Code conversation' },
-  { re: /[\\/]\.claude[\\/]dev-mods[\\/]/i, what: 'a mod, code that runs inside every Claude Code conversation' },
-  { re: /[\\/]\.claude[\\/]skills[\\/]/i, what: 'a skill' },
-  { re: /[\\/]\.claude[\\/]agents[\\/]/i, what: 'a subagent' },
-  { re: /[\\/]\.claude[\\/]commands[\\/]/i, what: 'a slash command' },
-  { re: /[\\/]\.claude[\\/]hooks[\\/]/i, what: 'a hook script' },
-  { re: /[\\/]\.claude[\\/]settings(\.local)?\.json\b/i, what: "Claude Code's settings" },
-  { re: /(^|[\\/])\.mcp\.json\b/i, what: 'MCP server config' },
-  { re: /[\\/]\.claude\.json\b/i, what: "Claude Code's config" },
-  { re: /(^|[\\/])CLAUDE\.md\b/i, what: 'CLAUDE.md instructions' },
+  { re: /(?:^|[\s"'=>\\/])\.claude[\\/]skills[\\/][^\\/]+[\\/](hooks|\.claude-plugin)([\\/]|$)/i, what: 'a mod, code that runs inside every Claude Code conversation' },
+  { re: /(?:^|[\s"'=>\\/])\.claude[\\/]dev-mods[\\/]/i, what: 'a mod, code that runs inside every Claude Code conversation' },
+  { re: /(?:^|[\s"'=>\\/])\.claude[\\/]skills[\\/]/i, what: 'a skill' },
+  { re: /(?:^|[\s"'=>\\/])\.claude[\\/]agents[\\/]/i, what: 'a subagent' },
+  { re: /(?:^|[\s"'=>\\/])\.claude[\\/]commands[\\/]/i, what: 'a slash command' },
+  { re: /(?:^|[\s"'=>\\/])\.claude[\\/]hooks[\\/]/i, what: 'a hook script' },
+  { re: /(?:^|[\s"'=>\\/])\.claude[\\/]settings(\.local)?\.json\b/i, what: "Claude Code's settings" },
+  { re: /(?:^|[\s"'=>\\/])\.mcp\.json\b/i, what: 'MCP server config' },
+  { re: /(?:^|[\s"'=>\\/])\.claude\.json\b/i, what: "Claude Code's config" },
+  { re: /(?:^|[\s"'=>\\/])CLAUDE\.md\b/i, what: 'CLAUDE.md instructions' },
+  // The CLI's own ways of changing its setup, in a shell command.
+  { re: /(?:^|[\s;&|("'\\/])claude(?:\.exe|\.cmd)?["']?\s+mcp\s+add/i, what: 'MCP server config' },
+  { re: /(?:^|[\s;&|("'\\/])claude(?:\.exe|\.cmd)?["']?\s+config\b/i, what: "Claude Code's config" },
 ];
 
 const norm = p => String(p).replace(/\//g, '\\').toLowerCase();

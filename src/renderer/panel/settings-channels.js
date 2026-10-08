@@ -4,6 +4,7 @@
 'use strict';
 (function () {
   const { h, api, $ } = SB;
+  const T = window.ShellbySettingsText;
 
   // ---------------------------------------------------------------- telling you elsewhere
   let channels = null;
@@ -50,8 +51,10 @@
       h('input', { type: 'checkbox', 'data-event': key, ...(v.events[key] ? { checked: 'checked' } : {}) }),
       h('span', { class: 'switch' }),
       document.createTextNode(label))));
-    $('chStatus').textContent = v.problem || '';
-    $('chStatus').className = `small ext-status ${v.problem ? 'warn' : ''}`;
+    // What's missing, what the bot's listener ran into, or the last send that didn't go.
+    const status = T.phoneStatus(v);
+    $('chStatus').textContent = status.text;
+    $('chStatus').className = `small ext-status ${status.tone}`;
     $('chTest').disabled = !!v.problem;
     $('ptRow').hidden = !v.canReply;
     if (v.canReply) api.getPhoneTasks().then(renderPhoneTasks);

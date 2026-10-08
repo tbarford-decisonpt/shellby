@@ -98,6 +98,41 @@ test('Run the tests before Claude finishes: never loops, skips folders with no p
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('Run the tests before Claude finishes: no test script, or npm init\'s placeholder, is nothing to run', needsBash, async () => {
+  const r = recipe('tests-pass');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-recipe-'));
+  const stop = { hook_event_name: 'Stop', stop_hook_active: false };
+  try {
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x', scripts: { build: 'node -e "process.exit(1)"' } }));
+    assert.equal((await run(r, stop, dir)).code, 0, 'no test script');
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x', scripts: { test: 'echo "Error: no test specified" && exit 1' } }));
+    assert.equal((await run(r, stop, dir)).code, 0, 'the placeholder fails every time, so it is skipped');
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x', scripts: { test: '   ' } }));
+    assert.equal((await run(r, stop, dir)).code, 0, 'a blank one');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Run the tests before Claude finishes: the end of what failed goes to Claude', needsBash, async () => {
+  const r = recipe('tests-pass');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-recipe-'));
+  try {
+    // 40 lines, then the failure: Claude gets the last 30, the failure among them.
+    fs.writeFileSync(path.join(dir, 't.js'), 'for (let i = 1; i <= 40; i++) console.log("line " + i);\nconsole.error("AssertionError: crab fell off");\nprocess.exit(1);\n');
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x', scripts: { test: 'node t.js' } }));
+    const res = await run(r, { hook_event_name: 'Stop', stop_hook_active: false }, dir);
+    assert.equal(res.code, 2);
+    assert.match(res.stderr, /tests are failing/);
+    assert.match(res.stderr, /AssertionError: crab fell off/);
+    assert.match(res.stderr, /line 40/);
+    assert.doesNotMatch(res.stderr, /line 5\b/, 'only the end of it');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('describeHook: the tests recipe as it was before still reads as the recipe', () => {
+  const r = recipe('tests-pass');
+  for (const command of r.was) assert.equal(describeHook({ type: 'command', command }).recipe, 'tests-pass');
+});
+
 test('Tell Claude more: the git status and the reminder are printed for Claude', needsBash, async () => {
   const reminder = await run(recipe('reminder'), { hook_event_name: 'UserPromptSubmit', prompt: 'hi' });
   assert.equal(reminder.code, 0);

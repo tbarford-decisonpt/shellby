@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCopyDeps, installDir, refusal, registryOnly, installedAlready, depsSentence, ARGS } = require('../src/main/copy-deps');
+const { installCopyDeps, installDir, homesOf, refusal, registryOnly, installedAlready, depsSentence, ARGS } = require('../src/main/copy-deps');
 const { findNpm } = require('../src/main/depwatch');
 
 const W = { root: path.resolve('/repo'), path: path.resolve('/home/abc123/repo'), cwd: path.resolve('/home/abc123/repo/app') };
@@ -133,4 +133,36 @@ test('a refusal is passed on, and Claude is told why', async () => {
   const r = await installCopyDeps(W, { exists, check: () => 'it has packages from git', run: () => assert.fail('never runs') });
   assert.deepEqual(r, { skipped: true, why: 'it has packages from git', dir: W.path });
   assert.match(depsSentence(r, W), /didn't install them because it has packages from git\. Ask before installing them yourself/);
+});
+
+test('another copy of the repository with the lockfile installed will do, when your checkout has fallen behind', () => {
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-copydeps-')));
+  try {
+    const root = path.join(base, 'repo');
+    const other = path.join(base, 'other');
+    const copy = path.join(base, 'copy');
+    const w = { root, path: copy, cwd: copy };
+    const oldText = lock({ 'node_modules/a': { resolved: 'https://registry.npmjs.org/a/-/a-1.0.0.tgz' } });
+    const text = lock({ 'node_modules/a': { resolved: 'https://registry.npmjs.org/a/-/a-2.0.0.tgz' } });
+    for (const dir of [root, other, copy]) { fs.mkdirSync(dir); fs.writeFileSync(path.join(dir, 'package-lock.json'), text); }
+    for (const dir of [root, other]) { fs.mkdirSync(path.join(dir, 'node_modules')); fs.writeFileSync(path.join(dir, 'node_modules', '.package-lock.json'), '{}'); }
+    const old = new Date(Date.now() - 60000);
+    fs.utimesSync(path.join(root, 'node_modules', '.package-lock.json'), old, old); // installed before the lockfile last changed
+
+    assert.match(refusal(w, copy), /changed after you last installed/, 'your checkout alone');
+    assert.equal(refusal(w, copy, { homes: [root, other] }), null);
+    assert.equal(installDir(w, { homes: [path.join(base, 'none'), other] }), copy, 'node_modules in any of them');
+
+    fs.writeFileSync(path.join(other, 'package-lock.json'), oldText);
+    assert.match(refusal(w, copy, { homes: [root, other] }), /changed after you last installed/, "a copy with other packages doesn't count, and the reason is your checkout's");
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('the other checkouts are your own first, then every copy but this one', async () => {
+  const out = ['worktree /repo', 'HEAD abc', 'branch refs/heads/main', '', 'worktree /home/abc123/repo', 'branch refs/heads/x', '', 'worktree /home/def456/repo', 'branch refs/heads/y', '', 'worktree /gone', 'prunable gitdir file points to non-existent location', ''].join('\n');
+  const seen = [];
+  const homes = await homesOf(W, { run: async (cwd, args) => { seen.push([cwd, args]); return { ok: true, out }; } });
+  assert.deepEqual(homes, [W.root, path.resolve('/home/def456/repo')]);
+  assert.deepEqual(seen, [[W.root, ['worktree', 'list', '--porcelain']]]);
+  assert.deepEqual(await homesOf(W, { run: async () => ({ ok: false, error: 'not a git repository' }) }), [W.root]);
 });

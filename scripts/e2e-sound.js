@@ -94,7 +94,7 @@ const RIG = `(() => {
     const until = async (c, expr, ms = 8000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await c.ev(expr)) return true; await wait(120); } return false; };
     const played = name => `window.__cues.some(([n, ok]) => n === ${JSON.stringify(name)} && ok)`;
     await wait(3000);
-    // Bumps follow Windows' animation setting, and any app holding the microphone
+    // His moves follow Windows' animation setting, and any app holding the microphone
     // (Discord, a game recorder) reads as a call; pin both so the run doesn't depend on the PC.
     await panel.ev("shellby.dev.life({ what: 'call', on: false })");
     await critter.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
@@ -154,7 +154,7 @@ const RIG = `(() => {
 
     // ------------------------------------------------------- 7. animations off
     await critter.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-    check(await critter.ev("window.ShellbySound.cue('hop')") === false, 'with animations off, the bumps keep quiet');
+    check(await critter.ev("window.ShellbySound.cue('hop')") === true, 'with animations off, the effects still play (sound isn\'t motion)');
     check(await critter.ev("window.ShellbyAmbient.kind") === 'tidepool', '...but the background plays on');
 
     const errs = await critter.ev('window.__errs');

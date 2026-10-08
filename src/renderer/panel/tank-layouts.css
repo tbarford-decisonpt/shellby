@@ -6,4 +6,5 @@
 .tk-layout-season { max-width: 11em; }
 .tk-layout-save { display: flex; gap: 8px; align-items: center; }
 .tk-layout-save input { flex: 1 1 auto; min-width: 0; }
+.tk-layout-save .slim-btn { flex: none; height: 34px; }
 .tk-live .toggle { margin: 6px 0; }

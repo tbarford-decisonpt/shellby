@@ -165,4 +165,23 @@ test('the hook prints nothing, calls nothing and exits 0 with nobody listening',
   assert.equal(fs.existsSync(ARGS_FILE), false, 'curl was never called');
 });
 
+test('a marker a crash left behind is skipped like a missing one', { skip: !bash && 'no bash' }, () => {
+  setupSandbox();
+  const marker = path.join(SANDBOX, 'tmp', 'shellby-hooks-47913');
+  // Shellby touches it every minute; five minutes untouched means he's gone.
+  const old = new Date(Date.now() - 5 * 60 * 1000);
+  fs.utimesSync(marker, old, old);
+  fs.rmSync(ARGS_FILE, { force: true });
+  const run = () => execFileSync(bash, ['-c', `PATH="${msys(path.join(SANDBOX, 'bin'))}:$PATH" bash ${JSON.stringify(sh(HOOK))} < /dev/null; echo "exit=$?"`], {
+    env: { PATH: process.env.PATH, TEMP: path.join(SANDBOX, 'tmp'), SHELLBY_TEST_ARGS: sh(ARGS_FILE) },
+    encoding: 'utf8',
+  });
+  assert.equal(run().trim(), 'exit=0');
+  assert.equal(fs.existsSync(ARGS_FILE), false, 'curl was never called');
+  // Touched again (Shellby is back): the hook goes through.
+  fs.utimesSync(marker, new Date(), new Date());
+  assert.equal(run().trim(), 'exit=0');
+  assert.equal(fs.existsSync(ARGS_FILE), true, 'curl was called');
+});
+
 test.after(() => fs.rmSync(SANDBOX, { recursive: true, force: true }));

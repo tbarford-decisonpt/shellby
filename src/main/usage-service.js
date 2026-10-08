@@ -28,7 +28,8 @@ const sameReset = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs
  *   send, notify, showPanel, refreshCritter, flashState, tellChannel, sayText,
  *   markActive (he's just been busy), routines (the saved list), heldViews
  *   (held-service.js), log, every (main's cleared-on-quit interval),
- *   powerMonitor (Electron's)
+ *   powerMonitor (Electron's), sendEveryWindow (optional: the panel and every
+ *   popped-out conversation, wiring/popouts.js)
  */
 function createUsage(d) {
   // ---- the limit: when your plan's limit is reached Shellby naps until it
@@ -193,11 +194,14 @@ function createUsage(d) {
     };
   }
 
+  // A popped-out conversation's queue banner reads the outlook too ("Send after the reset").
+  const toEveryWindow = (channel, payload) => (d.sendEveryWindow ? d.sendEveryWindow(channel, payload) : d.send(d.panel, channel, payload));
+
   function sendOutlook() {
     if (!d.config) return;
     const view = outlookView();
     lastOutlook = JSON.stringify(view);
-    d.send(d.panel, 'outlook', view);
+    toEveryWindow('outlook', view);
   }
 
   // A new reading: show the forecast, and the first time a window's pace says
@@ -221,7 +225,7 @@ function createUsage(d) {
       if (!d.config || !d.panel || d.panel.isDestroyed()) return;
       const view = outlookView();
       const json = JSON.stringify(view);
-      if (json !== lastOutlook) { lastOutlook = json; d.send(d.panel, 'outlook', view); }
+      if (json !== lastOutlook) { lastOutlook = json; toEveryWindow('outlook', view); }
     }, OUTLOOK_TICK_MS).unref?.();
   }
 

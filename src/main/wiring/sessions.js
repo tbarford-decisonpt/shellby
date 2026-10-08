@@ -161,11 +161,23 @@ function wireSessions(d) {
         }
       }
     });
+    // A summary comes with every token count, context, cache and busy change, and
+    // config.set rewrites settings.json in full: the list goes there only when it's different.
+    let openTabsSaved = null;
+    let openIds = new Set();
     d.manager.on('tabs', summary => {
       d.sendTabs(summary); // the panel and any popped-out windows (wiring/popouts.js)
       d.clashTabsChanged?.(); // a copy opened or closed: look for clashes again (wiring/clashes.js)
       const saved = summary.filter(t => t.saved && !t.routineId && !t.workflowRunId).map(t => t.id);
-      if (!d.CAPTURE) d.config.set({ openTabs: saved });
+      if (!d.CAPTURE) {
+        openTabsSaved ??= JSON.stringify(d.config.get('openTabs') || []);
+        const json = JSON.stringify(saved);
+        if (json !== openTabsSaved) { openTabsSaved = json; d.config.set({ openTabs: saved }); }
+      }
+      // A conversation closed: its transcript lines still on their way go down now (history.js).
+      const open = new Set(summary.map(t => t.id));
+      for (const id of openIds) if (!open.has(id)) d.history?.flush?.(id);
+      openIds = open;
     });
     d.manager.on('aggregate', agg => {
       d.refreshCritter();
@@ -195,7 +207,9 @@ function wireSessions(d) {
     try { d.shotsBeforeTurn?.(tab); } catch (err) { d.log.info(`shots: ${err.message}`); }
     let late = false;
     const turnId = tab.turnId;
-    const taken = changes.snapshot(cwd).then(snap => {
+    const info = {};
+    const taken = changes.snapshot(cwd, info).then(snap => {
+      if (info.skipped) d.log.info(`changes: ${info.skipped}`, cwd); // the turn has no diff or Undo, and this is why
       if (snap) d.bugdex?.treeSeen(snap.root, snap.tree); // the code before: a later "fix" back to it is an undo
       if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId });
     });
@@ -252,7 +266,7 @@ function wireSessions(d) {
 
   function applyUsage(item) {
     d.config.set({ lastUsage: { ...item, at: Date.now() } });
-    d.send(d.panel, 'usage', item);
+    d.sendEveryWindow('usage', item); // a popped-out conversation's meter too (wiring/popouts.js)
     d.onUsage(item);
     d.refreshOutlook();
     d.usageService.checkGuards();

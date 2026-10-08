@@ -436,15 +436,56 @@ function installPack(srcPath, userDir, opts = {}) {
   return { ok: true, pack, errors: [], warnings, dest };
 }
 
-/** Delete `${userDir}/${packId}.json`. Returns true if a file was removed. */
-function removePack(packId, userDir) {
+// A removed pack waits a week in a folder beside the wardrobe's
+// (userData/wardrobe-trash), so Undo can bring it back. Not inside the
+// wardrobe folder, which you can open and which is read as packs.
+const TRASH_DAYS = 7;
+const trashDir = userDir => `${path.resolve(userDir)}-trash`;
+
+/** Throw out what's been in the trash longer than TRASH_DAYS. Never throws. */
+function emptyTrash(userDir, now = Date.now()) {
+  const dir = trashDir(userDir);
+  for (const f of listJson(dir)) {
+    const file = path.join(dir, f);
+    try { if (now - fs.statSync(file).mtimeMs > TRASH_DAYS * 864e5) fs.unlinkSync(file); } catch { /* next time */ }
+  }
+}
+
+/**
+ * Take `${userDir}/${packId}.json` out of the wardrobe, into the trash for a
+ * week (one copy a pack id: the newest). Returns true if a file was moved.
+ */
+function removePack(packId, userDir, now = Date.now()) {
   const file = packPath(userDir, packId);
   if (!file) return false;
-  try { fs.unlinkSync(file); return true; } catch { return false; }
+  emptyTrash(userDir, now);
+  const dest = packPath(trashDir(userDir), packId);
+  try {
+    if (!fs.existsSync(file)) return false;
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.renameSync(file, dest);
+    fs.utimesSync(dest, new Date(now), new Date(now)); // its week starts now, not when it was installed
+    return true;
+  } catch { return false; }
+}
+
+/**
+ * Bring a removed pack back from the trash. Refused (false) if it's gone, or
+ * a pack with its id has been installed since, which stays.
+ */
+function restorePack(packId, userDir) {
+  const file = packPath(userDir, packId);
+  const from = file && packPath(trashDir(userDir), packId);
+  if (!from) return false;
+  try {
+    if (fs.existsSync(file) || !fs.existsSync(from)) return false;
+    fs.renameSync(from, file);
+    return true;
+  } catch { return false; }
 }
 
 module.exports = {
-  validatePack, loadCatalog, installPack, removePack,
+  validatePack, loadCatalog, installPack, removePack, restorePack, emptyTrash, TRASH_DAYS,
   FORMAT, MAX_FILE_BYTES, PACK_ID_RE, ITEM_ID_RE, VERSION_RE,
   SLOTS, ANCHORS, FOLLOWS, MOTIONS, RARITIES, SLOT_ANCHOR, SLOT_FOLLOWS, DEFAULT_ANCHORS, LIMITS,
   DECOR_CATEGORIES, DECOR_LAYERS, STYLE_CATEGORIES, SPOT_KINDS,

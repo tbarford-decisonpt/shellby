@@ -36,9 +36,9 @@
     recent = recent.filter(t => now - t < 1000);
     if (recent.length >= MAX_PER_SECOND) return;
     const sound = root.ShellbySound;
-    // Someone who turned motion off wants a calm desktop; take the hint. A
-    // locked screen has nobody to hear it (main doesn't know; sound.js does).
-    if (!sound || sound.reduced() || sound.calm) return;
+    // A locked screen has nobody to hear it (main doesn't know; sound.js does).
+    // Animations off isn't a reason to hush: that's motion, not sound.
+    if (!sound || sound.calm) return;
     const ac = sound.audio();
     if (!ac) return;
     recent.push(now);

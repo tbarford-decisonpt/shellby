@@ -87,7 +87,7 @@ function createCopies(d) {
     if (!made?.ok) return stayHere(made?.error || "Couldn't make a copy: this folder isn't in a git repository.", made?.detail);
     const w = made.worktree;
     await session.stop();
-    if (!worktrees.carryTranscript({ configDir: d.claudeConfigDir(), sessionId: session.sessionId, from, to: w.cwd })) {
+    if (!await worktrees.carryTranscript({ configDir: d.claudeConfigDir(), sessionId: session.sessionId, from, to: w.cwd })) {
       await worktrees.remove(w, { force: true });
       return stayHere("Claude Code's record of this conversation couldn't be carried into the copy");
     }

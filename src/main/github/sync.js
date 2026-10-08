@@ -7,8 +7,8 @@
 // Bugdex's catches are counted per PC like XP (bugdex.js merge). His tank's
 // layout follows whichever PC changed it last (tank-share.js). Your friends list
 // follows the latest add or remove on any PC (friends.js mergeSync), and each of
-// your settings whichever PC changed it last (sync-prefs.js). The gist is yours
-// but is still treated as untrusted input.
+// your settings whichever PC changed it last, snippets and pins item by item
+// (sync-prefs.js). The gist is yours but is still treated as untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
 const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
 const stickers = require('../stickers');
@@ -146,7 +146,8 @@ function patchFor(merged, get, data = {}) {
   if (merged.tankLayouts.editedAt > tankLayouts.syncable(get('tankLayouts')).editedAt) patch.tankLayouts = tankLayouts.applySync(get('tankLayouts'), merged.tankLayouts);
   if (merged.skin) patch.skin = merged.skin;
   if (JSON.stringify(friends.syncable(get('friends'))) !== JSON.stringify(merged.friends)) patch.friends = friends.applySync(get('friends'), merged.friends);
-  const p = prefs.apply(prefs.snapshot(data, (get('syncStamps') || {}).prefs), merged.prefs);
+  // A PC in Autonomous stays in it (sync-prefs.js heldBack).
+  const p = prefs.apply(prefs.snapshot(data, (get('syncStamps') || {}).prefs), merged.prefs, prefs.heldBack(data));
   Object.assign(patch, p.values);
   patch.syncStamps.prefs = p.stamps;
   return patch;

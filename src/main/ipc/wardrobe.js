@@ -4,6 +4,7 @@ const fs = require('fs');
 const attach = require('../attachments');
 const { fetchRegistryCatalog } = require('../registry');
 const { itemHash } = require('../wardrobe/codes');
+const { restorePack } = require('../wardrobe/catalog');
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 const PACK_ID = /^[a-z0-9][a-z0-9-]{1,39}$/;
@@ -55,7 +56,15 @@ function registerWardrobeIpc(ipcMain, d) {
     if (text.errors) return { ok: false, errors: text.errors };
     return withView(await d.confirmAndInstallPackText(text.ok));
   });
-  ipcMain.handle('wardrobe:remove-pack', (_e, packId) => { if (isStr(packId)) W().remove(packId); return W().view(); });
+  // Removing a pack puts it in the trash for a week (catalog.js removePack), so
+  // the toast can offer it back. { ok, view }: ok false if nothing was removed.
+  ipcMain.handle('wardrobe:remove-pack', (_e, packId) => ({ ok: isStr(packId) && !!W().remove(packId), view: W().view() }));
+  ipcMain.handle('wardrobe:restore-pack', (_e, packId) => {
+    const w = W();
+    const ok = isStr(packId) && PACK_ID.test(packId) && restorePack(packId, w.userDir);
+    if (ok) { w.load(); w.emit('changed'); } // what Wardrobe.remove does after a file goes, the other way round
+    return { ok, view: w.view() };
+  });
 
   // ---- outfit codes: a whole look as a pasteable string
   ipcMain.handle('wardrobe:code', () => ({ code: W().outfitCode(d.activeSkin()?.id) }));

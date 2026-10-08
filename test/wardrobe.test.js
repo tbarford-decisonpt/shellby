@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const catalog = require('../src/main/wardrobe/catalog');
-const { validatePack, loadCatalog, installPack, removePack } = catalog;
+const { validatePack, loadCatalog, installPack, removePack, restorePack, emptyTrash } = catalog;
 const seasons = require('../src/main/wardrobe/seasons');
 const ach = require('../src/main/wardrobe/achievements');
 
@@ -272,6 +272,33 @@ test('wardrobe: removePack only deletes well-formed ids inside userDir', () => {
   assert.equal(removePack('spooky-extras', userDir), true);
   assert.equal(removePack('spooky-extras', userDir), false);
   assert.deepEqual(fs.readdirSync(userDir), []);
+});
+
+test('wardrobe: a removed pack waits in the trash, Undo brings it back, a week later it’s gone', () => {
+  const userDir = tmp();
+  const trash = `${userDir}-trash`;
+  writeJson(userDir, 'spooky-extras.json', pack());
+  const day = 864e5, t0 = Date.now();
+  assert.equal(removePack('spooky-extras', userDir, t0), true);
+  assert.deepEqual(fs.readdirSync(userDir), [], 'out of the wardrobe, so it isn’t loaded');
+  assert.deepEqual(fs.readdirSync(trash), ['spooky-extras.json']);
+  assert.equal(restorePack('../x', userDir), false);
+  assert.equal(restorePack('spooky-extras', userDir), true);
+  assert.deepEqual(fs.readdirSync(userDir), ['spooky-extras.json']);
+  assert.equal(restorePack('spooky-extras', userDir), false, 'nothing left to bring back');
+
+  // One installed since with the same id stays; the trashed copy doesn't win.
+  removePack('spooky-extras', userDir, t0);
+  writeJson(userDir, 'spooky-extras.json', { ...pack(), name: 'Newer' });
+  assert.equal(restorePack('spooky-extras', userDir), false);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(userDir, 'spooky-extras.json'), 'utf8')).name, 'Newer');
+
+  emptyTrash(userDir, t0 + 6 * day);
+  assert.deepEqual(fs.readdirSync(trash), ['spooky-extras.json'], 'still inside its week');
+  writeJson(userDir, 'other-pack.json', { ...pack(), id: 'other-pack' });
+  removePack('other-pack', userDir, t0 + 8 * day); // the next removal empties what's older than a week
+  assert.deepEqual(fs.readdirSync(trash), ['other-pack.json']);
+  fs.rmSync(trash, { recursive: true, force: true });
 });
 
 // ---- seasons

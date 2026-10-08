@@ -243,7 +243,7 @@ test('the branch name comes from what Claude called the work', () => {
   assert.match(worktrees.branchName(worktrees.suggestedName('Branch: fix-login-redirect'), 'abc123'), /^shellby\/fix-login-redirect-abc123$/);
 });
 
-test('the conversation is carried into the copy\'s project folder so it can be resumed there', () => {
+test('the conversation is carried into the copy\'s project folder so it can be resumed there', async () => {
   const config = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-cfg-'));
   try {
     const from = path.resolve('/work/My Repo/src');
@@ -253,13 +253,13 @@ test('the conversation is carried into the copy\'s project folder so it can be r
     fs.mkdirSync(path.join(src, 'sess-0001', 'subagents'), { recursive: true });
     fs.writeFileSync(path.join(src, 'sess-0001.jsonl'), '{"x":1}\n');
     fs.writeFileSync(path.join(src, 'sess-0001', 'subagents', 'a.jsonl'), '{}\n');
-    assert.equal(worktrees.carryTranscript({ configDir: config, sessionId: 'sess-0001', from, to }), true);
+    assert.equal(await worktrees.carryTranscript({ configDir: config, sessionId: 'sess-0001', from, to }), true);
     const dst = path.join(config, 'projects', worktrees.projectDirName(to));
     assert.equal(fs.readFileSync(path.join(dst, 'sess-0001.jsonl'), 'utf8'), '{"x":1}\n');
     assert.ok(fs.existsSync(path.join(dst, 'sess-0001', 'subagents', 'a.jsonl')));
     assert.ok(fs.existsSync(path.join(src, 'sess-0001.jsonl')), 'the original stays');
-    assert.equal(worktrees.carryTranscript({ configDir: config, sessionId: 'missing-1', from, to }), false);
-    assert.equal(worktrees.carryTranscript({ configDir: config, sessionId: '../../etc', from, to }), false);
+    assert.equal(await worktrees.carryTranscript({ configDir: config, sessionId: 'missing-1', from, to }), false);
+    assert.equal(await worktrees.carryTranscript({ configDir: config, sessionId: '../../etc', from, to }), false);
   } finally { fs.rmSync(config, { recursive: true, force: true }); }
 });
 

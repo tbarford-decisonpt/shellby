@@ -6,7 +6,7 @@ const draft = require('./draft');
 
 class Drafting {
   async callDraft(prompt, { schema = draft.SCHEMA, parse = draft.parse } = {}) {
-    const res = await this.deps.runClaude(draft.args(schema), draft.DRAFT_TIMEOUT_MS, { input: prompt });
+    const res = await this.deps.runClaude(draft.args(schema), draft.DRAFT_TIMEOUT_MS, { input: prompt, lean: true });
     if (res.timedOut) return { ok: false, error: 'Claude took too long. Try again.' };
     if (!res.stdout?.trim()) {
       this.deps.log.warn(`workflow draft failed: ${String(res.stderr || res.err?.message || '').trim().split('\n').slice(-3).join(' ')}`);
