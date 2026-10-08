@@ -109,6 +109,12 @@ test('successful shell commands report their meaning (tests/ship/deploy), never 
   assert.deepEqual(play([ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'npm test' } })]).effects, []);
 });
 
+test('failing tests outside Shellby mark the project red (PostToolUseFailure), by meaning only', () => {
+  const r = play([ev('PostToolUseFailure', { tool_name: 'Bash', tool_input: { command: 'npm test' } }), ev('PostToolUseFailure', { tool_name: 'Bash', tool_input: { command: 'ls nope' } })]);
+  assert.deepEqual(r.effects, [{ type: 'command-fail', kind: 'tests', project: '3d-rack' }]);
+  assert.equal(JSON.stringify(r.effects).includes('npm test'), false);
+});
+
 test('a push or release outside Shellby says where, and which version, for its sticker', () => {
   const r = play([ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'git push origin main' } }), ev('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'gh release create v1.0.0' } })]);
   assert.deepEqual(r.effects, [
@@ -295,8 +301,9 @@ test('the Bugdex reads a failing command outside Shellby down to a species, neve
   assert.deepEqual(bugsOf(ev('PostToolUseFailure', { cwd: '\\\\host\\share', tool_name: 'Bash', tool_input: { command: 'x' }, error: 'ENOENT' })), []);
 });
 
-test('a PostToolUseFailure keeps the session working, and reports nothing to the crab', () => {
+test('a PostToolUseFailure keeps the session working, and reports only a failed test run', () => {
   const r = play([ev('UserPromptSubmit'), ev('PostToolUseFailure', { tool_name: 'Bash', tool_input: { command: 'npm test' }, error: 'boom' })]);
   assert.equal(r.s.state, 'working');
-  assert.deepEqual(r.effects, []);
+  assert.deepEqual(r.effects, [{ type: 'command-fail', kind: 'tests', project: '3d-rack' }]);
+  assert.deepEqual(play([ev('PostToolUseFailure', { tool_name: 'Bash', tool_input: { command: 'ls nope' }, error: 'boom' })]).effects, []);
 });

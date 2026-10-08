@@ -8,7 +8,9 @@ function setup() {
   const store = {};
   const sent = [];
   const said = [];
+  const awarded = [];
   const d = {
+    awardXp: (kind, meta) => awarded.push([kind, meta]),
     config: { get: k => store[k], set: patch => Object.assign(store, patch) },
     send: (_win, channel, payload) => sent.push([channel, payload]),
     sayText: text => said.push(text),
@@ -24,7 +26,7 @@ function setup() {
   const tool = (name, parent) => crew.onItem('tab1', { kind: 'tool', name, ...(parent ? { parent } : {}) }, tab);
   const result = () => crew.onItem('tab1', { kind: 'result' }, tab);
   const member = type => store.crew?.members?.[type];
-  return { d, crew, tab, task, tool, result, member, sent, said, store };
+  return { d, crew, tab, task, tool, result, member, sent, said, store, awarded };
 }
 
 test('a finished helper is recorded once, however many events say so', () => {
@@ -56,6 +58,17 @@ test('Claude editing a file after the helper reported back credits it', () => {
   s.tool('Edit');
   s.tool('Write');
   assert.equal(s.member('code-reviewer').actedOn, 1, 'credited once');
+});
+
+test('a find put to use: the helper is named out loud and Shellby earns XP, once', () => {
+  const s = setup();
+  s.task('a1', 'code-reviewer');
+  s.tool('Edit');
+  const name = s.member('code-reviewer').name;
+  assert.ok(s.said.includes(`${name} found it!`), s.said.join(' | '));
+  assert.deepEqual(s.awarded, [['helped', { label: `Put ${name}'s find to use` }]]);
+  s.tool('Edit');
+  assert.equal(s.awarded.length, 1, 'not again for the same find');
 });
 
 test('a failed helper is never acted on', () => {

@@ -46,6 +46,7 @@ const { wireBacklog } = require('./wiring/backlog');
 const { wireSentry } = require('./wiring/sentry');
 const { wireNotes } = require('./wiring/notes');
 const { wireClaudeUpdates } = require('./wiring/claude-updates');
+const { wireClaudeTricks } = require('./wiring/claude-tricks');
 const { wireTray } = require('./wiring/tray');
 const { wireClashes } = require('./wiring/clashes');
 const { wireUsagePlan } = require('./wiring/usageplan');
@@ -138,6 +139,8 @@ const shared = {
   claudeSettings: () => (ISOLATED ? path.join(app.getPath('userData'), 'claude-settings.json') : statusLine.settingsPath()),
   // The community registry. Only dev builds may point elsewhere (for testing).
   registryUrl: () => (!app.isPackaged && process.env.SHELLBY_REGISTRY_URL) || REGISTRY_URL,
+  // Claude Code's changelog, for new tricks: dev builds may serve their own (e2e-claude-tricks).
+  changelogUrl: () => (!app.isPackaged && process.env.SHELLBY_CHANGELOG_URL) || null,
   // A CLI the user pointed at by hand, when the usual places didn't have it.
   claudePath: () => shared.config?.get('claudePath') || null,
   // Where a tab's copy of its repo goes (copy-service.js), and Claude Code's own settings.
@@ -169,6 +172,7 @@ const shared = {
   floor: null,                     // the strip of floor with his pals and footprints (see floor.js)
   life: null,                      // his life between tasks: scenes, gifts, the bond, your day (see life.js)
   tankRemark: null,                // a word about his tank for the desktop, set by ipc/tank.js (tank-life.js)
+  homeTurnEnded: null,             // a tab's turn ended: its place on the home line moves on, set by ipc/repo.js (home-line.js)
   settingsSynced: null,            // settings changed on another PC take effect here, set by ipc/settings.js (sync-prefs.js)
   playtime: null,                  // hide and seek, fetch (see playtime.js)
   typing: null,                    // tapping along while you type (see typing.js)
@@ -290,6 +294,7 @@ share(wireSentry(shared)); // new production errors on Next up, once Sentry is c
 share(wireBacklog(shared)); // Next up on each project's page (docs/plans/next-up.md)
 share(wireNotes(shared)); // the Notes page: ideas per project and General, run as Plan, Build or Ask
 const { createClaudeUpdates } = share(wireClaudeUpdates(shared));
+const { noteClaudeVersion } = share(wireClaudeTricks(shared)); // what Claude Code learned since the version he saw last
 const { createTray, drainCrashQueue, reportUncleanExit, setupUpdates } = share(wireTray(shared));
 const { watchClashes } = share(wireClashes(shared));
 share({ usagePlan: wireUsagePlan(shared) });
@@ -404,7 +409,7 @@ app.whenReady().then(() => {
   createClaudeUpdates();
   // Routines start either way: a failed CLI check must not silently leave them off.
   checkStatus({ configured: shared.claudePath() })
-    .then(s => { shared.claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; })
+    .then(s => { shared.claudeStatus = FAKE_CLI ? require('./capture').FAKE_STATUS : s; noteClaudeVersion(); })
     .catch(err => log.warn('Claude CLI status check failed at boot', err?.message || String(err)))
     .finally(startScheduler);
 

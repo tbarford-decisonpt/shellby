@@ -213,6 +213,7 @@
 
     if (b.cutOff?.length) setTimeout(() => SB.toast(window.ShellbyFeedLogic.cutOffToast(b.cutOff), { ms: 9000 }), 1200);
     SB.setView(SB.needsOnboarding() ? 'onboarding' : b.startView || state.view === 'wardrobe' && 'wardrobe' || 'chat');
+    if (b.claudeTricks && !SB.needsOnboarding()) SB.showClaudeTricks(b.claudeTricks); // Claude Code updated: what it can do now
     performance.mark('shellby:panel-ready'); // booted, tabs back: scripts/perf-budget.js times app-ready to here
   })();
 })();

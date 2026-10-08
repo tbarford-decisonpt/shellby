@@ -65,7 +65,13 @@ function wireCrew(d) {
     if (!list?.length) return;
     awaiting.delete(tabId);
     const before = state();
-    save(roster.actedOn(before, list), before);
+    const after = roster.actedOn(before, list);
+    save(after, before);
+    if (after === before) return; // every run here was credited already
+    // Claude put a helper's find to use: the helper gets the credit out loud, Shellby the XP.
+    const name = roster.memberOf(after, list[list.length - 1].type)?.name;
+    d.awardXp?.('helped', { label: name ? `Put ${name}'s find to use` : undefined });
+    if (name) d.sayText?.(`${name} found it!`, 'crew', 6000);
   }
 
   // The turn ended: runs from it close; a background run gets one more turn.
