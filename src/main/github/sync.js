@@ -16,6 +16,7 @@ const bugdex = require('../bugdex');
 const tankShare = require('../tank-share');
 const tankLayouts = require('../tank-layouts');
 const friends = require('../friends');
+const events = require('../events');
 const prefs = require('../sync-prefs');
 const { findGist } = require('./gists');
 
@@ -50,6 +51,8 @@ function snapshot(get, data = {}) {
     tank: get('tank'),
     tankLayouts: get('tankLayouts'),
     friends: friends.syncable(get('friends')),
+    // Tide events: goals and medals follow you between PCs (events.js merge).
+    events: events.normalize(get('events')),
     prefs: prefs.snapshot(data, stamps.prefs),
   });
 }
@@ -86,6 +89,7 @@ function clean(raw) {
     tankLayouts: tankLayouts.syncable(r.tankLayouts),
     // Who's on the list and who you removed: no cards, visits or waves.
     friends: friends.syncable(r.friends),
+    events: events.normalize(r.events),
     // Personal settings only, each with when it last changed.
     prefs: prefs.clean(r.prefs),
   };
@@ -119,6 +123,7 @@ function merge(aIn, bIn) {
     tank: tankShare.merge(a.tank, b.tank),
     tankLayouts: tankLayouts.merge(a.tankLayouts, b.tankLayouts),
     friends: friends.mergeSync(a.friends, b.friends),
+    events: events.merge(a.events, b.events),
     prefs: prefs.merge(a.prefs, b.prefs),
   });
 }
@@ -145,6 +150,8 @@ function patchFor(merged, get, data = {}) {
   if (merged.tank.editedAt > tankShare.syncable(get('tank')).editedAt) patch.tank = tankShare.applySync(get('tank'), merged.tank);
   if (merged.tankLayouts.editedAt > tankLayouts.syncable(get('tankLayouts')).editedAt) patch.tankLayouts = tankLayouts.applySync(get('tankLayouts'), merged.tankLayouts);
   if (merged.skin) patch.skin = merged.skin;
+  const ev = events.merge(get('events'), merged.events);
+  if (JSON.stringify(ev) !== JSON.stringify(events.normalize(get('events')))) patch.events = ev;
   if (JSON.stringify(friends.syncable(get('friends'))) !== JSON.stringify(merged.friends)) patch.friends = friends.applySync(get('friends'), merged.friends);
   const p = prefs.apply(prefs.snapshot(data, (get('syncStamps') || {}).prefs), merged.prefs);
   Object.assign(patch, p.values);

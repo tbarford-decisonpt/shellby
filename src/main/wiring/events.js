@@ -9,6 +9,8 @@ const bugdex = require('../bugdex');
 const art = require('../bugdex/art');
 const { speciesById } = require('../bugdex/species');
 
+const REMARK_CHANCE = 0.3; // per hourly look, while an event's on
+
 /** d: what main shares (main.js `shared`). */
 function wireEvents(d) {
   const on = () => !d.CAPTURE && !!d.config && !d.config.get('crabOnly') && d.config.get('tideEvents') !== false;
@@ -85,7 +87,7 @@ function wireEvents(d) {
   function eventsTick() {
     if (!on()) return;
     const r = events.announce(state(), today(), where());
-    if (!r.say) return;
+    if (!r.say) { remark(); return; }
     save(r.state);
     const ev = r.ev;
     if (r.say === 'start') {
@@ -98,6 +100,13 @@ function wireEvents(d) {
       d.notify(`Last day of ${ev.name}`, 'Some goals are still open. The medal is only for this year\'s.', () => openUs(), { pet: true });
     }
     push();
+  }
+
+  // Now and then, while one's on, a word about it: not every hour, and the chatter setting decides (voice.js).
+  function remark() {
+    const a = activeEvent();
+    if (!a || !a.ev.lines.length || Math.random() >= REMARK_CHANCE) return;
+    d.speak('milestone', { text: a.ev.lines[Math.floor(Math.random() * a.ev.lines.length)] });
   }
 
   return { eventBoosts, activeEvent, eventsView, eventsOnStat, eventsTick, pushEvents: push };

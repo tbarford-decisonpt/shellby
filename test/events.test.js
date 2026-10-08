@@ -155,3 +155,23 @@ test('junk on disk or on a card never gets through', () => {
   assert.deepEqual(s.medals, ['haunting@2026']);
   assert.deepEqual(ev.cleanMedals(['low-tide@2026', 'low-tide@2026', '../x']), ['low-tide@2026']);
 });
+
+test('two PCs\' events together: goals at their highest, a run finished between them is done, medals joined', () => {
+  const d = at(2026, 10, 30);
+  let a = null, b = null;
+  for (const [e, p] of [['bug-caught', { habitat: 'wreck' }], ['bug-caught', {}], ['bug-caught', {}], ['find-made', { id: 'ghost-lantern', event: 'haunting' }]]) a = ev.record(a, e, p, d).state;
+  for (const [e, p] of [['event-bug', {}], ['find-made', { id: 'cursed-doubloon', event: 'haunting' }]]) b = ev.record(b, e, p, d).state;
+  b = ev.normalize({ ...b, medals: ['low-tide@2025'] });
+  const m = ev.merge(a, b);
+  assert.deepEqual(m.runs['haunting@2026'].goals, { bugs: 3, ghost: 1, wisp: 1, finds: 2 });
+  assert.ok(m.runs['haunting@2026'].doneAt > 0);
+  assert.deepEqual(m.medals, ['haunting@2026', 'low-tide@2025']);
+  assert.deepEqual(ev.merge(m, null), m, 'only ever grows');
+});
+
+test('each event has four lines of his own, short enough for his bubble', () => {
+  for (const e of ev.EVENTS) {
+    assert.equal(e.lines.length, 4, e.id);
+    for (const l of e.lines) assert.ok(l.length <= 24, `${e.id}: ${l}`);
+  }
+});

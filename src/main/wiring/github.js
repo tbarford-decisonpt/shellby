@@ -75,7 +75,8 @@ function wireGithub(d) {
       const stickersMoved = 'stickers' in patch && JSON.stringify(stickers.syncable(patch.stickers)) !== JSON.stringify(stickers.syncable(prev.stickers));
       const tankMoved = 'tank' in patch && JSON.stringify(tankShare.syncable(patch.tank)) !== JSON.stringify(tankShare.syncable(prev.tank));
       const friendsMoved = 'friends' in patch && friendsChanged(patch, prev);
-      if (changed || stickersMoved || tankMoved || friendsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
+      const eventsMoved = 'events' in patch && JSON.stringify(events.normalize(patch.events)) !== JSON.stringify(events.normalize(prev.events));
+      if (changed || stickersMoved || tankMoved || friendsMoved || eventsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
     };
     d.github.schedule();
     if (d.github.can('sync')) setTimeout(() => d.github.sync().catch(() => {}), 30 * 1000);

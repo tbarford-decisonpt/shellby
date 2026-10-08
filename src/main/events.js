@@ -24,6 +24,7 @@ const freeze = o => Object.freeze(o);
 const EVENTS = freeze([
   {
     id: 'harvest', name: 'Harvest Moon', emoji: '🌾', season: 'autumn', nature: true, start: [10, 1], end: [10, 9],
+    lines: ['first try or bust', 'the moon’s up!', 'harvest time!', 'ship it, reap it'],
     blurb: 'The nights draw in and everything you ship is worth more.',
     twist: 'Every catch pays half again in XP.',
     bug: 'harvest-mouse', bugRule: 'A first-try fix while Harvest Moon is on.',
@@ -39,6 +40,7 @@ const EVENTS = freeze([
   },
   {
     id: 'haunting', name: 'The Haunting', emoji: '🎃', season: 'halloween', start: [10, 24], end: [11, 1],
+    lines: ['did you hear that?', 'the wreck is glowing', 'spooky bugs about', 'working late? good'],
     blurb: 'Something is moving in the wreck. Bugs fixed after dark don\'t come alone.',
     twist: 'Ghosts caught in the Haunted Wreck are twice as likely to sparkle.',
     bug: 'will-o-wisp', bugRule: 'Any fix after 9 pm while The Haunting is on.',
@@ -54,6 +56,7 @@ const EVENTS = freeze([
   },
   {
     id: 'frostbite', name: 'Frostbite', emoji: '❄️', season: 'winter', start: [12, 18], end: [1, 1],
+    lines: ['brr. bugs are slow', 'ice on the tide pool', 'keep busy, stay warm', 'cold claws!'],
     blurb: 'The tide pools are freezing over. Busy days bring something up from the ice.',
     twist: 'Snow piles up on his shell a little with every catch.',
     bug: 'frost-mite', bugRule: 'Your third catch in one day while Frostbite is on.',
@@ -69,6 +72,7 @@ const EVENTS = freeze([
   },
   {
     id: 'penpal', name: 'Pen Pal Week', emoji: '💌', season: 'valentine', start: [2, 9], end: [2, 15],
+    lines: ['send a helper!', 'wave at someone!', 'two claws are better', 'write back!'],
     blurb: 'Nobody fixes bugs alone this week. Send a helper, wave at a friend.',
     twist: 'Swaps between friends count double toward the trophies.',
     bug: 'lovebug', bugRule: 'A bug beaten with a helper crab in the fight while Pen Pal Week is on.',
@@ -84,6 +88,7 @@ const EVENTS = freeze([
   },
   {
     id: 'spring-clean', name: 'Spring Clean', emoji: '🌸', season: 'spring', nature: true, start: [3, 22], end: [4, 2],
+    lines: ['delete something!', 'dusty in here', 'less code, more crab', 'out with the old!'],
     blurb: 'Out with the old. The best fixes this week take code away.',
     twist: 'Something lives in the code you delete.',
     bug: 'dust-bunny', bugRule: 'A fix that deletes more lines than it adds while Spring Clean is on.',
@@ -99,6 +104,7 @@ const EVENTS = freeze([
   },
   {
     id: 'low-tide', name: 'Low Tide', emoji: '🌊', season: 'summer', nature: true, start: [7, 10], end: [7, 21],
+    lines: ['the sea went out!', 'so much to dig up', 'sparkly sand today', 'low tide! go dig!'],
     blurb: 'The sea\'s gone out further than anyone remembers. Everything\'s washing up.',
     twist: 'He digs twice as often, and finds are twice as likely to sparkle.',
     bug: 'tide-pool-nudibranch', bugRule: 'Any catch in the Shallows while Low Tide is on.',
@@ -116,6 +122,7 @@ const EVENTS = freeze([
   nature: false, ...e,
   start: freeze([...e.start]), end: freeze([...e.end]),
   finds: freeze([...e.finds]),
+  lines: freeze([...(e.lines || [])]),
   goals: freeze(e.goals.map(g => freeze({ where: null, distinct: false, ...g }))),
   boosts: freeze({ ...(e.boosts || {}) }),
   medal: freeze({ palette: freeze({ ...e.medal.palette }), pixels: freeze([...e.medal.pixels]) }),
@@ -388,6 +395,34 @@ function backOn(evId, date, opts = {}) {
   return r ? r.start : null;
 }
 
+/**
+ * Two PCs' events together (github/sync.js): every goal its higher count, the
+ * ids behind a "two different..." goal joined, a run done as soon as either
+ * finished it, and the medals all of them. Only ever grows.
+ */
+function merge(aIn, bIn) {
+  const a = normalize(aIn), b = normalize(bIn);
+  const runs = {};
+  for (const key of new Set([...Object.keys(a.runs), ...Object.keys(b.runs)])) {
+    const ev = BY_ID.get(RUN_RE.exec(key)[1]);
+    const x = a.runs[key] || cleanRun(null, ev), y = b.runs[key] || cleanRun(null, ev);
+    const goals = {}, ids = {};
+    for (const g of ev.goals) {
+      if (g.distinct) {
+        ids[g.id] = [...new Set([...(x.ids[g.id] || []), ...(y.ids[g.id] || [])])].slice(0, MAX_DISTINCT);
+        goals[g.id] = Math.min(g.goal, Math.max(ids[g.id].length, x.goals[g.id] || 0, y.goals[g.id] || 0));
+      } else goals[g.id] = Math.max(x.goals[g.id] || 0, y.goals[g.id] || 0);
+    }
+    const first = (p, q) => (p && q ? Math.min(p, q) : p || q);
+    const run = { started: first(x.started, y.started), goals, ids, doneAt: first(x.doneAt, y.doneAt), lastCall: Math.max(x.lastCall, y.lastCall) };
+    // Done between them, though neither PC finished it alone: it's done now.
+    if (!run.doneAt && allDone(run, ev)) run.doneAt = Math.max(x.started, y.started) || 1;
+    runs[key] = run;
+  }
+  const medals = [...new Set([...a.medals, ...b.medals, ...Object.entries(runs).filter(([, r]) => r.doneAt).map(([k]) => k)])];
+  return normalize({ runs, medals });
+}
+
 /** Medal keys as a public card carries them, cleaned: ['haunting@2026']. */
 function cleanMedals(raw) {
   return normalize({ medals: raw }).medals.slice(-24);
@@ -395,5 +430,5 @@ function cleanMedals(raw) {
 
 module.exports = {
   EVENTS, KNOWN_EVENTS, eventById, datesOf, runAt, nextRun, activeEvent, upcoming, boostsAt, bugComesAlong,
-  normalize, record, announce, view, timeLeft, backOn, medalOf, cleanMedals,
+  normalize, record, announce, view, timeLeft, backOn, medalOf, cleanMedals, merge,
 };
