@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/banner.png" width="100%" alt="Shellby: a pixel hermit crab for your Windows desktop who gets things done with Claude Code. Three crabs stand on the sand: one in a tide-pool outfit, one with headphones and a boombox saying 'good one', and a big one saying 'fingers crossed'.">
+<img src="docs/img/banner.png" width="100%" alt="Shellby: a pixel hermit crab for your Windows desktop who gets things done with Claude Code. Three crabs stand on the sand: one in a tide-pool outfit, one with headphones and a boombox saying 'good one', and a big one saying 'fingers crossed'.">
 
 [![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE) [![Works with Claude Code](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/x-salmon/shellby/badges/cli-compat.json)](https://github.com/x-salmon/shellby/actions/workflows/cli-compat.yml)
 
@@ -16,11 +16,11 @@ all on **your own Pro or Max plan**, on Windows 10 and 11. No API keys, no per-t
 
 <br>
 
-<img src="docs/shellby-demo.gif" width="860" alt="Shellby demo: typing a task, Shellby saying 'claws out', three helper crabs scuttling out to work in parallel lanes while he says 'all claws in', walking home, 'nailed it', then a trophy unlocking and Shellby wearing a party hat">
+<img src="docs/img/shellby-demo.gif" width="860" alt="Shellby demo: typing a task, Shellby saying 'claws out', three helper crabs scuttling out to work in parallel lanes while he says 'all claws in', walking home, 'nailed it', then a trophy unlocking and Shellby wearing a party hat">
 
 **1.** Tell him what you want &nbsp;→&nbsp; **2.** Helper crabs work on it side by side &nbsp;→&nbsp; **3.** He brings it home, and you both level up
 
-<sub>([MP4 version](docs/shellby-demo.mp4))</sub>
+<sub>([MP4 version](docs/img/shellby-demo.mp4))</sub>
 
 </div>
 
@@ -67,8 +67,8 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshot-crew.png" alt="Three helper agents in crew lanes; one asks to run a script it wrote"></td>
-<td width="50%"><img src="docs/screenshot-lean.png" alt="Toolbox → Lean: every new conversation carries about 24k tokens; plugins priced, with two marked idle"></td>
+<td width="50%"><img src="docs/img/screenshot-crew.png" alt="Three helper agents in crew lanes; one asks to run a script it wrote"></td>
+<td width="50%"><img src="docs/img/screenshot-lean.png" alt="Toolbox → Lean: every new conversation carries about 24k tokens; plugins priced, with two marked idle"></td>
 </tr>
 <tr>
 <td align="center"><sub>Helpers work in parallel, each in its own lane</sub></td>
@@ -99,8 +99,8 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshot-projects.png" alt="The Projects page: five repos, one with a dev server up on :5173 and one down"></td>
-<td width="50%"><img src="docs/screenshot-devserver.png" alt="A crashed dev server: npm run dev crashed 3 minutes ago, exit code 1, with the error lines marked in red"></td>
+<td width="50%"><img src="docs/img/screenshot-projects.png" alt="The Projects page: five repos, one with a dev server up on :5173 and one down"></td>
+<td width="50%"><img src="docs/img/screenshot-devserver.png" alt="A crashed dev server: npm run dev crashed 3 minutes ago, exit code 1, with the error lines marked in red"></td>
 </tr>
 <tr>
 <td align="center"><sub>Every repo you work in, and its dev servers</sub></td>
@@ -116,7 +116,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Workflows and routines:** a schedule, a red build, a release or a file landing in a folder starts a list of steps: Claude, commands, web requests, a question for you. [Workflows](docs/WORKFLOWS.md).
 - **Your MCP servers in them:** tick the servers a step may use and Claude files the Linear issue or posts to Slack without stopping to ask, or call one tool directly with no Claude turn at all. Pair it with [n8n](docs/N8N.md) for everything else.
 
-<p align="center"><img src="docs/screenshot-time.png" width="420" alt="History → Time: 26 hours this week, $2,730 billable, a bar for each day, and each project with its client"></p>
+<p align="center"><img src="docs/img/screenshot-time.png" width="420" alt="History → Time: 26 hours this week, $2,730 billable, a bar for each day, and each project with its client"></p>
 
 **[Projects, time, tests and dependencies →](docs/PROJECTS.md)**
 
@@ -139,7 +139,7 @@ shellby time last-week
 </td>
 <td width="50%" valign="top">
 
-<img src="docs/screenshot-away.png" alt="Settings → Tell me when I'm away: ntfy selected, a QR code to scan with your phone, and a topic Shellby picked">
+<img src="docs/img/screenshot-away.png" alt="Settings → Tell me when I'm away: ntfy selected, a QR code to scan with your phone, and a topic Shellby picked">
 
 </td>
 </tr>
@@ -165,7 +165,7 @@ That's the work. The rest is what makes him good company.
 
 ## 🦀 He lives on your desktop
 
-<p align="center"><img src="docs/lineup-life.png" width="860" alt="Five Shellbys: one saying 'fingers crossed', one in a focus helmet with 18 minutes left, one holding up a red CI sign, one sweating at 83 degrees, and one asleep in his shell"></p>
+<p align="center"><img src="docs/img/lineup-life.png" width="860" alt="Five Shellbys: one saying 'fingers crossed', one in a focus helmet with 18 minutes left, one holding up a red CI sign, one sweating at 83 degrees, and one asleep in his shell"></p>
 
 - **On the wallpaper layer,** behind every window, still there after <kbd>Win</kbd>+<kbd>D</kbd>. He scuttles while Claude works, raises a claw when it needs you, and naps when it's quiet.
 - **A voice and a temperament of his own:** chipper, fussy, cocky or sleepy. *"fingers crossed"* at a test run, *"all green!"* when it passes, *"shipped it"* after a push. He never quotes Claude.
@@ -182,8 +182,8 @@ That's the work. The rest is what makes him good company.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshot-us.png" alt="The Us page: Best friends, 187 days together, a bar to Inseparable, and a chipper temperament"></td>
-<td width="50%"><img src="docs/screenshot-finds.png" alt="The Finds shelf: 20 of 38 finds, a compass showing off, and sets like Beach day and Pirate's hoard"></td>
+<td width="50%"><img src="docs/img/screenshot-us.png" alt="The Us page: Best friends, 187 days together, a bar to Inseparable, and a chipper temperament"></td>
+<td width="50%"><img src="docs/img/screenshot-finds.png" alt="The Finds shelf: 20 of 38 finds, a compass showing off, and sets like Beach day and Pirate's hoard"></td>
 </tr>
 </table>
 
@@ -197,13 +197,13 @@ None of this needs Claude or an account.
 - **Snacks and naps:** he gets peckish, sandy, sleepy, and a little mopey if you ignore him. Feed him plankton you earn by getting things done. Gentle by design: it never goes below a floor, never drops while you're away, and never costs you anything.
 - **Your beach,** a scene that only grows: a sandcastle for every project you ship (a tower house at 5 ships, a keep at 15, a citadel at 40), the tide coming in with your streak, a line of seaweed where your best one reached, and his finds washed up along it. New castles rise out of the sand while you watch. Drag along it, then share a snapshot of the whole thing.
 
-<p align="center"><img src="docs/beach-card.png" width="860" alt="A pixel beach at night: fourteen sandcastles of different sizes with flags and lit windows, finds washed up along a line of seaweed, plots with buckets and spades, and Shellby by the newest castle"></p>
+<p align="center"><img src="docs/img/beach-card.png" width="860" alt="A pixel beach at night: fourteen sandcastles of different sizes with flags and lit windows, finds washed up along a line of seaweed, plots with buckets and spades, and Shellby by the newest castle"></p>
 
 **[More about the two of you →](docs/DESKTOP.md#just-the-two-of-you)**
 
 ## 🎩 Dress him up
 
-<p align="center"><img src="docs/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
+<p align="center"><img src="docs/img/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
 
 - **173 accessories, 24 effects and 16 crabs,** head-to-tail sets, and costumes for every season.
 - **50+ trophies and 99 levels:** outfits unlock as you use him, and he grows into new shells, from a Snail Shell to the Rainbow Nautilus.
@@ -212,12 +212,12 @@ None of this needs Claude or an account.
 - **The Bugdex:** every kind of bug Claude fixes for you is a pixel creature he scoops into a jar. A TypeError is a Shapeshifter Shrimp, ENOENT a hermit crab that lost its shell, a merge conflict a crab with two heads, a flaky test a ghost. 66 to catch in twelve habitats, and seeing one isn't enough: it only counts once it's fixed, and a skipped test or an `@ts-ignore` doesn't fool him. Catch one often enough and it evolves. While one is loose, Claude's work on it plays out as a **bug battle**: its HP drops as failing tests clear, helpers join in, and the fix knocks it out into the jar. Beat each habitat's boss for its badge, then the Deep Four and the champion for the Hall of Fame. [More about the Bugdex and bug battles](docs/BUGDEX.md).
 - **Cards to share:** a crab card of him as he's dressed, and a weekly one every Friday.
 
-<p align="center"><img src="docs/week-card.png" width="700" alt="A weekly crab card: Shipped 3 projects, 22 tasks done, a 5-day streak, XP for each day, the top project and three new trophies"></p>
+<p align="center"><img src="docs/img/week-card.png" width="700" alt="A weekly crab card: Shipped 3 projects, 22 tasks done, a 5-day streak, XP for each day, the top project and three new trophies"></p>
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshot-wardrobe.png" alt="Shellby's screen: Outfits, with slots for hat, face, neck, claw, shell and effect"></td>
-<td width="50%"><img src="docs/screenshot-stickers.png" alt="The Sticker Book: Shellby's shell up close with five stickers on it, and a sticker for each project in foil, holo, vinyl and paper"></td>
+<td width="50%"><img src="docs/img/screenshot-wardrobe.png" alt="Shellby's screen: Outfits, with slots for hat, face, neck, claw, shell and effect"></td>
+<td width="50%"><img src="docs/img/screenshot-stickers.png" alt="The Sticker Book: Shellby's shell up close with five stickers on it, and a sticker for each project in foil, holo, vinyl and paper"></td>
 </tr>
 </table>
 
@@ -228,7 +228,7 @@ More hats, effects, colours and voices (a pirate, a grump, another language) fro
 ## 🩺 He watches your PC
 
 <p align="center">
-<img src="docs/critter-hot.png" width="150" alt="Shellby sweating and fanning himself with his claw, a speech bubble reading 83 degrees"> <img src="docs/critter-dizzy.png" width="150" alt="Shellby with stars circling his eyes because memory is nearly full"> <img src="docs/critter-stuffed.png" width="150" alt="Shellby with boxes, papers and a floppy disk jammed into his shell because a drive is full">
+<img src="docs/img/critter-hot.png" width="150" alt="Shellby sweating and fanning himself with his claw, a speech bubble reading 83 degrees"> <img src="docs/img/critter-dizzy.png" width="150" alt="Shellby with stars circling his eyes because memory is nearly full"> <img src="docs/img/critter-stuffed.png" width="150" alt="Shellby with boxes, papers and a floppy disk jammed into his shell because a drive is full">
 </p>
 
 - **Live vitals:** GPU and CPU temperature and load, VRAM, memory, every drive, drive temperatures, fans and the battery, with sparklines over the last 10 minutes or the last hour. Shellby needs no admin rights, and nothing leaves your PC.
@@ -240,7 +240,7 @@ More hats, effects, colours and voices (a pirate, a grump, another language) fro
 - **Developer clutter:** what Docker, WSL's virtual disks and the npm, pnpm, pip, Cargo, Gradle and other caches are sitting on. Tens of gigabytes to get back, and he overstuffs his shell over that too.
 - **"Ask Shellby"** about any of it: why it's hot, what's running that you don't need, which startup apps to keep, what's safe to clear. Each one is a Claude task that reports back. He never deletes, kills or switches anything off himself.
 
-<p align="center"><img src="docs/screenshot-health.png" width="420" alt="The Health view: Shellby sweating in his tank, 'Running hot: GPU is at 83°C', gauges with sparklines, and drive bars"></p>
+<p align="center"><img src="docs/img/screenshot-health.png" width="420" alt="The Health view: Shellby sweating in his tank, 'Running hot: GPU is at 83°C', gauges with sparklines, and drive bars"></p>
 
 **[How Health works →](docs/HEALTH.md)**
 
@@ -252,16 +252,16 @@ Nobody reads a feature list to find out a crab can be thrown. Have a go.
 
 <table>
 <tr>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-ride.gif" alt="Shellby hops onto a Notepad title bar, hangs on while the window is dragged, then is shaken off and lands dizzy"><br><sub><b>Throw him at a title bar</b> and he climbs on. Drag the window and he hangs on; shake it and off he goes<br>⚙️ <i>Settings → Shellby → Climbing onto your windows</i></sub></td>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-close.gif" alt="Shellby sits on a Notepad window; it closes under him, he hangs in mid-air for a beat, then falls to the floor"><br><sub><b>Close the window</b> under him: a beat in mid-air, a look down, and down he goes<br>⚙️ <i>Settings → Shellby → Climbing onto your windows</i></sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/img/tricks-ride.gif" alt="Shellby hops onto a Notepad title bar, hangs on while the window is dragged, then is shaken off and lands dizzy"><br><sub><b>Throw him at a title bar</b> and he climbs on. Drag the window and he hangs on; shake it and off he goes<br>⚙️ <i>Settings → Shellby → Climbing onto your windows</i></sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/img/tricks-close.gif" alt="Shellby sits on a Notepad window; it closes under him, he hangs in mid-air for a beat, then falls to the floor"><br><sub><b>Close the window</b> under him: a beat in mid-air, a look down, and down he goes<br>⚙️ <i>Settings → Shellby → Climbing onto your windows</i></sub></td>
 </tr>
 <tr>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-wall.gif" alt="Shellby is thrown at the left edge of the screen, sticks to it and climbs up"><br><sub><b>Throw him hard</b> at the side of the screen and he sticks to it, then climbs<br>⚙️ <i>Settings → Shellby → Climbing the edges of the screen</i></sub></td>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-pals.gif" alt="Shellby is thrown up among his four little pals, who scatter when he lands"><br><sub><b>Pals on the floor</b> keep him company, and scatter when you throw him down among them<br>⚙️ <i>Settings → Shellby → Pals on the floor</i> (off until you pick some)</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/img/tricks-wall.gif" alt="Shellby is thrown at the left edge of the screen, sticks to it and climbs up"><br><sub><b>Throw him hard</b> at the side of the screen and he sticks to it, then climbs<br>⚙️ <i>Settings → Shellby → Climbing the edges of the screen</i></sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/img/tricks-pals.gif" alt="Shellby is thrown up among his four little pals, who scatter when he lands"><br><sub><b>Pals on the floor</b> keep him company, and scatter when you throw him down among them<br>⚙️ <i>Settings → Shellby → Pals on the floor</i> (off until you pick some)</sub></td>
 </tr>
 <tr>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-typing.gif" alt="Text is typed into Notepad while Shellby taps along on a little keyboard, then says new record: 180 wpm"><br><sub><b>Type fast</b> and he taps along on a little keyboard, then tells you how fast that was<br>⚙️ <i>Settings → Typing along</i> (off until you turn it on)</sub></td>
-<td width="50%" align="center" valign="top"><img src="docs/tricks-pounce.gif" alt="Shellby creeps up on the mouse cursor, pounces, misses, and says meant to do that"><br><sub><b>Leave your cursor</b> near him and he pounces on it, and misses<br>⚙️ <i>Settings → Personality → How much he talks</i> (Quiet stops his little scenes)</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/img/tricks-typing.gif" alt="Text is typed into Notepad while Shellby taps along on a little keyboard, then says new record: 180 wpm"><br><sub><b>Type fast</b> and he taps along on a little keyboard, then tells you how fast that was<br>⚙️ <i>Settings → Typing along</i> (off until you turn it on)</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/img/tricks-pounce.gif" alt="Shellby creeps up on the mouse cursor, pounces, misses, and says meant to do that"><br><sub><b>Leave your cursor</b> near him and he pounces on it, and misses<br>⚙️ <i>Settings → Personality → How much he talks</i> (Quiet stops his little scenes)</sub></td>
 </tr>
 </table>
 

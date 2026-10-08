@@ -2,7 +2,7 @@
 
 Everything he does on his own, with or without Claude. None of this needs an account, and it all stays on your PC (except the weather, which asks Open-Meteo once you pick a town). Back to the [README](../README.md).
 
-<p align="center"><img src="lineup-life.png" width="860" alt="Five Shellbys: one saying 'fingers crossed', one in a focus helmet with 18 minutes left, one holding up a red CI sign, one sweating at 83 degrees, and one asleep in his shell"></p>
+<p align="center"><img src="img/lineup-life.png" width="860" alt="Five Shellbys: one saying 'fingers crossed', one in a focus helmet with 18 minutes left, one holding up a red CI sign, one sweating at 83 degrees, and one asleep in his shell"></p>
 
 ## Where he lives
 
@@ -53,7 +53,7 @@ Shellby is a polite crab. **Settings → Shellby → Mischief** lets him be a bi
 
 ## Just the two of you
 
-<p align="center"><img src="screenshot-us.png" width="380" alt="The Us page: how close you and Shellby are, his temperament, and the story of your moments together"> <img src="screenshot-finds.png" width="380" alt="The Finds shelf: sea glass, a pirate's hoard and other finds from digging, in six sets"></p>
+<p align="center"><img src="img/screenshot-us.png" width="380" alt="The Us page: how close you and Shellby are, his temperament, and the story of your moments together"> <img src="img/screenshot-finds.png" width="380" alt="The Finds shelf: sea glass, a pirate's hoard and other finds from digging, in six sets"></p>
 
 - **Little scenes.** When nothing's happening he gets up to something: squints at your cursor, creeps up on it, pounces and misses (*"meant to do that"*); builds a sandcastle and watches it wash away; sneezes, gets the hiccups, blows bubbles, juggles pebbles, nods off, counts grains of sand. Some only happen at night, at the weekend, in their season or while music plays, and his temperament changes what he says. The **Us** page shows which of the 24 you've caught him in.
 - **He notices your day.** *"gg"* when a game ends, *"numbers again?"* after most of an hour in Excel (Word and PowerPoint get their own), *"friday!"* on a Friday afternoon, a lazy line at the weekend and a groan on Monday morning. He only ever knows the *kind* of app in front, from its file name and where it's installed, never a window title or anything in it. (The one thing that reads titles is the [time tracker](PROJECTS.md#time-on-each-project), if you turn it on, and only to tell which project you're in.)

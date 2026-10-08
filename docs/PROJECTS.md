@@ -6,16 +6,16 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
 
 <table>
 <tr>
-<td width="50%"><img src="screenshot-projects.png" alt="The Projects page: 3 need you, and each repo with what Shellby knows about it: unpushed commits, a flaky test, failing CI, a vulnerability, time this week, a dev server up on :5173 and one down"></td>
-<td width="50%"><img src="screenshot-project-page.png" alt="One project's page: New conversation here, this week's hours with a bar for each day, the last commit, and Health with its pull request, dependencies and a flaky test to fix"></td>
+<td width="50%"><img src="img/screenshot-projects.png" alt="The Projects page: 3 need you, and each repo with what Shellby knows about it: unpushed commits, a flaky test, failing CI, a vulnerability, time this week, a dev server up on :5173 and one down"></td>
+<td width="50%"><img src="img/screenshot-project-page.png" alt="One project's page: New conversation here, this week's hours with a bar for each day, the last commit, and Health with its pull request, dependencies and a flaky test to fix"></td>
 </tr>
 <tr>
 <td align="center"><sub>What needs you, at a glance</sub></td>
 <td align="center"><sub>Everything Shellby knows about one project</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="screenshot-devserver.png" alt="A crashed dev server: npm run dev crashed 3 minutes ago, exit code 1, with the error lines marked in red"></td>
-<td width="50%"><img src="screenshot-devserver-fix.png" alt="Ask Claude to fix it?: exactly what will be sent, a box for a note of your own, and Send to Claude or Not now"></td>
+<td width="50%"><img src="img/screenshot-devserver.png" alt="A crashed dev server: npm run dev crashed 3 minutes ago, exit code 1, with the error lines marked in red"></td>
+<td width="50%"><img src="img/screenshot-devserver-fix.png" alt="Ask Claude to fix it?: exactly what will be sent, a box for a note of your own, and Send to Claude or Not now"></td>
 </tr>
 <tr>
 <td align="center"><sub>He reads the crash and marks the errors</sub></td>
@@ -126,7 +126,7 @@ Afterwards the note says *Planned*, *Built* or *Asked*, with a link back to that
 
 ## Time on each project
 
-<p align="center"><img src="screenshot-time.png" width="420" alt="History → Time: hours and what they come to this week, a bar for each day, and each project with its client and rate"></p>
+<p align="center"><img src="img/screenshot-time.png" width="420" alt="History → Time: hours and what they come to this week, a bar for each day, and each project with its client and rate"></p>
 
 - **History → Time** keeps track of how long you spend on each project, for timesheets and invoices. Shellby works it out from what he already sees: an editor or terminal showing a project's folder, the project's page on GitHub or GitLab, Claude working in it, and git moving in it. The clock stops when you're away from the keyboard or the screen is locked. It's off until you turn it on.
 - **Clients and rates.** Give each project a client and an hourly rate, mark it billable or not, and round each day to the nearest (or next) 6, 10, 15, 30 or 60 minutes.

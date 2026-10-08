@@ -4,8 +4,8 @@ Everything Shellby does with Claude Code, on your own Claude Pro or Max plan. Ba
 
 <table>
 <tr>
-<td width="50%"><img src="screenshot-crew.png" alt="Three helper agents in crew lanes; one asks to run a script it wrote"></td>
-<td width="50%"><img src="screenshot-toolbox.png" alt="Toolbox listing skills, with a newly learned one"></td>
+<td width="50%"><img src="img/screenshot-crew.png" alt="Three helper agents in crew lanes; one asks to run a script it wrote"></td>
+<td width="50%"><img src="img/screenshot-toolbox.png" alt="Toolbox listing skills, with a newly learned one"></td>
 </tr>
 <tr>
 <td align="center"><sub>Helpers work in parallel, each in its own lane</sub></td>
@@ -30,7 +30,7 @@ Everything Shellby does with Claude Code, on your own Claude Pro or Max plan. Ba
 - **Claude knows it's in Shellby:** each conversation tells Claude it's running in Shellby, so it can make him say something, celebrate a real milestone, put on a hat or check his status (and your PC's temperatures), and when your usage passes 80% (and again at 95%) it's told, so it can keep things lean. The note never changes, so Claude Code caches it and it costs very little. Claude can also offer one of Shellby's features when it fits what you asked (Routines, Guard my focus, Look over my changes, Tell me when I'm away), as a card you tap or ignore: at most two in a conversation, each once. **Don't offer this** stops that one, and **Offer them again** in Settings brings them back. Switches: **Settings → Claude → Tell Claude it's running in Shellby** and **Let Claude offer Shellby features**, for new conversations.
 - **While you were away:** come back after an hour or more and a short recap is waiting above the box: what finished, what failed, what's waiting on you, and roughly how much of your 5-hour usage window each conversation took. Click a row to open that conversation. Turn it off under **Settings → System**.
 
-<p align="center"><img src="screenshot-slash.png" width="420" alt="The composer's slash menu listing commands, skills and snippets"></p>
+<p align="center"><img src="img/screenshot-slash.png" width="420" alt="The composer's slash menu listing commands, skills and snippets"></p>
 
 ## Your code, safe
 
@@ -62,7 +62,7 @@ Everything Shellby does with Claude Code, on your own Claude Pro or Max plan. Ba
 
 ## Lean Shell: more out of your plan
 
-<p align="center"><img src="screenshot-lean.png" width="420" alt="Toolbox → Lean: the tokens a new conversation carries before your first word, plugins priced with idle ones marked, and memory files with their sizes"></p>
+<p align="center"><img src="img/screenshot-lean.png" width="420" alt="Toolbox → Lean: the tokens a new conversation carries before your first word, plugins priced with idle ones marked, and memory files with their sizes"></p>
 
 More out of your Claude plan, without asking Claude to do any less. Nothing here changes a prompt, the model, the effort level or what Claude reads and writes.
 
@@ -79,7 +79,7 @@ More out of your Claude plan, without asking Claude to do any less. Nothing here
 
 ## Automate
 
-<p align="center"><img src="screenshot-routines.png" width="420" alt="The Routines page: a Friday Downloads tidy running now, a morning briefing, and a disk space watch"></p>
+<p align="center"><img src="img/screenshot-routines.png" width="420" alt="The Routines page: a Friday Downloads tidy running now, a morning briefing, and a disk space watch"></p>
 
 - **Routines** run a single task on a schedule, like "every Friday at 5, tidy Downloads". Each run opens its own tab with its own permission mode, and missed runs catch up when your PC wakes up. Or just describe one and Claude fills in the form for you to check and save. Name a project you work in ("check my shellby repo every morning") and Claude finds its folder.
   - **Build it with Claude.** The routine editor has a chat beside it: say what to change and Claude changes the form while you watch, and with **Let Claude test it** it runs the routine once and fixes what went wrong. See [Routines too](WORKFLOWS.md#routines-too).

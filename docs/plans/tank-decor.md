@@ -111,7 +111,7 @@
   visits pieces; hiding, sitting and the rest are Phase 2.
 - **A "Where his decor comes from" key** under the tank counts what's his and
   names the next trophy piece, so locked decor is a goal, not a mystery.
-- **Not done yet:** capture-mode screenshots (`docs/screenshot-tank.png`) and
+- **Not done yet:** capture-mode screenshots (`docs/img/screenshot-tank.png`) and
   the crab card and profile card painting the tank (Phase 4).
 
 The code: `src/main/tank.js` (pure), `src/main/ipc/tank.js`, the `decor` kind
@@ -603,8 +603,8 @@ CHANGELOG and tag on main at merge time only).
 - Nano and 10 gallon sizes
 - The Health porthole
 - `moving-in`, `interior-designer` and `treasure-hunter`
-- Capture mode: a deterministic demo tank, `docs/screenshot-tank.png` and
-  `docs/critter-tank.png`
+- Capture mode: a deterministic demo tank, `docs/img/screenshot-tank.png` and
+  `docs/img/critter-tank.png`
 - `docs/TANK.md`, plus a line in README and HEALTH.md
 
 ### Phase 2: "He lives here"

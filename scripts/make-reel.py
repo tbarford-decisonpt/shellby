@@ -3,8 +3,8 @@ and, when imageio-ffmpeg is installed, an MP4 for social posts.
 
 Usage:  python scripts/make-reel.py [frames_dir]
         (default frames_dir: %TEMP%/shellby-reel, or $SHELLBY_REEL_DIR)
-Writes: docs/shellby-demo.gif  (960x540, for the README)
-        docs/shellby-demo.mp4  (1920x1080, if `pip install imageio-ffmpeg`)
+Writes: docs/img/shellby-demo.gif  (960x540, for the README)
+        docs/img/shellby-demo.mp4  (1920x1080, if `pip install imageio-ffmpeg`)
 """
 import json
 import os
@@ -120,7 +120,7 @@ def main():
             img.alpha_composite(layer)
         out.append(img.convert("RGB"))
 
-    docs = ROOT / "docs"
+    docs = ROOT / "docs" / "img"
     # ---- GIF: one shared palette (no flicker), no dithering (flat UI colours stay clean)
     gw, gh = 960, 540
     small = [f.resize((gw, gh), Image.LANCZOS) for f in out]

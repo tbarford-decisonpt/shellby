@@ -1,17 +1,17 @@
 """Compose the README banner and lineup cards from the crabs `npm run screenshots`
-just captured (docs/critter-*.png). Run it after the screenshots:
+just captured (docs/img/critter-*.png). Run it after the screenshots:
 
     npm run screenshots && python scripts/make-banners.py
 
-Needs Pillow. Writes docs/banner.png, docs/lineup-crabs.png, docs/lineup-sets.png
-and docs/lineup-life.png.
+Needs Pillow. Writes docs/img/banner.png, docs/img/lineup-crabs.png, docs/img/lineup-sets.png
+and docs/img/lineup-life.png.
 """
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-DOCS = ROOT / "docs"
+DOCS = ROOT / "docs" / "img"
 PIXEL = str(ROOT / "assets" / "fonts" / "PixelifySans.ttf")
 BODY = str(ROOT / "assets" / "fonts" / "AtkinsonHyperlegible-Regular.ttf")
 
@@ -101,7 +101,7 @@ def banner():
         x -= 14
     d.rectangle([0, h - 6, w, h], fill=(*CORAL, 255))
     im.save(DOCS / "banner.png")
-    print("wrote docs/banner.png", im.size)
+    print("wrote docs/img/banner.png", im.size)
 
 
 if __name__ == "__main__":

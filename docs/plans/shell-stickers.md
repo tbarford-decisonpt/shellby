@@ -346,7 +346,7 @@ keep the full `dir` so the hook can resolve `projectOf(dir)`.
 - A minimal Sticker Book (grid and detail page, with no editor yet).
 - Auto-placement only, paper tier only.
 - Capture mode: deterministic demo stickers for `npm run screenshots`, plus
-  `docs/critter-stickers.png` and `docs/screenshot-stickers.png`.
+  `docs/img/critter-stickers.png` and `docs/img/screenshot-stickers.png`.
 
 ### Phase 2: "Decorate" (0.42.0)
 - The shell editor (drag, keyboard, z-order, flip).
