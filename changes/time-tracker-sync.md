@@ -1,2 +1,0 @@
-### New
-- **Send your hours to Toggl, Clockify or Harvest.** Under the timesheet on History → Time, connect your tracker with an API token. Shellby matches each project to one of yours by name or client, and you can change it in the project's details. Pick a day and send it: each project's billed hours go over as one entry, with the day's note or your commits as the description. Sending the same day again updates those entries instead of doubling them.

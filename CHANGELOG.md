@@ -1,5 +1,126 @@
 # Changelog
 
+## 0.73.0: Other computers, tide events, and what Claude Code does by itself
+
+### New
+- **Wave a pop-up away.** Every pop-up in the panel has a ✕ now (or press Escape while it has focus). It clears that one and any queued up behind it, so a pop-up with a button no longer sits there until you click somewhere else.
+- **/btw, Claude Code's side questions.** Type `/btw what was that file called?` and the answer shows in a card of its own, even while Claude is busy working. Claude answers from the whole conversation, but the question never joins it, so the task carries on undisturbed. Put the card away with ×.
+- **Copies sort out their clashes together**, one after another, each brought home in turn.
+- **Bring home as many as you like at once**: each waits its turn.
+- **Bug battles.** Claude's work on a bug plays out as a tussle on the seabed, its HP dropping as failing tests clear, until the real fix jars it. **Settings → Safety nets → Bug battles**.
+- **Your crew pitches in**, and each helper becomes a specialist against the bugs it beats most.
+- **Badges and the league.** Beat each habitat's boss for its badge, then the Deep Four for the Hall of Fame.
+- **Field notes and tips** for bugs you catch often, and **every bug has a cry**.
+- **Your favourite catch follows him round the desk.**
+- **Trade notes with friends** with **Share my Bugdex with friends**.
+- **New tricks.** When Claude Code updates, Shellby shows a few highlights, each with **Try it**. Settings → General.
+- **What Claude is doing, in plain words**, on permission cards, plan cards and the Working bar. Settings → Claude.
+- **More of Claude's good work celebrated**: merged pull requests, CI back to green and helpers' finds earn XP.
+- **When did this break?** A project's new **Helpers** card has Claude find the breaking commit with `git bisect`, in a copy.
+- **Show me around.** A guided tour of any repo, offered after a clone.
+- **Check the docs.** Claude fixes out-of-date docs on its own branch, or weekly as a routine.
+- **The port doctor.** A dev server whose port is taken says who has it and offers a free one.
+- **Before you start.** Warnings for settings missing from `.env` and a mismatched Node version.
+- **Shellby on your Discord profile.** Turn on **Settings → On your Discord profile** and he shows up under your name the way a game does: *Lv 12 Abyssal Admin · working with Claude Code*. Nothing to sign in to, since Shellby talks to the Discord app on your PC. Sharing the running task's title is a second switch, never on in Work mode, and with Visiting crabs on there's a **Visit my crab** button to your calling card.
+- **Claude's own to-do list, as it works**, above the box, each step ticked off as it goes.
+- **What Claude left running in the background.** A tray shows each build or dev server Claude started, its output, and **Stop**.
+- **Notes on Claude's plan.** Leave a 💬 note on any line of a plan and **Send notes** so Claude revises it first.
+- **What Claude remembers.** Toolbox → Memory lists the notes Claude Code keeps by itself, to fix or forget.
+- **Skills, explained.** A skill's line says what it's for, and the Toolbox helps sharpen one Claude never uses.
+- **How hard it thought.** Each turn's effort and thinking, beside its cost.
+- **Helpers talking to each other.** Claude's follow-up messages to a helper show in the conversation.
+- **Your cloud routines.** Routines → **In Claude's cloud** lists your `/schedule` routines, with **Run now**.
+- **Ultra review this branch** from a conversation's branch menu.
+- **GitLab merge requests and pipelines** join the inbox, his CI sign and Health, with **Fix this build** and **Address the review**. It goes through the glab CLI, so Shellby never sees a token. **Settings → GitLab**.
+- **Releases check GitLab pipelines** on the commit you'd release.
+- **He moves between moods instead of snapping**: a crouch before work, a perk-up at a question, a big breath after a win.
+- **Nodding off and waking up take a moment**, eyes first.
+- **A question you leave waiting gets more insistent, politely.**
+- **Linear and Jira issues on Next up**, read through your own MCP server, with **Do this** to start one in a copy.
+- **Claude Code on your other computers.** Run conversations on a server or another PC over ssh. **Settings → Claude → Other computers** walks you through keys, installing and signing in, a button per step.
+- **ssh asks in Shellby** for a passphrase or password, then forgets it.
+- **How long is left on a task.** When Claude keeps a to-do list for a task, the line under the box shows which step it's on and roughly how long the rest will take: "step 3 of 7 · about 4 min left". The guess comes from how long the steps it has already finished took, so it shows up after the first one and gets better as it goes. If a step runs past the guess, you see just the step.
+- **Quiz me.** After a big change, Claude asks three questions on what it does and why. Two right earns XP.
+- **More in "While you were away"**: CI that went red or green, and what Shellby sent once your usage reset.
+- **The real moon** in the beach's night sky, and a new **By moonlight** set of finds.
+- Shellby knows what didn't finish. If your PC dies (or Shellby is quit) while Claude is working, the next start marks those conversations "Cut off" on their tab and in History, brings the first one to the front, and puts a Carry on button in its feed. Conversations that had finished come back just as they were.
+- **Undo for layouts, Wardrobe packs and journal pins.** The toast (or Ctrl+Z) puts them back.
+- **A word when Sync changes your settings.**
+- **Production errors on Next up** from Sentry, new and escalating ones first.
+- **Fix this error** opens a copy with the stack trace, and the commit links back to Sentry.
+- **Shellby on a Stream Deck.** Hardware keys for Allow, Deny, Stop, Bring it home and Ready to review, each showing what's waiting behind it: the tool asking, how many are queued, the branch that would come home. Turn it on in Settings → Stream Deck and press **Add the keys to Stream Deck**. Like answering from your phone, a question, a plan or anything the card would warn about says **Look** instead, and opens the panel there. Needs Stream Deck 7.1 or newer.
+- **Send your hours to Toggl, Clockify or Harvest.** Under the timesheet on History → Time, connect your tracker with an API token. Shellby matches each project to one of yours by name or client, and you can change it in the project's details. Pick a day and send it: each project's billed hours go over as one entry, with the day's note or your commits as the description. Sending the same day again updates those entries instead of doubling them.
+- **Notes.** Ideas before they're tasks, per project (Ctrl+8), each with **Plan**, **Build** and **Ask**.
+- **Conversations side by side.** **Split** (Ctrl+\\) or drag a tab in, up to four, or out into its own window.
+- **Claude knows it's in Shellby**, and can make him celebrate or offer a feature. **Settings → Claude**.
+- **See an edit before you allow it**, as a diff on the permission card.
+- **File links** open in your editor at that line. **Settings → Editor**.
+- **Find and zoom.** Ctrl+F, and Ctrl+= / Ctrl+- for the panel's text.
+- **Your friends and settings follow you** with Sync on.
+- **Tide events.** Six week-long events a year, like Harvest Moon and Low Tide, each with goals, a bug, finds and a twist. Finish them for a medal, a trophy and a tank piece. **Settings → Safety nets → Tide events**.
+- **Event bugs** come along only with the right kind of fix, like the Will-o'-Wisp after 9 pm.
+- **Sparkly finds.** Now and then a find comes up in rare colours, with a big reveal and **📸 Share this**, and new trophies.
+- **Crab eggs.** From level 5, lay an egg a week for a friend without Shellby; it hatches when they install.
+- **Swaps with friends.** Trade a spare find on their row in Visiting crabs. You always keep one of everything.
+- **The friends' board** ranks you and your friends by bugs fixed this month.
+- **Sign Shellby's bring-home commits**, opt-in in **Settings → Folder**.
+- **Edit a workflow's file before it carries on.** An **Ask me** step can name a file to open, like one an earlier step wrote. While it waits, the question has an **Open** button that opens the file in your editor; change it, then answer, and the steps after it get your version.
+- **Files in a run open with a click.** A **File** step's path in the run is now a link to the file. Shift+click shows it in its folder.
+- **He works the way Claude is working**: a scroll while it reads, a pencil while it edits, a wrench for commands, a spyglass on the web, and more.
+
+### Fixed
+- **A flaky pass no longer counts as a fix.**
+- **A new copy gets its packages again when you only work in copies.** Shellby used to install a copy's packages only if your own checkout had exactly those installed, so once a release changed them every new copy asked Claude to install them by hand. Now another copy that already has them installed counts too: a change of packages is asked about once, in the first copy, and every copy after it is ready straight away.
+- **A background command is no longer a helper crab**, and **a helper sent a second message comes back to work.**
+- **Continue in a terminal opens a terminal again.** It said "Carrying on in PowerShell" but no window ever appeared. Now it opens in Windows Terminal when you have it, or a PowerShell window when you don't, with the conversation picked up where you left it.
+- **His hat stays on his eyes.** When he glances about, types along, looks up at a window or wobbles to a stop, a hat or pair of glasses now moves with his eyes instead of hanging in the air above them.
+- **Every push checks for secrets.** Cutting a release or opening a pull request asks before anything that looks like a key or password goes out.
+- **A crashed turn still ends properly**: queued messages wait, changes and Undo show up, and Stop no longer reports "Claude Code exited".
+- **Removing a queued message as Claude picks it up** no longer sends it anyway.
+- **Ctrl+F finds text inside edits you haven't opened yet.**
+- **Popped-out conversations get everything the panel does**: zoom, "Checking…", "Send after the reset".
+- **Sync leaves Autonomous alone**, and **snippets and pins merge one by one** instead of vanishing.
+- **Your calling card comes down** when you turn off Visiting crabs, retrying until it's gone.
+- **Phone alerts say when they're failing**, in Settings → Elsewhere, and a Telegram task that arrives too late gets a reply.
+- **Failed update checks** say why and retry within the hour.
+- **After a crash, Claude Code in your terminal no longer stalls on every step.**
+- **Python turn checks use the project's own `.venv` or `venv`.**
+- **The dependency watch shows each project's own problem** instead of blaming the registries.
+- **Dev servers that never print a localhost address** count as up, and one that crashes later says "Crashed".
+- **Routines after sleep** only catch up if you asked, and start a few seconds apart.
+- **MCP servers added with npx, pnpm, yarn or bunx start on Windows.**
+- **The "Run the tests before Claude finishes" hook** no longer fails in projects without tests.
+- **Permission cards flag more setup changes**, like `claude mcp add`.
+- **His firsts stay in the Us journal**, and Claude's pins can't push yours out.
+- **With Windows' animation effects off, he stays put**, and keeps his sounds.
+- **Shellby follows Claude Code when its installer moves it.** If Claude Code updated itself to a new place while Shellby was open (the native installer replacing an npm copy, say), every turn failed with "Shellby can't find Claude Code on this PC" until you restarted Shellby. It now finds the new copy on the next turn, open conversations included. Thanks to @tbarford-decisonpt (#26).
+- The tank's Layouts section matches the rest of the panel: the name box and each layout's season picker were plain white Windows controls.
+- His tank no longer fills the whole screen when Shellby's window is big. It now takes at most half the tab's height, so the tray of decor stays in reach while you decorate.
+- **Build it with Claude remembers.** Saving a workflow, or going back to the list, no longer throws away its conversation with Claude. Open the workflow again and the chat carries on where you left it, test run and all, until Shellby restarts. Fix with Claude adds its note to that same chat.
+
+### Faster
+- **Half the frames while he works**: six a second at most instead of twelve.
+- **Drafts with Claude use far fewer tokens**, about 1,100 of overhead instead of 6,300, by leaving Claude Code's coding setup out.
+- **Next up reads Linear and Jira with only that server.**
+- **No doubled crab tools in Shellby's own tabs** with the Shellby plugin installed.
+- **Less work while you're not looking**, and **smoother while Claude works**: fewer settings writes, batched history saves.
+
+### Changed
+- **Bring all home carries on past a clash.**
+- **Some names in the Bugdex are its own now**, like the Dawdling Snail. Anything you'd earned stays earned.
+- **Each conversation picks its own effort** on Auto, from its first message: low, medium or high. Change it in the effort chip.
+- **His idle looks less like a loop**, with uneven blinks and glances.
+- Pinning a note under "Where you left off" looks the part now: pick Decided, Next, Blocked or Note from coloured chips instead of a plain dropdown, and type into a field that takes that kind's colour, with Pin inside it.
+- **Messages Claude read mid-turn say "sent mid-turn".**
+- The weather settings breathe a little: Find sits beside your town instead of under it, and the town search, the remarks toggle and the weather line each get their own room.
+- **Work comes home with a type** (`feat-…`, `fix-…`), so it lands in the right group on the Releases card.
+- **Merges say what came home** ("feat: GitLab merge requests").
+- **More copies come with their packages**, even after the lockfile changed.
+- **The usage meter keeps up by itself**, at no cost.
+- **Esc never hides the panel.**
+- **The pull request badge says more**, and **your calling card** carries your swaps, eggs and medals.
+- **Icons in a workflow's ⋯ menu.** Edit, Runs, Duplicate, Export and Delete each have an icon beside them, so you can find the one you want at a glance.
+
 ## 0.72.0: A lighter crab, a tank he lives in, and every package manager
 
 ### New
