@@ -99,7 +99,7 @@ function matchKeys(cmd) {
 const REMEDY = {
   install: INSTALL_CMD,
   kill: /\b(taskkill\b|kill([ \t]+-9)?[ \t]+%?\d|Stop-Process\b|kill-port\b|fuser[ \t]+-k|pkill\b|killall\b|xargs[ \t]+kill)/i,
-  service: /\b(docker([ \t]+compose|-compose)?[ \t]+(up|start)\b|(brew[ \t]+)?services?[ \t]+\S+[ \t]+start\b|brew[ \t]+services[ \t]+start|systemctl[ \t]+start|pg_ctl[ \t]+start|Start-Service\b|redis-server\b|mongod\b|net[ \t]+start\b)/i,
+  service: /\b(Start-Process\b.*Docker|open[ \t]+-a[ \t]+Docker\b|docker([ \t]+compose|-compose)?[ \t]+(up|start)\b|(brew[ \t]+)?services?[ \t]+\S+[ \t]+start\b|brew[ \t]+services[ \t]+start|systemctl[ \t]+start|pg_ctl[ \t]+start|Start-Service\b|redis-server\b|mongod\b|net[ \t]+start\b)/i,
   lock: /\b(rm|del|Remove-Item|erase)\b.*index\.lock\b/i,
   cache: /\b(rm[ \t]+-r?f?r?[ \t]+.*(node_modules[\\/]\.cache|\.next|\.turbo|\.parcel-cache|__pycache__|\.pytest_cache|\.vite|target\b)|Remove-Item\b.*(\.next|\.turbo|\.cache|__pycache__|\.vite)|npm[ \t]+cache[ \t]+clean|yarn[ \t]+cache[ \t]+clean|pnpm[ \t]+store[ \t]+prune|cargo[ \t]+clean|go[ \t]+clean[ \t]+-cache|--no-cache\b|docker[ \t]+system[ \t]+prune)/i,
 };
@@ -134,6 +134,9 @@ const isHookedCommit = cmd => { const c = normalizeCmd(cmd); return COMMIT.test(
 /** @typedef {[string, RegExp, string | null, ((ctx: { kind: string, cmd: string }) => boolean)?]} Signature */
 /** @type {Signature[]} */
 const TIER1 = [
+  ['garbled-jellyfish', /Unexpected token .* in JSON\b|is not valid JSON\b|Unexpected end of JSON input|JSON\.parse: |\bJSONDecodeError\b|json: cannot unmarshal|invalid character '.' looking for beginning of value/, null],
+  ['spinning-top-shell', /Maximum update depth exceeded|Too many re-renders/, 'js'],
+  ['hydration-hydroid', /Hydration failed because|\b[Hh]ydration (mismatch|error)\b|Text content does not match server-rendered HTML|did not match\. Server: /, 'js'],
   ['nullfish', /\bTypeError:[ \t]+(Cannot read propert(y|ies) of (undefined|null)|Cannot set propert(y|ies) of (undefined|null)|(undefined|null) is not an object|Cannot destructure property)/, 'js'],
   ['nullfish', /\bAttributeError:[ \t]+'NoneType' object has no attribute/, 'py'],
   ['nullfish', /\bjava\.lang\.NullPointerException\b|\bSystem\.NullReferenceException\b|\bkotlin\.KotlinNullPointerException\b/, 'jvm'],
@@ -149,6 +152,8 @@ const TIER1 = [
   ['race-wraith', /WARNING: DATA RACE|ThreadSanitizer: data race/, null],
   ['panicked-prawn', /thread '[^']*' panicked at|called `(Option|Result)::unwrap\(\)` on an? `(None|Err)/, 'rust'],
   ['borrowing-hermit', /error\[E0(499|502|505|506|382|597|716|503|373)\]/, 'rust'],
+  // An upper-case KeyError is os.environ's, so it goes before the krill.
+  ['unset-sea-star', /\b[Mm]issing (required )?env(ironment)? var(iable)?s?\b|\benvironment variable[ \t]+['"`]?[A-Z][A-Z0-9_]+['"`]?[ \t]+(is[ \t]+)?(not set|not defined|missing|required|undefined)|\bMissingEnvVarError\b|^KeyError:[ \t]+'[A-Z][A-Z0-9_]{2,}'$/, null],
   ['keyless-krill', /^KeyError:[ \t]/, 'py'],
   ['circular-sea-snake', /ImportError:[ \t]+cannot import name .* \(most likely due to a circular import\)|partially initialized module/, 'py'],
   ['zero-dab', /\bZeroDivisionError:|DivideByZeroException|attempt to divide by zero|integer divide by zero/, null],
@@ -160,10 +165,19 @@ const TIER1 = [
   ['snapped-line', /\bECONNRESET\b|socket hang up|Connection reset by peer|\bEPIPE\b/, null],
   ['nameless-buoy', /\bENOTFOUND\b|getaddrinfo E|Name or service not known|Could not resolve host|No such host is known/, null],
   ['cert-cuttlefish', /UNABLE_TO_VERIFY_LEAF_SIGNATURE|SELF_SIGNED_CERT|CERT_HAS_EXPIRED|certificate verify failed|x509: certificate/, null],
+  ['sleepy-seahorse', /Exceeded timeout of \d+ ?ms|Timeout of \d+ms exceeded|Test timeout of \d+ms exceeded|\btest timed out\b|^Failed: Timeout/, null, ({ kind }) => kind === 'tests'],
+  ['hollow-halibut', /\bNo tests found\b|\bno tests ran\b|^Ran 0 tests\b|\bcollected 0 items\b|No test files found|no tests to run|No test suite found/i, null, ({ kind }) => kind === 'tests'],
+  ['crowded-sardines', /\b429 Too Many Requests\b|HTTP\/[\d.]+ 429\b|status code 429\b|returned error: 429\b|\b[Rr]ate limit(ed| exceeded| reached)\b|\bRateLimitError\b|\bTooManyRequests\b/, null],
+  ['turned-away-turbot', /HTTP\/[\d.]+ 40[13]\b|\b401 Unauthorized\b|\b403 Forbidden\b|status code 40[13]\b|returned error: 40[13]\b|\bAuthenticationError\b|[Ii]nvalid[_ ]api[_ ]key\b|\bBad credentials\b/, null],
   ['border-crab', /blocked by CORS policy|No 'Access-Control-Allow-Origin' header/, null],
   ['slowpoke-snail', /\bE?TIMEDOUT\b|\bESOCKETTIMEDOUT\b|Exceeded timeout of \d+ ?ms|\bTimeoutError\b|context deadline exceeded|ReadTimeout(Error)?\b|504 Gateway Time-?out/, null],
   ['meltdown-medusa', /HTTP\/[\d.]+ 5\d\d|\b50[0234] (Internal Server Error|Bad Gateway|Service Unavailable)|Request failed with status code 5\d\d/, null],
   ['lost-parcel-crab', /HTTP\/[\d.]+ 404|\b404 Not Found\b|Request failed with status code 404|The requested URL returned error: 404/, null],
+  ['duplicate-dory', /duplicate key value violates unique constraint|UNIQUE constraint failed|Duplicate entry '.*' for key|\bE11000 duplicate key|Unique constraint failed on the/, null],
+  ['tableless-turtle', /relation "[^"]+" does not exist|\bno such (table|column): |Table '[^']+' doesn't exist|column "[^"]+" (of relation "[^"]+" )?does not exist|Unknown column '/, null],
+  ['docked-whale-shark', /Cannot connect to the Docker daemon|docker daemon is not running|error during connect: .*docker|pull access denied for|failed to solve: |no matching manifest for|manifest for \S+ not found/i, null],
+  // Before the limpet, which a publickey denial would otherwise be.
+  ['sealed-scallop', /Permission denied \(publickey|Host key verification failed|Authentication failed for '|could not read Username for|remote: Invalid username or (password|token)|Support for password authentication was removed/, null],
   ['clingy-barnacle', /\bEBUSY\b|being used by another process|resource busy or locked/, null],
   ['locked-limpet', /\bE(ACCES|PERM)\b|Permission denied|PermissionError|Access is denied|UnauthorizedAccessException/, null],
   ['overstuffed-pufferfish', /\bENOSPC\b|No space left on device|\bEMFILE\b|[Tt]oo many open files/, null],
@@ -172,6 +186,11 @@ const TIER1 = [
   ['two-headed-crab', /^CONFLICT \([\w/ -]+\):|Automatic merge failed|^error: could not apply [0-9a-f]{7,}|Pulling is not possible because you have unmerged files/, 'git'],
   ['bounced-bottle', /! \[rejected\]|\(non-fast-forward\)|Updates were rejected because/, 'git'],
   ['gatekeeper-goby', /husky - [\w-]+ hook exited with code|pre-commit hook .*fail|hook declined/i, 'git'],
+  ['castaway-cod', /fatal: not a git repository|refusing to merge unrelated histories/, 'git'],
+  ['trampled-sand-dollar', /Your local changes to the following files would be overwritten|untracked working tree files would be overwritten|Please commit your changes or stash them/, 'git'],
+  ['nowhere-narwhal', /error: pathspec '[^']*' did not match|couldn't find remote ref|fatal: invalid reference: |fatal: ambiguous argument '[^']+': unknown revision|did not match any file\(s\) known to git/, 'git'],
+  ['mojibake-moray', /\bUnicode(De|En)codeError:|'(utf-8|utf8|charmap|ascii)' codec can't (de|en)code|stream did not contain valid UTF-8|\bMalformedInputException\b/, null],
+  ['idle-isopod', /declared and not used|"[^"]+" imported and not used/, 'go'],
   ['lockfile-lobster', /index\.lock': File exists|Another git process seems to be running/, 'git'],
   ['mirror-mullet', /\d+ snapshots? failed|Snapshot `[^`]+` mismatched|Snapshot name: `/, null],
   ['assertive-lobster', /\bAssertionError\b|expect\(received\)|assertion failed|assert_eq!|assertion `left == right` failed|^E[ \t]+assert /, null],

@@ -168,11 +168,72 @@ async function summarize(start, end) {
   };
 }
 
+// Tools that never write to the folder. Anything else (a shell, an MCP tool
+// nobody knows) could have written anywhere in it.
+const READ_ONLY_TOOLS = new Set([
+  'Read', 'Grep', 'Glob', 'LS', 'WebSearch', 'WebFetch', 'ToolSearch', 'TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet',
+  'AskUserQuestion', 'Skill', 'Agent', 'Task', 'SendMessage', 'ListAgents', 'TaskStop', 'Monitor', 'ScheduleWakeup', 'CronCreate', 'CronDelete', 'CronList',
+  'EnterPlanMode', 'ExitPlanMode', 'ListMcpResourcesTool', 'ReadMcpResourceTool', 'ReadMcpResourceDirTool', 'PushNotification', 'ReportFindings',
+]);
+const FILE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const SHELLBY_TOOL = /^mcp__(plugin_shellby_)?shellby__/;
+
+/** A fresh record of what a turn's own tools could have written. */
+const newTouch = () => ({ paths: new Set(), broad: false });
+
+/** Adds one tool call to a turn's record (the record is the turn's own, so it's added to in place). */
+function noteTool(touch, item) {
+  if (!touch || item?.kind !== 'tool' || typeof item.name !== 'string') return;
+  if (FILE_TOOLS.has(item.name)) {
+    if (typeof item.filePath === 'string' && item.filePath) touch.paths.add(path.resolve(item.filePath));
+    else touch.broad = true;
+  } else if (!READ_ONLY_TOOLS.has(item.name) && !SHELLBY_TOOL.test(item.name)) {
+    touch.broad = true;
+  }
+}
+
+// An absolute path as git names it in this repo (forward slashes), lower-cased to compare; null when outside it.
+function relKey(root, abs) {
+  const rel = path.relative(root, abs);
+  return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel.split(path.sep).join('/').toLowerCase() : null;
+}
+
+/**
+ * A turn's diff, cut down to what this conversation could have done: two
+ * conversations in one folder must never claim (or undo) each other's work.
+ *   mine: { paths, broad }, this turn's tools. Without a shell or an unknown
+ *   tool, only the files its Edit/Write calls named count.
+ *   others: [{ paths }], files other conversations' tools edited in the same
+ *   folder while this turn ran; a turn with a shell still never claims those.
+ * Pure. -> summary (scoped: true, when anything was cut) | null
+ */
+function scope(summary, mine, others = []) {
+  if (!summary || !mine) return summary || null;
+  const keys = set => new Set([...set].map(p => relKey(summary.root, p)).filter(Boolean));
+  let keep;
+  if (!mine.broad) {
+    const own = keys(mine.paths);
+    keep = f => own.has(f.path.toLowerCase());
+  } else {
+    const theirs = new Set(others.flatMap(o => [...keys(o.paths)]));
+    keep = f => !theirs.has(f.path.toLowerCase());
+  }
+  const files = summary.files.filter(keep);
+  if (files.length === summary.files.length) return summary;
+  if (!files.length) return null;
+  return {
+    ...summary, files, scoped: true, more: 0,
+    added: files.reduce((n, f) => n + f.added, 0), removed: files.reduce((n, f) => n + f.removed, 0),
+  };
+}
+
 /** Checks the renderer's word before any of it reaches git. -> error string | null */
-function checkRef({ root, before, after, file } = {}) {
+function checkRef({ root, before, after, file, paths } = {}) {
   if (typeof root !== 'string' || !path.isAbsolute(root) || root.length > 400) return 'Not a project folder.';
   if (!TREE.test(before || '') || !TREE.test(after || '')) return 'Not a snapshot.';
-  if (file != null && (typeof file !== 'string' || !file || file.length > 1000 || file.includes('\0') || path.isAbsolute(file) || file.split(/[\\/]/).includes('..'))) return 'Not a file in this change.';
+  const badFile = f => typeof f !== 'string' || !f || f.length > 1000 || f.includes('\0') || path.isAbsolute(f) || f.split(/[\\/]/).includes('..');
+  if (file != null && badFile(file)) return 'Not a file in this change.';
+  if (paths != null && (!Array.isArray(paths) || paths.length > MAX_FILES || paths.some(badFile))) return 'Not a file in this change.';
   return null;
 }
 
@@ -182,7 +243,7 @@ async function patchFor(ref) {
   if (bad) return { error: bad };
   const root = await rootOf(ref.root);
   if (!sameRoot(root, ref.root)) return { error: 'That project has moved.' };
-  const r = await git(root, ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color', '-U3', ref.before, ref.after, '--', ...(ref.file ? [ref.file] : [])], { maxBuffer: 16 * 1024 * 1024 });
+  const r = await git(root, ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color', '-U3', ref.before, ref.after, '--', ...(ref.file ? [ref.file] : ref.paths || [])], { maxBuffer: 16 * 1024 * 1024 });
   if (!r.ok) return { error: /bad object|not a tree|unknown revision/i.test(r.error) ? 'Those changes have been tidied away by git since.' : r.error || "Couldn't read the diff." };
   return r.out.length > MAX_PATCH ? { patch: r.out.slice(0, MAX_PATCH), truncated: true } : { patch: r.out, truncated: false };
 }
@@ -196,8 +257,11 @@ async function undo(ref) {
   if (bad) return { ok: false, error: bad };
   const root = await rootOf(ref.root);
   if (!sameRoot(root, ref.root)) return { ok: false, error: 'That project has moved.' };
-  const turn = await changedFiles(root, ref.before, ref.after);
-  if (!turn) return { ok: false, error: 'Those changes have been tidied away by git since.' };
+  const all = await changedFiles(root, ref.before, ref.after);
+  if (!all) return { ok: false, error: 'Those changes have been tidied away by git since.' };
+  // A scoped turn puts back only its own files, never another conversation's.
+  const own = ref.paths ? new Set(ref.paths) : null;
+  const turn = own ? all.filter(f => own.has(f.path)) : all;
   if (!turn.length) return { ok: true, restored: 0 };
 
   // Anything touched again after this turn (by a later turn, or by you) would
@@ -237,13 +301,16 @@ async function putBack(root, source, files) {
  * refused until `force`: the caller asks first.
  *   -> { ok: true, restored } | { ok: false, error, changedSince? }
  */
-async function restoreTo({ root: dir, to, from } = {}, { force = false } = {}) {
-  const bad = checkRef({ root: dir, before: to, after: from });
+async function restoreTo({ root: dir, to, from, paths } = {}, { force = false } = {}) {
+  const bad = checkRef({ root: dir, before: to, after: from, paths });
   if (bad) return { ok: false, error: bad };
   const root = await rootOf(dir);
   if (!sameRoot(root, dir)) return { ok: false, error: 'That project has moved.' };
-  const files = await changedFiles(root, to, from);
-  if (!files) return { ok: false, error: 'Those changes have been tidied away by git since.' };
+  const all = await changedFiles(root, to, from);
+  if (!all) return { ok: false, error: 'Those changes have been tidied away by git since.' };
+  // A scoped turn (scope()) puts back only its own files, never another conversation's.
+  const own = paths ? new Set(paths) : null;
+  const files = own ? all.filter(f => own.has(f.path)) : all;
   if (!files.length) return { ok: true, restored: 0 };
   if (!force) {
     const now = await snapshot(root);
@@ -257,4 +324,4 @@ async function restoreTo({ root: dir, to, from } = {}, { force = false } = {}) {
   return putBack(root, to, files);
 }
 
-module.exports = { snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, patchFor, undo, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
+module.exports = { snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, scope, newTouch, noteTool, patchFor, undo, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };

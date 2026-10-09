@@ -175,6 +175,7 @@ function wireBacklog(d) {
       ...(it.ticket ? { ticket: (({ body: _body, ...t }) => t)(it.ticket) } : {}),
       ...(it.task ? { task: it.task } : {}),
       ...(it.note ? { note: it.note } : {}),
+      ...(it.idea ? { idea: { id: it.idea.id, scope: it.idea.scope, from: it.idea.from } } : {}),
       ...(it.todo ? { todo: it.todo } : {}),
       ...(it.todos?.length ? { todos: it.todos } : {}),
       ...(it.error ? { error: it.error } : {}),
@@ -204,6 +205,7 @@ function wireBacklog(d) {
     const ranked = rank({
       tasks: parsed.items,
       notes: !p.root && projectKey ? d.projects.todoOf(projectKey) : [],
+      ideas: p.root && d.openNotesFor ? d.openNotesFor(p.root) : [],
       issues: gh.state === 'ok' ? gh.issues : null,
       complete: gh.complete !== false,
       milestones: gh.state === 'ok' ? gh.milestones : [],
@@ -365,7 +367,8 @@ function wireBacklog(d) {
       }
     } else if (item.kind === 'task') {
       if (!p.root) return { ok: false, needsClone: true, repo: p.repo, error: 'Clone it first, so Claude has somewhere to work.' };
-      const task = { title: item.title, notes: item.task.notes || [] };
+      // A task from tasks.md, or a note from the Notes page.
+      const task = { title: item.title, notes: item.task?.notes || item.idea?.notes || [] };
       res = await d.startTaskInCopy(p.root, slugOf(item.title), w => prompts.taskPrompt({ project: p.name, task, copy: { branch: w.branch, base: w.base } }), { draft: true });
     } else if (item.kind === 'error') {
       if (!p.root) return { ok: false, needsClone: true, repo: p.repo, error: 'Clone it first, so Claude has somewhere to work.' };

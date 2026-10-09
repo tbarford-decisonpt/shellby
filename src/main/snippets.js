@@ -30,9 +30,9 @@ const FORMAT = 2;
 const EXPORT_KIND = 'shellby-snippets';
 
 // Shellby's own slash commands in the panel (composer.js LOCAL_COMMANDS): a
-// snippet called /export would never run. And Claude Code's /compact and /clear,
-// which the panel's Compact and Start fresh send through the box themselves.
-const RESERVED = new Set(['rewind', 'branch', 'btw', 'export', 'effort', 'permissions', 'mcp', 'model', 'output-style', 'snippets', 'compact', 'clear']);
+// snippet called /export would never run. And Claude Code's /compact, which the
+// panel's Compact sends through the box itself.
+const RESERVED = new Set(['clear', 'rewind', 'branch', 'btw', 'export', 'effort', 'permissions', 'mcp', 'model', 'output-style', 'snippets', 'compact']);
 
 // What you get before you've saved any of your own. Deleting them all leaves an
 // empty list, not these again (Toolbox > Snippets can add them back).

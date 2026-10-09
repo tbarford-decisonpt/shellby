@@ -283,6 +283,8 @@ function wireTimetrack(d) {
     // A "fix this dev server" tab finished: its card offers the restart.
     if (!item.interrupted) d.devServers?.onTabDone(tabId, !!item.ok);
     d.bugdex?.turnEnded(tabId, item); // ...and the Bugdex counts it as working on that bug
+    // A note's Ask: its verdict onto the note (wiring/notes.js).
+    if (item.ok && !item.interrupted) Promise.resolve(d.notesTurnEnded?.(tabId, tab.lastReply)).catch(err => d.log.info(`notes: ${err.message}`));
     if (!inWorkflow && !item.interrupted) {
       d.workflows?.event('task', { title: tab.title, outcome: item.ok ? 'ok' : 'error', folder: tab.worktree?.originalCwd || tab.session?.cwd || '', error: item.error || null });
     }

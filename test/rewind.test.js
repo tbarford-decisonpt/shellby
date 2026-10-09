@@ -64,6 +64,22 @@ test('plan: a fresh start counts as a beginning', () => {
   assert.equal(p3.anchor, 'u2');
 });
 
+test('plan: /clear counts as a beginning, like a fresh start', () => {
+  const items = [user('t1', 'first'), result('u1'), { kind: 'cleared' }, user('t2', 'after the clear'), result('u2'), user('t3', 'next'), result('u3')];
+  const p2 = plan(items, 't2');
+  assert.equal(p2.fresh, true, 'nothing before the clear can be resumed into');
+  assert.equal(p2.anchor, null);
+  assert.equal(p2.conversation, true);
+  assert.equal(plan(items, 't3').anchor, 'u2');
+});
+
+test('points: only messages since the last /clear, as the terminal shows them', () => {
+  const items = [user('t1', 'old'), result('u1'), { kind: 'cleared' }, user('t2', 'kept'), result('u2'), { kind: 'cleared' }, user('t3', 'newest'), result('u3')];
+  assert.deepEqual(points(items).map(p => p.turnId), ['t3']);
+  assert.deepEqual(points([user('t1', 'a'), { kind: 'cleared' }]), [], 'nothing since a clear: nothing to rewind to');
+  assert.deepEqual(points([user('t1', 'a'), { kind: 'fresh' }, user('t2', 'b')]).map(p => p.turnId), ['t2', 't1'], 'a fresh start keeps what came before on screen');
+});
+
 test('plan: an unknown message is an error, not a guess', () => {
   assert.equal(plan(convo, 'nope').ok, false);
   assert.equal(plan(convo, null).ok, false);

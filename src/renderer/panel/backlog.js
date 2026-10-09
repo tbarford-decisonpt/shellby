@@ -154,7 +154,7 @@
         h('span', { class: 'pj-h-text' },
           h('span', { class: 'bl-title' },
             h('b', { text: it.title, title: it.title }),
-            FROM_TAG[it.task?.from || it.note?.from] && h('span', { class: 'pj-tag bl-from', text: FROM_TAG[it.task?.from || it.note?.from] })),
+            FROM_TAG[it.task?.from || it.note?.from || it.idea?.from] && h('span', { class: 'pj-tag bl-from', text: FROM_TAG[it.task?.from || it.note?.from || it.idea?.from] })),
           h('span', { class: 'muted small', title: it.reasons.join(' · ') },
             it.doing?.pr ? `Draft pull request #${it.doing.pr.number} · ` : it.doing ? 'In progress · ' : '',
             ...subline(it, where))),
@@ -167,7 +167,7 @@
     function subline(it, where) {
       if (where) return [h('code', { class: 'bl-where', text: where })];
       if (it.kind === 'error') return [[it.error.shortId, ...it.reasons.slice(0, 3)].join(' · ')];
-      const note = it.kind === 'task' ? (it.task.notes || []).find(n => n.trim()) : null;
+      const note = it.kind === 'task' ? (it.task?.notes || []).find(n => n.trim()) : null;
       return [note ? note.trim() : it.reason];
     }
 
@@ -367,9 +367,11 @@
 
     function openMenu(it, v, anchor) {
       const m = SB.menuItem;
-      // A to-do kept in Shellby (a project with no clone) only has Done; tasks.md tasks have the rest.
+      // A to-do kept in Shellby (a project with no clone) only has Done; so does a
+      // note from the Notes page, which can also open there. tasks.md tasks have the rest.
       const isNote = !!it.note;
-      const isTask = !isNote && (it.kind === 'task' || ((it.kind === 'issue' || it.kind === 'ticket') && it.task));
+      const isIdea = !!it.idea;
+      const isTask = !isNote && !isIdea && (it.kind === 'task' || ((it.kind === 'issue' || it.kind === 'ticket') && it.task));
       const helpers = it.kind === 'issue' && !it.doing ? v.helpers : [];
       const tracker = it.ticket ? (it.ticket.tracker === 'jira' ? 'Jira' : 'Linear') : '';
       SB.openMenu($('blMenu'), anchor, () => [
@@ -380,6 +382,8 @@
         it.kind === 'todo' && m('Open file', () => act(api.backlogOpenTodo({ root, id: it.id }))),
         it.kind === 'error' && it.error.url && m('Open in Sentry', () => api.openExternal(it.error.url)),
         isNote && m('Done', () => act(api.finishProjectTodo({ key: v.key, id: it.note.id }), 'Ticked off.')),
+        isIdea && m('Done', () => act(api.updateNote({ scope: it.idea.scope, id: it.idea.id, done: true }).then(v => ({ ok: !!v?.general })), 'Ticked off in Notes.')),
+        isIdea && m('Open in Notes', () => SB.openNotes(it.idea.scope)),
         isTask && it.kind === 'task' && m('Edit…', () => rename(it)),
         isTask && it.tier !== 'now' && m('Move to Now', () => act(api.backlogEdit({ ...taskRef(it), op: 'move', to: 'now' }))),
         isTask && it.tier === 'now' && m('Move to Next', () => act(api.backlogEdit({ ...taskRef(it), op: 'move', to: 'next' }))),

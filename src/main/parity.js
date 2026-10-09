@@ -21,6 +21,7 @@ const outputStyles = require('./outputstyles');
 const changes = require('./changes');
 const { effectiveAfter } = require('./step-undo');
 const btw = require('./btw');
+const jobs = require('./jobs');
 const { run: runCli, skipSettings } = require('./claude/cli');
 
 const MAX_PROMPTS = 100;
@@ -242,6 +243,47 @@ function register(deps) {
     deps.noteUndone?.(items.slice(plan.index).filter(i => i.kind === 'user').length);
     return { ok: true, restored, items: kept, text: plan.text, attachments: plan.attachments };
   }
+
+  // ---- /clear: a new Claude conversation in the same tab, nothing carried over.
+  // The tab keeps its folder, its copy and its History entry; the transcript
+  // keeps what came before (for /export), and the 'cleared' mark it ends with
+  // is where the feed, rewind and branch start from.
+  ipcMain.handle('tab:clear', async (_e, tabId) => {
+    const tab = tabOf(tabId);
+    if (!tab) return { ok: false, error: 'That conversation is closed.' };
+    if (tab.shellRunning) return { ok: false, error: 'A ! command is still running. Clear when it has finished.' };
+    // Nothing sent yet: only ! output waiting to go with the first message.
+    if (!tab.saved) { tab.shellRuns = []; return { ok: true, empty: true }; }
+    const s = tab.session;
+    if (s.busy) return { ok: false, error: 'Let him finish first (or press Stop), then clear.' };
+    if (tab.inTerminal) return { ok: false, error: 'This conversation is carrying on in a terminal. Close it there (/exit), then choose Pick it up here.' };
+    // Stopping the process would end them without a word.
+    if (s.runningCrew().length || jobs.running(s.jobs).length) return { ok: false, error: 'Claude still has something running in the background. Stop it above the box, or let it finish, then clear.' };
+    if (tab.rewinding || tab.branching || tab.clearing) return { ok: false, error: 'Busy with this conversation: try again in a moment.' };
+    tab.clearing = true;
+    // Busy until the mark is down, as a fresh start is: a message typed
+    // meanwhile waits in the panel's queue and goes to the new conversation.
+    s.setBusy(true);
+    try {
+      // The last turn's diff is noted after it ends: before the mark, not after it.
+      await deps.turnEnding(tab.id);
+      await s.rewindTo(null);
+      if (!manager.tabs.has(tab.id)) return { ok: false, error: 'That conversation is closed.' };
+      // A recap or branch note still waiting to go ahead of the next message
+      // belongs to the old conversation too, like ! output not yet sent.
+      history.update(tab.id, { claudeSessionId: null, resumeAt: null, context: null, preamble: null });
+      tab.preamble = null;
+      tab.preambleSent = false;
+      tab.shellRuns = [];
+      manager.note(tab.id, { kind: 'cleared' });
+      manager.changed();
+      deps.stat('cleared');
+      return { ok: true };
+    } finally {
+      tab.clearing = false;
+      s.setBusy(false);
+    }
+  });
 
   // ---- /export
   ipcMain.handle('session:export', async (_e, { id, to } = {}) => {

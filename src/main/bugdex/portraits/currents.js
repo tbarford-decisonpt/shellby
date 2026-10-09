@@ -191,4 +191,18 @@ module.exports = {
       '.......D.....D........',
     ],
   },
+  'crowded-sardines': {
+    palette: { H: '#e9ecef', a: '#adb5bd', A: '#6c757d', D: '#495057', w: '#ffffff', k: '#2b2d42' },
+    pixels: [
+      'wkaaaaD.wkaaaaD.',
+      'HaaaaAAAHaaaaAAA',
+      '.AAAAD..AAAAD...',
+      '...wkaaaaD.wkaaa',
+      '...HaaaaAAAHaaaa',
+      '....AAAAD..AAAAD',
+      'wkaaaaD.wkaaaaD.',
+      'HaaaaAAAHaaaaAAA',
+      '.AAAAD..AAAAD...',
+    ],
+  },
 };

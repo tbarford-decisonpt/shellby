@@ -189,12 +189,13 @@ const issueItem = (issue, s, tier) => ({
  *   GitHub wasn't read (then a "#42" task stays a task). milestones: open ones.
  *   todos: loose ends ({ file, line, tag, text, ref }). repo: owner/name or null.
  *   notes: to-dos kept in Shellby for a project with no clone ({ id, text, from }).
+ *   ideas: the project's open notes from the Notes page ({ id, text, scope }).
  *   complete: issues holds every open one (so a "#42" not in it has closed), not just the first page.
  *   tickets: Linear or Jira issues (backlog/trackers.js parseTickets), or [].
  *   errors: new production errors from Sentry (backlog/sentry.js errorOf).
  * -> { items: [{ id, kind, tier, title, reason, reasons, ... }], milestone }
  */
-function rank({ tasks = [], notes = [], issues = /** @type {any[] | null} */ (null), complete = true, milestones = [], todos = [], tickets = [], errors = [], repo = null, login = null, now = Date.now() } = {}) {
+function rank({ tasks = [], notes = [], ideas = [], issues = /** @type {any[] | null} */ (null), complete = true, milestones = [], todos = [], tickets = [], errors = [], repo = null, login = null, now = Date.now() } = {}) {
   const known = Array.isArray(issues);
   const nearest = nearestMilestone(milestones);
   const byNumber = new Map();
@@ -245,6 +246,15 @@ function rank({ tasks = [], notes = [], issues = /** @type {any[] | null} */ (nu
   for (const n of Array.isArray(notes) ? notes : []) {
     const reason = FROM_REASON[n.from] || 'On your to-do list';
     ordered.next.push({ id: `n:${n.id}`, kind: 'task', tier: 'next', title: n.text, reason, reasons: [reason], score: 0, note: { id: n.id, from: n.from || 'you' } });
+  }
+  // Open notes from the Notes page: after your tasks, newest first as Notes has them.
+  // The first line is the title; the rest goes with it, as a task's indented notes do.
+  for (const n of Array.isArray(ideas) ? ideas : []) {
+    if (!n?.id || typeof n.text !== 'string' || !n.text.trim()) continue;
+    const [title, ...rest] = n.text.split('\n');
+    const from = n.from === 'claude' ? 'claude' : 'you';
+    const reason = FROM_REASON[from] || 'From your Notes';
+    ordered.next.push({ id: `idea:${n.id}`, kind: 'task', tier: 'next', title: title.trim() || n.text.trim(), reason, reasons: [reason], score: 0, idea: { id: n.id, scope: n.scope, notes: rest, from } });
   }
 
   const unclaimed = known ? issues.filter(i => !claimed.has(i.number)) : [];

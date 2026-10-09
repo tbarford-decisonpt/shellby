@@ -190,3 +190,10 @@ test('readOnlyCommand treats a looking command that writes a file as a step', ()
   assert.equal(readOnlyCommand('git log -o out.txt'), false);
   assert.equal(readOnlyCommand('git diff --stat'), true);
 });
+
+test("planStep keeps a scoped turn to its own files, never another conversation's", () => {
+  assert.equal(planStep(turn, 'T', 's2').paths, undefined);
+  const scoped = turn.map(i => (i.kind === 'changes' ? { ...i, scoped: true, files: [{ path: 'mine.js' }] } : i));
+  if (!scoped.some(i => i.kind === 'changes')) scoped.push({ kind: 'changes', turnId: 'T', root: 'R', before: 'c1', after: 'END', scoped: true, files: [{ path: 'mine.js' }] });
+  assert.deepEqual(planStep(scoped, 'T', 's2').paths, ['mine.js']);
+});

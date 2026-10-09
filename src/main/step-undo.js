@@ -149,7 +149,9 @@ function planStep(items, turnId, toolId) {
     const lastAt = points.findIndex(p => p.toolId === last.toolId);
     if (lastAt >= 0 && lastAt <= at) return { ok: false, error: 'That step has been undone already.' };
   }
-  return { ok: true, point, root: point.root, to: point.tree, from: last ? last.to : end.end, after: changed?.after || end.end };
+  // A turn whose diff was cut to its own files (changes.scope) undoes only those.
+  const paths = changed?.scoped && Array.isArray(changed.files) ? changed.files.map(f => f.path) : undefined;
+  return { ok: true, point, root: point.root, to: point.tree, from: last ? last.to : end.end, after: changed?.after || end.end, ...(paths ? { paths } : {}) };
 }
 
 module.exports = { MAX_POINTS, readOnlyCommand, classify, createTracker, effectiveAfter, planStep, pointsOf };

@@ -18,8 +18,8 @@ test('notifications get the empty result Claude Code expects', async () => {
 
 test('lists the crab\'s tools, with suggest only when suggestions are on', async () => {
   const r = await ask({ method: 'tools/list', jsonrpc: '2.0', id: 1 });
-  assert.deepEqual(r.result.tools.map(t => t.name), ['say', 'celebrate', 'wear', 'status', 'suggest']);
-  assert.deepEqual(crabmcp.toolsFor({ suggestions: false }).map(t => t.name), ['say', 'celebrate', 'wear', 'status']);
+  assert.deepEqual(r.result.tools.map(t => t.name), ['say', 'celebrate', 'wear', 'status', 'note', 'suggest']);
+  assert.deepEqual(crabmcp.toolsFor({ suggestions: false }).map(t => t.name), ['say', 'celebrate', 'wear', 'status', 'note']);
   for (const t of r.result.tools) assert.equal(t.inputSchema.additionalProperties, false, t.name);
 });
 

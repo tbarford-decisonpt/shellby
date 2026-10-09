@@ -193,3 +193,48 @@ test('failedCount reads how many errors a type check, linter or build found', ()
   assert.equal(failedCount('Build failed with 2 errors:'), 2);
   assert.equal(failedCount('2 errors, 0 warnings, 0 informations'), 2);
 });
+
+test('the second wave: each new bug from its usual wording', () => {
+  const cases = [
+    ['garbled-jellyfish', 'SyntaxError: Unexpected token \'<\', "<!DOCTYPE "... is not valid JSON', 'node a.js'],
+    ['garbled-jellyfish', 'SyntaxError: Unexpected end of JSON input', 'node a.js'],
+    ['garbled-jellyfish', 'json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)', 'python a.py'],
+    ['spinning-top-shell', 'Error: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect', 'node a.js'],
+    ['hydration-hydroid', 'Error: Hydration failed because the server rendered HTML didn\'t match the client.', 'node a.js'],
+    ['duplicate-dory', 'error: duplicate key value violates unique constraint "users_email_key"', 'node seed.js'],
+    ['duplicate-dory', 'sqlite3.IntegrityError: UNIQUE constraint failed: users.email', 'python seed.py'],
+    ['tableless-turtle', 'error: relation "users" does not exist', 'node a.js'],
+    ['tableless-turtle', 'sqlite3.OperationalError: no such table: users', 'python a.py'],
+    ['crowded-sardines', 'Error: Request failed with status code 429', 'node a.js'],
+    ['crowded-sardines', 'openai.RateLimitError: Error code: 429', 'python a.py'],
+    ['castaway-cod', 'fatal: not a git repository (or any of the parent directories): .git', 'git commit -m x'],
+    ['castaway-cod', 'fatal: refusing to merge unrelated histories', 'git pull origin main'],
+    ['trampled-sand-dollar', 'error: Your local changes to the following files would be overwritten by checkout:', 'git checkout main'],
+    ['nowhere-narwhal', "error: pathspec 'feature/x' did not match any file(s) known to git", 'git checkout feature/x'],
+    ['nowhere-narwhal', "fatal: couldn't find remote ref feature/x", 'git pull origin feature/x'],
+    ['docked-whale-shark', 'Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?', 'docker compose up'],
+    ['mojibake-moray', "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe9 in position 3", 'python a.py'],
+    ['mojibake-moray', "UnicodeEncodeError: 'charmap' codec can't encode character '\u2192'", 'python a.py'],
+    ['idle-isopod', './main.go:7:2: declared and not used: x', 'go build ./...'],
+    ['idle-isopod', './main.go:4:2: "fmt" imported and not used', 'go build ./...'],
+    ['sleepy-seahorse', 'thrown: "Exceeded timeout of 5000 ms for a test.', 'npx jest'],
+    ['hollow-halibut', 'No tests found, exiting with code 1', 'npx jest'],
+    ['turned-away-turbot', 'Error: Request failed with status code 401', 'node a.js'],
+    ['turned-away-turbot', 'curl: (22) The requested URL returned error: 403', 'curl -f https://x'],
+    ['unset-sea-star', "KeyError: 'DATABASE_URL'", 'python a.py'],
+    ['unset-sea-star', 'Error: Missing required environment variable STRIPE_KEY', 'node a.js'],
+    ['sealed-scallop', 'git@github.com: Permission denied (publickey).', 'git push'],
+    ['sealed-scallop', "fatal: Authentication failed for 'https://github.com/x/y.git/'", 'git push'],
+  ];
+  for (const [species, out, cmd] of cases) assert.equal(d.classify(out, { cmd })?.species, species, out);
+});
+
+test('the second wave leaves the older bugs their own errors', () => {
+  assert.equal(d.classify("KeyError: 'name'", { cmd: 'python a.py' }).species, 'keyless-krill');
+  assert.equal(d.classify('SyntaxError: Unexpected token \'}\'', { cmd: 'node a.js' }).species, 'syntax-slug');
+  assert.equal(d.classify('Error: EACCES: permission denied, open \'/etc/x\'', { cmd: 'node a.js' }).species, 'locked-limpet');
+  assert.equal(d.classify('Error: Request failed with status code 404', { cmd: 'node a.js' }).species, 'lost-parcel-crab');
+  // A timeout outside a test run is still the snail's.
+  assert.equal(d.classify('Exceeded timeout of 5000 ms', { cmd: 'node a.js' }).species, 'slowpoke-snail');
+  assert.equal(d.remedyOf('Start-Process "C:/Program Files/Docker/Docker/Docker Desktop.exe"'), 'service');
+});

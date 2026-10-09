@@ -19,7 +19,9 @@ const MEMORY_FLAG_ARG = /--max-old-space-size[= ]\d+|NODE_OPTIONS=("[^"]*"|\S+)|
 
 // Species whose "fix" is too often a suppression: any added suppression refuses.
 const SUPPRESSIBLE = new Set(['type-tangle', 'mismatched-mantis', 'missing-fin-pipefish', 'undeclared-urchin', 'anything-anemone', 'optional-oarfish', 'hinted-hermit', 'lint-louse', 'rusty-nautilus', 'borrowing-hermit']);
-const TEST_SPECIES = new Set(['red-snapper', 'assertive-lobster', 'mirror-mullet']);
+const TEST_SPECIES = new Set(['red-snapper', 'assertive-lobster', 'mirror-mullet', 'sleepy-seahorse', 'hollow-halibut']);
+// Species a raised limit (a longer timeout, a bigger heap) only hides.
+const BIGGER_NUMBER_SPECIES = new Set(['slowpoke-snail', 'heap-leviathan', 'sleepy-seahorse']);
 
 /**
  * Split a unified diff into { path: { added: [lines], removed: [lines] } }.
@@ -85,7 +87,7 @@ function judge({ files = [], patch = '', species, remedy = false, revert = false
   if (adds(SUPPRESS_ADD) && (SUPPRESSIBLE.has(species) || codeLines.every(l => SUPPRESS_ADD.test(l)))) return { ok: false, reason: 'suppressed' };
   if (TEST_SPECIES.has(species) && counts && Number.isFinite(counts.before) && Number.isFinite(counts.after) && counts.after < counts.before) return { ok: false, reason: 'fewer-tests' };
   if (species === 'mirror-mullet' && (flags.snapshotUpdate || files.every(f => SNAP_PATH.test(f.path)))) return { ok: false, reason: 'snapshots-only' };
-  if ((species === 'slowpoke-snail' || species === 'heap-leviathan') && onlyBiggerNumbers(parts)) return { ok: false, reason: 'bigger-number' };
+  if (BIGGER_NUMBER_SPECIES.has(species) && onlyBiggerNumbers(parts)) return { ok: false, reason: 'bigger-number' };
   if (species === 'cert-cuttlefish' && (adds(INSECURE_ADD) || flags.insecure)) return { ok: false, reason: 'insecure' };
   if (species === 'border-crab' && !addedIn(p => !isTestFile(p))) return { ok: false, reason: 'tests-only' };
   return { ok: true };

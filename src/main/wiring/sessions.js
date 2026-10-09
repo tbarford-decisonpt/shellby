@@ -179,6 +179,7 @@ function wireSessions(d) {
         d.pendingCommands.set(item.id, { command: item.detail, project: inProject ? path.basename(dir) : null, dir: inProject ? dir : null, cwd: dir || null, tree, bugTree, tabId, background: !!item.background });
         if (d.pendingCommands.size > 200) d.pendingCommands.delete(d.pendingCommands.keys().next().value);
       }
+      if (item.kind === 'tool') changes.noteTool(touchOf(tabId)?.touch, item); // what this turn could have written
       if (item.kind === 'tool') d.onToolSpoken(item);
       // Claude writing code (or reading round): whatever bug is on the loose in that project is being worked on, and fought.
       if (item.kind === 'tool') d.bugdex?.tool(tabId, item);
@@ -253,8 +254,19 @@ function wireSessions(d) {
   // without one rather than keep you waiting, and simply has no diff.
   const SNAPSHOT_WAIT_MS = 10000;
 
+  // Every turn's own tool calls, while it runs and a while after: the folder's
+  // diff is cut down to them, so a conversation never claims (or undoes) what
+  // another one in the same folder wrote meanwhile (changes.scope).
+  // [{ tabId, touch, start, end }]
+  let touches = [];
+  const TOUCH_KEEP_MS = 60 * 60 * 1000;
+  const touchOf = tabId => touches.findLast(t => t.tabId === tabId && t.end == null);
+
   function beginTurn(tab) {
     turnStarts.delete(tab.id);
+    const now = Date.now();
+    touches = touches.filter(t => t.tabId !== tab.id && (t.end == null || now - t.end < TOUCH_KEEP_MS));
+    touches.push({ tabId: tab.id, touch: changes.newTouch(), start: now, end: null });
     const cwd = tab.session?.cwd;
     // The files of a folder on another computer are over there: no picture of them here.
     if (!cwd || d.CAPTURE || d.remoteService?.placeOf(cwd)) return null;
@@ -283,12 +295,16 @@ function wireSessions(d) {
   async function noteTurnChanges(tabId) {
     const start = turnStarts.get(tabId);
     turnStarts.delete(tabId);
+    const mine = touchOf(tabId);
+    if (mine) mine.end = Date.now();
     const cwd = d.manager.tabs.get(tabId)?.session.cwd;
     if (cwd) fileIndex.forget(cwd); // what it created can be @-mentioned straight away
     if (!start) { d.shotsAfterTurn?.(tabId, null); return; }
     try {
       const end = await changes.snapshot(start.root);
-      const summary = await changes.summarize(start, end);
+      // Other conversations' turns that overlapped this one (a later edit of theirs, still running, counts too).
+      const others = mine ? touches.filter(t => t !== mine && t.start <= mine.end && (t.end == null || t.end >= mine.start)).map(t => t.touch) : [];
+      const summary = changes.scope(await changes.summarize(start, end), mine?.touch, others);
       // Tagged with its turn: the diff is worked out after the turn ends, by which
       // time the next message may already be in the transcript (rewind.js).
       const turn = start.turnId ? { turnId: start.turnId } : {};

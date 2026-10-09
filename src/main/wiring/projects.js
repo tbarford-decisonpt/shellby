@@ -189,7 +189,8 @@ function wireProjects(d) {
     let w = copy;
     if (!w) {
       const made = await worktrees.create(dir, { home: d.worktreeHome(), title, start });
-      if (!made) return { ok: false, noCopy: true, error: "That folder isn't in a git repository." };
+      // notRepo: no copy could ever be made here, as against one that failed this time.
+      if (!made) return { ok: false, noCopy: true, notRepo: true, error: "That folder isn't in a git repository." };
       if (!made.ok) return { ok: false, noCopy: true, error: made.error };
       w = made.worktree;
     }

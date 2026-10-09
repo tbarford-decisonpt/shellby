@@ -1,4 +1,4 @@
-// ci: the context meter per tab, what each turn cost, the filling-up and crowded offer, Compact and Start fresh
+// ci: the context meter per tab, what each turn cost, the filling-up and crowded offer, Compact, Start fresh and /clear
 // End-to-end check of the context meter against the dev app over CDP, driven by
 // the fake Claude CLI (test/fixtures/fake-claude.js): no account, no usage.
 //   1. A reply's token counts fill the hairline under its tab and the chip,
@@ -11,6 +11,8 @@
 //      empties the meter
 //   5. "Start fresh with a summary": a summary turn, then a new conversation
 //      in the same tab that's handed it
+//   6. /clear: the feed and the meter empty, nothing before it to rewind to,
+//      and the next message starts a new conversation (no --resume)
 //   node scripts/e2e-context.js
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -103,6 +105,16 @@ function connect(url) {
     check(await until("!SB.activeTab().busy && [...SB.activeTab().el.querySelectorAll('.msg')].some(m => m.textContent.includes('started this conversation fresh'))", 15000), 'the new conversation is handed the summary');
     check(await ev(`SB.activeTab().id === ${JSON.stringify(tabId)}`), 'it all happened in the same tab');
     check(await ev("SB.$('crowded').hidden"), 'the offer is gone once it has started fresh');
+
+    // 6. /clear: the screen empties and the next message starts a new conversation.
+    await type('/clear');
+    check(await until("SB.activeTab().el.textContent.includes('Cleared.') && !SB.activeTab().el.querySelector('.msg')"), '/clear empties the feed down to its mark');
+    check(await until("!SB.activeTab().context && SB.$('ctxChip').hidden"), 'and the meter with it');
+    check(await ev("SB.api.rewindPoints(SB.activeTab().id).then(r => r.points.length === 0)"), 'nothing before the clear to rewind to');
+    await type('args');
+    check(await until("!SB.activeTab().busy && [...SB.activeTab().el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('--permission-mode'))", 15000), 'the next message gets an answer');
+    check(await ev("![...SB.activeTab().el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('--resume'))"), 'from a new conversation, not the old one resumed');
+    check(await ev(`SB.activeTab().id === ${JSON.stringify(tabId)} && SB.activeTab().el.textContent.includes('Cleared.')`), 'in the same tab, under the mark');
   } catch (e) {
     check(false, e.message);
   } finally {

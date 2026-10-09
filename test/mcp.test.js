@@ -83,8 +83,9 @@ test('tools/list leaves out the crab tools in a Shellby conversation, which has 
   const names = replies[1].result.tools.map(t => t.name);
   for (const n of ['say', 'celebrate', 'wear', 'status']) assert.ok(!names.includes(n), `${n} comes from the app there`);
   assert.ok(names.includes('add_workflow') && names.includes('journal'), 'the rest are only here');
-  // The same four the app serves (crabmcp.js), so nothing goes missing.
-  assert.deepEqual([...require('../claude-plugin/mcp/server').CRAB_TOOLS].sort(),
+  // The same four the app serves (crabmcp.js), so nothing goes missing. `note`
+  // is the app's alone: it files under the conversation's project, which only the app knows.
+  assert.deepEqual([...require('../claude-plugin/mcp/server').CRAB_TOOLS, 'note'].sort(),
     require('../src/main/crabmcp').toolsFor({ suggestions: false }).map(t => t.name).sort());
 });
 

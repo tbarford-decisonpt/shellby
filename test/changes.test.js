@@ -7,7 +7,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { snapshot, summarize, patchFor, undo, parseDiffSummary, checkRef, mapLimit, MAX_UNTRACKED, SKIPPED_TOO_MANY } = require('../src/main/changes');
+const { snapshot, summarize, scope, newTouch, noteTool, patchFor, undo, parseDiffSummary, checkRef, mapLimit, MAX_UNTRACKED, SKIPPED_TOO_MANY } = require('../src/main/changes');
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-changes-'));
@@ -162,4 +162,63 @@ test('mapLimit keeps its results in order and never runs more than its limit at 
   assert.deepEqual(out, [50, 10, 40, 20, 30]);
   assert.equal(most, 2);
   assert.deepEqual(await mapLimit([], 4, async () => 1), []);
+});
+
+// Two conversations in one folder: each turn claims only its own work.
+async function sharedTurn(r) {
+  const before = await snapshot(r.dir);
+  r.write('mine.txt', 'mine\n');      // this conversation's Edit
+  r.write('a.txt', 'theirs\n');       // another conversation, meanwhile
+  return summarize(before, await snapshot(r.dir));
+}
+const realRepo = () => { const r = repo(); return { ...r, dir: fs.realpathSync.native(r.dir) }; };
+
+test('a turn with only read-only tools claims nothing another conversation wrote', async () => {
+  const r = realRepo();
+  try {
+    const s = await sharedTurn(r);
+    const touch = newTouch();
+    for (const name of ['Read', 'Grep', 'WebSearch', 'mcp__shellby__say']) noteTool(touch, { kind: 'tool', name });
+    assert.equal(touch.broad, false);
+    assert.equal(scope(s, touch), null);
+  } finally { r.done(); }
+});
+
+test('a turn that only edits claims just the files its edits named, and undoes only those', async () => {
+  const r = realRepo();
+  try {
+    const s = await sharedTurn(r);
+    const touch = newTouch();
+    noteTool(touch, { kind: 'tool', name: 'Write', filePath: path.join(r.dir, 'mine.txt') });
+    const mine = scope(s, touch);
+    assert.deepEqual(mine.files.map(f => f.path), ['mine.txt']);
+    assert.equal(mine.scoped, true);
+    assert.equal(mine.added, 1);
+    const p = await patchFor({ ...mine, paths: ['mine.txt'] });
+    assert.doesNotMatch(p.patch, /theirs/);
+    assert.deepEqual(await undo({ ...mine, paths: ['mine.txt'] }), { ok: true, restored: 1 });
+    assert.equal(r.exists('mine.txt'), false);
+    assert.equal(r.read('a.txt'), 'theirs\n', "the other conversation's work is left alone");
+  } finally { r.done(); }
+});
+
+test('a turn with a shell keeps the folder diff, minus what overlapping conversations edited', async () => {
+  const r = realRepo();
+  try {
+    const s = await sharedTurn(r);
+    const touch = newTouch();
+    noteTool(touch, { kind: 'tool', name: 'Bash' });
+    assert.equal(touch.broad, true);
+    assert.equal(scope(s, touch), s, 'alone in the folder, nothing is cut');
+    const other = newTouch();
+    noteTool(other, { kind: 'tool', name: 'Edit', filePath: path.join(r.dir, 'A.TXT') });
+    assert.deepEqual(scope(s, touch, [other]).files.map(f => f.path), ['mine.txt']);
+  } finally { r.done(); }
+});
+
+test('checkRef refuses paths that leave the project', () => {
+  const ok = { root: path.resolve(os.tmpdir()), before: 'a'.repeat(40), after: 'b'.repeat(40) };
+  assert.equal(checkRef({ ...ok, paths: ['src/a.js'] }), null);
+  assert.ok(checkRef({ ...ok, paths: ['../x'] }));
+  assert.ok(checkRef({ ...ok, paths: 'src/a.js' }));
 });

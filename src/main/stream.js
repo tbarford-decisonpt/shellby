@@ -65,7 +65,7 @@ const STATUS_WORDS = { pending: 'to do', in_progress: 'started', completed: 'don
 // verb, and which input field is worth showing.
 const SHELLBY_TOOLS = {
   say: ['Shellby said', 'text'], celebrate: ['Celebrated', 'reason'], wear: ['Dressed Shellby', 'item'],
-  status: ['Checked on Shellby', null], suggest: ['Suggested', 'feature'],
+  status: ['Checked on Shellby', null], suggest: ['Suggested', 'feature'], note: ['Noted', 'text'],
 };
 
 /**

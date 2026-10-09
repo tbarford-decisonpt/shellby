@@ -59,7 +59,7 @@ function wireStepUndo(d) {
       const plan = stepUndo.planStep(d.history.load(tabId), raw.turnId, raw.toolId);
       if (!plan.ok) return plan;
       if (!fs.existsSync(plan.root)) return { ok: false, error: 'That copy has been tidied away, and its work is in your checkout now. Undo it there with git.' };
-      const ref = { root: plan.root, to: plan.to, from: plan.from };
+      const ref = { root: plan.root, to: plan.to, from: plan.from, ...(plan.paths ? { paths: plan.paths } : {}) };
       let r = await changes.restoreTo(ref);
       if (!r.ok && r.changedSince?.length) {
         if (!(await askToDiscard(r.changedSince))) return { ok: false, cancelled: true, error: 'Left as it was.' };

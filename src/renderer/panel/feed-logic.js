@@ -26,6 +26,8 @@
         return { icon: '⇣', text: `${item.trigger === 'auto' ? 'Claude Code compacted the conversation to make room' : 'Compacted the conversation'}${item.preTokens ? ` (it was ${compact(item.preTokens)} tokens)` : ''}` };
       case 'fresh':
         return { icon: '↻', text: 'Started fresh: a new conversation picks up from the summary above' };
+      case 'cleared':
+        return { icon: '⌫', text: 'Cleared. Claude starts a new conversation with your next message. /export still has everything from before' };
       case 'rewound':
         return {
           icon: '↶',

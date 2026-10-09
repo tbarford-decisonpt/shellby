@@ -37,7 +37,7 @@ const CATALOGUE = [
   { name: 'bug', handling: SHELLBY, aliases: ['share'], description: 'Report a Claude Code bug on GitHub.' },
   { name: 'cd', handling: TERMINAL, reason: "It moves the session to another folder, and the tab can't follow. Open a new conversation in that folder instead.", description: 'Move the session to another folder.' },
   { name: 'chrome', handling: TERMINAL, reason: PANEL, description: 'Claude in Chrome settings.' },
-  { name: 'clear', handling: CLI, description: 'Start the conversation over, without its history.' },
+  { name: 'clear', handling: SHELLBY, description: 'Start the conversation over, without its history.' },
   { name: 'cloud-plugins', handling: TERMINAL, reason: PANEL, description: 'Whether cloud sessions use the plugins on this PC.' },
   { name: 'color', handling: CLI, description: "Set the terminal prompt bar's color for this session." },
   { name: 'compact', handling: CLI, description: 'Summarize the conversation so far to free up context.' },

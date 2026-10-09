@@ -27,6 +27,7 @@
 const os = require('os');
 const path = require('path');
 const { onlyLooks } = require('./worktrees');
+const { lastBeginning } = require('./rewind');
 
 const TREE = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 const MARK = '⑂';
@@ -43,7 +44,7 @@ const tagged = i => i && (i.kind === 'changes' || i.kind === 'checkpoint') && ty
  *      files: { root, tree, head } | null, approx, items, text, attachments }
  *
  * fresh: nothing before the cut can be resumed into (it was the first message,
- * or the first after a fresh start), so the branch starts a new conversation.
+ * or the first after a fresh start or a /clear), so the branch starts a new conversation.
  * conversation: false when the turn before predates anchors: only the files
  * can be branched. files: null when no snapshot says where they stood (not a
  * git project, or an older transcript with no diffs at all). approx: the files
@@ -75,10 +76,9 @@ function plan(items, { turnId, at = 'before' } = {}) {
   // The original's notes of its other branches are the original's, not this one's.
   const own = kept.filter(i => (!tagged(i) || keptTurns.has(i.turnId)) && i.kind !== 'branched-off');
 
-  // A fresh start ('fresh') began a new Claude conversation: nothing before it
+  // A fresh start or a /clear began a new Claude conversation: nothing before it
   // can be resumed into.
-  const lastFresh = kept.map(i => i.kind).lastIndexOf('fresh');
-  const since = lastFresh >= 0 ? kept.slice(lastFresh + 1) : kept;
+  const since = kept.slice(lastBeginning(kept) + 1);
   const fresh = !since.some(isUser);
   const anchored = fresh ? null : [...since].reverse().find(i => i.kind === 'result' && typeof i.anchor === 'string') || null;
 

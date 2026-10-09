@@ -212,6 +212,23 @@ Types (the "element") are `runtime`, `io`, `net`, `vcs`, `ci`, `build`, `types`,
 | 064 | `race-wraith` Race Wraith | wreck · ghost | rare | two ghosts racing through one door | B T | `WARNING: DATA RACE` gone from a `-race` run on a changed tree | "Arrives before itself." | 3 |
 | 065 | `cache-ghoul` Cache Ghoul | wreck · ghost | uncommon | ghoul peeking out of a box | B T | **same tree**, fixed only by a cache-clearing remedy (§4.3) | "Lives in the cache. Rent-free." | 3 |
 | 066 | `zombie-process` Zombie Process | wreck · ghost | uncommon | green ghost crab with a little gravestone | B S | revealed at catch: a Port Squatter or Clingy Barnacle fixed by killing a leftover process | "Its parent left. It didn't." | 3 |
+| 067 | `garbled-jellyfish` Garbled Jellyfish | shallows · runtime | common | jellyfish with garbled tentacles | B T S | — | "Expected JSON. Got a web page." | 3 |
+| 068 | `spinning-top-shell` Spinning Top Shell | shallows · runtime | uncommon | top shell with motion lines | B T S | — | "Rendered. Changed. Rendered. Changed." | 3 |
+| 069 | `hydration-hydroid` Hydration Hydroid | shallows · runtime | uncommon | hydroid, one half blue and one half red | B T S | — | "Grew one way on the server and another in the browser." | 3 |
+| 070 | `duplicate-dory` Duplicate Dory | burrows · io | uncommon | two identical tangs | B T S | — | "Already exists. Swears it's a different fish." | 3 |
+| 071 | `tableless-turtle` Tableless Turtle | burrows · io | common | turtle whose grid shell has a missing cell | B T S | — | "Went to sit at its table. There was no table." | 3 |
+| 072 | `crowded-sardines` Crowded Sardines | currents · net | common | a packed school of sardines | B T S | — | "Too many requests. Every one of them a sardine." | 3 |
+| 073 | `castaway-cod` Castaway Cod | nets · vcs | common | cod on a one-palm island | B | — | "Not a git repository. Not anyone's." | 3 |
+| 074 | `trampled-sand-dollar` Trampled Sand Dollar | nets · vcs | uncommon | sand dollar with a footprint | B | — | "Your local changes would be overwritten. It was." | 3 |
+| 075 | `nowhere-narwhal` Nowhere Narwhal | nets · vcs | common | narwhal pointing at a question mark | B | — | "Points confidently at a branch that isn't there." | 3 |
+| 076 | `docked-whale-shark` Docked Whale Shark | workshop · build | rare | whale shark carrying containers | B S | the same command passes; a `service` remedy (starting Docker) counts on the same tree | "Carries every container. Won't leave the dock." | 3 |
+| 077 | `mojibake-moray` Mojibake Moray | pypool · py | uncommon | moray trailing stray glyphs | B T | — | "Its name had one accent. Now it has three odd letters." | 3 |
+| 078 | `idle-isopod` Idle Isopod | trench · sys | common | sleeping pill bug | B | `go build`/`go vet` passes | "Declared. Never used. Go won't build around it." | 3 |
+| 079 | `sleepy-seahorse` Sleepy Seahorse | proving · test | uncommon | dozing seahorse | T | as Red Snapper; **not** caught when the diff only raises a number (§4.4) | "Dozed off halfway through the test." | 3 |
+| 080 | `hollow-halibut` Hollow Halibut | proving · test | uncommon | halibut that is only an outline | T | as Red Snapper | "All passed. None ran." | 3 |
+| 081 | `turned-away-turbot` Turned-Away Turbot | vault · sec | uncommon | turbot at a no-entry sign | B S | — | "Knocked with the wrong key. Twice." | 3 |
+| 082 | `unset-sea-star` Unset Sea Star | vault · sec | uncommon | sea star with a dotted missing arm | B T S | — | "Missing an arm. The arm was an env var." | 3 |
+| 083 | `sealed-scallop` Sealed Scallop | vault · sec | uncommon | scallop with a padlock | B | — | "Permission denied (publickey). It has a key. Wrong one." | 3 |
 | 099 | `missingno` UNDEFINED. | — (no habitat) | special | glitch-block sprite | B T | a JS `undefined is not a function` or an error whose message is `[object Object]` gets fixed | "This one isn't in any book." | 3 |
 
 (099 is kept apart on purpose, like keepsakes in `gifts.js`: no set, hidden until caught, and never counted in "of N".)
