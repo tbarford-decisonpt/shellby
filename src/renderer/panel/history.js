@@ -25,7 +25,8 @@
     $('historyBinOpen').hidden = showingBin || !state.trash.length;
     $('historyBinOpen').querySelector('.n').textContent = state.trash.length;
     $('historyClear').hidden = showingBin || (!state.sessions.length && !state.trash.length);
-    if (showingBin) return renderBin(q);
+    if (showingBin) { $('historyFound').hidden = true; return renderBin(q); }
+    scheduleFound();
     const found = state.sessions.filter(matches(q));
     const anyDone = state.sessions.some(s => s.done);
     if (!anyDone) historyFilter = 'todo';
@@ -79,18 +80,113 @@
     b.addEventListener('click', () => { historyFilter = b.dataset.filter; renderHistory(); });
   }
 
-  SB.openHistory = async (id) => {
-    if (state.tabs.has(id)) { SB.activate(id); return; }
+  // at: the index of the message to land on (a hit from searching inside messages).
+  SB.openHistory = async (id, at = null) => {
+    if (state.tabs.has(id) && at == null) { SB.activate(id); return; }
     const r = await api.openSession(id);
     if (!r || r.error) return SB.toast(r?.error || "Couldn't open that conversation.");
+    if (r.popped) return;
+    const fresh = !state.tabs.has(r.tabId);
     const tab = SB.ensureTab({ id: r.tabId, title: r.entry.title, cwd: r.entry.cwd, saved: true, routineId: r.entry.routineId, inTerminal: r.entry.inTerminal || null });
-    for (const item of r.items) tab.render(item, { replay: true });
-    tab.cancelOpenAsks();
-    for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
+    let target = null;
+    if (fresh) {
+      r.items.forEach((item, i) => {
+        const before = i === at ? tab.el.lastElementChild : undefined;
+        tab.render(item, { replay: true });
+        if (i === at) target = before ? before.nextElementSibling : tab.el.firstElementChild;
+      });
+      tab.cancelOpenAsks();
+      for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
+    }
     SB.activate(r.tabId);
-    SB.toast('Picked up where you left off');
+    if (at == null) { SB.toast('Picked up where you left off'); return; }
+    if (!target) target = findInFeed(tab, r.items[at]);
+    if (!target?.isConnected) { SB.toast("That message is too far back to show here. It's still in the conversation."); return; }
+    target.scrollIntoView({ block: 'center' });
+    target.classList.add('history-landed');
+    setTimeout(() => target.classList.remove('history-landed'), LANDED_MS);
   };
+  const LANDED_MS = 2400;
 
+  // An already open tab: the block whose text starts the way the message does.
+  function findInFeed(tab, item) {
+    const want = (item?.text || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!want) return null;
+    return [...tab.el.children].reverse().find(el => el.textContent.replace(/\s+/g, ' ').includes(want)) || null;
+  }
+
+  // ------------------------------------------------------------ inside messages
+
+  const FOUND_DELAY_MS = 200;
+  const MIN_FOUND = 2;
+  let foundTimer = null;
+  let foundAsk = 0;
+
+  function scheduleFound() {
+    clearTimeout(foundTimer);
+    foundTimer = setTimeout(searchFound, FOUND_DELAY_MS);
+  }
+
+  async function searchFound() {
+    const q = $('historySearch').value.trim();
+    const box = $('historyFound');
+    if (showingBin || q.length < MIN_FOUND) { box.hidden = true; return; }
+    const days = Number($('historyFoundWhen').value);
+    const mine = ++foundAsk;
+    const r = await api.searchSessions({
+      query: q, project: $('historyFoundProject').value, pc: $('historyFoundPc').value,
+      from: days ? Date.now() - days * 864e5 : undefined,
+    }).catch(() => null);
+    if (mine !== foundAsk) return; // a newer search went out meanwhile
+    box.hidden = false;
+    fillFacets(r?.facets);
+    const list = $('historyFoundList');
+    if (!r?.results?.length) {
+      list.replaceChildren(h('li', { class: 'history-empty', text: r?.error || 'No message says that.' }));
+      return;
+    }
+    list.replaceChildren(...r.results.map(foundRow));
+  }
+
+  function fillFacets(f) {
+    const keep = (sel, values, fixed) => {
+      const now = sel.value;
+      const opts = values.map(v => h('option', { value: v, text: fixed === 'pc' ? `From ${v}` : v }));
+      sel.replaceChildren(...[...sel.options].slice(0, fixed === 'pc' ? 2 : 1), ...opts);
+      sel.value = [...sel.options].some(o => o.value === now) ? now : sel.options[0].value;
+    };
+    keep($('historyFoundProject'), f?.projects || [], 'project');
+    keep($('historyFoundPc'), f?.pcs || [], 'pc');
+  }
+
+  // The snippet, with the matched words in <mark>.
+  function marked(snip) {
+    const parts = [];
+    let i = 0;
+    for (const [a, b] of snip.marks || []) {
+      if (a > i) parts.push(snip.text.slice(i, a));
+      parts.push(h('mark', { text: snip.text.slice(a, b) }));
+      i = b;
+    }
+    parts.push(snip.text.slice(i));
+    return parts;
+  }
+
+  function foundRow(c) {
+    return h('li', { class: 'history-item history-found-item' },
+      h('div', { class: 'h-title', text: c.title }),
+      h('div', { class: 'h-meta' },
+        h('span', { text: SB.relTime(c.updatedAt) }),
+        c.project ? h('span', { text: c.project }) : null,
+        c.pc ? h('span', { class: 'h-term', text: `from ${c.pc}` }) : null,
+        c.count > c.hits.length ? h('span', { text: `${c.count} messages` }) : null),
+      ...c.hits.map(hit => h('button', {
+        class: 'history-hit', type: 'button', 'aria-label': `Open ${c.title} at this ${hit.kind === 'user' ? 'message of yours' : 'reply'}`,
+        onclick: () => SB.openHistory(c.id, hit.at),
+      }, h('span', { class: 'history-hit-who', text: hit.kind === 'user' ? 'You' : 'Claude' }), h('span', { class: 'history-hit-text' }, ...marked(hit.snippet)))));
+  }
+
+  for (const id of ['historyFoundProject', 'historyFoundPc', 'historyFoundWhen']) $(id).addEventListener('change', searchFound);
   // A row ticked off leaves the default list straight away, so the toast says
   // where it went and offers the way back.
   async function markDone(id, done) {
