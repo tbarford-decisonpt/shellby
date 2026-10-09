@@ -51,6 +51,7 @@ const { wireTray } = require('./wiring/tray');
 const { wireClashes } = require('./wiring/clashes');
 const { wireUsagePlan } = require('./wiring/usageplan');
 const { wireChecks } = require('./wiring/checks');
+const { wireLanes } = require('./wiring/lanes');
 const { wireTries } = require('./wiring/tries');
 const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
@@ -333,6 +334,7 @@ const { createTray, drainCrashQueue, reportUncleanExit, setupUpdates } = share(w
 const { watchClashes } = share(wireClashes(shared));
 share({ usagePlan: wireUsagePlan(shared) });
 share(wireChecks(shared));
+share(wireLanes(shared)); // the board of every conversation, lining copies up, one answer for many prompts
 share({ tries: wireTries(shared) }); // Try it N ways: only ever from tries:start, after asking
 share(wireShots(shared));
 const { createCorrections } = share(wireCorrections(shared));

@@ -215,7 +215,18 @@ function wireChecks(d) {
     });
   }
 
-  return { checksOn, afterTurnChecks: afterTurn, runChecksFor: runFor, checkTry, gateHome, cancelChecks: cancel, cancelAllChecks: cancelAll };
+  /**
+   * A copy's checks as it stands now, for lining copies up (wiring/lanes.js).
+   * Asks once per project, like "Run checks". -> { status } where status is a
+   * verdict's, or 'none' | 'declined' | 'cancelled'.
+   */
+  async function checkCopy(tabId, cwd) {
+    const r = await run(tabId, { cwd, project: projectOf(tabId, cwd), once: true });
+    if (r.verdict) return { status: r.verdict.status };
+    return { status: r.none ? 'none' : r.declined ? 'declined' : 'cancelled' };
+  }
+
+  return { checksOn, afterTurnChecks: afterTurn, runChecksFor: runFor, checkTry, gateHome, checkCopy, cancelChecks: cancel, cancelAllChecks: cancelAll };
 }
 
 module.exports = { wireChecks };

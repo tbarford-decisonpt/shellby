@@ -1,0 +1,4 @@
+### New
+- **Every conversation at a glance.** The Ctrl+Shift+A list now shows each conversation's lane: tests red or ready to merge, how many files and lines its copy changed, and which other conversations touched the same files.
+- **One answer for many.** When several conversations are waiting on the same thing ("3 want `npm test`"), the list groups them with Allow all and Deny all. Plans, questions and files Claude wrote still get read one at a time.
+- **A merge order, and Line them up.** Once two or more copies of a project are done, the list suggests the order to bring them home: fewest overlaps first, then smallest. Line them up rebases each onto the one before and runs the project's checks in between. It asks before rewriting anything, leaves copies with uncommitted work alone, and stops at the first conflict (undoing that rebase) or red check.

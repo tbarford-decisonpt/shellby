@@ -86,7 +86,8 @@
     h('span', { class: 'tl-text' },
       h('span', { class: 'tl-title', text: SB.shownTitle(t) }),
       h('span', { class: 'tl-sub', text: SB.shortPath(t.cwd || state.cwd, 36) }),
-      SB.clashLine(t.id) ? h('span', { class: 'tl-clash', text: `⚠ ${SB.clashLine(t.id)}` }) : null),
+      SB.clashLine(t.id) ? h('span', { class: 'tl-clash', text: `⚠ ${SB.clashLine(t.id)}` }) : null,
+      SB.laneLine?.(t.id) ? h('span', { class: 'tl-lane', text: SB.laneLine(t.id) }) : null),
     // For the pointer; the keyboard closes the highlighted one with Ctrl+Delete.
     h('button', {
       class: 'tl-x', type: 'button', tabindex: '-1', 'aria-hidden': 'true', title: 'Close',
@@ -99,7 +100,7 @@
   // between press and release, and the list doesn't jump while you scroll it.
   function renderRows({ force = false } = {}) {
     const tabs = [...state.tabs.values()];
-    const now = JSON.stringify([query, state.activeTab, tabs.map(t => [t.id, S.standing(t), SB.shownTitle(t), t.cwd, S.closable(t, state.activeTab), SB.clashLine(t.id)])]);
+    const now = JSON.stringify([query, state.activeTab, tabs.map(t => [t.id, S.standing(t), SB.shownTitle(t), t.cwd, S.closable(t, state.activeTab), SB.clashLine(t.id), SB.laneLine?.(t.id)])]);
     if (!force && now === drawn) return;
     drawn = now;
     const gs = S.groups(tabs, query);
@@ -200,12 +201,15 @@
     query = '';
     field.value = '';
     picked = state.activeTab;
-    SB.openMenu(list, allBtn.hidden ? $('newTabBtn') : allBtn, () => { renderRows({ force: true }); return [reviewBar, field, rowsEl, foot]; });
+    SB.openMenu(list, allBtn.hidden ? $('newTabBtn') : allBtn, () => { renderRows({ force: true }); return [reviewBar, SB.boardPart?.(), field, rowsEl, foot].filter(Boolean); });
     if (list.hidden) return;
     paintPick({ scroll: true });
     field.focus();
   };
   allBtn.addEventListener('click', SB.openTabList);
+  // For tab-board.js: its lanes arrive after the list opens.
+  SB.tabListOpen = () => !list.hidden;
+  SB.refreshTabList = () => { if (!list.hidden) renderRows(); };
 
   document.addEventListener('keydown', e => {
     if (e.defaultPrevented || !e.ctrlKey || !e.shiftKey || e.altKey || e.key.toLowerCase() !== 'a') return;

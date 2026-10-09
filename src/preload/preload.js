@@ -149,6 +149,9 @@ contextBridge.exposeInMainWorld('shellby', {
   sortOutHome: invoke('worktree:sort-out'), // a clash, sorted out in turn and brought home (home-line.js)
   sortOutAll: invoke('repo:sort-out'),
   listClashes: invoke('clashes:list'), // copies that changed the same files (wiring/clashes.js)
+  lanesView: invoke('lanes:view'), // { lanes, order, prompts, training }: every conversation at once (wiring/lanes.js)
+  lineUpCopies: invoke('lanes:line-up'), // [tabId] in merge order: asks, then rebases each onto the last and checks
+  answerPromptGroup: (key, decision) => ipcRenderer.invoke('lanes:answer', { key, decision }),
 
   // history
   listSessions: invoke('session:list'),
@@ -757,6 +760,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
   onTabs: on('tabs'),
   onHomeLine: on('home:line'), // { tabId, title, base, status: 'sorting' | 'home' | 'stuck', ... }
+  onLaneTrain: on('lanes:train'), // { tabId, index, phase, of } while lining copies up, then { done: true }
   onClashes: on('clashes'), // { clashes, fresh: [key] }: copies that changed the same files
   onTabOpened: on('tab:opened'),
   onTabReturned: on('tab:returned'), // a popped-out conversation's window closed
