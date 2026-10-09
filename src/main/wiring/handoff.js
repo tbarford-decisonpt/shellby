@@ -3,28 +3,17 @@
 // Shellby, and `shellby take` from inside a terminal session.
 // Kept out of main.js, which only wires it up.
 const fs = require('fs');
-const path = require('path');
 const { spawn } = require('child_process');
 const handoff = require('../handoff');
 const worktrees = require('../worktrees');
 const { terminalEnv, billingScrub } = require('../claude/cli');
-const { POWERSHELL, CMD } = require('../system32');
+const { POWERSHELL, CMD, windowsTerminal } = require('../system32');
 
 const isDir = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
 
 /** d: what main shares (main.js `shared`). */
 function wireHandoff(d) {
   const claudeExe = () => d.claudeExe();
-
-  // Windows Terminal's own launcher, where the Store and winget both put it.
-  // Not on PATH lookup: Shellby works in project folders (see system32.js).
-  // lstat, not existsSync: wt.exe is an app execution alias, a reparse point
-  // Node can't follow, so existsSync calls it missing.
-  function wtPath() {
-    const local = process.env.LOCALAPPDATA;
-    const wt = local && path.join(local, 'Microsoft', 'WindowsApps', 'wt.exe');
-    try { return wt && fs.lstatSync(wt) ? wt : null; } catch { return null; }
-  }
 
   // Claude Code looks for a conversation under the folder it's resumed in. One
   // written somewhere else (a copy brought home since, a tab that moved) is
@@ -44,7 +33,7 @@ function wireHandoff(d) {
     if (misplaced) return { ok: false, error: misplaced };
     const r = handoff.launchPlans({
       exe, cwd, sessionId, scrub: billingScrub(), env: terminalEnv(),
-      wt: wtPath(), powershell: POWERSHELL, cmd: CMD,
+      wt: windowsTerminal(), powershell: POWERSHELL, cmd: CMD,
     });
     return r.ok ? handoff.launch(r.plans, spawn) : r;
   }
@@ -191,7 +180,7 @@ function wireHandoff(d) {
     if (!exe) return { ok: false, error: 'Claude Code is not installed.' };
     const r = handoff.launchPlans({
       exe, cwd, prompt: handoff.TERMINAL_PROMPTS.ultraReview, scrub: billingScrub(), env: terminalEnv(),
-      wt: wtPath(), powershell: POWERSHELL, cmd: CMD,
+      wt: windowsTerminal(), powershell: POWERSHELL, cmd: CMD,
     });
     const started = r.ok ? await handoff.launch(r.plans, spawn) : r;
     if (!started.ok) return started;

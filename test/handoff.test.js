@@ -85,6 +85,29 @@ test('launchPlans: Windows Terminal first, then PowerShell, then cmd', () => {
   }
 });
 
+test('scriptPlans: any script gets a window: wt, else PowerShell through start, never spawned bare', () => {
+  const options = { cwd: 'C:\\Users\\me', detached: true, stdio: 'ignore', windowsHide: false };
+  const script = "& 'C:\\Windows\\System32\\OpenSSH\\ssh.exe' '-t' 'box' 'claude auth login'";
+  const [wt, ps, ...rest] = handoff.scriptPlans({ script, options, ...SYS });
+  assert.equal(rest.length, 0);
+  assert.deepEqual(wt.args.slice(0, 3), ['-w', 'new', SYS.powershell], 'no -d without a folder');
+  // A detached powershell.exe spawned directly has no console: started, but never seen.
+  assert.equal(ps.file, SYS.cmd);
+  assert.ok(ps.args[2].startsWith(`start "" "${SYS.powershell}" -NoLogo -NoExit -EncodedCommand `), ps.args[2]);
+  assert.equal(scriptOf(ps), script);
+  assert.equal(scriptOf(wt), script);
+  assert.deepEqual(handoff.scriptPlans({ script, options, ...SYS, wt: null }).map(p => p.shell), ['powershell'], 'no Windows Terminal: PowerShell still gets a window');
+  assert.deepEqual(handoff.scriptPlans({ script, options, dir: 'C:\\a;b', ...SYS })[0].args.slice(0, 3), ['-w', 'new', SYS.powershell], 'a ; in the folder stays off wt\'s line');
+});
+
+test('windowsTerminal finds the app alias that existsSync calls missing', () => {
+  const { windowsTerminal } = require('../src/main/system32');
+  const env = { LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local' };
+  assert.equal(windowsTerminal(env, () => ({})), SYS.wt);
+  assert.equal(windowsTerminal(env, () => { throw new Error('ENOENT'); }), null);
+  assert.equal(windowsTerminal({}, () => ({})), null);
+});
+
 test('the script resumes in the folder, with the CLI and id as literals', () => {
   const { plans } = handoff.launchPlans({ exe: EXE, cwd: CWD, sessionId: ID, ...SYS });
   const script = scriptOf(plans[1]);

@@ -89,6 +89,27 @@ const viaStart = (cmd, program, rest, options) => ({
   options: { ...options, windowsVerbatimArguments: true },
 });
 
+// What goes through cmd's start (viaStart): cmd and the program must both be
+// free of what cmd would read as its own syntax.
+const startable = p => safePath(p) && !CMD_SPECIAL.test(p);
+
+/**
+ * A PowerShell script in a window of its own, best first: Windows Terminal, then
+ * PowerShell through cmd's start. dir: the folder wt opens in, if any. Windows
+ * Terminal reads ; as "and then another tab", even inside -d, so a folder with
+ * one in its name is left to the script.
+ *   -> [{ shell, file, args, options }]
+ */
+function scriptPlans({ script, options, dir = null, wt = null, powershell = null, cmd = null }) {
+  const psArgs = ['-NoLogo', '-NoExit', '-EncodedCommand', encodeScript(script)];
+  const plans = [];
+  if (safePath(wt) && safePath(powershell)) {
+    plans.push({ shell: 'wt', file: wt, args: ['-w', 'new', ...(dir && !dir.includes(';') ? ['-d', dir] : []), powershell, ...psArgs], options });
+  }
+  if (startable(cmd) && startable(powershell)) plans.push({ shell: 'powershell', ...viaStart(cmd, powershell, psArgs, options) });
+  return plans;
+}
+
 /**
  * How to open the conversation in a terminal, best first. Each plan is what
  * child_process.spawn takes. wt, powershell, cmd: full paths (wt may be null
@@ -102,18 +123,8 @@ function launchPlans({ exe, cwd, sessionId, prompt = null, scrub = [], env = und
   if (!safePath(exe)) return { ok: false, error: 'Shellby can’t find Claude Code to run in the terminal.' };
   if (!safePath(cwd)) return { ok: false, error: "That conversation's folder has a name Shellby can't safely open a terminal in." };
   const options = { cwd, env, detached: true, stdio: 'ignore', windowsHide: false };
-  const encoded = encodeScript(resumeScript({ exe, cwd, sessionId, prompt, scrub }));
-  const psArgs = ['-NoLogo', '-NoExit', '-EncodedCommand', encoded];
-  const plans = [];
-  // Windows Terminal reads ; as "and then another tab", even inside -d, so a
-  // folder with one in its name is left to the script's Set-Location.
-  if (safePath(wt) && safePath(powershell)) {
-    plans.push({ shell: 'wt', file: wt, args: ['-w', 'new', ...(cwd.includes(';') ? [] : ['-d', cwd]), powershell, ...psArgs], options });
-  }
-  // The rest go through cmd's start (viaStart), so cmd and the program must both
-  // be free of what cmd would read as its own syntax.
-  const startable = p => safePath(p) && !CMD_SPECIAL.test(p);
-  if (startable(cmd) && startable(powershell)) plans.push({ shell: 'powershell', ...viaStart(cmd, powershell, psArgs, options) });
+  const script = resumeScript({ exe, cwd, sessionId, prompt, scrub });
+  const plans = scriptPlans({ script, options, dir: cwd, wt, powershell, cmd });
   // cmd gets no script: the folder is the process's working directory and the
   // environment is already scrubbed, so only the CLI's path and the id are on its line.
   // A prompt is one of TERMINAL_PROMPTS: fixed, and free of anything cmd reads as its own.
@@ -209,6 +220,6 @@ function titleFor(session) {
 }
 
 module.exports = {
-  isSessionId, safePath, psQuote, terminalCwd, resumeScript, encodeScript, launchPlans, launch,
+  isSessionId, safePath, psQuote, terminalCwd, resumeScript, encodeScript, scriptPlans, launchPlans, launch,
   continueCheck, externalFor, bringInCheck, entryFor, titleFor, SHELL_NAMES, TERMINAL_PROMPTS,
 };

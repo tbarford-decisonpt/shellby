@@ -12,7 +12,7 @@ const { createAgent, SSH } = require('../remote/agent');
 const { createAskpass } = require('../remote/askpass');
 const { createRemoteService } = require('../remote/service');
 const ssh = require('../remote/ssh');
-const { POWERSHELL } = require('../system32');
+const { POWERSHELL, CMD, windowsTerminal } = require('../system32');
 
 // How long a passphrase question waits for you before ssh is told "no".
 const ASK_MS = 5 * 60 * 1000;
@@ -50,26 +50,14 @@ function wireRemote(d) {
     return true;
   }
 
-  function wtPath() {
-    const local = process.env.LOCALAPPDATA;
-    const wt = local && path.join(local, 'Microsoft', 'WindowsApps', 'wt.exe');
-    return wt && fs.existsSync(wt) ? wt : null;
-  }
-
-  // A terminal on the other computer: Windows Terminal (or PowerShell) running
-  // ssh -t with one of ssh.js's scripts. Its prompts are its own: a terminal
-  // can ask for a passphrase itself.
+  // A terminal on the other computer: Windows Terminal (or PowerShell, through
+  // cmd's start so it gets a window) running ssh -t with one of ssh.js's
+  // scripts. Its prompts are its own: a terminal can ask for a passphrase itself.
   function openTerminal({ host, script, extra = [] }) {
     if (!ssh.isHost(host)) return Promise.resolve({ ok: false, error: 'Which computer?' });
     const line = ssh.sshArgs(host, script, { tty: true, extra }).map(handoff.psQuote).join(' ');
-    const encoded = handoff.encodeScript(`& ${handoff.psQuote(SSH)} ${line}`);
-    const psArgs = ['-NoLogo', '-NoExit', '-EncodedCommand', encoded];
     const options = { cwd: os.homedir(), detached: true, stdio: 'ignore', windowsHide: false };
-    const wt = wtPath();
-    const plans = [
-      ...(wt ? [{ shell: 'wt', file: wt, args: ['-w', 'new', POWERSHELL, ...psArgs], options }] : []),
-      { shell: 'powershell', file: POWERSHELL, args: psArgs, options },
-    ];
+    const plans = handoff.scriptPlans({ script: `& ${handoff.psQuote(SSH)} ${line}`, options, wt: windowsTerminal(), powershell: POWERSHELL, cmd: CMD });
     return handoff.launch(plans, spawn);
   }
 
