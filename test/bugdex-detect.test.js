@@ -182,3 +182,14 @@ test('failedCount reads how many tests failed, from the usual runners', () => {
   assert.equal(failedCount('FAILED (failures=2, errors=1)'), 2);
   assert.equal(failedCount('TypeError: x is not a function'), null);
 });
+
+test('failedCount reads how many errors a type check, linter or build found', () => {
+  const { failedCount } = require('../src/main/bugdex/detect');
+  assert.equal(failedCount('src/a.ts:3:1 - error TS2322: nope\n\nFound 4 errors in 2 files.'), 4);
+  assert.equal(failedCount('Found 1 error in src/b.py  [mypy]'), 1);
+  assert.equal(failedCount('✖ 7 problems (5 errors, 2 warnings)'), 5);
+  assert.equal(failedCount('✖ 3 problems'), 3);
+  assert.equal(failedCount('error: could not compile `app` (bin "app") due to 3 previous errors'), 3);
+  assert.equal(failedCount('Build failed with 2 errors:'), 2);
+  assert.equal(failedCount('2 errors, 0 warnings, 0 informations'), 2);
+});

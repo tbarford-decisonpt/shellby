@@ -5,9 +5,11 @@
 // catches it (lifecycle.js, cheats.js). Everything before that can wear it
 // down, never out: HP stops at FLOOR until the fix is proven.
 //
-// The honest parts: a re-run that fails with fewer failing tests takes HP off
-// in proportion, one that fails as before misses, one that fails worse heals
-// it, and a fix that didn't count (a skipped test) "doesn't count".
+// The honest parts: a re-run that fails with fewer failing tests (or type,
+// lint or build errors) takes HP off in proportion, one that fails as before
+// misses and the bug strikes back, one that fails worse heals it, and a fix
+// that didn't count (a skipped test) "doesn't count". The proven fix is a
+// move of its own, the finishing blow, so what's left goes with an attack.
 // Scouting and patching are effort, so they chip at it, a little, and only
 // while the bug is in play: within FOCUS_MS of it last showing itself (it
 // surfaced, or its command failed again). Work long after that is about
@@ -32,24 +34,30 @@ const SUPER = Object.freeze({
   sys: ['build', 'tests'], test: ['tests'], sec: ['git', 'install'], ghost: ['tests', 'remedy'],
 });
 
+// What each type of bug hits back with, when a re-run doesn't hurt it.
+const STRIKES = Object.freeze({
+  runtime: 'Stack Smash', io: 'File Lock', net: 'Time Out', vcs: 'Merge Knot', ci: 'Red Light', build: 'Rubble Toss',
+  types: 'Type Twist', py: 'Indent Coil', sys: 'Memory Squeeze', test: 'Flaky Flail', sec: 'Leaky Pinch', ghost: 'Now You Don’t',
+});
+
 const HP = Object.freeze({ common: 40, uncommon: 60, rare: 90, legendary: 140, special: 99 });
 const LEVEL = Object.freeze({ common: 6, uncommon: 14, rare: 28, legendary: 50, special: 77 });
 const BOSS_HP = 1.5;
 const BOSS_LEVELS = 10;
 const FLOOR = 0.12;        // of max: how low HP goes before a proven fix
-const SCOUT = 0.03;        // of max, per look round...
-const SCOUT_MAX = 0.15;    // ...up to this much in all
-const PATCH = 0.08;
+const SCOUT = 0.04;        // of max, per look round...
+const SCOUT_MAX = 0.2;     // ...up to this much in all
+const PATCH = 0.1;
 const ASSIST = 0.1;
 const REMEDY = 0.1;
 const RESIST_HEAL = 0.2;
 const CRIT_SHARE = 0.5;    // one re-run that clears half the failing tests is a big one
 const COALESCE_MS = 20 * 1000;
-const FOCUS_MS = 10 * 60 * 1000; // reads, edits and helpers count this long after it last showed itself
+const FOCUS_MS = 20 * 60 * 1000; // reads, edits and helpers count this long after it last showed itself
 const MAX_MOVES = 40;
 const MAX_PARTY = 6;
 
-const FX = new Set(['appear', 'hit', 'super', 'crit', 'miss', 'heal', 'resist', 'ko', 'caught', 'fled']);
+const FX = new Set(['appear', 'hit', 'super', 'crit', 'miss', 'heal', 'resist', 'finish', 'ko', 'caught', 'fled']);
 
 const count = v => (Number.isInteger(v) && v >= 0 ? v : null);
 const floorOf = b => Math.ceil(b.max * FLOOR);
@@ -107,7 +115,9 @@ function act(b, m) {
   if (effort && at - (b.seenAt ?? b.startedAt) > FOCUS_MS) return b;
   if (m.move === 'scout') {
     const share = b.scouted < SCOUT_MAX ? Math.min(SCOUT, SCOUT_MAX - b.scouted) : 0;
-    const { hp, dmg } = hitFor(b, share);
+    // Rounded on the running total, so small looks don't add up to more than the cap.
+    const step = Math.round(b.max * (b.scouted + share)) - Math.round(b.max * b.scouted);
+    const { hp, dmg } = hitFor(b, step / b.max);
     return { ...push(b, { move: 'scout', fx: dmg ? 'hit' : 'miss', dmg, hp, at }), scouted: b.scouted + share };
   }
   if (m.move === 'patch' || m.move === 'remedy') {
@@ -127,14 +137,15 @@ function act(b, m) {
   const kind = COMMAND_MOVES.has(m.move) ? m.move : 'run';
   const sup = isSuper(kind, b.type);
   b = { ...b, seenAt: at }; // it showed itself again: in play
+  // Still there, no better: the bug's turn.
   if (now == null || b.lastFailed == null || !b.firstFailed) {
-    return push(b, { move: kind, fx: 'miss', dmg: 0, hp: b.hp, at });
+    return push(b, { move: kind, fx: 'miss', dmg: 0, hp: b.hp, at, strike: true });
   }
   if (now > b.lastFailed) {
     const hp = clampHp(b, floorOf(b) + (b.max - floorOf(b)) * Math.min(1, now / b.firstFailed));
-    return { ...push(b, { move: kind, fx: hp > b.hp ? 'heal' : 'miss', dmg: Math.min(0, b.hp - hp), hp: Math.max(hp, b.hp), at }), lastFailed: now };
+    return { ...push(b, { move: kind, fx: hp > b.hp ? 'heal' : 'miss', dmg: Math.min(0, b.hp - hp), hp: Math.max(hp, b.hp), at, strike: true }), lastFailed: now };
   }
-  if (now === b.lastFailed) return push(b, { move: kind, fx: 'miss', dmg: 0, hp: b.hp, at });
+  if (now === b.lastFailed) return push(b, { move: kind, fx: 'miss', dmg: 0, hp: b.hp, at, strike: true });
   const target = clampHp(b, floorOf(b) + (b.max - floorOf(b)) * (now / b.firstFailed));
   const dmg = Math.max(0, b.hp - target);
   const crit = (b.lastFailed - now) / b.firstFailed >= CRIT_SHARE;
@@ -150,13 +161,16 @@ function resist(b, { at, reason }) {
 }
 
 /**
- * It's over: caught (it faints, then the jar), or it got away.
- *   end: { at, outcome: 'caught' | 'fled', jar: { isNew, forms, badge, league, fame, reveal, counted } }
+ * It's over: caught (the fix's finishing blow, it faints, then the jar), or it got away.
+ *   end: { at, outcome: 'caught' | 'fled', move (what proved the fix: a command
+ *          kind or 'remedy'), jar: { isNew, forms, badge, league, fame, reveal, counted } }
  */
-function finish(b, { at, outcome, jar = null }) {
+function finish(b, { at, outcome, move = null, jar = null }) {
   if (!b || b.over || !Number.isFinite(at)) return b;
   if (outcome === 'caught') {
-    const ko = push(b, { move: 'finish', fx: 'ko', dmg: b.hp, hp: 0, at });
+    const kind = move && (COMMAND_MOVES.has(move) || move === 'remedy') ? move : 'run';
+    const blow = push(b, { move: kind, fx: 'finish', dmg: b.hp, hp: 0, at });
+    const ko = push(blow, { move: 'finish', fx: 'ko', dmg: 0, hp: 0, at });
     return { ...push(ko, { move: 'jar', fx: 'caught', dmg: 0, hp: 0, at, jar: cleanJar(jar) }), over: 'caught' };
   }
   return { ...push(b, { move: 'flee', fx: 'fled', dmg: 0, hp: b.hp, at }), over: 'fled' };
@@ -208,9 +222,12 @@ function lineFor(b, m, name) {
     default: break;
   }
   const used = m.move === 'assist' ? `${who} pitches in!` : `${who} tries ${MOVES[m.move] || 'something'}!${times}`;
+  const strike = STRIKES[b.type] || 'Bite';
   const after = {
     hit: '', super: ' Right tool for the job!', crit: ' A big one!', resist: ` That doesn’t count… ${WHY[m.reason] ? `(${WHY[m.reason]})` : ''}`.trimEnd(),
-    heal: ` ${name} digs in!`, miss: m.move === 'scout' ? ` ${name} is being studied.` : ` ${name} holds on!`,
+    heal: m.strike ? ` ${name} digs in and uses ${strike}!` : ` ${name} digs in!`,
+    miss: m.move === 'scout' ? ` ${name} is being studied.` : m.strike ? ` ${name} shrugs it off and uses ${strike}!` : ` ${name} holds on!`,
+    finish: m.move === 'remedy' ? ' That did it: a finishing blow!' : ' It passes: a finishing blow!',
   }[m.fx] || '';
   return `${used}${after}`;
 }
@@ -227,6 +244,6 @@ function view(b, name) {
 }
 
 module.exports = {
-  MOVES, SUPER, HP, LEVEL, FLOOR, FOCUS_MS, MAX_MOVES, COMMAND_MOVES,
+  MOVES, SUPER, STRIKES, HP, LEVEL, FLOOR, SCOUT_MAX, FOCUS_MS, MAX_MOVES, COMMAND_MOVES,
   isSuper, start, act, resist, finish, lineFor, view, floorOf,
 };

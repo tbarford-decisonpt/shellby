@@ -367,13 +367,17 @@ function passedCount(output) {
 }
 
 /**
- * How many tests failed, when the runner says, else null: a bug battle's HP
+ * How many tests failed (or, from a type check, linter or build, how many
+ * errors it found), when the tool says, else null: a bug battle's HP
  * (bugdex/battle.js) goes down as this does. Only a "fail" count, never 0
  * from a line that doesn't say.
  */
 function failedCount(output) {
   const text = windowOf(output).join('\n');
-  const pats = [/Tests:.*?(\d+) failed/, /^# fail (\d+)/m, /^ℹ fail (\d+)/m, /test result: FAILED\. \d+ passed; (\d+) failed/, /(\d+) failing\b/, /\b(\d+) failed\b/, /FAILED \(.*?(?:failures|errors)=(\d+)/];
+  const pats = [/Tests:.*?(\d+) failed/, /^# fail (\d+)/m, /^ℹ fail (\d+)/m, /test result: FAILED\. \d+ passed; (\d+) failed/, /(\d+) failing\b/, /\b(\d+) failed\b/, /FAILED \(.*?(?:failures|errors)=(\d+)/,
+    // tsc and mypy, eslint (its errors, not the warnings that stay), cargo, bundlers, pyright.
+    // The first summary line: a run over several crates or projects counts the first.
+    /Found (\d+) errors?\b/, /✖ \d+ problems? \((\d+) errors?/, /✖ (\d+) problems?\b/, /due to (\d+) previous errors?\b/, /(?:Build failed|compiled) with (\d+) errors?\b/, /^(\d+) errors?, \d+ warnings?/m];
   for (const re of pats) {
     const m = re.exec(text);
     if (m) return Number(m[1]);

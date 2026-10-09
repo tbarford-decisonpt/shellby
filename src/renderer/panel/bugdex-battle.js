@@ -10,7 +10,9 @@
   const { h, api, state, $ } = SB;
   const HEX = /^#[0-9a-f]{6}$/i;
   const MINUTE = 60000;
-  const RECENT_MS = 60 * 1000;   // opening a battle replays a move this fresh
+  const RECENT_MS = 10 * MINUTE; // opening a battle replays moves this fresh...
+  const REPLAY_MAX = 3;          // ...up to this many
+  const REPLAY_OVER = 3;         // a finished one: the finishing blow, the faint and the jar
   const CHAR_MS = 18;            // the text box's typing speed
   const LINE_HOLD_MS = 650;
   const MAX_LOG = 40;
@@ -194,7 +196,8 @@
     const now = SB.battleOf(s.id) || b; // it may have moved on during the intro
     s.b = now;
     const tail = now.moves.slice(1);
-    const replay = tail.filter((m, i) => (now.over ? i >= tail.length - 2 : Date.now() - m.at < RECENT_MS && i === tail.length - 1));
+    // A finished one plays its ending; one under way, a recap of its last few moves.
+    const replay = now.over ? tail.slice(-REPLAY_OVER) : tail.filter(m => Date.now() - m.at < RECENT_MS).slice(-REPLAY_MAX);
     const before = replay.length ? now.moves[now.moves.indexOf(replay[0]) - 1] : now.moves.at(-1);
     for (const m of tail) if (!replay.includes(m)) note(m.line);
     if (tail.length > replay.length) {
@@ -276,13 +279,14 @@
     // The attack itself
     if (m.move === 'scout') await scout();
     else if (m.move === 'patch' && m.fx !== 'resist') await slash(attacker);
-    else if (m.fx !== 'resist') await beam(attacker, MOVE_COLOR[m.move] || '#ffffff', m.fx === 'crit' ? 18 : m.fx === 'super' ? 14 : 9);
+    else if (m.fx !== 'resist') await beam(attacker, MOVE_COLOR[m.move] || '#ffffff', m.fx === 'finish' ? 24 : m.fx === 'crit' ? 18 : m.fx === 'super' ? 14 : 9);
     // ...and how it landed
     if (m.fx === 'resist') await resist();
     else if (m.fx === 'miss') await dodge(m.move === 'scout');
     else if (m.fx === 'heal') await heal();
     else await impact(m);
     setHp(m.hp);
+    if (m.strike) await strikeBack();
     if (by) helperOut(by);
     await say(m.line, { from: head.length });
   }
@@ -447,9 +451,11 @@
   async function impact(m) {
     const p = scene.parts;
     const at = centre(p.foeArt);
-    const big = m.fx === 'crit' || m.fx === 'super';
-    cue(m.fx === 'crit' ? 'smash' : m.fx === 'super' ? 'super' : 'hit');
-    if (m.fx === 'crit') { flash('#ffffff', 320); shake(9, 520); burst(at, '#ffd23f', 18, 60); }
+    const heavy = m.fx === 'crit' || m.fx === 'finish';
+    const big = heavy || m.fx === 'super';
+    cue(heavy ? 'smash' : m.fx === 'super' ? 'super' : 'hit');
+    if (m.fx === 'finish') { flash('#ffffff', 420); shake(12, 640); burst(at, '#ffd23f', 26, 76); burst(at, '#ffffff', 12, 40); }
+    else if (m.fx === 'crit') { flash('#ffffff', 320); shake(9, 520); burst(at, '#ffd23f', 18, 60); }
     else if (m.fx === 'super') { flash('#fff4d6', 200); shake(5, 380); burst(at, '#ffd166', 12, 46); }
     else burst(at, '#ffffff', 7, 28);
     if (m.dmg > 0) floater(`-${m.dmg}`, big ? 'dmg big' : 'dmg', at);
@@ -464,6 +470,18 @@
     floater('MISS', 'miss', at);
     if (reduced()) return;
     await p.foeArt.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(18px) translateY(-4px)', offset: 0.35 }, { transform: 'translateX(18px)', offset: 0.6 }, { transform: 'translateX(0)' }], { duration: 480, easing: 'ease-out' }).finished.catch(() => {});
+  }
+
+  // The bug's turn: it lunges at the crab, who flinches (he has no HP to lose).
+  async function strikeBack() {
+    const p = scene.parts;
+    const go = lunge(p.foe, -1);
+    if (!reduced()) await wait(250);
+    cue('hit');
+    const at = centre(p.crab);
+    burst(at, '#ff7a5c', 9, 30);
+    shake(4, 300);
+    await Promise.all([go, blink(p.me.querySelector('.bb-me-art'), 2)]);
   }
 
   async function heal() {
