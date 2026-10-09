@@ -418,6 +418,28 @@ body.reordering .tab-edge { pointer-events: none; }
 .tool-group-btn:hover { color: var(--sand); background: var(--reef); }
 .tool-group-kind { font-size: var(--fs-11-5); font-weight: 400; color: var(--sand-faint); }
 .tool-group-n { margin-left: auto; font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+/* Many at once (toolbox-batch.js): a box on your own rows, a bar above the list, parked ones below it. */
+.tool-check { flex: none; width: 15px; height: 15px; margin: 0 0 0 12px; accent-color: var(--glass); cursor: pointer; }
+.tool-check-gap { flex: none; width: 27px; }
+.tool-head .tool-check + .tool-toggle, .tool-head .tool-check-gap + .tool-toggle { padding-left: 6px; }
+.tool-batch { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px; border: 1px dashed var(--line); border-radius: var(--r); }
+.tool-batch.on { border-style: solid; border-color: color-mix(in srgb, var(--glass) 45%, var(--line)); background: var(--reef-2); }
+.tool-batch-n { padding: 0 6px; font-size: var(--fs-12-5); color: var(--sand); font-variant-numeric: tabular-nums; }
+.tool-batch-gap { flex: 1; }
+.tool-parked-head { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 4px 6px; font-size: var(--fs-12); font-weight: 700; color: var(--sand-dim); }
+.tool-parked-head .btn { margin-left: auto; }
+.tool-row.tool-parked { border-style: dashed; opacity: .8; }
+.tool-row.tool-parked:hover, .tool-row.tool-parked:focus-within { opacity: 1; }
+.tool-hidden-copy { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tool-hidden-copy .src-pill { margin-left: 0; }
+.tool-health { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tool-health-btn {
+  padding: 2px 9px; border: 1px solid rgba(255, 193, 94, .45); border-radius: 99px; background: none;
+  color: var(--amber); font: 600 var(--fs-11-5)/18px var(--font-mono); cursor: pointer;
+}
+.tool-health-btn:hover { background: rgba(255, 193, 94, .1); }
+.tool-health-btn.on { background: var(--amber); color: #1a1206; }
+.tool-health-btn:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) {
   .tool-row.tool-item, .tool-toggle .tool-name::after, .tool-group-btn::before { transition: none; }
   .tool-detail { animation: none; }

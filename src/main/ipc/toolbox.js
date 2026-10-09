@@ -62,7 +62,7 @@ function registerToolboxIpc(ipcMain, d) {
   });
   ipcMain.on('toolbox:reveal', (_e, p) => {
     // Only reveal files the toolbox itself reported (never arbitrary paths from the renderer).
-    const known = d.toolbox.current && ['skills', 'agents', 'commands'].some(k => d.toolbox.current[k].some(t => t.path === p));
+    const known = d.toolbox.current && ['skills', 'agents', 'commands'].some(k => d.toolbox.current[k].some(t => t.path === p || (t.hides || []).some(x => x.path === p)));
     if (known) shell.showItemInFolder(p);
   });
 

@@ -7,7 +7,9 @@
    (lean.js usage), can be filtered by where they come from and sorted by use,
    and open up to show the rest: where they live, edit, remove (skillremove.js).
    The Hooks, Rules and Memory tabs live in toolbox-setup.js, Team (the
-   repo's .shellby/team.json) in toolbox-team.js, and Mods in toolbox-mods.js. */
+   repo's .shellby/team.json) in toolbox-team.js, and Mods in toolbox-mods.js.
+   Picking many, parking and the health line are toolbox-batch.js. The tab,
+   source and order you left it on are kept for next time. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -93,6 +95,24 @@
     // Never used, the ones costing the most in every conversation first: what's worth a look.
     unused: (a, b) => (!!num(usageOf(a)?.uses) - !!num(usageOf(b)?.uses)) || (num(usageOf(b)?.listTokens) - num(usageOf(a)?.listTokens)) || byName(a, b),
   };
+
+  // A health filter from the line above the list: 'nodesc' or 'dupes' (servers go to the MCP tab).
+  let only = null;
+  const ONLY = { nodesc: t => SB.toolboxBatch.isOwn(t) && !t.description, dupes: t => !!t.hides?.length };
+
+  // The tab, sources and order you left, for next time.
+  const VIEW_KEY = 'shellby.toolbox.view';
+  function saveView() {
+    try { window.localStorage.setItem(VIEW_KEY, JSON.stringify({ kind, sources, sort })); } catch { /* lasts this session */ }
+  }
+  function loadView() {
+    let v;
+    try { v = JSON.parse(window.localStorage.getItem(VIEW_KEY) || 'null'); } catch { v = null; }
+    if (!v || typeof v !== 'object') return;
+    if (typeof v.sort === 'string' && Object.hasOwn(SORTS, v.sort)) sort = v.sort;
+    for (const k of Object.keys(sources)) if (typeof v.sources?.[k] === 'string') sources[k] = v.sources[k];
+    if (typeof v.kind === 'string' && Object.hasOwn(GROUP, v.kind)) { kind = v.kind; lastKind[GROUP[kind]] = kind; }
+  }
 
   // The picker lists where this kind's items come from, with counts; rebuilt only when that changes.
   function syncSourcePicker(all) {
@@ -278,6 +298,7 @@
   // ------------------------------------------------------------ a row, and what it opens to
 
   const openRows = new Set(); // 'kind:name' of the rows showing their details
+  let shownOwn = [];          // your own ones in the list as filtered, for Shift+click ranges
   let rowSeq = 0;
 
   const WHERE_FROM = {
@@ -334,7 +355,20 @@
       t.kind === 'mcp' ? null : statsLine(t),
       skillHint(t),
       t.path ? h('code', { class: 'tool-path', text: SB.shortPath(t.path, 64), title: t.path }) : null,
+      hiddenCopies(t),
       acts.length ? h('div', { class: 'tool-detail-actions' }, acts) : null);
+  }
+
+  // The same name where Claude Code looks first wins: say which copy loads, and where the others are.
+  function hiddenCopies(t) {
+    if (!t.hides?.length) return null;
+    const others = t.hides.length === 1 ? 'Another copy hides' : `${t.hides.length} other copies hide`;
+    return h('div', { class: 'tool-hint' },
+      h('p', { text: `Only this copy (${sourceLabel(t.source)}) loads. ${others} behind it; remove the one you don't want, so there's no doubt which Claude gets.` }),
+      ...t.hides.map(x => h('div', { class: 'tool-hidden-copy' },
+        h('span', { class: 'src-pill', text: sourceLabel(x.source) }),
+        x.path ? h('code', { class: 'tool-path', text: SB.shortPath(x.path, 52), title: x.path }) : null,
+        x.path ? actBtn(SB.ICONS.folder, 'Show file', { onclick: () => api.revealTool(x.path) }) : null)));
   }
 
   // What stays in reach with the row closed: Use and the pin, or a server's switches.
@@ -380,7 +414,7 @@
       h('span', { class: 'src-pill', text: t.kind === 'mcp' ? (t.status || '') : sourceLabel(t.source) })),
     t.description ? h('span', { class: 'tool-desc', text: t.description }) : null,
     meter(u));
-    li.append(h('div', { class: 'tool-head' }, toggle, h('div', { class: 'tool-actions' }, quickActions(t))));
+    li.append(h('div', { class: 'tool-head' }, MERGED.includes(t.kind) ? SB.toolboxBatch.checkbox(t, shownOwn) : null, toggle, h('div', { class: 'tool-actions' }, quickActions(t))));
     if (open) li.append(toolDetail(t, id));
     return li;
   }
@@ -564,22 +598,38 @@
     const items = all
       .filter(t => !listed || fromSource(t))
       .filter(t => !q || t.name.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q))
+      .filter(t => !listed || !only || ONLY[only](t))
       .sort(order);
+    const batch = SB.toolboxBatch;
+    const healthRow = listed ? batch.healthLine(tb, only, pickHealth) : null;
+    const parkedRows = listed ? batch.parkedRows(kind === 'tool' ? MERGED : [kind], q) : [];
+    shownOwn = listed ? items.filter(batch.isOwn) : [];
     if (!items.length) {
-      const hint = q || (listed && sources[kind] !== 'all') ? 'No matches.' : {
+      const hint = q || only || (listed && sources[kind] !== 'all') ? 'No matches.' : {
         tool: 'No skills, agents or commands yet. Ask Shellby: "build yourself a skill that…"',
         skill: 'No skills yet. Ask Shellby: "build yourself a skill that…"',
         agent: 'No custom agents yet. Ask Shellby to create one in ~/.claude/agents.',
         command: 'No custom slash commands yet.',
         mcp: 'No MCP servers connected.',
       }[kind];
-      list.replaceChildren(h('li', { class: 'history-empty', text: hint }));
+      list.replaceChildren(...[healthRow, h('li', { class: 'history-empty', text: hint }), ...parkedRows].filter(Boolean));
       return;
     }
     maxList = items.reduce((m, t) => Math.max(m, num(usageOf(t)?.listTokens)), 0);
     const refocus = focusedIn(list);
-    list.replaceChildren(...[listed ? sortNote() : null, ...page(grouped(items, q))].filter(Boolean));
+    list.replaceChildren(...[
+      healthRow, listed ? batch.bar(shownOwn) : null, listed ? sortNote() : null,
+      ...page(grouped(items, q || only)), ...parkedRows,
+    ].filter(Boolean));
     refocus();
+  }
+
+  // A count in the health line: servers open the MCP tab, the rest filter this list.
+  function pickHealth(k) {
+    only = null;
+    if (k === 'mcp') { choose('mcp'); return; }
+    only = k;
+    render();
   }
 
   // A redraw (a rescan, usage landing a moment after you clicked) replaces every
@@ -606,7 +656,7 @@
   let shownRows = PAGE;
   let shownFor = '';
   function page(entries) {
-    const forKey = `${kind}|${$('toolSearch').value.trim().toLowerCase()}|${sources[kind] || ''}|${sort}`;
+    const forKey = `${kind}|${$('toolSearch').value.trim().toLowerCase()}|${sources[kind] || ''}|${sort}|${only || ''}`;
     if (forKey !== shownFor) { shownRows = PAGE; shownFor = forKey; }
     const total = entries.reduce((n, e) => n + (e.head ? 0 : 1), 0);
     const out = [];
@@ -634,6 +684,7 @@
     clearTimeout(searchWait);
     kind = GROUP[ALIAS[k] || k] ? ALIAS[k] || k : 'tool';
     lastKind[GROUP[kind]] = kind;
+    saveView();
     render();
   }
   document.querySelectorAll('#toolGroups [data-group]').forEach(b => b.addEventListener('click', () => choose(lastKind[b.dataset.group])));
@@ -642,9 +693,10 @@
     clearTimeout(searchWait);
     searchWait = setTimeout(() => { if (state.view === 'toolbox') render(); }, SEARCH_WAIT_MS);
   });
-  $('toolSource').addEventListener('change', e => { sources[kind] = e.target.value; render(); });
+  $('toolSource').addEventListener('change', e => { sources[kind] = e.target.value; saveView(); render(); });
   $('toolSort').addEventListener('change', e => {
     sort = e.target.value;
+    saveView();
     if (sort !== 'name' && !usage && !usageLoading) { usageRetried = false; loadUsage(); }
     render();
   });
@@ -684,6 +736,10 @@
     SB.setView('toolbox');
     choose(k);
   };
+
+  loadView();
+  $('toolSort').value = sort;
+  SB.toolboxBatch.init({ render, isIdle: t => isIdle(usageOf(t)) });
 
   SB.views.toolbox = { render };
 })();
