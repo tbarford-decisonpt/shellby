@@ -41,6 +41,8 @@ async function connect(url) {
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-native-'));
+  // A tide event's "last day of..." would talk over the "plan?" bubble, on whichever day CI runs.
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ tideEvents: false }));
   // Claude Code's own folder, for its memories: under temp, so the fake CLI writes into it.
   const config = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-native-cfg-')));
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
