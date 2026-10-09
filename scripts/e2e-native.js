@@ -116,6 +116,10 @@ async function connect(url) {
     await ev("SB.send('plan')");
     const card = "[...SB.activeTab().el.querySelectorAll('.plan-card')].pop()";
     check(await until(panel, `!!${card}`), 'the plan gets a card of its own');
+    await ev(`${card}.querySelector('.plan-expand').click()`);
+    check(await ev(`${card}.classList.contains('expanded') && getComputedStyle(${card}.querySelector('.ask-plan')).maxHeight === 'none'`), 'Expand lets the plan run its full length');
+    await ev(`${card}.querySelector('.plan-expand').click()`);
+    check(await ev(`!${card}.classList.contains('expanded')`), 'and Collapse puts the box back');
     const planSaid = await until(critter, "document.body.classList.contains('plan-ready') && document.getElementById('bubbleText').textContent === 'plan?'");
     check(planSaid, `the crab says there is a plan to read${planSaid ? '' : ` (${JSON.stringify(await critter.ev("({ body: document.body.className, bubble: document.getElementById('bubbleText').textContent })"))})`}`);
     await ev(`[...${card}.querySelectorAll('li.plan-line')].find(l => /cache/.test(l.textContent)).querySelector('.plan-line-note').click()`);

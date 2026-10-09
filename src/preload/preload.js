@@ -697,6 +697,13 @@ contextBridge.exposeInMainWorld('shellby', {
   checkUpdates: invoke('updates:check'),
   installUpdate: invoke('updates:install'),
 
+  // the Council (ipc/council.js)
+  councilView: invoke('council:view'),
+  saveCouncil: invoke('council:save'),
+  convene: invoke('council:convene'),
+  councilHistory: invoke('council:history'),
+  councilSession: invoke('council:get'),
+  forgetCouncil: invoke('council:forget'),
   // routines
   listRoutines: invoke('routines:list'),
   routineTemplates: invoke('routines:templates'),
@@ -784,6 +791,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTeamNotice: on('team:notice'), // the repo you're in has a team pack you haven't seen
   onLearned: on('toolbox:learned'),
   onRoutines: on('routines'),
+  onCouncilProgress: on('council:progress'),
   onRoutineTestRun: on('routines:test-run'),
   onWorkflows: on('workflows'),
   onWorkflowRun: on('workflows:run-changed'),
