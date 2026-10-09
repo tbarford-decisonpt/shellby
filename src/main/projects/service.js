@@ -417,13 +417,33 @@ class Projects extends EventEmitter {
       const r = await this.deps.retireCopy({ path: copy.path, root, branch: copy.branch });
       if (!r?.ok) return { ok: false, error: r?.error || "Couldn't remove that copy." };
       this.touchBranches(root);
-      this.gitCache.delete(caseKey(root));
-      this.branchCache.delete(caseKey(root));
-      this.readGitSoon([root]);
+      this.forgetCopy(root, copy);
+      this.readGitSoon([root], { force: true });
       this.readBranchesSoon([root], { force: true });
-      this.emit('change');
       return { ok: true };
     });
+  }
+
+  // Off the cached reads at once, the rest of the repo's list kept: dropping the
+  // whole read emptied the inbox until git had looked again, and the next
+  // Remove found nothing to remove.
+  forgetCopy(root, copy) {
+    const key = caseKey(root);
+    const other = x => caseKey(x.path) !== caseKey(copy.path);
+    const b = this.branchCache.get(key);
+    if (b?.read) {
+      this.branchCache.set(key, {
+        ...b,
+        read: { ...b.read, copies: (b.read.copies || []).filter(other), branches: (b.read.branches || []).filter(x => x.name !== copy.branch) },
+      });
+    }
+    const g = this.gitCache.get(key);
+    if (g?.git?.copyList) {
+      const copyList = g.git.copyList.filter(other);
+      const gone = g.git.copyList.length - copyList.length;
+      this.gitCache.set(key, { ...g, git: { ...g.git, copyList, copies: Math.max(0, (g.git.copies || 0) - gone) } });
+    }
+    this.emit('change');
   }
 
   // What a clone can run, and what it's running.
