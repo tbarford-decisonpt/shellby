@@ -21,11 +21,13 @@ body.state-sleeping.low-tidiness #sprite::after { top: 55%; }
 
 /* ---------- sleepy: heavy lids, a slow blink ---------- */
 body.low-energy.state-idle:not([class*="bit-"]) .part-eyes { animation: blink-drowsy 5s steps(1) infinite; transform: scaleY(.6); }
+body.low-energy.state-idle:not([class*="bit-"]) .part-stalks { animation: none; }
 @keyframes blink-drowsy { 0%, 88%, 100% { transform: scaleY(.6); } 90%, 96% { transform: scaleY(.1); } }
 
 /* ---------- mopey: eyes down, a slower breath, claw lowered ---------- */
 body.need-mopey.state-idle:not([class*="bit-"]) #sprite { animation-duration: 5.4s; }
 body.need-mopey.state-idle:not([class*="bit-"]) .part-eyes { animation: blink-drowsy 7s steps(1) infinite; transform: scaleY(.6); translate: 0 1px; }
+body.need-mopey.state-idle:not([class*="bit-"]) .part-stalks { animation: none; translate: 0 1px; }
 body.need-mopey.state-idle:not([class*="bit-"]) .part-claw { animation: none; transform: rotate(14deg) translateY(1px); }
 
 /* ---------- happy: a little extra spring in the breath ---------- */
@@ -36,12 +38,14 @@ body.need-happy.state-idle:not([class*="bit-"]) #sprite { animation-duration: 2.
 body.bit-rub.state-idle #sprite, body.bit-rub #sprite { transform-origin: 50% 100%; animation: rub-wobble 2.4s ease-in-out; }
 body.bit-rub .part-claw { animation: rub-claw .4s ease-in-out 6; }
 body.bit-rub .part-eyes { animation: none; transform: scaleY(.5); }
+body.bit-rub .part-stalks { animation: none; }
 @keyframes rub-wobble { 0%, 100% { transform: none; } 30%, 70% { transform: rotate(-3deg) translateY(1px); } 50% { transform: rotate(3deg) translateY(1px); } }
 @keyframes rub-claw { 0%, 100% { transform: rotate(28deg) translate(-1px, 3px); } 50% { transform: rotate(40deg) translate(-3px, 3px); } }
 
 /* mopey: sits down with a sigh */
 body.bit-mope.state-idle #sprite, body.bit-mope #sprite { transform-origin: 50% 100%; animation: mope 2.6s ease-in-out; }
 body.bit-mope .part-eyes { animation: none; transform: scaleY(.45); translate: 0 1px; }
+body.bit-mope .part-stalks { animation: none; translate: 0 1px; }
 body.bit-mope .part-claw { animation: none; transform: rotate(18deg) translateY(2px); }
 @keyframes mope { 0%, 100% { transform: none; } 30%, 80% { transform: scale(1.03, .9) translateY(2px); } }
 
@@ -49,6 +53,7 @@ body.bit-mope .part-claw { animation: none; transform: rotate(18deg) translateY(
 body.bit-munch.state-idle #sprite, body.bit-munch #sprite { transform-origin: 50% 100%; animation: munch-bob .3s ease-in-out infinite; }
 body.bit-munch .part-claw { animation: munch-claw .3s ease-in-out infinite; }
 body.bit-munch .part-eyes { animation: none; transform: scaleY(.3); }
+body.bit-munch .part-stalks { animation: none; }
 @keyframes munch-bob { 0%, 100% { transform: none; } 50% { transform: scale(1.02, .96) translateY(1px); } }
 @keyframes munch-claw { 0%, 100% { transform: rotate(-38deg) translate(-3px, -2px); } 50% { transform: rotate(-26deg) translate(-2px, -1px); } }
 

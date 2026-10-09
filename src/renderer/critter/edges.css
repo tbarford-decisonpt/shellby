@@ -27,6 +27,7 @@
 body.bit-grip #sprite { transform-origin: 50% 100%; animation: grip-on .9s cubic-bezier(.3, 1.4, .5, 1); }
 body.bit-grip [class*="part-legs"] { animation: leg .07s steps(1) infinite; }
 body.bit-grip .part-eyes { animation: none; transform: scaleY(1.4); }
+body.bit-grip .part-stalks { animation: none; }
 @keyframes grip-on { 0% { transform: scale(1.25, .7); } 40% { transform: scale(.94, 1.06); } }
 
 /* Hanging from the top of the screen, legs swinging. */
@@ -40,6 +41,7 @@ body.bit-dangle .part-claw { animation: wave .5s ease-in-out infinite; }
 body.bit-pinch #sprite { transform-origin: 50% 100%; animation: pinch-lunge .5s cubic-bezier(.3, 1.6, .5, 1) forwards; }
 body.bit-pinch .part-claw { animation: pinch-snap .14s steps(1) 4, pinch-hold .1s .56s forwards; }
 body.bit-pinch .part-eyes { animation: none; transform: scaleY(.45); }
+body.bit-pinch .part-stalks { animation: none; }
 @keyframes pinch-lunge { 40% { transform: rotate(calc(var(--dir) * 8deg)) translateX(calc(var(--dir) * 4px)) scale(1.04, .94); } 100% { transform: rotate(calc(var(--dir) * 5deg)) translateX(calc(var(--dir) * 3px)); } }
 @keyframes pinch-snap { 0% { transform: rotate(-34deg) translateX(3px); } 50% { transform: rotate(6deg) translateX(4px); } }
 @keyframes pinch-hold { to { transform: rotate(4deg) translateX(4px); } }
@@ -49,6 +51,7 @@ body.bit-shove #sprite { transform-origin: 50% 100%; animation: shove 1.2s cubic
 body.bit-shove [class*="part-legs"] { animation: leg .1s steps(1) infinite; }
 body.bit-shove .part-claw { transform: rotate(-12deg) translateX(3px); }
 body.bit-shove .part-eyes { animation: none; transform: scaleY(.3); }
+body.bit-shove .part-stalks { animation: none; }
 @keyframes shove {
   0% { transform: none; }
   30% { transform: rotate(calc(var(--dir) * -10deg)) scale(1.08, .9); }
