@@ -261,8 +261,9 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 
 .empty { text-align: center; padding: 8% 6px 0; animation: rise .5s var(--ease-out); }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
-.empty-crab { display: grid; place-items: center; height: 76px; margin-bottom: 10px; }
-.empty-crab svg { width: 110px; height: auto; animation: breathe 3.2s ease-in-out infinite; }
+/* Dressed, his view box grows to frame the outfit, so the box grows with him (up to a cap) instead of a hat spilling onto the heading. */
+.empty-crab { display: grid; place-items: center; min-height: 76px; margin-bottom: 10px; }
+.empty-crab svg { width: 110px; height: auto; max-height: 100px; animation: breathe 3.2s ease-in-out infinite; }
 .empty h1 { font: 600 var(--fs-21)/1.2 var(--font-pixel); margin: 0 0 8px; }
 .empty-sub { color: var(--sand-dim); margin: 0 auto 20px; max-width: 300px; font-size: var(--fs-13-5); }
 .empty-sub b { color: var(--sand); font-weight: 700; font-family: var(--font-mono); font-size: var(--fs-11-5); font-stretch: 88%; }
