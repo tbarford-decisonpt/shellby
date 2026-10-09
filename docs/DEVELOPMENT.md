@@ -346,6 +346,7 @@ src/main/        Electron main process
                    the plugin listens to; deck-pack.js zips src/streamdeck/ into a .streamDeckPlugin; wiring/deck.js ties it in
   handoff.js       a conversation to a terminal and back (pure): the launch command per shell, ids, folders
   btw.js           /btw side questions: a tool-less -p on a fork of the conversation that saves nothing
+  council/         The Council: advisors and the chair (prompts.js), quick/full/debate sittings as tool-less -p calls (run.js), project context (context.js), the last sittings (store.js)
   quiz.js          "Quiz me" on a turn's changes: Claude's questions from the diff (tool-less -p, --json-schema); main keeps the answers
   xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
   bounties.js      the day's three bounties, picked from the date alone

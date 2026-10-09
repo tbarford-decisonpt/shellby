@@ -30,7 +30,7 @@ test('finished tasks open rooms in order and report each one once', () => {
     s = r.state;
     opened.push(r.opened.map(x => x.id));
   }
-  assert.deepEqual(opened, [['history', 'projects', 'notes', 'trophies'], ['finds', 'stickers'], ['health', 'toolbox', 'crew'], ['bugdex'], ['workflows', 'us'], ['tank'], [], ['beach'], []]);
+  assert.deepEqual(opened, [['history', 'projects', 'notes', 'trophies'], ['finds', 'stickers'], ['health', 'toolbox', 'crew'], ['bugdex', 'council'], ['workflows', 'us'], ['tank'], [], ['beach'], []]);
   assert.equal(rooms.roomsView(s).all, true);
 });
 

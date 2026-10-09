@@ -20,6 +20,7 @@ const ROOMS = Object.freeze([
   { id: 'toolbox', tasks: 3, name: 'Toolbox', text: 'The skills, agents and tools he works with, and a shop for more.' },
   { id: 'crew', tasks: 3, in: 'wardrobe', name: 'Crew', text: 'The helper crabs Claude sends out, and what each is best at.' },
   { id: 'bugdex', tasks: 4, in: 'wardrobe', name: 'Bugdex', text: 'Every bug you two have caught, and the battles to catch them.' },
+  { id: 'council', tasks: 4, in: 'wardrobe', name: 'Council', text: 'A table of advisor crabs who argue a decision out, with him in the chair.' },
   { id: 'workflows', tasks: 5, name: 'Automate', text: 'Routines and workflows: work he does on a schedule or when something happens.' },
   { id: 'us', tasks: 5, in: 'wardrobe', name: 'Us', text: 'Your time together: streaks, tide events and his friends.' },
   { id: 'tank', tasks: 6, in: 'wardrobe', name: 'Tank', text: 'His home, to decorate with castles, plants and his finds.' },
