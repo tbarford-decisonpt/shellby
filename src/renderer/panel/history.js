@@ -52,7 +52,9 @@
   }
 
   function historyRow(s) {
-    const open = state.tabs.has(s.id);
+    // Popped out into a window of its own, it's still open, just not a tab here (tab-panes.js).
+    const popped = state.popped.has(s.id);
+    const open = popped || state.tabs.has(s.id);
     const tick = s.done ? 'Mark as not done' : 'Mark as done';
     return h('li', { class: `history-item${open ? ' current' : ''}${s.done ? ' done' : ''}` },
       h('button', { class: 'history-open', type: 'button', onclick: () => SB.openHistory(s.id) },
@@ -65,7 +67,7 @@
           s.inTerminal ? h('span', { class: 'h-term', text: 'in a terminal' }) : null,
           // Synced from another PC (history-sync.js): Claude picks it up with a recap.
           s.elsewhere ? h('span', { class: 'h-term', text: `from ${s.elsewhere}` }) : null,
-          open ? h('span', { class: 'h-open', text: 'open' }) : null)),
+          open ? h('span', { class: 'h-open', text: popped ? 'open in a window' : 'open' }) : null)),
       // Only a conversation Claude Code has a record of can carry on elsewhere.
       s.claudeSessionId ? h('button', { class: 'history-term', type: 'button', title: 'Continue in a terminal', 'aria-label': `Continue ${s.title} in a terminal`, onclick: () => SB.continueInTerminal(s.id) }, '›_') : null,
       h('button', { class: 'history-rename', type: 'button', title: 'Rename', 'aria-label': `Rename ${s.title}`, onclick: e => renameHistory(s, e.currentTarget) }, '✎'),
