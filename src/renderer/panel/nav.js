@@ -430,14 +430,14 @@
     const keys = 'pane split side by side grid quad window layout';
     const chat = run => () => { SB.setView('chat'); run(); };
     return [
-      { icon: '◫', title: 'Split: another conversation alongside', sub: 'Side by side, then a 2×2 grid', keys, shortcut: 'splitPane', run: chat(SB.splitPane) },
+      { icon: '◫', title: 'Split: another conversation alongside', sub: 'Side by side, up to twelve', keys, shortcut: 'splitPane', run: chat(SB.splitPane) },
       { icon: '↗', title: 'Open this conversation in its own window', sub: tab.title, keys: `${keys} pop out tear off`, run: () => SB.popOut(tab.id) },
       shown.length > 1 && { icon: '×', title: 'Close this pane', sub: `${tab.title} keeps its tab`, keys, run: chat(() => SB.closePane(tab.id)) },
       ...shown.filter(id => id !== tab.id && state.tabs.has(id)).map(id => ({
         icon: '◧', title: `Go to the pane with ${state.tabs.get(id).title}`, sub: 'Focus it, so the box talks to it', keys: `${keys} focus`,
         run: chat(() => SB.activate(id)),
       })),
-      { icon: '⛶', title: 'Maximize or restore the panel', sub: 'Room for a 2×2 grid', keys: `${keys} fullscreen full screen bigger`, run: () => api.maximize() },
+      { icon: '⛶', title: 'Maximize or restore the panel', sub: 'Room for more panes', keys: `${keys} fullscreen full screen bigger`, run: () => api.maximize() },
     ].filter(Boolean).map(e => ({ ...e, group: 'Conversations' }));
   }
 

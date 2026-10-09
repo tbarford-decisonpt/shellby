@@ -152,6 +152,60 @@
     }, h('span', { class: 'standin-text' }), h('span', { class: 'standin-meta' }));
   }
 
+  // ------------------------------------------------------------ room
+
+  // What the panes take beyond P.MIN, measured from components.css with the
+  // panes split: #feeds has 6 px of padding left, right and top; each column
+  // after the first has a 6 px line before it, and each pane a 6 px margin
+  // under it (the line between two in a column sits in that margin). So N
+  // columns of M panes take N x 286 + 6 by M x 206 + 6 px. A pane's header
+  // (28 px), border and stand-in or box are inside its MIN.
+  const PANE_CHROME = { width: 6, height: 6 };
+  const FEEDS_PAD = 6;
+  // Main keeps a grown panel this far inside the screen's work area (wiring/panel.js ROOMY.gap).
+  const SCREEN_GAP = 8 * 2;
+
+  // Room for `grid` in this window: { ok: true } as it is, { ok: true, want }
+  // once the window grows to `want` ({ width, height } in DIP, what main's
+  // fitPanel takes), or { ok: false }: not on this screen. `space`: the CSS px
+  // the panes get then. The DOM measures in CSS px, which the page's zoom
+  // scales; the window and screen are in DIP.
+  SB.roomFor = (grid) => {
+    const f = $('feeds').getBoundingClientRect();
+    const n = P.needs(grid, PANE_CHROME);
+    const need = { width: n.width + FEEDS_PAD, height: n.height + FEEDS_PAD };
+    // Split, the box moves into a pane and the feeds take its place.
+    const avail = { width: f.width, height: f.height + (box.parentElement === home ? box.offsetHeight : 0) };
+    const space = { width: Math.max(avail.width, need.width), height: Math.max(avail.height, need.height) };
+    if (need.width <= avail.width && need.height <= avail.height) return { ok: true, space };
+    const zoom = api.zoomFactor?.() || 1;
+    // innerWidth x zoom is the window's own size (outerWidth adds Windows' invisible resize frame).
+    const want = {
+      width: Math.round(window.innerWidth * zoom) + Math.ceil(Math.max(0, need.width - avail.width) * zoom),
+      height: Math.round(window.innerHeight * zoom) + Math.ceil(Math.max(0, need.height - avail.height) * zoom),
+    };
+    if (want.width > window.screen.availWidth - SCREEN_GAP || want.height > window.screen.availHeight - SCREEN_GAP) return { ok: false };
+    return { ok: true, want, space };
+  };
+
+  // `sizes` for `grid`, with any axis that would leave a pane under P.MIN in
+  // `space` px evened out. A split halves what it splits, so in a window only
+  // just big enough the halves can come out under the minimum though the
+  // panes fit side by side evenly (roomFor's sum).
+  function atLeastMin(grid, sizes, space) {
+    const { cols, rows } = P.shares(grid, sizes);
+    const across = space.width - FEEDS_PAD - grid.length * PANE_CHROME.width;
+    let s = sizes;
+    if (cols.some(f => f * across < P.MIN.width - 0.5)) s = P.even(grid, s, 'w');
+    grid.forEach((col, c) => {
+      const down = space.height - FEEDS_PAD - col.length * PANE_CHROME.height;
+      if (rows[c].some(f => f * down < P.MIN.height - 0.5)) s = P.even(grid, s, 'h', c);
+    });
+    return s;
+  }
+
+  const NO_ROOM = 'No room for another pane on this screen. Close one, or make the window bigger.';
+
   // The line between two columns (axis 'w', after column c) or two panes in
   // column c (axis 'h', after pane r). Drag it; double-click to even them out.
   function divider(axis, c, r = null) {
@@ -253,10 +307,23 @@
     if (id && id !== state.activeTab && state.tabs.has(id)) SB.activate(id);
   });
 
-  // Drop `tabId` on `target`'s pane (`zone`: see panes.place) and focus it there.
-  SB.placeTab = (tabId, target, zone) => {
-    state.grid = P.place(state.grid, tabId, target, zone);
+  // Drop `tabId` on `target`'s pane (`zone`: see panes.place) and focus it
+  // there, growing the window first if the panes need it. -> placed?
+  SB.placeTab = async (tabId, target, zone) => {
+    const before = state.grid;
+    let next = P.place(before, tabId, target, zone);
+    if (next === before) return false;
+    const room = SB.roomFor(next);
+    if (!room.ok) { SB.toast(NO_ROOM); return false; }
+    if (room.want) {
+      await api.fitPanel(room.want);
+      // The grid may have changed while the window grew (a tab closed, say).
+      if (state.grid !== before && (next = P.place(state.grid, tabId, target, zone)) === state.grid) return false;
+    }
+    state.paneSizes = atLeastMin(next, P.placeSizes(state.grid, state.paneSizes, tabId, target, zone), room.space);
+    state.grid = next;
     SB.activate(tabId);
+    return true;
   };
 
   // Off screen, but still a tab.
@@ -268,17 +335,21 @@
   };
 
   // The split shortcut and button: the newest conversation that isn't on screen
-  // (or a fresh one) goes beside the focused pane, or below one if there are
-  // two columns already.
+  // (or a fresh one) goes beside the focused pane while there's room for
+  // another column, then below one. ('new' stands in for it: an id never in
+  // the grid, so place treats it as a tab coming from off screen.)
   SB.splitPane = async () => {
     if (SB.solo || !state.activeTab) return;
     const spots = [state.activeTab, ...P.ids(state.grid)];
-    const side = spots.find(id => P.zones(state.grid, id).includes('right'));
-    const below = spots.find(id => P.zones(state.grid, id).includes('bottom'));
-    if (!side && !below) return SB.toast('Four is as many as fit. Close a pane first.');
+    const fits = zone => id => P.zones(state.grid, id).includes(zone) && SB.roomFor(P.place(state.grid, 'new', id, zone)).ok;
+    const side = spots.find(fits('right'));
+    const below = !side && spots.find(fits('bottom'));
+    if (!side && !below) {
+      return SB.toast(P.ids(state.grid).length >= P.MAX_COLS * P.MAX_ROWS ? 'Twelve is as many as there are. Close a pane first.' : NO_ROOM);
+    }
     let next = [...state.tabs.keys()].reverse().find(id => !SB.isShown(id));
     if (!next) next = (await SB.newTab({ focus: false, reuse: false }))?.id;
-    if (next) SB.placeTab(next, side || below, side ? 'right' : 'bottom');
+    if (next) await SB.placeTab(next, side || below, side ? 'right' : 'bottom');
   };
 
   // ------------------------------------------------------------ where a dragged tab lands
@@ -299,7 +370,9 @@
       const pane = paneRect(id);
       if (x < pane.left || x >= pane.left + pane.width || y < pane.top || y >= pane.top + pane.height) continue;
       if (id === dragId) return null;
-      const zone = P.zoneAt(pane, x, y, P.zones(state.grid, id, dragId));
+      // Only where the panes would still fit on this screen.
+      const allowed = P.zones(state.grid, id, dragId).filter(z => z === 'center' || SB.roomFor(P.place(state.grid, dragId, id, z)).ok);
+      const zone = P.zoneAt(pane, x, y, allowed);
       const colRect = panes.get(id).el.parentElement.getBoundingClientRect();
       return { kind: 'pane', target: id, zone, rect: P.previewRect(zone, pane, colRect) };
     }

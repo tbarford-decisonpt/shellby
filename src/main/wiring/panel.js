@@ -27,12 +27,13 @@ const clampInto = (r, wa) => ({
 
 /**
  * Where the panel at bounds b grows to on work area wa: toward the middle of
- * the screen, so it keeps the corner nearest the screen's edge. Pure.
+ * the screen, so it keeps the corner nearest the screen's edge. want: the size
+ * it's after (Make room's, or what the panes need). Pure.
  * -> { set, right, low } | null when it's already as big as it would get
  */
-function grownBounds(b, wa) {
-  const width = Math.min(ROOMY.width, wa.width - ROOMY.gap * 2);
-  const height = Math.max(b.height, Math.min(ROOMY.height, wa.height - ROOMY.gap * 2));
+function grownBounds(b, wa, want = ROOMY) {
+  const width = Math.min(want.width, wa.width - ROOMY.gap * 2);
+  const height = Math.max(b.height, Math.min(want.height, wa.height - ROOMY.gap * 2));
   if (width <= b.width && height <= b.height) return null;
   const right = b.x + b.width / 2 > wa.x + wa.width / 2;
   const low = b.y + b.height / 2 > wa.y + wa.height / 2;
@@ -115,6 +116,25 @@ function wirePanel(d) {
     return { ok: true, roomy: true };
   }
 
+  // Room for more panes (tab-panes.js): the panel grows toward the middle of
+  // its screen until they fit, and stays that size. Never smaller, never while
+  // maximized, and not remembered as your size. want: the window's size in DIP
+  // (the renderer has already scaled by its zoom). It's the panes' size now, so
+  // Make room has nothing to put back: the map hears it's lost its room, as
+  // when you resize it yourself.
+  function fitPanel(want) {
+    const { panel } = d;
+    if (!panel || panel.isDestroyed() || panel.isMaximized()) return { ok: false, grew: false };
+    const b = panel.getBounds();
+    const w = { width: Math.max(b.width, Math.ceil(want.width)), height: Math.max(b.height, Math.ceil(want.height)) };
+    const grown = grownBounds(b, screen.getDisplayMatching(b).workArea, w);
+    if (!grown) return { ok: true, grew: false };
+    if (roomyFrom) { roomyFrom = null; d.send(panel, 'panel:roomy-lost'); }
+    roomyAt = Date.now(); // ours, not yours: the resized handler won't save it as panelSize
+    panel.setBounds(grown.set);
+    return { ok: true, grew: true };
+  }
+
   // ---- showing it
 
   // A dev run opens its panel behind whatever you're doing (a game, say) instead of
@@ -172,7 +192,7 @@ function wirePanel(d) {
     else showPanel();
   }
 
-  return { createPanel, gameInFront, reachedForShellby, setPanelRoomy, showPanel, togglePanel };
+  return { createPanel, fitPanel, gameInFront, reachedForShellby, setPanelRoomy, showPanel, togglePanel };
 }
 
 module.exports = { wirePanel, grownBounds, shrunkBounds, ROOMY };

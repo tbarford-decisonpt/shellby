@@ -65,8 +65,9 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     const { ev, until } = panel;
     await wait(3000);
     await ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
-    await ev('shellby.maximize()'); // room for a 2x2 grid
-    await wait(800);
+    // Not maximized yet: Split has to make room for itself.
+    const startWidth = await ev('window.innerWidth');
+    console.log(`(screen ${await ev('screen.availWidth')} x ${await ev('screen.availHeight')}, panel ${startWidth} px wide)`);
 
     // Four conversations, the first with something said in it.
     const ids = await ev(`(async () => {
@@ -95,6 +96,13 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(split.heads === 2, 'each pane has its header once there are two');
     check(await ev(`SB.state.activeTab === '${D}' && document.getElementById('input').placeholder.includes('"')`), 'the new pane has the focus, and the box says which');
     await panel.shot('split');
+
+    // Two columns need 2 x 286 + 6 px of chat; a 460 px panel can't hold that, so it must have grown.
+    const grownTo = await ev('window.innerWidth');
+    check(startWidth >= 700 || grownTo > startWidth, `the panel grew to fit two panes (${startWidth} -> ${grownTo})`);
+    check(await ev(`[...document.querySelectorAll('.pane')].every(p => p.getBoundingClientRect().width >= ${280 - 1})`), 'no pane narrower than 280 px');
+    await ev('shellby.maximize()'); // room for the 2x2 grid the drags below make
+    await wait(800);
 
     // ---- Drag a tab from the strip onto the bottom of a pane: that column splits.
     const tabAt = id => ev(`(() => { const r = [...document.querySelectorAll('#tabs [data-tab-id]')].find(e => e.dataset.tabId === '${id}').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
@@ -193,8 +201,9 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     // Three to a column in a short window (the page told it's 760 px tall, about
     // as short as three rows fit): the menu is taller than the room above the top
     // pane's box, and is cut down to it rather than off by the chat's edge.
-    await ev(`SB.placeTab('${B}', '${A}', 'bottom')`);
     await panel.send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 760, deviceScaleFactor: 0, mobile: false });
+    await wait(300);
+    check(await ev(`SB.placeTab('${B}', '${A}', 'bottom')`), 'three panes fit in a column 760 px tall');
     await wait(300);
     await ev(`SB.activate('${A}')`);
     await slashOnScreen('the top of three panes');
@@ -227,6 +236,34 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev(`SB.placeTab('${B}', '${D}', 'bottom')`);
     await wait(300);
     check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'and B goes back under D');
+
+    // ---- Split adds columns while they fit, as many as this screen holds (up to four).
+    const E = await ev(`(async () => (await SB.newTab({ focus: false, reuse: false })).id)()`);
+    const F = await ev(`(async () => (await SB.newTab({ focus: false, reuse: false })).id)()`);
+    // A pane is 280 px wide at least, with 6 px between and 6 px each side (tab-panes.js PANE_CHROME).
+    const fitCols = Math.min(4, Math.floor((await ev(`document.getElementById('feeds').getBoundingClientRect().width`) - 6) / 286));
+    await ev(`SB.activate('${D}')`);
+    for (let i = 0; i < 2; i++) await ev('SB.splitPane()');
+    await wait(400);
+    const nCols = await ev('SB.state.grid.length');
+    check(nCols === Math.min(4, Math.max(2, fitCols)), `Split keeps adding columns while there's room (${nCols}, room for ${fitCols})`);
+    check(await ev(`[...document.querySelectorAll('.pane')].every(p => p.getBoundingClientRect().width >= ${280 - 1})`), 'and every pane is still 280 px wide or more');
+
+    // ...and on a screen too small for another, it says so instead.
+    await panel.send('Emulation.setDeviceMetricsOverride', { width: 640, height: 600, screenWidth: 640, screenHeight: 600, deviceScaleFactor: 0, mobile: false });
+    await wait(300);
+    check(await ev(`SB.roomFor(SB.panes.place(SB.state.grid, 'new', '${D}', 'right')).ok`) === false, "another column doesn't fit a 640 px screen");
+    await ev('SB.splitPane()');
+    check(await until(`/No room/.test(document.getElementById('toast').textContent)`), 'and Split is refused with a toast');
+    check(await ev('SB.state.grid.length') === nCols, 'leaving the panes as they were');
+    await panel.send('Emulation.clearDeviceMetricsOverride');
+    await wait(300);
+    for (const id of [E, F]) { await ev(`SB.closePane('${id}')`); await ev(`SB.closeTab('${id}')`); }
+    await wait(300);
+    if (JSON.stringify(await ev('SB.state.grid')) !== JSON.stringify([[A, C], [D, B]])) await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.renderPanes()`);
+    await ev(`SB.activate('${D}')`);
+    await wait(300);
+    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'the 2x2 again once they close');
 
     // ---- A click into a pane gives it the box.
     await panel.click(await paneSpot(C, 0.5, 0.5));

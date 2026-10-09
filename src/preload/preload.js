@@ -1,5 +1,5 @@
 // The only bridge between the sandboxed renderers and main. Every channel is explicit; no Node.js access.
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer, webFrame, webUtils } = require('electron');
 
 const on = channel => cb => {
   const handler = (_e, payload) => cb(payload);
@@ -754,6 +754,8 @@ contextBridge.exposeInMainWorld('shellby', {
   minimize: fire('panel:minimize'),
   maximize: fire('window:maximize'),
   setPanelRoomy: invoke('panel:roomy'), // widen the panel for a workflow map, or put it back
+  fitPanel: invoke('panel:fit'), // grow the panel until the panes fit: { width, height } DIP (tab-panes.js)
+  zoomFactor: () => webFrame.getZoomFactor(), // the page's zoom (Ctrl+= / Ctrl+-), for CSS px -> DIP
 
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
