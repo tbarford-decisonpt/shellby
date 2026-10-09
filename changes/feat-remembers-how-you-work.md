@@ -1,3 +1,0 @@
-### New
-- **Said no five times? Block it for good.** Deny the same command, folder or site in five different turns and Shellby offers a permission deny rule, so Claude Code stops asking. It goes in the project's own `.claude/settings.local.json`, or your `~/.claude/settings.json` when the nos came from more than one project, and the card shows exactly what changes in that file before you add it.
-- **Search inside past conversations.** Type in History's search box and, under the titles, every message you or Claude wrote that says it shows up with the words marked, from every project and from conversations synced over from your other PCs. Narrow it to one project, one PC or the past week, month or year, and click a hit to open the conversation right at that message.

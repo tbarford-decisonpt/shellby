@@ -1,5 +1,76 @@
 # Changelog
 
+## 0.78.0: The Council, every slash command and undo to here
+
+### New
+- **Every Claude Code slash command, in the box.** Type `/` and the menu lists all of Claude Code's own commands, each with what it does and a **claude code** tag. The ones that work here go straight to Claude Code; the ones Shellby has a screen for open it (`/resume` opens History, `/config` Settings, `/doctor` Health, `/usage` your meters, `/memory`, `/hooks` and `/skills` the Toolbox, `/plugin` the Skill Shop, `/login` signs you in); and the few that only work in Claude Code's own terminal, like `/theme`, say why and offer to open the conversation in one.
+- **Keeps up by itself.** New commands show up as Claude Code adds them, ones it drops disappear, and a command it can't run here gets a plain answer instead of silence.
+- The "Here's my plan" card has an Expand button that shows the whole plan, in bigger text, without scrolling a small box. Collapse puts the box back. It still works after the plan is decided.
+- **/clear, as in the terminal.** Type `/clear` (or pick Clear from Ctrl+K) and the conversation starts over in the same tab: the screen empties, the context meter goes back to zero, and Claude forgets everything said so far. Same folder, same copy, and `/export` still has what came before.
+- **Every conversation at a glance.** The Ctrl+Shift+A list now shows each conversation's lane: tests red or ready to merge, how many files and lines its copy changed, and which other conversations touched the same files.
+- **One answer for many.** When several conversations are waiting on the same thing ("3 want `npm test`"), the list groups them with Allow all and Deny all. Plans, questions and files Claude wrote still get read one at a time.
+- **A merge order, and Line them up.** Once two or more copies of a project are done, the list suggests the order to bring them home: fewest overlaps first, then smallest. Line them up rebases each onto the one before and runs the project's checks in between. It asks before rewriting anything, leaves copies with uncommitted work alone, and stops at the first conflict (undoing that rebase) or red check.
+- The Council, a new tab on Shellby's screen: put a decision to a table of advisor crabs (Skeptic, Builder, Guard, Player and Elder) with Shellby in the chair at its head. Each one argues their own angle in a speech bubble and drops a vote on the table, and Shellby unrolls a verdict scroll with where they agree, where they split and what to do next.
+- Three ways to sit: Quick answers for the whole table in one call (about the cost of one reply), Full has each advisor think alone on a small model before the chair rules, and Debate adds a round where they answer each other. Advisors get no tools and no history, so a sitting stays cheap, and the minutes show what it cost.
+- "Include this project" hands the council a few KB about the repo (README, recent commits, uncommitted changes) so they don't spend anything looking around. Send the verdict to the chat, copy the minutes, ask a follow-up, or reread any of the last 20 sittings for free. Seat your own advisors (up to three) from Seats.
+- **Attach what I just saw.** Turn it on in Settings → General and a button by the chat box starts a new task with the error you just copied, the last background command that failed (with the end of its output), or a picture on your clipboard. Shellby only looks when you press it, takes out anything that looks like a secret, and tells Claude to treat it as data, not instructions.
+- **Address the review, offered.** A new comment on one of your pull requests now offers "Address the review" on its notification, the way a red build offers "Fix this build". It opens the sheet with what would be sent; nothing starts until you press Send. A busy pull request offers it at most once every half hour.
+- **Queue it for tonight.** Tasks on the Routines page's queue can start "When my limit resets" or "Tonight" (at 1am). One due tonight that finds you at your limit waits for the reset.
+- **Seventeen new bugs for the Bugdex.** The book now has 83 bugs to catch, up from 66, and every habitat that had a gap gets something new. Look out for broken JSON, React render loops, hydration mismatches, duplicate keys, missing database tables, rate limits, git without a repo, overwritten local changes, branches that aren't there, a sulking Docker daemon, garbled text encodings, unused Go variables, tests that time out or never run, 401s and 403s, missing env vars, and SSH keys git won't accept. Each one has its own portrait and field notes.
+- **Your notes show up in Next up.** A project's open notes now sit in its Next up list, after your tasks, with Do this, Done and Open in Notes.
+- **Note it for later, from the chat.** Ask Claude to note something and it lands on that project's Notes list, marked "From Claude". Running one opens it as a draft, so you read it before it's sent.
+- **Pin a note to the top**, from its ⋯ menu.
+- **Find a note.** A list with more than 10 notes gets a find box.
+- **Ask's verdict stays on the note.** After you Ask about a note, it shows what Claude said: Do it, Do it differently or Skip it.
+- **Earlier runs.** A note remembers its last few Plan, Build and Ask conversations; the ⋯ menu opens the older ones.
+- **Said no five times? Block it for good.** Deny the same command, folder or site in five different turns and Shellby offers a permission deny rule, so Claude Code stops asking. It goes in the project's own `.claude/settings.local.json`, or your `~/.claude/settings.json` when the nos came from more than one project, and the card shows exactly what changes in that file before you add it.
+- **Search inside past conversations.** Type in History's search box and, under the titles, every message you or Claude wrote that says it shows up with the words marked, from every project and from conversations synced over from your other PCs. Narrow it to one project, one PC or the past week, month or year, and click a hit to open the conversation right at that message.
+- A turn's changes read as a story. When Claude works in steps (edit, run the tests, fix, edit again), the files it changed come in numbered steps titled by what it said it was doing, each with its own line counts, and anything a command changed on its own is listed last.
+- Rewind is a timeline. Esc Esc shows your messages as stops down a line, each one "before turn N", with how many files and lines going back there undoes.
+- **Pin a project to the top.** Pin to top in a project's ⋯ menu keeps it first on the list, whatever the order. A pin icon by its name shows it.
+- **"Needs you" at the top of a project's page.** A failing build, a crashed dev server, vulnerable dependencies or work that's only on this PC each get a line at the top of the page. Tap one to go where it's fixed.
+- **Links to every part of a project's page.** A row of links stays at the top as you scroll: Next up, Pulse, Notes, Health, Releases and the rest are one tap away.
+- **Search projects from the keyboard.** Ctrl+F on Projects goes to the search box, Enter opens the top match, and Esc clears it.
+- **Three more gauges in his tank.** A tide gauge on the glass shows how much of your 5-hour usage window is left, the Sunken Chest glints for a minute when a pull request of yours merges, and a message in a bottle bobs at the surface while a recap or your weekly card is waiting. Each has its own switch under Gauges in disguise.
+- **The Glass Thermometer.** *Check-Up* now brings a thermometer you can hang anywhere in his tank, and it reads your GPU (or CPU) temperature.
+- **Undo to here.** Every step of a turn that changes your files now has a checkpoint just before it. Once the turn ends, press **Undo to here** on a step and your files go back to how they were right before it, later steps included, while the conversation stays put. If you've changed one of those files since, he asks first.
+
+### Fixed
+- After a release, a new conversation's copy of the repository gets its packages again without Claude asking to install them. Packages built only for other systems no longer count as missing from your checkout.
+- Removing a copy from "Copies left behind" no longer makes the whole section vanish for a few seconds and come back. The rest stay put, so you can clear several in a row.
+- **Some errors were filed as the wrong bug.** Broken JSON was caught as a Syntax Slug, an SSH key rejection as a Locked Limpet, a missing `os.environ` key as a Keyless Krill, and a test timeout as a Dawdling Snail. Each one now has its own bug. Raising a test's timeout no longer counts as fixing it.
+- **Deleting a note can be undone**, and so can Clear.
+- Rewinding or undoing an old turn no longer fails with "tidied away by git". Each turn's before and after are kept under Shellby's own private git refs (never a branch or the stash), the newest 200 turns per project.
+- **His eyes stay on their stalks.** When he squinted, yawned, blinked sleepily, looked mopey or did any of his little bits, his stalks kept glancing side to side on their own and his eyes floated off beside them. Now the stalks hold still whenever the eyes do.
+- A dressed-up Shellby no longer sits on top of "What should I scuttle off and do?" on the new-chat screen. His spot grows to fit his hat and shell.
+- **History shows popped-out chats as open.** A conversation dragged out into its own window now reads "open in a window" in History, instead of looking closed.
+- The "4 finished · show" link under background tasks is plain link text again, not a white box with text you could barely read. Other link-style buttons without their own styling got the same fix.
+- **His hat no longer hides what he says.** A tall hat (the wizard's, the nightcap) poked up over his speech bubble and covered the words. The bubble now sits higher, wraps less, and always stays in front of his hat.
+- **Ctrl+scroll over a workflow zooms just the workflow.** It used to zoom the whole panel at the same time, so you couldn't get a closer look at the steps without everything else growing too.
+- Whatever Shellby holds no longer gets cut off by an invisible edge when he swings it out straight.
+- **To-dos on a repo with no remote travel with it.** They live in the repo's own `.shellby/tasks.md`, so they're still there when you push it to GitHub. Any Shellby was keeping for it on this PC move into the file by themselves, once, with nothing lost or doubled.
+- Sign in on another computer (Settings, Other computers) opens a terminal you can see again. It opened PowerShell with no window, so nothing appeared while the sign-in waited where no one could reach it. Carrying a conversation on there had the same trouble.
+- **Shutting down isn't a crash.** Forcing Windows to shut down ("Shut down anyway"), restarting, or losing power no longer makes Shellby say he closed unexpectedly, or ask to send a crash report, the next time he starts.
+- Two conversations in the same folder no longer claim each other's work. A turn's "files changed" lists only what its own tools could have written (nothing at all after just reading and searching), and Undo puts back only those files, never another conversation's.
+
+### Changed
+- When he digs, he really burrows now: he noses down and sinks into the ground up to his shell, claws scooping, with sand flying out behind him.
+- Pop-up notes in the panel (sign-in nudges, "Pushed 2 commits" and the rest) are dark reef cards with a sea-glass edge and a coral button, like the rest of Shellby, instead of a bright sand slab.
+- **Bug battles no longer stand still between moves.** While Claude works on its next turn, the bug acts up in its own way: a ghost flickers out, a network bug buffers, a type bug glitches. Shellby fidgets too, and the text box tells you when Claude is thinking.
+- **Plan and Build work in a copy.** A note now runs on a branch of its own, like Next up's Do this, so nothing lands in your checkout until you bring it home. Ask still just reads.
+- **General notes ask where to run.** Plan, Build or Ask on a General note lets you pick the project first, instead of quietly using whichever folder you're in.
+- **Done notes fold away** under "Done", with a Clear button for the lot.
+- **Quieter rows.** Plan, Build and Ask show when you point at or tab into a note.
+- Shellby's chirp sounds like a small creature now instead of an 8-bit beep. Each note slides softly into its pitch, sad tunes droop instead of buzzing, and no two chirps are quite the same.
+- **"Needs you" is now a filter.** It's in the menu next to the order, with All, On this PC and the others, so it no longer hides projects from what looked like a sort. The "2 need you" link above the list switches it on.
+- **The list remembers how you left it.** The order and filter stay as you set them after Shellby restarts.
+- **Every row shows where the project lives.** The path stays under the name, and the chips keep to what you'd act on: failing checks, vulnerabilities, unpushed work, to-dos. Time this week and stickers are on the project's page.
+- **The buttons on a row stay in the same place.** New conversation is always first, the dev server second, ⋯ last. Open folder and Open on GitHub are in ⋯.
+- **Start or open the dev server from a project's page.** It's next to New conversation, as on the row.
+- **Quieter cards.** Health with nothing to report, or Conversations with none yet, take one line.
+- **Projects says when it last looked.** "updated 4m ago" sits in the line above the list.
+- **The thermometer is no longer drawn on the front glass.** Place the Glass Thermometer to see the reading. When he's hot, the plants in his tank sway faster too.
+
 ## 0.77.0: Sign-ins, shared tools and a glow-up
 
 ### New

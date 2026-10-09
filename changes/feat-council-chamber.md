@@ -1,5 +1,0 @@
-### New
-
-- The Council, a new tab on Shellby's screen: put a decision to a table of advisor crabs (Skeptic, Builder, Guard, Player and Elder) with Shellby in the chair at its head. Each one argues their own angle in a speech bubble and drops a vote on the table, and Shellby unrolls a verdict scroll with where they agree, where they split and what to do next.
-- Three ways to sit: Quick answers for the whole table in one call (about the cost of one reply), Full has each advisor think alone on a small model before the chair rules, and Debate adds a round where they answer each other. Advisors get no tools and no history, so a sitting stays cheap, and the minutes show what it cost.
-- "Include this project" hands the council a few KB about the repo (README, recent commits, uncommitted changes) so they don't spend anything looking around. Send the verdict to the chat, copy the minutes, ask a follow-up, or reread any of the last 20 sittings for free. Seat your own advisors (up to three) from Seats.
