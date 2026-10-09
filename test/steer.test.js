@@ -13,6 +13,14 @@ const FAKE = path.join(__dirname, 'fixtures', 'fake-claude.js');
 const live = new Set();
 after(() => { for (const s of live) s.close(); });
 const wait = ms => new Promise(r => setTimeout(r, ms));
+async function until(check, ms = 8000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (check()) return true;
+    await wait(25);
+  }
+  return false;
+}
 
 function makeSession() {
   const s = new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask' });
@@ -149,8 +157,9 @@ test('a steer Stop beat Claude to is dropped with the process, not run as a turn
   const { s, items } = makeSession();
   steerOnce(s, [steerOf('q1', 'never read')]);
   s.send('steps 1 100 late 3000');
-  await wait(600); // past the hook, inside the window before Claude reads it
-  assert.equal(s.steered.length, 1, 'it went in');
+  // Past the hook, inside the 3 s window before Claude reads it. Waited for, not
+  // slept: starting the fake CLI alone can take over a second on a busy PC.
+  assert.ok(await until(() => s.steered.length === 1), 'it went in');
   s.interrupt();
   const res = await waitFor(s, i => i.kind === 'result');
   assert.equal(res.interrupted, true);

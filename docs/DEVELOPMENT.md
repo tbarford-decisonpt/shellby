@@ -45,7 +45,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 |---|---|
 | `npm start` | Run in development |
 | `npm run dev:crab` | A dev Shellby beside your installed one: its own profile (`%TEMP%\shellby-dev-crab`, or `SHELLBY_DEV_PROFILE`), the fake CLI, its own hook port and the dev hooks (`SHELLBY_MOTION_TEST`). `--fresh` empties the profile, `--real` uses the real Claude CLI, `--poses` walks him through every work pose (work-pose.js) and habit (voice.js `BITS`) and closes, `--loop` keeps going; with `SHELLBY_SHOTS=<folder>` it saves a PNG of each |
-| `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one) |
+| `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one). Four files at a time: the suite starts thousands of git and node processes, Windows (with antivirus watching) starts only about 30 a second however many ask, and Node's default of one file per core starved the git-heavy files past their 120 s on a many-core PC |
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
 | `npm run panel:html` | Builds `src/renderer/panel/panel.html` from the files in `src/renderer/panel/html/` (a frame plus one per screen, `<!-- @include x.html -->`). Run it after editing any of them; `-- --check` says if it's stale |
 | `npm run typecheck` | TypeScript's checker over the JSDoc in `src/preload` and `src/main`'s `ipc`, `flaky`, `remote`, `backlog`, `bugdex`, `depwatch`, `tank`, `stickers`, `usage`, `weather`, `hooks`, `claude` and `routines` (jsconfig.json), with no build step |
