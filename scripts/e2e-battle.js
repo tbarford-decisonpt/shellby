@@ -94,6 +94,8 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     await wait(SHOTS ? 1500 : 200);
     await snap('intro');
     check(await until("/Assertive Lobster|ASSERTIVE LOBSTER/.test(document.querySelector('.bb-overlay').textContent)", 8000), 'it names the bug');
+    check(await until("Number(document.querySelector('.bb-screen')?.dataset.fillers) >= 2", 20000), 'between moves, Shellby and the bug fill the gap');
+    await snap('idle');
 
     // ---- 4. a helper joins, and the green run knocks it out
     await task('review crew');

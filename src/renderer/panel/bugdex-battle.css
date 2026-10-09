@@ -188,6 +188,7 @@
 .bb-float.heal { color: #80ed99; }
 .bb-float.resist { color: #9fd3ff; }
 .bb-float.scout { color: #8ecae6; font-size: clamp(16px, 5cqw, 24px); }
+.bb-float.think { color: #bfe9ff; }
 .bb-star { color: #ffd23f; font-size: 14px; text-shadow: 0 0 6px #ffd23f; }
 .bb-line { width: 1px; top: 0; background: linear-gradient(rgba(255, 255, 255, .25), rgba(255, 255, 255, .7)); transform: translateX(-50%); }
 .bb-confetti { width: 4px; height: 6px; }
