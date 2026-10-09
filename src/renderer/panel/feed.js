@@ -217,8 +217,14 @@
         case 'checks': return SB.renderChecks?.(this, item);   // turn-checks.js
         case 'shots': return SB.renderShots?.(this, item);     // turn-checks.js
         case 'tries': return SB.renderTries?.(this, item, replay); // tries.js
-        // Shellby's own one-line notes: moved into a copy, from the phone, brought
-        // home, pushed, compacted, started fresh, rewound.
+        // Shellby's own one-line notes: cleared, moved into a copy, from the phone,
+        // brought home, pushed, compacted, started fresh, rewound. /clear empties
+        // the screen first, as in the terminal: live or replayed, so a
+        // conversation reopened later shows only what came after it.
+        case 'cleared':
+          this.wipe();
+          if (this.isActive) SB.renderTodos?.(this);
+          // falls through
         case 'moved': case 'phone': case 'home': case 'home-wait': case 'pushed': case 'compacted': case 'fresh': case 'rewound': {
           const mark = F.markFor(item, SB.compact);
           return this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: mark.icon }), mark.text));
@@ -253,8 +259,8 @@
       }
     }
 
-    // Rewind: the feed starts over from what's left of the transcript.
-    reset(items) {
+    // Everything drawn so far goes, and the empty state is back.
+    wipe() {
       for (const el of [...this.el.children]) if (el !== this.empty) el.remove();
       this.tools.clear();
       this.asks.clear();
@@ -264,7 +270,14 @@
       this.trimmed = 0;
       this.trimmedNotice = null;
       this.shellPending = null;
+      this.lastTurnId = null; // the replay, or the next message, says which turn is last now
+      this.lastAsk = '';
       this.empty.hidden = false;
+    }
+
+    // Rewind: the feed starts over from what's left of the transcript.
+    reset(items) {
+      this.wipe();
       for (const item of items) this.render(item, { replay: true });
       if (this.isActive) SB.renderTodos?.(this);
       this.scrollToEnd();

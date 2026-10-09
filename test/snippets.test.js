@@ -21,7 +21,7 @@ test('check refuses what could never run', () => {
   assert.deepEqual(sn.check({ name: 'Review', text: '  Review my diff.\r\n' }), { ok: true, snippet: { name: 'review', text: 'Review my diff.' } });
   assert.match(sn.check({ name: 'export', text: 'x' }).error, /Shellby's own commands/);
   assert.match(sn.check({ name: 'snippets', text: 'x' }).error, /Shellby's own commands/);
-  // The panel's Compact and Start fresh send these through the box.
+  // /clear is Shellby's own; the panel's Compact sends /compact through the box.
   assert.equal(sn.check({ name: 'compact', text: 'x' }).ok, false);
   assert.equal(sn.check({ name: 'clear', text: 'x' }).ok, false);
   assert.match(sn.check({ name: 'ok', text: '   ' }).error, /What should it ask/);

@@ -13,6 +13,7 @@ test('markFor words the notes Shellby leaves in a feed, with their glyphs', () =
   assert.equal(F.markFor({ kind: 'home', commits: 3, base: 'dev' }, compact).text, 'Brought home: 3 commits merged into dev');
   assert.equal(F.markFor({ kind: 'phone' }, compact).icon, '📱');
   assert.equal(F.markFor({ kind: 'fresh' }, compact).icon, '↻');
+  assert.match(F.markFor({ kind: 'cleared' }, compact).text, /^Cleared\. .*\/export/);
 });
 
 test('markFor says what a push took in from the remote first', () => {
