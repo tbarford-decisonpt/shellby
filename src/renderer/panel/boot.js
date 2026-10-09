@@ -227,13 +227,13 @@
       tab.cancelOpenAsks();
       for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
     }
-    // A conversation the last run cut off mid-turn comes to the front, and the toast says which.
     // The split view as it was left, with the conversations still open. Only a
     // real split: anything that cleans down to one pane starts as it always has.
     state.panesSaved = !!b.paneLayout;
     const kept = SB.panes.clean(b.paneLayout, [...state.tabs.keys()]);
     const saved = kept && SB.panes.ids(kept.grid).length > 1 ? kept : null;
     if (saved) { state.grid = saved.grid; state.paneSizes = saved.sizes; }
+    // A conversation the last run cut off mid-turn comes to the front, and the toast says which.
     const cut = (b.cutOff || []).filter(c => state.tabs.has(c.id));
     if (cut.length) SB.activate(cut[0].id);
     else if (saved) SB.activate(saved.grid[0][0]);
