@@ -255,7 +255,8 @@
       // Only while split, and never behind the palette, the cheat sheet or a dialog:
       // otherwise the keys stay the textarea's and the page's.
       // Nor while a tab's name is being typed: the arrows are the caret's then.
-      if (e.target.closest?.('.title-edit') || !dir || !state.activeTab || state.view !== 'chat' || SB.panes.ids(state.grid).length < 2 || SB.overlayOpen()) return;
+      // Nor when something the key was pressed in took it already (defaultPrevented).
+      if (e.defaultPrevented || e.target.closest?.('.title-edit') || !dir || !state.activeTab || state.view !== 'chat' || SB.panes.ids(state.grid).length < 2 || SB.overlayOpen()) return;
       e.preventDefault();
       if (K.matches(e, 'movePane')) { SB.movePane(state.activeTab, dir); return; }
       const to = SB.panes.neighbor(state.grid, state.activeTab, dir);
