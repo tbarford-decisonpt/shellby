@@ -73,7 +73,11 @@ test('dex numbers are pinned', () => {
     53: 'nil-gopherfish', 54: 'knotted-eels', 55: 'segfault-squid', 56: 'red-snapper',
     57: 'assertive-lobster', 58: 'mirror-mullet', 59: 'leaky-clam', 60: 'barnacled-anchor',
     61: 'cert-cuttlefish', 62: 'flaky-phantom', 63: 'heisenbug', 64: 'race-wraith',
-    65: 'cache-ghoul', 66: 'zombie-process', 99: 'missingno',
+    65: 'cache-ghoul', 66: 'zombie-process', 67: 'garbled-jellyfish', 68: 'spinning-top-shell',
+    69: 'hydration-hydroid', 70: 'duplicate-dory', 71: 'tableless-turtle', 72: 'crowded-sardines',
+    73: 'castaway-cod', 74: 'trampled-sand-dollar', 75: 'nowhere-narwhal', 76: 'docked-whale-shark',
+    77: 'mojibake-moray', 78: 'idle-isopod', 79: 'sleepy-seahorse', 80: 'hollow-halibut',
+    81: 'turned-away-turbot', 82: 'unset-sea-star', 83: 'sealed-scallop', 99: 'missingno',
     101: 'harvest-mouse', 102: 'will-o-wisp', 103: 'frost-mite', 104: 'lovebug', 105: 'dust-bunny', 106: 'tide-pool-nudibranch',
   };
   assert.deepEqual(Object.fromEntries(b.SPECIES.map(s => [s.no, s.id])), pinned);
@@ -101,7 +105,7 @@ test('remedies use known keys', () => {
   assert.deepEqual(withRemedies, {
     'clingy-barnacle': ['kill'], 'overstuffed-pufferfish': ['cache'], 'closed-clam': ['service'],
     'port-squatter': ['kill'], 'lockfile-lobster': ['lock'], 'stray-module-minnow': ['install'],
-    'cache-ghoul': ['cache'],
+    'cache-ghoul': ['cache'], 'docked-whale-shark': ['service'],
   });
 });
 
@@ -117,7 +121,7 @@ test('evolution names fit', () => {
 test('live() leaves out the hidden one', () => {
   const live = b.live();
   assert.equal(b.LIVE_PHASE, 3);
-  assert.equal(live.length, 66);
+  assert.equal(live.length, 83);
   assert.ok(!live.some(s => s.id === 'missingno'));
   assert.ok(live.every(s => s.habitat && s.phase <= b.LIVE_PHASE));
   assert.ok(b.speciesById('missingno'), 'still in the book, just kept apart');

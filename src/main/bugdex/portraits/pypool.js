@@ -122,4 +122,21 @@ module.exports = {
       '.mmmmmmmmmmmmmmm..',
     ],
   },
+  'mojibake-moray': {
+    palette: { H: '#b983ff', m: '#7b2cbf', M: '#5a189a', D: '#3c096c', y: '#ffd23f', g: '#80ffdb', w: '#ffffff', k: '#2b2d42', r: '#ff6b6b' },
+    pixels: [
+      '...HHmmm..........',
+      '..HmmmmmmM........',
+      '.HmwkmmmmMM.......',
+      '.mmkkmmmmmMy..g...',
+      'rrmmmmmMMMMMy.....',
+      '.r.mmmMMymMMMM..y.',
+      '....MMMg.MmmMMM...',
+      '.......y..MmmmMMM.',
+      '.....g.....MmymMM.',
+      '...........MMmmMD.',
+      '.........y..MDmMD.',
+      '.............DMMDD',
+    ],
+  },
 };

@@ -130,4 +130,20 @@ module.exports = {
       '....WVV............',
     ],
   },
+  'docked-whale-shark': {
+    palette: { H: '#3f6b7f', d: '#264653', D: '#1b2f38', w: '#e9f5f9', k: '#2b2d42', r: '#e76f51', R: '#b5452c', o: '#f4a261', O: '#c47a3a', b: '#4ea8de', B: '#277da1' },
+    pixels: [
+      '.....rrrRooooO......',
+      '.....rRrRoOoOO......',
+      '....rrrRRooooOO.....',
+      '..HHddddddddddddd...',
+      '.HdwdddwdddwddddddD.',
+      'HdkkddwdddwdddwdddDD',
+      'HdkddddddwddddddwdDD',
+      'wwwwwwddwddddwdddDD.',
+      '.wwwwwwwwwwwwwwDDD..',
+      '..DDD....DDD...D....',
+      'bbBbbbbBbbbbBbbbbBbb',
+    ],
+  },
 };
