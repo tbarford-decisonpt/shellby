@@ -50,7 +50,7 @@ api.onSkin(msg => {
   px = msg.px;
   outfit = msg.outfit || outfit;
   document.documentElement.style.setProperty('--px', `${px}px`);
-  document.documentElement.style.setProperty('--self-w', `${22 * px + 72}px`);
+  document.documentElement.style.setProperty('--self-w', `${22 * px + 120}px`);
   drawSelf();
   for (const el of helpers.values()) el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, helperHats.get(el)));
   // Equipped effect (snow, bats, ...) plays around Shellby in flights now and then (effects.js FLIGHT); burst effects wait for a finished task.
