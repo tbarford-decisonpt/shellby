@@ -7,6 +7,7 @@ const path = require('path');
 const corrections = require('../corrections');
 const correctionDraft = require('../correction-draft');
 const learnedRules = require('../learned-rules');
+const denyRules = require('../deny-rules');
 const gitinfo = require('../gitinfo');
 
 const MAX_WAITING = 20;
@@ -118,7 +119,7 @@ function wireCorrections(d) {
   function lessonPreview(id, rule) {
     const o = corrections.offerOf(store(), id);
     if (!o) return { ok: false, error: 'Shellby has forgotten that one.' };
-    const r = learnedRules.preview(o.root, rule);
+    const r = o.type === 'deny-rule' ? denyRules.preview(denyRules.fileFor(o.scope, o.root), rule) : learnedRules.preview(o.root, rule);
     return r.ok ? { ...r, where: shortFile(r.file) } : r;
   }
 
@@ -126,7 +127,7 @@ function wireCorrections(d) {
     const o = corrections.offerOf(store(), id);
     if (!o) return { ok: false, error: 'Shellby has forgotten that one.' };
     if (o.state !== 'open') return { ok: false, state: o.state, error: o.state === 'added' ? 'Already added.' : 'You said not this one.' };
-    const r = learnedRules.add(o.root, rule, added);
+    const r = o.type === 'deny-rule' ? denyRules.add(denyRules.fileFor(o.scope, o.root), rule, added) : learnedRules.add(o.root, rule, added);
     if (!r.ok) return r.preview ? { ...r, preview: { ...r.preview, where: shortFile(r.preview.file) } } : r;
     save(corrections.resolve(store(), id, 'added'));
     // He picked something up: the same little beat as a trick he taught himself.
@@ -145,6 +146,7 @@ function wireCorrections(d) {
   async function draftLesson(id) {
     const o = corrections.offerOf(store(), id);
     if (!o) return { ok: false, error: 'Shellby has forgotten that one.' };
+    if (o.type === 'deny-rule') return { ok: false, error: 'A permission rule has its own form. Edit it by hand.' };
     if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, error: 'Wording it with Claude needs Claude Code set up and signed in, in Settings.' };
     if (drafting) return { ok: false, error: 'Claude is already wording one. Give it a moment.' };
     drafting = true;

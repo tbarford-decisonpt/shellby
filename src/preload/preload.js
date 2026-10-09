@@ -153,6 +153,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // history
   listSessions: invoke('session:list'),
   openSession: invoke('session:open'),
+  searchSessions: invoke('session:search'), // inside the messages: { query, project, pc, from, to } (history-search.js)
   deleteSession: invoke('session:delete'),
   listTrash: invoke('session:trash'),
   restoreSession: invoke('session:restore'),

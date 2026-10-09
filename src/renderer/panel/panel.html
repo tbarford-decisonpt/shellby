@@ -1230,6 +1230,21 @@
       <button type="button" role="tab" data-filter="all" aria-selected="false">All <span class="n"></span></button>
     </div>
     <ul class="history-list" id="historyList"></ul>
+    <!-- Inside the messages (history-search.js): shown once the search box has something in it. -->
+    <section class="history-found" id="historyFound" aria-labelledby="historyFoundHead" hidden>
+      <h3 class="history-found-head" id="historyFoundHead">In messages</h3>
+      <div class="history-found-filters">
+        <select class="field" id="historyFoundProject" aria-label="Project"><option value="">Every project</option></select>
+        <select class="field" id="historyFoundPc" aria-label="Computer"><option value="*">Every PC</option><option value="">This PC</option></select>
+        <select class="field" id="historyFoundWhen" aria-label="When">
+          <option value="">Any time</option>
+          <option value="7">Past week</option>
+          <option value="30">Past month</option>
+          <option value="365">Past year</option>
+        </select>
+      </div>
+      <ul class="history-list history-found-list" id="historyFoundList" aria-live="polite"></ul>
+    </section>
     <!-- One quiet row under the list: the way into the bin, where it's kept, and the way to wipe it. -->
     <footer class="history-foot">
       <button type="button" class="btn ghost history-bin-open" id="historyBinOpen" hidden>Recently deleted <span class="n"></span></button>

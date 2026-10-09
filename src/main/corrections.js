@@ -8,7 +8,10 @@
 // (shared words, the same command denied, the same folder undone), which
 // patterns were already offered or turned down, and the rule's plain wording.
 // The store lives in settings (`corrections`), capped and pruned like weekly.js.
+// Said no to the same thing DENY_RULE_REPEATS times, he offers a permission
+// deny rule instead (deny-rules.js), so Claude Code stops asking at all.
 // See test/corrections.test.js.
+const denyRules = require('./deny-rules');
 
 const DAY = 864e5;
 const KEEP_DAYS = 60;          // older corrections don't count towards a pattern
@@ -171,6 +174,7 @@ function cleanOffer(o, now) {
     count: Number.isInteger(o.count) ? o.count : REPEATS, quote: oneLine(o.quote, 200), label: oneLine(o.label, 200),
     what: oneLine(o.what, 20), rule: oneLine(o.rule, MAX_RULE), evidence: Array.isArray(o.evidence) ? o.evidence.filter(isStr).slice(0, 6).map(t => oneLine(t, 300)) : [],
     state: o.state, at, ...(Number.isFinite(o.doneAt) ? { doneAt: o.doneAt } : {}),
+    ...(o.type === 'deny-rule' ? { perm: oneLine(o.perm, 500), scope: o.scope === 'user' ? 'user' : 'local' } : {}),
   };
 }
 
@@ -276,7 +280,8 @@ function detect(events, latest, now = Date.now()) {
  */
 function blocked(offers, root, p, now = Date.now()) {
   return offers.some(o => {
-    if (!sameRoot(o.root, root) || o.type !== p.type) return false;
+    // A deny rule can cover every project, so an answer in one counts everywhere.
+    if (o.type !== p.type || (p.type !== 'deny-rule' && !sameRoot(o.root, root))) return false;
     const same = p.type === 'comment' ? alike(new Set(o.tokens), new Set(p.tokens)) || o.key === p.key : o.key === p.key;
     if (!same) return false;
     return o.state !== 'open' || now - o.at < OPEN_QUIET_DAYS * DAY;
@@ -296,6 +301,7 @@ const sentence = t => {
 
 /** The rule in your own words (or the plain one for a deny or an undo): never needs Claude. */
 function fallbackRule(p) {
+  if (p.type === 'deny-rule') return p.perm;
   if (p.type === 'comment') return sentence(p.quote);
   if (p.type === 'deny') {
     if (p.what === 'command') return `Don't run ${code(p.label)} yourself: leave it to me, or ask first.`;
@@ -312,6 +318,10 @@ function fallbackRule(p) {
 /** What the card says, before the rule itself. */
 function headline(p, project) {
   const where = project ? ` in ${project}` : '';
+  if (p.type === 'deny-rule') {
+    const scope = p.scope === 'user' ? ' across your projects' : where;
+    return `You've said no to ${code(p.label)} ${times(p.count)}${scope}. Block it, so Claude stops asking?`;
+  }
   if (p.type === 'comment') return `You've asked for this ${times(p.count)}${where}: "${p.quote}"`;
   if (p.type === 'deny') return `You've said no to ${code(p.label)} ${times(p.count)}${where}.`;
   return p.what === 'file'
@@ -336,7 +346,9 @@ function record(store, event, { now = Date.now(), id } = {}) {
   const e = cleanEvent({ ...event, at: now }, now);
   if (!e) return { store: s, offer: null };
   const events = prune([...s.events, e]);
-  const p = detect(events, e, now);
+  // The deny rule, once it's earned, comes before the CLAUDE.md rule for the same nos.
+  const strong = denyRules.detect(events, e, now);
+  const p = strong && !blocked(s.offers, e.root, strong, now) ? strong : detect(events, e, now);
   if (!p || blocked(s.offers, e.root, p, now)) return { store: { ...s, events }, offer: null };
   const offer = {
     id: id || `${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`,
@@ -359,7 +371,7 @@ const offerOf = (store, id) => (isStr(id) ? normalize(store).offers.find(o => o.
 function learnedRoots(store) {
   const seen = new Map();
   for (const o of [...normalize(store).offers].sort((a, b) => (b.doneAt || b.at) - (a.doneAt || a.at))) {
-    if (o.state === 'added' && !seen.has(rootKey(o.root))) seen.set(rootKey(o.root), { root: o.root, project: o.project });
+    if (o.state === 'added' && o.type !== 'deny-rule' && !seen.has(rootKey(o.root))) seen.set(rootKey(o.root), { root: o.root, project: o.project });
   }
   return [...seen.values()];
 }

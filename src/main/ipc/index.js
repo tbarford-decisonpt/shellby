@@ -10,6 +10,7 @@ const { run: runCli } = require('../claude/cli');
 const claudeSetup = require('../claude/setup');
 const confirm = require('../confirm');
 const editor = require('../editor');
+const { HistorySearch } = require('../history-search');
 const { guardIpc, windowPolicy } = require('../ipc-guard');
 const { createLean } = require('../lean');
 const { createModsService } = require('../mods-service');
@@ -142,6 +143,7 @@ function registerIpc(electronIpcMain, d) {
   // ---- history (ipc/history.js)
   registerHistoryIpc(ipcMain, {
     history: d.history, manager: d.manager, openTab: d.openTab, log,
+    search: new HistorySearch(d.history, { onError: (what, err) => log.warn(`history search: ${what}`, err.message) }),
     isPoppedOut: id => d.isPoppedOut(id), showPopout: id => d.showPopout(id),
     onCleared: () => d.usagePlan.clear(), // what each turn cost goes with the conversations
     confirmClear: async (count, openCount) => {
