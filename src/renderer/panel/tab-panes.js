@@ -173,17 +173,23 @@
     }
   }
 
+  // Its name for a screen reader is what it shows: the draft, the mark and the
+  // queue. The title says what it's for.
   function standIn(id) {
     return h('button', {
       class: 'pane-standin', type: 'button', dataset: { tab: id },
-      'aria-label': 'Type here to give this conversation a task',
+      title: 'Type here to give this conversation a task',
       // The #feeds pointerdown below hands this pane the box and focuses it;
       // the press that follows would land on whatever is under the pointer once
       // the box has moved, and take the focus off it. Cancelling the pointerdown
-      // keeps that press from happening.
-      onpointerdown: e => e.preventDefault(),
+      // keeps that press from happening, and with it the press that closes an
+      // open menu (core.js), so that's done here.
+      onpointerdown: e => { SB.closeMenus(); e.preventDefault(); },
+      // Enter or Space on it. After a pointer press the box has already moved in.
+      onclick: () => SB.activate(id),
       onkeydown: e => {
-        if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return;
+        // AltGr comes as Ctrl+Alt, and types @, { or \ on many keyboards.
+        if (e.key.length !== 1 || e.metaKey || ((e.ctrlKey || e.altKey) && !e.getModifierState('AltGraph'))) return;
         e.preventDefault();
         SB.activate(id);
         input.setRangeText(e.key, input.selectionStart, input.selectionEnd, 'end');
@@ -356,11 +362,24 @@
     if (SB.solo && tab) document.title = $('winTitle').textContent = SB.shownTitle(tab);
   };
 
-  // Clicking into a pane makes it the one the box talks to.
+  // Clicking into a pane makes it the one the box talks to: on the press, so
+  // the box is there to type in by the time it's let go. Not for a button or
+  // link in a feed (Allow on a permission card, an answer): the box moving in
+  // can scroll a feed kept at its end up under the pointer before it's let go,
+  // and the click would miss. Those focus their pane as they're clicked.
+  const FEED_CONTROL = '.feed :is(button, a[href], input, select, textarea, summary, label, [role="button"], [role="menuitem"], [role="option"])';
+  const paneTo = e => {
+    const id = e.target.closest?.('[data-tab]')?.dataset.tab;
+    return id && id !== state.activeTab && state.tabs.has(id) ? id : null;
+  };
   $('feeds').addEventListener('pointerdown', e => {
-    const id = e.target.closest('[data-tab]')?.dataset.tab;
-    if (id && id !== state.activeTab && state.tabs.has(id)) SB.activate(id);
+    const id = paneTo(e);
+    if (id && !e.target.closest(FEED_CONTROL)) SB.activate(id);
   });
+  $('feeds').addEventListener('click', e => {
+    const id = paneTo(e);
+    if (id && e.target.closest(FEED_CONTROL)) SB.activate(id);
+  }, true);
 
   // Drop `tabId` on `target`'s pane (`zone`: see panes.place) and focus it
   // there, growing the window first if the panes need it. -> placed?
@@ -416,8 +435,10 @@
       return SB.toast(P.ids(state.grid).length >= P.MAX_COLS * P.MAX_ROWS ? 'Twelve is as many as there are. Close a pane first.' : NO_ROOM);
     }
     let next = [...state.tabs.keys()].reverse().find(id => !SB.isShown(id));
-    if (!next) next = (await SB.newTab({ focus: false, reuse: false }))?.id;
-    if (next) await SB.placeTab(next, side || below, side ? 'right' : 'bottom');
+    const fresh = !next;
+    if (fresh) next = (await SB.newTab({ focus: false, reuse: false }))?.id;
+    // Refused after all (the room went while the window grew): a tab made for it goes again.
+    if (next && !(await SB.placeTab(next, side || below, side ? 'right' : 'bottom')) && fresh) SB.closeTab(next);
   };
 
   // Ctrl+Alt+arrow: this conversation swaps with the pane that way, or at the
