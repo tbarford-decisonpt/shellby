@@ -1,0 +1,66 @@
+// Portraits for the sea-glass finds (see index.js).
+
+module.exports = {
+  'sea-glass-green': {
+    palette: { W: '#f4fffb', F: '#a8e6c8', H: '#c8f3e8', L: '#86dcb2', M: '#57cc99', D: '#36a582', S: '#237a6c' },
+    pixels: [
+      '...FFFFFFM....',
+      '..FHHFLMMMMD..',
+      '.FHWFMMMMMMMD.',
+      '.FFMMMDDMMMMMD',
+      'FFMMDDMMMMLMMD',
+      'FMMMMMMMMLLLMD',
+      'FMMMMMMMLLHLMD',
+      '.DMMMMMMMLLMDS',
+      '..DDDMMMMMDDS.',
+      '....SSSSSSS...',
+    ],
+  },
+  'sea-glass-blue': {
+    palette: { W: '#f5fbff', F: '#9fd0f0', H: '#cdeafe', L: '#7ec0ec', M: '#4ea8de', D: '#3184c2', S: '#22609e' },
+    pixels: [
+      '.........FFL.',
+      '.......FFHLMD',
+      '.....FFHHLMMD',
+      '....FHWFMMMMD',
+      '...FHFMMMMMMD',
+      '..FFMMMMMLLMD',
+      '.FFMMMMMLLHMD',
+      'FFMMMMMMLLLMD',
+      'FMMMMMMMMMMDS',
+      '.DDMMMMMMDDS.',
+      '...SSSSSSS...',
+    ],
+  },
+  'sea-glass-amber': {
+    palette: { W: '#fffaf0', F: '#f4cf8a', H: '#fde6b8', G: '#fbcd6c', M: '#e9a23b', D: '#c67c20', S: '#985514' },
+    pixels: [
+      '..FFFFFFFM...',
+      '.FHHFFMMMMD..',
+      'FHWFMMMMMMMD.',
+      'FFMMMMGGMMMMD',
+      'FMMMMGGHGMMMD',
+      'FMMMMGHHGMMDS',
+      '.MMMMMGGMMMDS',
+      '.DMMMMMMMMDS.',
+      '..DDDDMMDDS..',
+      '.....SSSS....',
+    ],
+  },
+  'sea-glass-red': {
+    palette: { W: '#fff4f6', F: '#f59aa3', H: '#ffccd5', L: '#f27783', M: '#e63946', D: '#c4283f', S: '#8f1c38' },
+    pixels: [
+      '...FFF..FL...',
+      '..FHHHFFLMM..',
+      '.FHWHHLMMMMD.',
+      'FLHHLMMMMMMMD',
+      'FLLMMMMMMMMMD',
+      'FLMMMMMMMLLMD',
+      'FMMMMMMMLLHMD',
+      '.MMMMMMLLHWLD',
+      '.DMMMMMMLLMDS',
+      '..DDMMMMMDDS.',
+      '....SSSSSS...',
+    ],
+  },
+};

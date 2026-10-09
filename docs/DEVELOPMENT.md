@@ -374,6 +374,8 @@ src/main/        Electron main process
                    wiring/events.js counts every stat toward them, says when one starts or ends, and gives the medal (docs/plans/viral.md)
   today.js         the app's one calendar: captureClock for screenshots, SHELLBY_TODAY for dev and test runs, the real day otherwise
   board.js         the friends' board (pure): you and friends who share their Bugdex, ranked by this month's catches
+  gifts.js         finds from digging (pure): rarities, sets, sparkly ones, the shelf; gifts/portraits/ holds the big
+                   drawings, one file per set (scripts/finds-sheet.js draws them to a PNG); life.js does the digging
   swaps.js         swapping finds with friends (pure): offers, answers and call-offs as letters on calling cards (github/mail.js)
   eggs.js          crab eggs (pure): laying, the hash on your card, hatching, the baby both crabs get; wiring/social.js ties both in
   crab-line.js     the crab in a line (pure): the PR badge's text and the bring-home commit trailer
