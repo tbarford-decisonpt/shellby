@@ -376,9 +376,14 @@
     const id = paneTo(e);
     if (id && !e.target.closest(FEED_CONTROL)) SB.activate(id);
   });
+  // A field there that the press put the keyboard in (an answer of your own, a
+  // note on a plan) keeps it: activating hands it to the box otherwise.
   $('feeds').addEventListener('click', e => {
     const id = paneTo(e);
-    if (id && e.target.closest(FEED_CONTROL)) SB.activate(id);
+    if (!id || !e.target.closest(FEED_CONTROL)) return;
+    const field = document.activeElement;
+    SB.activate(id);
+    if (field !== document.activeElement && field?.isConnected && field.closest('.feed') && field.matches('input, textarea, select, [contenteditable]')) field.focus({ preventScroll: true });
   }, true);
 
   // Drop `tabId` on `target`'s pane (`zone`: see panes.place) and focus it

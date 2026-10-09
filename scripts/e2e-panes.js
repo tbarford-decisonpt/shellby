@@ -409,6 +409,27 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     if (!allowed) await ev(`[...SB.state.tabs.get('${B}').el.querySelectorAll('.btn.allow')].pop()?.click()`); // let the turn end
     await until(`!SB.state.tabs.get('${B}').busy`);
 
+    // ...and a text field there keeps the keyboard: an answer of your own,
+    // clicked in B's pane while D has the focus, gets what's typed next.
+    await ev(`document.getElementById('input').value = ''; SB.send('ask')`);
+    check(await until(`!!SB.state.tabs.get('${B}').el.querySelector('.qa-other')`), 'B asks a question');
+    await ev(`SB.activate('${D}')`);
+    await wait(300);
+    await ev(`SB.state.tabs.get('${B}').scrollToEnd()`);
+    await wait(300);
+    const otherAt = await ev(`(() => { const r = [...SB.state.tabs.get('${B}').el.querySelectorAll('.qa-other')].pop().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: otherAt.x, y: otherAt.y, button: 'left', buttons: 1, clickCount: 1 });
+    await wait(120);
+    await panel.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: otherAt.x, y: otherAt.y, button: 'left', buttons: 0, clickCount: 1 });
+    await wait(200);
+    for (const type of ['keyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key: 'x', code: 'KeyX', windowsVirtualKeyCode: 88, ...(type === 'keyDown' ? { text: 'x' } : {}) });
+    await wait(150);
+    const typedIn = await ev(`({ active: SB.state.activeTab === '${B}', field: [...SB.state.tabs.get('${B}').el.querySelectorAll('.qa-other')].pop().value, box: document.getElementById('input').value, focus: document.activeElement.className || document.activeElement.id })`);
+    check(typedIn.active, 'clicking the answer field in B\'s pane focuses B');
+    check(typedIn.field === 'x' && typedIn.box === '', `and what's typed goes into the answer field, not the message box (${JSON.stringify(typedIn)})`);
+    await ev(`document.getElementById('input').value = ''; [...SB.state.tabs.get('${B}').el.querySelectorAll('.ask .btn.ghost')].pop()?.click()`); // Skip: the turn ends
+    await until(`!SB.state.tabs.get('${B}').busy`);
+
     // ---- A stand-in from the keyboard: Enter hands it the box, and its
     // accessible name is what it shows (the draft), not a fixed label.
     await ev(`SB.activate('${D}'); SB.state.tabs.get('${C}').draft = 'C waits'; SB.renderTabStrip()`);

@@ -156,10 +156,13 @@ Details:
 - Pressing a stand-in, or typing on it, hands its pane the box. Enter and
   Space do too, and AltGr characters (`@`, `{`, `\` on many keyboards)
   type. A stand-in's name for a screen reader is what it shows.
-- A press anywhere in an unfocused pane focuses it, except on a button or
-  link in its feed (Allow on a permission card, an answer). Those focus the
-  pane as they're clicked, because the box moving in can scroll the feed
-  under the pointer before it's let go.
+- A press anywhere in an unfocused pane focuses it, except on a control in
+  its feed: a button, link, text field, drop-down, label, summary, menu item
+  or option (Allow on a permission card, an answer, a typed answer of your
+  own). Those focus the pane as they're clicked, because the box moving in
+  can scroll the feed under the pointer before it's let go. A text field
+  clicked that way keeps the keyboard, so what's typed next goes into it and
+  not into the box.
 - The stand-ins update when a draft, queue or busy state changes:
   `refreshPaneHeads` already runs on every strip redraw and also refreshes them.
 - The placeholder hint `Give "<title>" a task…` stays while split.
