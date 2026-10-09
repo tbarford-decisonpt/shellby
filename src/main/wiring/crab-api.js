@@ -141,9 +141,17 @@ function wireCrabApi(d) {
    */
   async function crabTool(tab, name, args) {
     if (name === 'suggest') return suggestCard(tab, args);
+    if (name === 'note') return noteFrom(tab, args);
     if (!['say', 'celebrate', 'wear', 'status'].includes(name)) return { text: `Unknown tool: ${name}`, isError: true };
     const r = applyCrabIntent({ action: name, args });
     return r.ok === false ? { text: r.error, isError: true } : { text: r.text };
+  }
+
+  /** `note`: onto the Notes list for the project this conversation is in (wiring/notes.js addNoteFrom). */
+  async function noteFrom(tab, args) {
+    if (typeof args?.text !== 'string' || !args.text.trim()) return { text: 'A note needs some text.', isError: true };
+    const r = await d.addNoteFrom(tab.worktree?.originalCwd || tab.session.cwd, args.text);
+    return r.ok ? { text: `Noted on the ${r.list} list in Shellby's Notes.` } : { text: r.error, isError: true };
   }
 
   async function suggestCard(tab, args) {

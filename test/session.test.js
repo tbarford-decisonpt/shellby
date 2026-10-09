@@ -499,7 +499,7 @@ test('the note and the crab tools reach the CLI, and tool calls are answered in-
 
   s.send('mcp tools');
   await waitFor(s, i => i.kind === 'result' && texts(items).length === 2);
-  assert.equal(texts(items)[1], 'tools: say,celebrate,wear,status,suggest');
+  assert.equal(texts(items)[1], 'tools: say,celebrate,wear,status,note,suggest');
 
   s.send('mcp say {"text":"all green"}');
   await waitFor(s, i => i.kind === 'result' && texts(items).length === 3);

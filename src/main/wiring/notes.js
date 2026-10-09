@@ -53,7 +53,37 @@ function wireNotes(d) {
     return p ? { name: p.name, root: p.root } : null;
   }
 
-  return { knownNoteProject, notesView, saveNotes };
+  /** A project's open notes, for its Next up list (wiring/backlog.js): [{ id, text, scope, from }]. */
+  function openNotesFor(root) {
+    if (typeof root !== 'string' || !root) return [];
+    const want = foldPath(path.resolve(root));
+    const s = notes.normalize(d.config.get('notes'));
+    const hit = Object.entries(s.projects).find(([key, p]) => key === want || foldPath(path.resolve(p.root)) === want);
+    return hit ? hit[1].notes.filter(n => !n.done).map(n => ({ id: n.id, text: n.text, scope: hit[0], from: n.from })) : [];
+  }
+
+  /** A turn ended: if it was a note's Ask, its verdict goes on the note (timetrack.js onResult). */
+  async function notesTurnEnded(tabId, reply) {
+    const before = notes.normalize(d.config.get('notes'));
+    const next = notes.markVerdict(before, tabId, reply);
+    if (JSON.stringify(next) !== JSON.stringify(before)) await saveNotes(next);
+  }
+
+  /**
+   * A note from a conversation (the crab's `note` tool, crab-api.js): onto the
+   * list for the project that conversation is in, else General.
+   * -> { ok, list } | { ok: false, error }
+   */
+  async function addNoteFrom(cwd, text) {
+    const here = await noteProjectOf(cwd);
+    const scope = here ? here.key : notes.GENERAL;
+    const r = notes.add(d.config.get('notes'), scope, text, { id: d.randomUUID(), now: Date.now(), project: here || undefined, from: 'claude' });
+    if (r.error) return { ok: false, error: r.error };
+    await saveNotes(r.state);
+    return { ok: true, list: here ? here.name : 'General' };
+  }
+
+  return { knownNoteProject, notesView, saveNotes, openNotesFor, notesTurnEnded, addNoteFrom };
 }
 
 module.exports = { wireNotes };

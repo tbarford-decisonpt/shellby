@@ -433,3 +433,25 @@ test('to-dos kept in Shellby for a project with no clone follow your tasks, sayi
   assert.deepEqual(kept.note, { id: 't-abcd1234', from: 'claude' });
   assert.equal(r.items.find(i => i.id === 'n:t-abcd1235').reason, 'On your to-do list');
 });
+
+test('open notes from the Notes page follow your tasks, first line as the title', () => {
+  const r = run({
+    tasks: [task('From the file')],
+    ideas: [
+      { id: 'abc', text: 'Add a dark mode\nmatch the OS setting', scope: 'crab' },
+      { id: 'cla', text: 'Cache the parser', scope: 'crab', from: 'claude' },
+      { id: 'bad', text: '   ' }, { text: 'no id' }, null,
+    ],
+  });
+
+  const titles = r.items.filter(i => i.kind === 'task').map(i => i.title);
+  assert.deepEqual(titles, ['From the file', 'Add a dark mode', 'Cache the parser']);
+  const idea = r.items.find(i => i.id === 'idea:abc');
+  assert.equal(idea.reason, 'From your Notes');
+  assert.deepEqual(idea.idea, { id: 'abc', scope: 'crab', notes: ['match the OS setting'], from: 'you' });
+  assert.equal(idea.task, undefined, 'not a tasks.md task: no line to edit');
+  // One Claude put there says so.
+  const claude = r.items.find(i => i.id === 'idea:cla');
+  assert.equal(claude.reason, 'From Claude Code');
+  assert.equal(claude.idea.from, 'claude');
+});

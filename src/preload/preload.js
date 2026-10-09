@@ -742,6 +742,8 @@ contextBridge.exposeInMainWorld('shellby', {
   addNote: invoke('notes:add'),
   updateNote: invoke('notes:update'),
   deleteNote: invoke('notes:delete'),
+  clearDoneNotes: invoke('notes:clear-done'),
+  restoreNotes: invoke('notes:restore'), // Undo: what Delete or Clear done just took, back
   moveNote: invoke('notes:move'),
   runNote: invoke('notes:run'),
 

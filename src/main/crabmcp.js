@@ -16,6 +16,7 @@
 
 const { MOODS, MAX_TEXT, MAX_ITEM } = require('./crabtools');
 const { FEATURE_IDS, FOCUS_MINUTES } = require('./selfaware');
+const { MAX_TEXT: MAX_NOTE } = require('./notes');
 
 const SERVER = 'shellby';
 const VERSION = '1.0.0';
@@ -43,6 +44,11 @@ const CRAB_TOOLS = [
     name: 'status',
     description: "The crab's level and what he's doing, plus this PC's temperatures, memory and disk space if Health is on. Worth a look before a heavy build.",
     inputSchema: obj({}),
+  },
+  {
+    name: 'note',
+    description: "Put an idea on the user's Notes list for this project, to plan, build or ask about later. Only when they ask you to note something.",
+    inputSchema: obj({ text: { type: 'string', maxLength: MAX_NOTE } }, ['text']),
   },
 ];
 
