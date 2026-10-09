@@ -148,6 +148,8 @@ function createCopies(d) {
     const copy = !fs.existsSync(reported.root) && (history.get(tabId)?.copies || []).find(c => isStr(c?.path) && isStr(c?.root) && samePath(c.path, reported.root));
     return {
       tabId, root: copy ? copy.root : reported.root, before: reported.before, after: reported.after,
+      // Cut down to this conversation's own files (changes.scope): its diff and Undo stay inside them.
+      ...(reported.scoped && Array.isArray(reported.files) ? { paths: reported.files.map(f => f.path) } : {}),
       ...(copy ? { retired: true } : {}), ...(r.file != null ? { file: r.file, status: reported.files.find(f => f.path === r.file).status } : {}),
     };
   }
