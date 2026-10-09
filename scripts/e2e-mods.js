@@ -11,7 +11,7 @@
 //   - New mod checks the name, then opens a tab with the request in the box
 //   - a mod dropped into ~/.claude/skills is announced
 //   node scripts/e2e-mods.js [screenshot.png]   (also writes -confirm.png and -chat.png beside it)
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -41,6 +41,32 @@ function writeMod(home, name, description) {
     '',
   ].join('\n'));
   return dir;
+}
+
+/**
+ * Whether the real CLI will turn on a mod in ~/.claude/skills at all. An
+ * organization's managed settings can block them (strictKnownMarketplaces
+ * without skills-dir): then `claude plugin enable` refuses with
+ * local_plugin_dirs_blocked, on this PC, whatever Shellby does. Asked in a
+ * home of its own, so the run's home starts untouched. -> the CLI's message
+ * when blocked, else null.
+ */
+function skillsDirBlocked(claude) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-mods-probe-'));
+  try {
+    writeMod(home, MOD, 'Asks whether mods can be turned on here');
+    fs.writeFileSync(path.join(home, '.claude', 'settings.json'), JSON.stringify({ enabledPlugins: { [ID]: false } }));
+    const r = spawnSync(claude, ['plugin', 'enable', ID, '--scope', 'user', '--json'], {
+      env: { ...process.env, USERPROFILE: home, HOME: home }, encoding: 'utf8', timeout: 60000, windowsHide: true,
+      shell: /\.(cmd|bat)$/i.test(claude), // an npm install's shim
+    });
+    for (const line of String(r.stdout || '').split('\n')) {
+      try { const j = JSON.parse(line); if (j?.failureCode === 'local_plugin_dirs_blocked') return j.message || j.failureCode; } catch { /* not the result line */ }
+    }
+    return null;
+  } finally {
+    try { fs.rmSync(home, { recursive: true, force: true }); } catch { /* temp is cleaned later */ }
+  }
 }
 
 async function connect(wsUrl) {
@@ -83,6 +109,7 @@ async function target(suffix, tries = 40) {
   // the real one's folder goes first on its PATH, so that's the one it finds.
   const real = findClaude(process.env, '');
   if (!real) { console.log('SKIP  Claude Code is not installed here, and this run needs the real CLI'); return; }
+  const blocked = skillsDirBlocked(real);
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
     env: { ...process.env, PATH: `${path.dirname(real)}${path.delimiter}${process.env.PATH || ''}`, USERPROFILE: home, HOME: home, SHELLBY_USER_DATA: profile, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js') },
@@ -132,22 +159,29 @@ async function target(suffix, tries = 40) {
     }
     check(await until(`!${row}?.querySelector('.mod-switch')?.disabled`) && !(await ev(`SB.state.toolbox.mods.find(m => m.id === '${ID}').enabled`)), 'Cancel leaves it off');
 
-    // 3. Turn it on: the real CLI writes it into the home's settings.
-    dlg = await askOn();
-    if (dlg) {
-      await dlg.ev("[...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Turn it on').click()");
-      dlg.close();
-    }
-    check(await until(`SB.state.toolbox.mods.find(m => m.id === '${ID}')?.enabled === true`, 60000), 'Turn it on turns it on');
-    // On is a skills-dir mod's default, so Claude Code takes the false out rather than writing true.
-    check(settingsSay() !== false, "and Claude Code's settings no longer turn it off");
-    check(await until("document.activeElement?.classList.contains('mod-switch')", 5000), 'the keyboard stays on the switch');
+    // 3 and 4 need Claude Code to agree. Where managed settings block mods in
+    // ~/.claude/skills it never does, and 4 would pass without doing anything
+    // (the mod is still off), so both are skipped, saying why.
+    if (blocked) {
+      console.log(`SKIP  Turn it on / Turn it off: Claude Code here refuses mods in ~/.claude/skills (${blocked})`);
+    } else {
+      // 3. Turn it on: the real CLI writes it into the home's settings.
+      dlg = await askOn();
+      if (dlg) {
+        await dlg.ev("[...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Turn it on').click()");
+        dlg.close();
+      }
+      check(await until(`SB.state.toolbox.mods.find(m => m.id === '${ID}')?.enabled === true`, 60000), 'Turn it on turns it on');
+      // On is a skills-dir mod's default, so Claude Code takes the false out rather than writing true.
+      check(settingsSay() !== false, "and Claude Code's settings no longer turn it off");
+      check(await until("document.activeElement?.classList.contains('mod-switch')", 5000), 'the keyboard stays on the switch');
 
-    // 4. Turn off doesn't ask.
-    await ev(`${row}.querySelector('.mod-switch').click()`);
-    check(await until(`SB.state.toolbox.mods.find(m => m.id === '${ID}')?.enabled === false`, 60000), 'Turn off turns it off');
-    check(!(await targets()).some(t => t.url.endsWith('dialog.html')), 'without asking');
-    check(settingsSay() === false, "and Claude Code's settings say so");
+      // 4. Turn off doesn't ask.
+      await ev(`${row}.querySelector('.mod-switch').click()`);
+      check(await until(`SB.state.toolbox.mods.find(m => m.id === '${ID}')?.enabled === false`, 60000), 'Turn off turns it off');
+      check(!(await targets()).some(t => t.url.endsWith('dialog.html')), 'without asking');
+      check(settingsSay() === false, "and Claude Code's settings say so");
+    }
 
     // 5. In a conversation: its log line in the feed, its status line under the box, its command in the / menu.
     await ev("SB.setView('chat'); SB.send('mod')");
