@@ -81,9 +81,69 @@ test('visible sorts by name without minding case', () => {
   assert.deepEqual(names(L.visible(PROJECTS, { q: '', scope: 'all', sort: 'name', running: notRunning })), ['alpha', 'Beta', 'remote', 'zeta']);
 });
 
-test('visible shows only what needs you, most first, and running ones too', () => {
+test('the needs-you scope shows only what needs you, most first, and running ones too', () => {
   const running = p => p.name === 'alpha';
-  assert.deepEqual(names(L.visible(PROJECTS, { q: '', scope: 'all', sort: 'attention', running })), ['Beta', 'zeta', 'alpha']);
+  assert.deepEqual(names(L.visible(PROJECTS, { q: '', scope: 'attention', sort: 'recent', running })), ['Beta', 'zeta', 'alpha']);
+});
+
+test('the needs-you scope keeps A–Z when you ask for it', () => {
+  assert.deepEqual(names(L.visible(PROJECTS, { q: '', scope: 'attention', sort: 'name', running: notRunning })), ['Beta', 'zeta']);
+});
+
+test('searching in the needs-you scope finds by name, needed or not', () => {
+  assert.deepEqual(names(L.visible(PROJECTS, { q: 'alp', scope: 'attention', sort: 'recent', running: notRunning })), ['alpha']);
+});
+
+test('pinned projects come first in every order, in the order they had', () => {
+  const pinned = new Set(['k-remote', 'k-alpha']);
+  const keyed = PROJECTS.map(p => ({ ...p, key: `k-${p.name}` }));
+  assert.deepEqual(names(L.visible(keyed, { q: '', scope: 'all', sort: 'recent', running: notRunning, pinned })), ['alpha', 'remote', 'zeta', 'Beta']);
+  assert.deepEqual(names(L.visible(keyed, { q: '', scope: 'all', sort: 'name', running: notRunning, pinned })), ['alpha', 'remote', 'Beta', 'zeta']);
+});
+
+test('a pinned archived repo stays on the list', () => {
+  const keyed = PROJECTS.map(p => ({ ...p, key: `k-${p.name}` }));
+  assert.ok(names(L.visible(keyed, { q: '', scope: 'all', sort: 'recent', running: notRunning, pinned: new Set(['k-old']) })).includes('old'));
+});
+
+test('togglePin adds a key at the end and takes it off again, leaving the input alone', () => {
+  const pins = ['a'];
+  assert.deepEqual(L.togglePin(pins, 'b'), ['a', 'b']);
+  assert.deepEqual(L.togglePin(['a', 'b'], 'a'), ['b']);
+  assert.deepEqual(pins, ['a']);
+});
+
+test('readView keeps a known sort and scope and drops anything else', () => {
+  assert.deepEqual(L.readView({ sort: 'name', scope: 'running' }), { sort: 'name', scope: 'running' });
+  assert.deepEqual(L.readView({ sort: 'attention', scope: 'nope' }), { sort: 'recent', scope: 'all' });
+  assert.deepEqual(L.readView({ sort: 'toString', scope: null }), { sort: 'recent', scope: 'all' });
+  assert.deepEqual(L.readView(), { sort: 'recent', scope: 'all' });
+});
+
+test('needsList puts what is broken first, each with where it is dealt with', () => {
+  const p = { insights: { reasons: [
+    { id: 'outdated', count: 4 }, { id: 'unpushed', count: 2 }, { id: 'ci', count: 1 },
+    { id: 'vuln', count: 3, worst: 'high' }, { id: 'flaky', count: 1 },
+  ] } };
+  const list = L.needsList(p, { crashed: 1, dirty: 5 });
+  assert.deepEqual(list.map(n => [n.id, n.tone, n.go]), [
+    ['down', 'bad', 'servers'], ['ci', 'bad', 'health'], ['vuln', 'bad', 'health'],
+    ['local', 'warn', 'tidy'], ['flaky', 'warn', 'health'], ['outdated', 'info', 'health'],
+  ]);
+  assert.equal(list[0].text, '1 dev server down');
+  assert.equal(list[2].text, '3 vulnerabilities (worst: high)');
+  assert.equal(list[3].text, 'Only on this PC: 2 unpushed commits, 5 uncommitted changes');
+});
+
+test('needsList words single things and low-risk vulnerabilities properly', () => {
+  const list = L.needsList({ insights: { reasons: [{ id: 'ci', count: 2 }, { id: 'vuln', count: 1, worst: 'unrated' }] } }, { dirty: 1 });
+  assert.deepEqual(list.map(n => n.text), ['2 pull requests failing checks', '1 vulnerability', 'Only on this PC: 1 uncommitted change']);
+  assert.equal(list[1].tone, 'warn');
+});
+
+test('needsList is empty for a calm project', () => {
+  assert.deepEqual(L.needsList({}), []);
+  assert.deepEqual(L.needsList({ insights: { reasons: [] } }, { crashed: 0, dirty: 0 }), []);
 });
 
 test('visible scopes to this PC, GitHub only, or running', () => {
@@ -95,8 +155,9 @@ test('visible scopes to this PC, GitHub only, or running', () => {
 test('emptyText explains an empty list by why it is empty', () => {
   assert.match(L.emptyText({ none: true, scope: 'running' }), /^No projects yet/);
   assert.equal(L.emptyText({ none: false, scope: 'running' }), 'Nothing running right now.');
-  assert.match(L.emptyText({ none: false, scope: 'all', sort: 'attention', q: '' }), /^Nothing needs you/);
-  assert.equal(L.emptyText({ none: false, scope: 'all', sort: 'attention', q: 'x' }), 'Nothing matches.');
+  assert.match(L.emptyText({ none: false, scope: 'attention', q: '' }), /^Nothing needs you/);
+  assert.equal(L.emptyText({ none: false, scope: 'attention', q: 'x' }), 'Nothing matches.');
+  assert.equal(L.emptyText({ none: false, scope: 'running', q: 'x' }), 'Nothing matches.');
 });
 
 test('cloneFacts sums up the branch and git, and flags work only on this PC', () => {

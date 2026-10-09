@@ -1,9 +1,10 @@
 /* Shellby panel — Projects: your repositories (on this PC and on GitHub), what
    Shellby knows about each (project-facts.js), and the dev servers in them
    (src/main/projects/, src/main/devservers/). Main works everything out; this
-   draws it and sends back what you click. This file holds the list and a
-   project's page; a clone's dev servers are projects-servers.js, adding,
-   scanning and cloning projects-add.js, and the decisions projects-logic.js.
+   draws it and sends back what you click. This file holds the list and moves
+   between it and a project's page (project-page.js); a clone's dev servers are
+   projects-servers.js, adding, scanning and cloning projects-add.js, and the
+   decisions projects-logic.js.
 
    Nothing goes to Claude from here without the approval sheet on a crashed
    server's card: it shows the exact prompt, and only its Send button sends.
@@ -16,12 +17,19 @@
 
   const L = window.ShellbyProjectsLogic;
 
+  // The order, the scope and your pins outlast a restart (this PC only).
+  const PREF = { sort: 'shellby.pj.sort', scope: 'shellby.pj.scope', pins: 'shellby.pj.pinned' };
+  const readPins = () => {
+    try { const v = JSON.parse(SB.pref(PREF.pins, '[]')); return Array.isArray(v) ? v.filter(k => typeof k === 'string') : []; } catch { return []; }
+  };
+
   let data = null;           // projects:list
   let servers = null;         // servers:get, kept live by servers:changed
-  let scope = 'all';          // all | local | running | github
-  let sort = 'recent';        // recent | attention | name
+  let { sort, scope } = L.readView({ sort: SB.pref(PREF.sort), scope: SB.pref(PREF.scope) });
+  let pins = readPins();
   let openKey = null;         // the project whose page is open
   let detail = null;          // projects:detail for it
+  let loadedAt = 0;           // when the list last came back, for "updated 4m ago"
 
   // ------------------------------------------------------------------ words
 
@@ -43,8 +51,9 @@
     const same = JSON.stringify(list) === shownList && JSON.stringify(srv) === JSON.stringify(servers);
     data = list;
     servers = srv || servers;
+    loadedAt = Date.now();
     renderQuit();
-    if (!same && $('pjMenu').hidden) { shownList = JSON.stringify(list); renderList(); }
+    if (!same && $('pjMenu').hidden) { shownList = JSON.stringify(list); renderList(); } else renderSummary();
     if (openKey) await openProject(openKey, { quiet: true });
   }
 
@@ -60,11 +69,11 @@
 
   const serversIn = root => (servers?.servers || []).filter(s => s.root.toLowerCase() === root.toLowerCase());
 
-  // Shared with projects-servers.js and projects-add.js, which add their parts
-  // to it as they load.
+  // Shared with project-page.js, projects-servers.js and projects-add.js, which
+  // add their parts to it as they load.
   const P = SB.pj = {
-    data: () => data, servers: () => servers, openKey: () => openKey,
-    serversIn, keptDetails, load, showScreen, renderAll,
+    data: () => data, servers: () => servers, openKey: () => openKey, detail: () => detail,
+    serversIn, keptDetails, load, showScreen, renderAll, openProject, closeProject, newHere, devAction,
     reloadServers: async () => { servers = await api.getServers(); renderAll(); },
   };
 
@@ -74,7 +83,7 @@
     if (!data) return;
     const q = $('pjSearch').value.trim().toLowerCase();
     const running = p => p.local.some(c => serversIn(c.root).some(isLive));
-    const ordered = L.visible(data.projects, { q, scope, sort, running });
+    const ordered = L.visible(data.projects, { q, scope, sort, running, pinned: new Set(pins) });
     SB.keepFocus($('pjProjects'), () => $('pjProjects').replaceChildren(...ordered.map(projectRow)));
     announceCount(ordered.length);
     renderSummary();
@@ -83,7 +92,7 @@
     empty.hidden = ordered.length > 0;
     $('pjEmptyActions').hidden = !none;
     $('pjAddRow').hidden = none;
-    $('pjEmptyText').textContent = L.emptyText({ none, scope, sort, q });
+    $('pjEmptyText').textContent = L.emptyText({ none, scope, q });
     renderGitHubNote();
   }
 
@@ -101,20 +110,28 @@
     }, 500);
   }
 
-  // "12 projects · 2 need you · 1 server up": the page's answer at a glance.
+  // "12 projects · 2 need you · 1 server up · updated 4m ago": the page's answer at a glance.
   function renderSummary() {
+    if (!data) return;
     const n = data.projects.filter(p => !p.github?.archived).length;
     const need = F.needsYou(data.projects);
     const up = (servers?.servers || []).filter(isLive).length;
     const down = (servers?.servers || []).filter(s => s.status === 'crashed').length;
-    $('pjSummary').replaceChildren(...[
+    // It redraws every half minute: keepFocus leaves you on "2 need you" if you were.
+    SB.keepFocus($('pjSummary'), () => $('pjSummary').replaceChildren(...[
       h('span', { text: plural(n, 'project') }),
-      need && h('button', { type: 'button', class: 'pj-sum-need', text: `${need} need${need === 1 ? 's' : ''} you`, onclick: () => setSort('attention') }),
+      need && h('button', { type: 'button', class: 'pj-sum-need', dataset: { keep: 'sum-need' }, text: `${need} need${need === 1 ? 's' : ''} you`, onclick: () => setScope('attention') }),
       down && h('span', { class: 'pj-sum-down', text: `${plural(down, 'server')} down` }),
       up && h('span', { text: `${plural(up, 'server')} up` }),
-    ].filter(Boolean).flatMap((el, i) => (i ? [h('span', { class: 'pj-sep', 'aria-hidden': 'true', text: '·' }), el] : [el])));
+      loadedAt && h('span', { class: 'pj-sum-when', title: 'When Shellby last read your projects. Refresh reads them again now.', text: `updated ${SB.relTime(loadedAt)}` }),
+    ].filter(Boolean).flatMap((el, i) => (i ? [h('span', { class: 'pj-sep', 'aria-hidden': 'true', text: '·' }), el] : [el]))));
     $('pjSummary').hidden = !data.projects.length;
   }
+  // "updated 4m ago" keeps up while you look at it.
+  const SUMMARY_TICK_MS = 30000;
+  setInterval(() => { if (state.view === 'projects' && !$('pjListScreen').hidden) renderSummary(); }, SUMMARY_TICK_MS);
+
+  const PIN_ICON = 'M6 2.5h4l-.5 4 2 2h-7l2-2zM8 8.5v5';
 
   function projectRow(p) {
     const mine = p.local.flatMap(c => serversIn(c.root));
@@ -123,17 +140,20 @@
     const where = p.local[0] ? SB.shortPath(p.local[0].root, 40) : 'Not on this PC';
     const chips = F.chipRow(p);
     const when = p.insights?.lastWorkedAt;
-    return h('li', { class: 'pj-item', oncontextmenu: e => { e.preventDefault(); openRowMenu(p, e.currentTarget.querySelector('.pj-row')); } },
-      h('button', { type: 'button', class: 'pj-row', dataset: { keep: `row:${p.key}` }, onclick: () => openProject(p.key), title: p.local[0]?.root || p.github?.repo || '' },
+    const pinned = pins.includes(p.key);
+    return h('li', { class: `pj-item${pinned ? ' pinned' : ''}`, oncontextmenu: e => { e.preventDefault(); openRowMenu(p, e.currentTarget.querySelector('.pj-row')); } },
+      h('button', { type: 'button', class: 'pj-row', dataset: { keep: `row:${p.key}`, key: p.key }, onclick: () => openProject(p.key), title: p.local[0]?.root || p.github?.repo || '' },
         F.tile(p),
         h('span', { class: 'pj-row-main' },
           h('span', { class: 'pj-row-name' },
+            pinned && h('span', { class: 'pj-pin', title: 'Pinned', 'aria-label': 'Pinned' }, SB.icon(PIN_ICON, { width: 1.4 })),
             h('b', { text: p.name }),
             p.github?.private && h('span', { class: 'pj-tag', text: 'private' }),
             p.github?.fork && h('span', { class: 'pj-tag', text: 'fork' }),
             p.github?.archived && h('span', { class: 'pj-tag', text: 'archived' }),
             p.local.length > 1 && h('span', { class: 'pj-tag', text: `${p.local.length} clones` })),
-          chips || h('span', { class: `pj-row-where${p.local.length ? '' : ' off'}`, text: p.github && p.local.length ? `${where} · ${p.github.repo}` : where })),
+          h('span', { class: `pj-row-where${p.local.length ? '' : ' off'}`, text: p.github && p.local.length ? `${where} · ${p.github.repo}` : where }),
+          chips),
         h('span', { class: 'pj-row-end' },
           down.length ? h('span', { class: 'pj-pill down', text: down.length > 1 ? `${down.length} down` : 'down' })
             : live.length ? h('span', { class: 'pj-pill up', text: live.length === 1 && live[0].port ? `:${live[0].port}` : `${live.length} up` }) : null,
@@ -159,37 +179,36 @@
     } };
   }
 
+  const chatAction = p => p.local[0] && { label: 'New conversation here', icon: 'chat', run: () => newHere(p.local[0].root) };
+
   function rowActions(p) {
     const c = p.local[0];
-    const dev = devAction(p);
+    const pinned = pins.includes(p.key);
     return [
-      c && { label: 'New conversation here', icon: 'chat', run: () => newHere(c.root) },
-      dev,
+      chatAction(p),
+      devAction(p),
       c && { label: 'Open folder', icon: 'folder', run: () => api.openProjectFolder(c.root) },
       p.github && { label: 'Open on GitHub', icon: 'github', run: () => api.openProjectOnGitHub(p.github.repo) },
       !c && p.github && { label: 'Clone…', icon: 'download', run: async () => { await openProject(p.key); P.openClone(p.github.repo); } },
+      { label: pinned ? 'Unpin' : 'Pin to top', icon: 'pin', run: () => togglePin(p) },
     ].filter(Boolean);
   }
 
   const QUICK_ICONS = {
     chat: 'M2.5 4.2c0-.8.6-1.4 1.4-1.4h8.2c.8 0 1.4.6 1.4 1.4v5.2c0 .8-.6 1.4-1.4 1.4H7l-3 2.4v-2.4h-.1c-.8 0-1.4-.6-1.4-1.4z',
     play: SB.ICONS.play,
-    folder: SB.ICONS.folder,
-    github: 'M6 12.5c-2.6.8-2.6-1.3-3.6-1.6M9.6 13.6v-2c0-.6.1-1-.3-1.4 1.7-.2 3.4-.8 3.4-3.6 0-.8-.3-1.5-.8-2 .1-.6.1-1.3-.1-1.9 0 0-.6-.2-2 .7a7 7 0 0 0-3.6 0c-1.4-.9-2-.7-2-.7-.2.6-.2 1.3-.1 1.9-.5.5-.8 1.2-.8 2 0 2.8 1.7 3.4 3.4 3.6-.3.3-.4.8-.3 1.4v2',
-    download: 'M8 2.5v8m-3-3 3 3 3-3M3 13h10',
     more: 'M3.5 8h.01M8 8h.01M12.5 8h.01',
   };
   const qIcon = name => SB.icon(QUICK_ICONS[name], { width: name === 'more' ? 2.6 : 1.4 });
 
-  // The first two actions as icon buttons beside the row, the rest behind "More".
+  // Three fixed slots beside the row, so each icon is always in the same place:
+  // a conversation, the dev server, then More. A slot with nothing to do stays empty.
   function quickActions(p) {
-    const acts = rowActions(p);
-    if (!acts.length) return null;
-    const shown = acts.slice(0, 2);
+    const slot = a => (a
+      ? h('button', { type: 'button', class: 'pj-q', dataset: { keep: `q:${p.key}:${a.icon}` }, title: a.label, 'aria-label': `${a.label}: ${p.name}`, onclick: () => a.run() }, qIcon(a.icon))
+      : h('span', { class: 'pj-q empty', 'aria-hidden': 'true' }));
     const more = h('button', { type: 'button', class: 'pj-q', dataset: { keep: `more:${p.key}` }, title: 'More', 'aria-label': `More for ${p.name}`, 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: e => openRowMenu(p, e.currentTarget) }, qIcon('more'));
-    return h('span', { class: 'pj-quick' },
-      shown.map(a => h('button', { type: 'button', class: 'pj-q', dataset: { keep: `q:${p.key}:${a.icon}` }, title: a.label, 'aria-label': `${a.label}: ${p.name}`, onclick: () => a.run() }, qIcon(a.icon))),
-      acts.length > shown.length || p.local.length ? more : null);
+    return h('span', { class: 'pj-quick' }, slot(chatAction(p)), slot(devAction(p)), more);
   }
 
   function openRowMenu(p, anchor) {
@@ -199,6 +218,13 @@
     ]);
   }
   const { menuItem } = SB;
+
+  function togglePin(p) {
+    pins = L.togglePin(pins, p.key);
+    SB.pref.set(PREF.pins, JSON.stringify(pins));
+    SB.announce(pins.includes(p.key) ? `${p.name} pinned to the top.` : `${p.name} unpinned.`);
+    renderList();
+  }
 
   function newHere(cwd, draft) {
     SB.setView('chat');
@@ -254,7 +280,7 @@
   $('srvToastToggle').addEventListener('change', e => setServerSettings({ toast: e.target.checked }));
   $('pjStopAll').addEventListener('click', async () => { servers = await api.stopAllServers() || servers; renderQuit(); renderAll(); });
 
-  // ------------------------------------------------------------------ one project
+  // ------------------------------------------------------------------ to a project's page and back
 
   async function openProject(key, { quiet = false } = {}) {
     const p = await api.projectDetail(key);
@@ -265,7 +291,7 @@
     detail = p;
     if (same) return;
     showScreen('detail');
-    renderDetail();
+    P.renderDetail();
   }
 
   // Back to the list, read again: the page may have just read fresher git than the rows have.
@@ -285,100 +311,12 @@
     $('pjRefresh').hidden = which === 'scan' || which === 'clone';
   }
 
-  // A project's page, top to bottom: who it is and the button you came for,
-  // how it's going, what needs you, where you left off (and the standup to
-  // paste, project-report.js), then the clones
-  // (git and dev servers), which is where the work actually happens.
-  function renderDetail() {
-    const p = detail;
-    if (!p) return;
-    const main = p.local[0];
-    const i = p.insights || {};
-    const sticker = i.sticker;
-    const head = h('div', { class: 'pj-detail-head' },
-      h('button', { type: 'button', class: 'btn ghost slim-btn', text: '← Projects', onclick: closeProject }),
-      h('div', { class: 'pj-hero' },
-        F.tile(p, 'lg'),
-        h('div', { class: 'pj-hero-text' },
-          h('h3', { class: 'pj-detail-name', text: p.name }),
-          h('span', { class: 'pj-hero-tags' },
-            p.github && h('button', { type: 'button', class: 'link-btn pj-repo', text: p.github.repo, onclick: () => api.openProjectOnGitHub(p.github.repo) }),
-            p.github?.private && h('span', { class: 'pj-tag', text: 'private' }),
-            p.github?.fork && h('span', { class: 'pj-tag', text: 'fork' }),
-            p.github?.archived && h('span', { class: 'pj-tag', text: 'archived' })),
-          sticker && h('span', { class: 'pj-hero-sticker', title: sticker.marks.map(m => m.name).join(', ') },
-            `${sticker.tierName} sticker · ${plural(sticker.ships, 'ship')}`,
-            sticker.marks.length ? ` · ${sticker.marks.map(m => m.icon).join(' ')}` : ''))),
-      p.github?.description && h('p', { class: 'muted small pj-desc', text: p.github.description }),
-      h('div', { class: 'row wrap pj-hero-acts' },
-        main && h('button', { type: 'button', class: 'btn primary', text: 'New conversation here', onclick: () => newHere(main.root) }),
-        main && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Open folder', onclick: () => api.openProjectFolder(main.root) }),
-        !main && p.github && h('button', { type: 'button', class: 'btn primary', text: 'Clone…', onclick: () => P.openClone(p.github.repo) }),
-        p.github && main && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Open on GitHub', onclick: () => api.openProjectOnGitHub(p.github.repo) })));
-    const reload = () => openProject(p.key, { quiet: true });
-    const cards = [
-      // What to work on comes first: it's why you opened the page (backlog.js).
-      (main || p.github) && SB.backlog.card({ root: main?.root || null, repo: p.github?.repo || null, name: p.name }, { onClone: repo => P.openClone(repo) }),
-      main && F.pulse(p, { onChange: reload }),
-      main && F.journal(p, { newHere, onChange: reload, keptDetails }),
-      F.health(p),
-      main && SB.releasesCard(main.root, p.name),
-      main && SB.projectTools.card({ root: main.root, name: p.name }),
-      main && F.conversations(p, { newHere }),
-      main && SB.pjReport.card(p),
-    ];
-    const clones = p.local.length
-      ? [h('p', { class: 'row-label pj-clones-label', text: p.local.length > 1 ? `${p.local.length} clones on this PC` : 'On this PC' }), ...p.local.map(c => cloneSection(c, p))]
-      : [h('section', { class: 'pj-clone' }, h('p', { class: 'muted', text: 'Not on this PC. Clone it to run it, and to see its git, tests and dependencies here.' }))];
-    const foot = h('div', { class: 'row wrap pj-detail-foot' },
-      h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Remove from Projects', onclick: () => removeProject(p) }));
-    SB.keepFocus($('pjDetailScreen'), () => $('pjDetailScreen').replaceChildren(head, ...cards.filter(Boolean), ...clones, foot));
-  }
-
-  function cloneSection(c, p) {
-    const git = c.git;
-    const { text: facts, atRisk } = L.cloneFacts(c); // atRisk is a boolean: h() would draw a bare 0
-    return h('section', { class: 'pj-clone', dataset: { root: c.root } },
-      h('div', { class: 'pj-clone-head' },
-        h('code', { class: 'pj-path', text: SB.shortPath(c.root, 46), title: c.root }),
-        p.local.length > 1 && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Open folder', onclick: () => api.openProjectFolder(c.root) }),
-        p.local.length > 1 && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'New conversation here', onclick: () => newHere(c.root) })),
-      facts && h('p', { class: 'muted small pj-facts', text: facts }),
-      atRisk && h('div', { class: 'pj-tidy' },
-        h('span', { class: 'small', text: git.unpushed ? 'This work is only on this PC.' : 'Changes not committed yet.' }),
-        h('button', { type: 'button', class: 'btn slim-btn', text: 'Tidy up…', onclick: () => newHere(c.root, L.tidyPrompt(p.name)) })),
-      copiesList(c.root, git),
-      P.serversSection(c));
-  }
-
-  // Shellby's copies of the repo (worktrees.js): work that's easy to forget about.
-  function copiesList(root, git) {
-    const list = git?.copyList || [];
-    if (!list.length) return null;
-    const d = keptDetails(`copies:${root}`, L.copiesSummary(list),
-      h('ul', { class: 'pj-copy-list' }, list.map(w => h('li', {},
-        h('code', { text: w.branch || 'detached', title: w.path }),
-        w.changed ? h('span', { class: 'pj-chip warn', text: `${w.changed} changed` }) : h('span', { class: 'muted small', text: 'clean' })))));
-    d.classList.add('pj-copies');
-    return d;
-  }
-
-  // ------------------------------------------------------------------ removing
-
-  async function removeProject(p) {
-    const r = await api.removeProject(p.key);
-    if (!r?.ok) return SB.toast("Couldn't remove it.");
-    SB.toast(`${p.name} is off the list. Its folder is untouched.`);
-    closeProject();
-    load();
-  }
-
   // ------------------------------------------------------------------ live updates
 
   function renderAll() {
     renderQuit();
     if (state.view !== 'projects') return;
-    if (openKey && detail && !$('pjDetailScreen').hidden) renderDetail();
+    if (openKey && detail && !$('pjDetailScreen').hidden) P.renderDetail();
     else if (!$('pjListScreen').hidden) renderList();
   }
 
@@ -410,14 +348,46 @@
 
   // ------------------------------------------------------------------ controls
 
-  $('pjSearch').addEventListener('input', renderList);
   function setSort(to) {
     sort = to;
+    SB.pref.set(PREF.sort, to);
     for (const x of $('pjSort').querySelectorAll('[role="tab"]')) x.setAttribute('aria-selected', String(x.dataset.sort === to));
     renderList();
   }
+  function setScope(to) {
+    scope = to;
+    SB.pref.set(PREF.scope, to);
+    $('pjScope').value = to;
+    renderList();
+  }
+  for (const x of $('pjSort').querySelectorAll('[role="tab"]')) x.setAttribute('aria-selected', String(x.dataset.sort === sort));
+  $('pjScope').value = scope;
+
+  $('pjSearch').addEventListener('input', renderList);
+  // Enter opens the top row; Esc clears what you typed (and only then goes back).
+  $('pjSearch').addEventListener('keydown', e => {
+    if (e.isComposing) return;
+    if (e.key === 'Enter') {
+      const top = $('pjProjects').querySelector('.pj-row');
+      if (top) { e.preventDefault(); openProject(top.dataset.key); }
+    } else if (e.key === 'Escape' && e.target.value) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.target.value = '';
+      renderList();
+    }
+  });
+  // Ctrl+F on the list searches the list, as it does on Settings.
+  document.addEventListener('keydown', e => {
+    if (state.view !== 'projects' || $('pjListScreen').hidden || !SB.shortcuts.matches(e, 'find')) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    $('pjSearch').focus();
+    $('pjSearch').select();
+  }, true);
+
   for (const b of $('pjSort').querySelectorAll('[role="tab"]')) b.addEventListener('click', () => setSort(b.dataset.sort));
-  $('pjScope').addEventListener('change', e => { scope = e.target.value; renderList(); });
+  $('pjScope').addEventListener('change', e => setScope(e.target.value));
   $('pjEmptyScan').addEventListener('click', () => $('pjScan').click());
   $('pjEmptyAdd').addEventListener('click', () => $('pjAdd').click());
   $('pjRefresh').addEventListener('click', () => load({ refresh: true }));

@@ -28,22 +28,26 @@
     outdated: r => ({ text: `${r.count} outdated`, tone: 'info', title: 'Packages with newer versions' }),
   };
 
-  /** The chips under a project's name: trouble first, then what's simply true. */
+  /**
+   * What's true of a project, as chips: trouble first, then what's simply true.
+   * page: only on its page (Pulse and the hero say it there); the row keeps to
+   * what you'd act on.
+   */
   function chips(p) {
     const i = p.insights || {};
     const out = (i.reasons || []).filter(r => REASON[r.id]).map(r => REASON[r.id](r));
     if (p.todoCount) out.push({ text: `${p.todoCount} to do`, tone: 'info', title: 'On its to-do list' });
-    const week = hours(i.time?.seconds);
-    if (week) out.push({ text: `⏱ ${week}`, tone: 'info', title: 'Time on it this week' });
-    if (i.quiet) out.push({ text: `quiet ${i.quietDays}d`, tone: 'info', title: `No commits for ${plural(i.quietDays, 'day')}` });
     if (i.git?.dirty) out.push({ text: `${i.git.dirty} changed`, tone: 'info', title: 'Uncommitted changes' });
-    for (const m of i.sticker?.marks || []) out.push({ text: m.icon, tone: 'mark', title: m.name });
+    const week = hours(i.time?.seconds);
+    if (week) out.push({ text: `⏱ ${week}`, tone: 'info', title: 'Time on it this week', page: true });
+    if (i.quiet) out.push({ text: `quiet ${i.quietDays}d`, tone: 'info', title: `No commits for ${plural(i.quietDays, 'day')}`, page: true });
+    for (const m of i.sticker?.marks || []) out.push({ text: m.icon, tone: 'mark', title: m.name, page: true });
     return out;
   }
 
   const MAX_CHIPS = 3;
   function chipRow(p) {
-    const all = chips(p);
+    const all = chips(p).filter(c => !c.page);
     if (!all.length) return null;
     const shown = all.slice(0, MAX_CHIPS);
     const more = all.length - shown.length;
@@ -70,6 +74,9 @@
   // ------------------------------------------------------------------ the page's cards
 
   const card = (title, ...body) => h('section', { class: 'pj-panel', 'aria-label': title }, h('p', { class: 'row-label', text: title }), ...body);
+  // A card with nothing to say says so on one line: its name, the words, maybe a button.
+  const quietCard = (title, text, ...acts) => h('section', { class: 'pj-panel pj-quiet', 'aria-label': title },
+    h('p', { class: 'row-label', text: title }), h('span', { class: 'muted small pj-quiet-text', text }), ...acts);
   const act = (text, onclick, cls = 'btn ghost slim-btn') => h('button', { type: 'button', class: cls, text, onclick });
 
   // Buttons that start a task: one press, then wait, then off to watch it.
@@ -153,9 +160,9 @@
           f.retry && taskButton('Try it again', () => api.flakyAct({ key: f.key, id: f.id, action: 'unquarantine' })))));
     }
     if (!rows.length) {
-      return card('Health', h('p', { class: 'muted small pj-calm', text: p.local.length
-        ? 'Nothing needs you here. Pull requests, dependency checks and flaky tests show up here once Shellby has seen them.'
-        : 'Clone it to see its dependencies and tests here.' }));
+      const q = quietCard('Health', p.local.length ? 'All clear' : 'Clone it to see its dependencies and tests');
+      q.title = 'Pull requests, dependency checks and flaky tests show up here once Shellby has seen them.';
+      return q;
     }
     return card('Health', h('ul', { class: 'pj-h-list' }, rows));
   }
@@ -167,7 +174,7 @@
     const resume = i.nudgeKey
       ? act('Where did we leave off?', () => { api.openProject(i.nudgeKey); SB.setView('chat'); })
       : p.local[0] && act('Where did we leave off?', () => newHere(p.local[0].root, p.journal?.draft || `Where did we leave off in ${p.name}? Summarize what changed recently, what's unfinished, and suggest the next step.`));
-    if (!list.length) return card('Conversations', h('p', { class: 'muted small', text: 'None here yet.' }), h('div', { class: 'row wrap' }, resume));
+    if (!list.length) return quietCard('Conversations', 'None here yet', resume);
     return card('Conversations',
       h('ul', { class: 'pj-convos' }, list.map(s => h('li', {},
         h('button', { type: 'button', class: 'pj-convo', onclick: () => { SB.setView('chat'); SB.openHistory(s.id); } },
