@@ -132,6 +132,7 @@ contextBridge.exposeInMainWorld('shellby', {
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
   undoChanges: invoke('changes:undo'),
+  undoToStep: invoke('changes:undo-step'), // Undo to here, on one step of a turn
   startQuiz: invoke('quiz:start'),                 // three questions on a turn's diff (quiz.js)
   pickQuiz: invoke('quiz:pick'),                   // { tabId, after, question, choice } -> right or not, and why
   runChecks: invoke('checks:run'),                 // the project's tests on a turn's diff (checks.js)
@@ -475,6 +476,7 @@ contextBridge.exposeInMainWorld('shellby', {
   peekTank: invoke('tank:peek'),       // a friend's, from their calling card
   getTankGauges: invoke('tank:gauges'), // live decor: Health and dev servers (tank/gauges.js)
   setTankLive: invoke('tank:live'),
+  tankBottleRead: invoke('tank:bottle-read'), // the recap or weekly card the bottle brought was read
   tankLayouts: invoke('tank:layouts'), // saved layouts, and the seasons' (tank/layouts.js)
   saveTankLayout: invoke('tank:layout-save'),
   useTankLayout: invoke('tank:layout-use'),

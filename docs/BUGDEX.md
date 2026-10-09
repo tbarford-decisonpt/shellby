@@ -48,7 +48,7 @@ And a few limits keep it honest: the same bug in the same project counts once in
 - **The friends' board:** with **Share my Bugdex with friends** on, **This month** ranks you and your friends by bugs caught since the 1st ([more](TIDES.md#the-friends-board)).
 - **Your favourite catch follows him round the desk,** a step behind, and waits on the ground while he climbs a window.
 
-A new kind is worth 40 XP. The trophies: **Gotcha!** for your first catch, **Field Notes** for 10 kinds, **Naturalist** for a whole habitat, **Field Researcher** for 40 kinds, **Pest Control** for 100 catches, **Ghost Whisperer** for three ghosts, and two secret ones. Each comes with something to wear or put in the [tank](TANK.md).
+A new kind is worth 40 XP. The trophies: **Gotcha!** for your first catch, **Field Notes** for 10 kinds, **Naturalist** for a whole habitat, **Field Researcher** for 40 kinds, **Pest Control** for 100 catches, **Ghost Whisperer** for three ghosts, and two secret ones. Each comes with something to wear or put in the [tank](TANK.md). The week card on the Trophies page counts the bugs you caught that week and how many were new to the book ("🫙 5 bugs caught (2 new to the Bugdex)").
 
 ## Bug battles
 
@@ -132,4 +132,4 @@ All under **Settings → Shellby → Games**:
 
 ## What's kept
 
-No error text, command or output is ever kept: for each catch, only which kind of bug it was, a short fingerprint and the project. Your catches sync between your PCs like XP, if you sync. The battles live only in memory.
+No error text, command or output is ever kept: for each catch, only which kind of bug it was, a short fingerprint and the project. Your catches sync between your PCs like XP, if you sync: each PC keeps its own count of every kind, so catches from two PCs add up and nothing is lost. Projects, fingerprints and open bugs stay on the PC that saw them. The battles live only in memory.

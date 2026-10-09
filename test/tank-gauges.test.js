@@ -6,9 +6,9 @@ const snap = (sample, thresholds = { gpuWarn: 83, cpuWarn: 90 }) => ({ sample, t
 
 test('normalizeLive turns every gauge on unless it was turned off, and never throws', () => {
   for (const junk of [null, undefined, 'x', 3, [], { __proto__: { thermometer: false } }]) {
-    assert.deepEqual(G.normalizeLive(junk), { thermometer: true, bubbler: true, lighthouse: true, moods: true });
+    assert.deepEqual(G.normalizeLive(junk), { thermometer: true, bubbler: true, lighthouse: true, moods: true, tide: true, chest: true, bottle: true });
   }
-  assert.deepEqual(G.normalizeLive({ bubbler: false, moods: 'no', extra: false }), { thermometer: true, bubbler: false, lighthouse: true, moods: true });
+  assert.deepEqual(G.normalizeLive({ bubbler: false, moods: 'no', extra: false }), { thermometer: true, bubbler: false, lighthouse: true, moods: true, tide: true, chest: true, bottle: true });
 });
 
 test('the thermometer reads the hottest GPU, red past the GPU line', () => {
@@ -54,8 +54,9 @@ test('gauges leaves out whatever is turned off', () => {
   assert.equal(all.bubbler, 3);
   assert.deepEqual(all.lighthouse, { lit: true, blink: false });
   assert.equal(all.mood, 'scorching');
-  const none = G.gauges({ health, mood: { mood: 'hot' }, servers: { up: 1 }, live: { thermometer: false, bubbler: false, lighthouse: false, moods: false } });
-  assert.deepEqual({ ...none, live: null }, { thermometer: null, bubbler: null, lighthouse: null, mood: null, live: null });
+  const off = Object.fromEntries(G.KEYS.map(k => [k, false]));
+  const none = G.gauges({ health, mood: { mood: 'hot' }, servers: { up: 1 }, usage: { fiveHour: { pct: 10 } }, mergedAt: 1000, unread: ['recap'], now: 2000, live: off });
+  assert.deepEqual({ ...none, live: null }, { thermometer: null, bubbler: null, lighthouse: null, mood: null, tide: null, chest: null, bottle: null, live: null });
 });
 
 test('readings that look the same in the tank are the same, so nothing is pushed', () => {
@@ -69,4 +70,38 @@ test('readings that look the same in the tank are the same, so nothing is pushed
 test('a reading carries nothing but what the tank draws', () => {
   const g = G.gauges({ health: snap({ gpus: [{ temp: 70, name: 'RTX secret' }], cpu: { load: 30, name: 'cpu' } }), servers: { up: 1, upPort: 5173, firstId: 'proj' } });
   assert.doesNotMatch(JSON.stringify(g), /secret|5173|proj/);
+});
+
+test('the tide gauge shows how much of the 5-hour window is left, in tenths', () => {
+  const now = 1_000_000;
+  const at = pct => G.tideOf({ fiveHour: { pct, resetsAt: now + 60_000 } }, now)?.left;
+  assert.deepEqual([0, 4, 6, 37, 81, 100, 130, -5].map(at), [100, 100, 90, 60, 20, 0, 0, 100]);
+});
+
+test('a window that already reset is a full tide, and no reading is no gauge', () => {
+  const now = 1_000_000;
+  assert.deepEqual(G.tideOf({ fiveHour: { pct: 90, resetsAt: now - 1 } }, now), { left: 100 });
+  assert.deepEqual(G.tideOf({ fiveHour: { pct: 30 } }, now), { left: 70 });
+  for (const junk of [null, {}, { fiveHour: null }, { fiveHour: { pct: 'x' } }, { sevenDay: { pct: 10 } }]) assert.equal(G.tideOf(junk, now), null);
+});
+
+test('the chest glints for a minute after a merge and not before it', () => {
+  assert.equal(G.chestOf(1000, 1000), true);
+  assert.equal(G.chestOf(1000, 1000 + G.GLINT_MS - 1), true);
+  assert.equal(G.chestOf(1000, 1000 + G.GLINT_MS), false);
+  assert.equal(G.chestOf(1000, 999), false);
+  assert.equal(G.chestOf(null, 1000), false);
+});
+
+test('the bottle brings a recap first, then a weekly card, and nothing else', () => {
+  assert.equal(G.bottleOf(['week', 'recap']), 'recap');
+  assert.equal(G.bottleOf(['week']), 'week');
+  assert.equal(G.bottleOf(['other']), null);
+  assert.equal(G.bottleOf('recap'), null);
+  assert.equal(G.bottleOf(null), null);
+});
+
+test('gauges reads the tide, the chest and the bottle', () => {
+  const g = G.gauges({ usage: { fiveHour: { pct: 75, resetsAt: 5000 } }, mergedAt: 1000, unread: ['week'], now: 2000 });
+  assert.deepEqual([g.tide, g.chest, g.bottle], [{ left: 30 }, true, 'week']);
 });

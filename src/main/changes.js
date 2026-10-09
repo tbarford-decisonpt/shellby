@@ -212,18 +212,49 @@ async function undo(ref) {
     return { ok: false, changedSince: changedSince.slice(0, 20), error: `${changedSince.length === 1 ? 'A file has' : `${changedSince.length} files have`} changed since this turn. Undo the later changes first.` };
   }
 
-  // Files the turn created go; the rest come back from the snapshot.
-  for (const f of turn.filter(f => f.status === 'A')) {
+  return putBack(root, ref.before, turn);
+}
+
+// Files created since `source` go; the rest come back from it. -> undo()'s answer
+async function putBack(root, source, files) {
+  for (const f of files.filter(f => f.status === 'A')) {
     const abs = path.resolve(root, f.path);
     if (!abs.startsWith(root + path.sep)) continue;
     try { fs.rmSync(abs, { force: true }); } catch (e) { return { ok: false, error: `Couldn't remove ${f.path}: ${e.message}` }; }
   }
-  const back = turn.filter(f => f.status !== 'A').map(f => f.path);
+  const back = files.filter(f => f.status !== 'A').map(f => f.path);
   if (back.length) {
-    const r = await git(root, ['restore', `--source=${ref.before}`, '--worktree', '--pathspec-from-file=-', '--pathspec-file-nul'], { input: back.join('\0') });
+    const r = await git(root, ['restore', `--source=${source}`, '--worktree', '--pathspec-from-file=-', '--pathspec-file-nul'], { input: back.join('\0') });
     if (!r.ok) return { ok: false, error: r.error || "git couldn't put them back." };
   }
-  return { ok: true, restored: turn.length };
+  return { ok: true, restored: files.length };
 }
 
-module.exports = { snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, patchFor, undo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
+/**
+ * Part of a turn taken back: the files that changed between `to` (a checkpoint
+ * inside the turn, step-undo.js) and `from` (where the turn's work stands now)
+ * go back to `to`. Unlike undo(), files changed again since `from` are only
+ * refused until `force`: the caller asks first.
+ *   -> { ok: true, restored } | { ok: false, error, changedSince? }
+ */
+async function restoreTo({ root: dir, to, from } = {}, { force = false } = {}) {
+  const bad = checkRef({ root: dir, before: to, after: from });
+  if (bad) return { ok: false, error: bad };
+  const root = await rootOf(dir);
+  if (!sameRoot(root, dir)) return { ok: false, error: 'That project has moved.' };
+  const files = await changedFiles(root, to, from);
+  if (!files) return { ok: false, error: 'Those changes have been tidied away by git since.' };
+  if (!files.length) return { ok: true, restored: 0 };
+  if (!force) {
+    const now = await snapshot(root);
+    if (!now) return { ok: false, error: "Couldn't take a look at the folder as it is now." };
+    const since = await changedFiles(root, from, now.tree);
+    if (!since) return { ok: false, error: "Couldn't compare with the folder as it is now." };
+    const touched = new Set(since.map(f => f.path));
+    const changedSince = files.map(f => f.path).filter(p => touched.has(p));
+    if (changedSince.length) return { ok: false, changedSince, error: `${changedSince.length === 1 ? 'A file has' : `${changedSince.length} files have`} changed since this turn.` };
+  }
+  return putBack(root, to, files);
+}
+
+module.exports = { snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, patchFor, undo, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };

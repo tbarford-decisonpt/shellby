@@ -97,6 +97,7 @@ function createAway(d) {
     const digest = recap.build(recapLog, { since, until, waiting: waitingOnYou(), limit: d.limitWait() });
     if (!digest) return;
     d.send(panel, 'recap', digest);
+    d.tankGauges?.unread('recap'); // a message in a bottle in his tank until you dismiss it
     d.speak('back', { force: true });
     if (panel.isVisible() && panel.isFocused()) return;
     d.notify(`While you were away (${recap.awayFor(digest.awayMs)})`, recap.headline(digest), () => d.showPanel({ focusInput: false }));

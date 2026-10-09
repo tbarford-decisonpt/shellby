@@ -1,19 +1,22 @@
 /* Shellby panel — his tank's live decor (src/main/tank/gauges.js decides what
    it shows). Main pushes a new reading only when it changes; this keeps the
-   latest and paints it into the tank: the thermometer on the front glass, the
+   latest and paints it into the tank: the Glass Thermometer's reading, the
    lighthouse's lamp, bubblers that hurry with CPU load, and Health's moods in
    the water. Nothing here runs on a timer: the Tank tab's own frames (and the
-   Health porthole's one still frame) call in. Loaded after tank-paint.js. */
+   Health porthole's one still frame) call in. The tide gauge, the chest's
+   glint and the bottle are in tank-gauges-more.js. Loaded after tank-paint.js. */
 'use strict';
 (function () {
   const { api, state } = SB;
 
+  const SWAY = { hot: 1.8, scorching: 2.6 };  // plants' frame speed in warm water
   const BUBBLE_SPEED = [1, 1.5, 2.2, 3];      // per tank-gauges.js LOAD_STEPS step
   const MOOD_TINT = { hot: ['#ff8a3d', 0.16], scorching: ['#ff4a2a', 0.24], dizzy: ['#b48cff', 0.08], stuffed: null };
   const BOX = { k: '#5b3d1e', b: '#a87a45', l: '#c99b62' };
   const LAMP = '#ffe27a';
   const TEMP_LO = 20, TEMP_HI = 100;          // °C at the bottom and the top of the thermometer
   const LIGHTHOUSE = 'lighthouse';
+  const THERMO = { ref: 'glass-thermometer', tubeTop: 2, tube: 8 }; // its art: the tube's rows (tank-decor.json)
 
   let g = null; // the latest reading from main
 
@@ -70,37 +73,38 @@
     }
   }
 
-  // The suction-cup thermometer, on the inside of the front glass at the right.
-  function thermometer(ctx, world, th) {
+  // The reading in every Glass Thermometer he has placed (the check-up's piece):
+  // the tube's middle column fills, and the bulb turns red past your Health line.
+  function thermometers(ctx, scene, th) {
     if (!th) return;
-    const x = world.w - 6, top = 6, bottom = world.sandTop - 3;
-    const span = bottom - top;
     const frac = Math.max(0, Math.min(1, (th.value - TEMP_LO) / (TEMP_HI - TEMP_LO)));
-    const fill = Math.round(span * frac);
-    ctx.fillStyle = '#e8f6ff';
-    ctx.globalAlpha = 0.5;
-    ctx.fillRect(x - 1, top - 1, 3, span + 2);   // the tube
-    ctx.fillRect(x - 2, top - 3, 5, 2);          // the suction cup
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = th.hot ? '#ff3b30' : '#ffd23f';
-    ctx.fillRect(x, bottom - fill, 1, fill);
-    ctx.fillRect(x - 1, bottom, 3, 2);           // the bulb
-    if (th.warn) { // your Health line, a notch on the tube
-      const at = bottom - Math.round(span * Math.max(0, Math.min(1, (th.warn - TEMP_LO) / (TEMP_HI - TEMP_LO))));
-      ctx.fillStyle = '#ff6b5a';
-      ctx.globalAlpha = 0.8;
-      ctx.fillRect(x + 2, at, 2, 1);
+    const fill = Math.round(THERMO.tube * frac);
+    for (const p of scene.pieces) {
+      if (p.ref !== THERMO.ref) continue;
+      const top = p.y - p.h + 1, x = p.x + 2, bottom = top + THERMO.tubeTop + THERMO.tube;
+      ctx.fillStyle = th.hot ? '#ff3b30' : '#ffd23f';
+      ctx.fillRect(x, bottom - fill, 1, fill);
+      ctx.fillRect(p.x + 1, bottom, 3, 2); // the bulb
+      if (th.warn) { // your Health line, a notch beside the tube
+        const at = bottom - Math.round(THERMO.tube * Math.max(0, Math.min(1, (th.warn - TEMP_LO) / (TEMP_HI - TEMP_LO))));
+        ctx.fillStyle = '#ff6b5a';
+        ctx.fillRect(p.x + 4, at, 1, 1);
+      }
     }
-    ctx.globalAlpha = 1;
   }
 
+  /** Over everything but the glass's own streaks. */
   /** Over everything but the glass's own streaks. */
   function over(ctx, scene, gg, t, still) {
     if (!gg) return;
     if (gg.mood === 'stuffed') boxes(ctx, scene.world);
     lamp(ctx, scene, gg, t, still);
-    thermometer(ctx, scene.world, gg.thermometer);
+    thermometers(ctx, scene, gg.thermometer);
+    SB.tankGaugesMore?.over(ctx, scene, gg, t, still); // tide, chest and bottle (tank-gauges-more.js)
   }
+
+  /** How much faster his plants sway: hot water hurries them. */
+  const swaySpeed = gg => SWAY[gg?.mood] || 1;
 
   /** How much faster the bubbles rise. */
   const bubbleSpeed = gg => BUBBLE_SPEED[gg?.bubbler ?? 0] || 1;
@@ -115,6 +119,8 @@
     if (gg.mood === 'hot' || gg.mood === 'scorching') parts.push('The water is warm.');
     if (gg.mood === 'dizzy') parts.push('The water is swirling.');
     if (gg.mood === 'stuffed') parts.push('Boxes are piled in a corner.');
+    const more = SB.tankGaugesMore?.words(gg);
+    if (more) parts.push(more);
     return parts.join(' ');
   }
 
@@ -152,6 +158,6 @@
   ask();
 
   SB.tankGauges = {
-    current: () => g, under, over, bubbleSpeed, words, refresh: ask,
+    current: () => g, under, over, bubbleSpeed, swaySpeed, words, refresh: ask,
   };
 })();

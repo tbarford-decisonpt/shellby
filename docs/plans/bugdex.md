@@ -828,7 +828,7 @@ const JAR = [
 - `art.js` (`silhouette`, `jarArt`)
 - the wiring for B/T, F, C, S, G
 - the panel page and tab, the jar moment, the `catch` / `newbug` XP, the `catchBugs` switch, the CAPTURE demo
-- Not yet: sync, achievements, weekly.
+- Sync, achievements and weekly: built (sync in `github/sync.js` through `bugdex.syncable/merge/applySync`, trophies in `wardrobe/achievements.js` with the Bug Hunter pack, week lines in `weekly.js` and `week-card.js`; `test/bugdex-sync.test.js` runs the gist round trip).
 
 **Unit tests**:
 - `test/bugdex-detect.test.js`:

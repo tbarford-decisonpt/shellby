@@ -190,6 +190,7 @@ function registerIpc(electronIpcMain, d) {
     health: () => d.health,
     moodsOn: () => d.health?.settings?.moods !== false,
     servers: () => d.devServers?.summary() || null,
+    usage: () => config.get('lastUsage') || null, // the tide gauge
   });
 
   // The rest, one area per module in ipc/.

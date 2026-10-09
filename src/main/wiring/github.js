@@ -384,6 +384,7 @@ function wireGithub(d) {
       d.speak('merged');
       d.stickerService.shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
       d.backlogMerged?.(pr); // one opened from Next up: offer to tick its task off (wiring/backlog.js)
+      d.tankGauges?.merged(); // the chest in his tank glints (tank/gauges.js)
     }
   }
 

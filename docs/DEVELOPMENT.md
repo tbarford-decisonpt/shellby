@@ -46,6 +46,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `npm start` | Run in development |
 | `npm run dev:crab` | A dev Shellby beside your installed one: its own profile (`%TEMP%\shellby-dev-crab`, or `SHELLBY_DEV_PROFILE`), the fake CLI, its own hook port and the dev hooks (`SHELLBY_MOTION_TEST`). `--fresh` empties the profile, `--real` uses the real Claude CLI, `--poses` walks him through every work pose (work-pose.js) and habit (voice.js `BITS`) and closes, `--loop` keeps going; with `SHELLBY_SHOTS=<folder>` it saves a PNG of each |
 | `npm test` | Unit and integration tests (Node's built-in runner; a fake Claude CLI stands in for the real one). Four files at a time: the suite starts thousands of git and node processes, Windows (with antivirus watching) starts only about 30 a second however many ask, and Node's default of one file per core starved the git-heavy files past their 120 s on a many-core PC |
+| `npm run commands:check` | Diffs the catalogue of Claude Code's slash commands (`src/main/cli-commands.js`) against the installed CLI; `-- --write` records the CLI's list as `test/fixtures/cli-commands.json`. See [Keeping up with Claude Code](#keeping-up-with-claude-code) |
 | `npm run lint` | ESLint over main, the renderers, the tests and the scripts, each with the globals it really has (see eslint.config.mjs) |
 | `npm run panel:html` | Builds `src/renderer/panel/panel.html` from the files in `src/renderer/panel/html/` (a frame plus one per screen, `<!-- @include x.html -->`). Run it after editing any of them; `-- --check` says if it's stale |
 | `npm run typecheck` | TypeScript's checker over the JSDoc in `src/preload` and `src/main`'s `ipc`, `flaky`, `remote`, `backlog`, `bugdex`, `depwatch`, `tank`, `stickers`, `usage`, `weather`, `hooks`, `claude` and `routines` (jsconfig.json), with no build step |
@@ -144,6 +145,12 @@ node scripts/cli-compat.js --real --transcript test/fixtures/cli-transcripts/<ve
 ```
 
 Read it before committing it.
+
+### Slash commands
+
+The <kbd>/</kbd> menu lists Claude Code's own commands from `src/main/cli-commands.js`, a catalogue that says for each one how Shellby handles it: `cli` (sent as it is, it works in print mode), `shellby` (opens Shellby's screen for it, `src/renderer/panel/builtin-commands.js`) or `terminal` (it only works in Claude Code's terminal: he says why and offers **Open in a terminal**). It follows the live CLI on its own: a command a conversation's init lists that the catalogue doesn't know goes through to Claude Code as it is (`toolbox.js` `mergeInit`), and a `cli` one the init stops listing is hidden. When print mode answers a command with "isn't available in this environment" or "Unknown command", `stream.js` adds a plain-words reply (`headlessReply`).
+
+To keep the catalogue itself current, `npm run commands:check` reads the command definitions out of the installed CLI (the native `claude.exe` or an npm `cli.js`; there's no flag that lists them, and an init costs a message) and lists what's new and what's gone. Add new ones to the catalogue with a handling, then `npm run commands:check -- --write` to record the list: `test/cli-commands.test.js` fails while the catalogue and `test/fixtures/cli-commands.json` differ. A name the scan finds that isn't a command (a bundled skill, say) goes in `NOT_COMMANDS` in `scripts/commands-check.js`.
 
 
 

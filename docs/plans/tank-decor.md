@@ -7,18 +7,22 @@
 
 ## What changed from the plan (Phase 3, "Gauges in disguise")
 
-- **Four gauges, not six.** The thermometer, the bubbler, the lighthouse and
-  Health moods in the water are built. The tide gauge (usage window), the
-  chest's glint on a merged PR and the message in a bottle (unread recap) are
-  not yet; `tank/gauges.js` `gauges()` is where they'd go.
-- **The thermometer is drawn on the glass, not placed.** There's no
-  thermometer piece yet (it would need a `check-up` reward), so it shows on
-  the right of the front glass while its switch is on.
+- **All six gauges are built.** The thermometer, the bubbler, the lighthouse,
+  Health moods in the water, the tide gauge (on the left of the front glass:
+  `config.lastUsage`'s 5-hour window, in tenths, full again once it resets),
+  the Sunken Chest's glint (a minute after the `merged` CI event) and the
+  message in a bottle (a recap or weekly card sent and not yet seen; the
+  panel sends `tank:bottle-read` when the recap is dismissed or the Trophies
+  page shows the week). The tide doesn't move at the reset itself until the
+  next reading or the tank's next look, since nothing runs on a timer.
+- **The thermometer is a piece.** The Glass Thermometer (`glass-thermometer`,
+  a floating "Bubblers & lights" piece) comes with `check-up`, and the reading
+  is drawn into each one placed. Nothing is drawn on the glass for it now.
 - **Live, layouts and tidying are config keys of their own**, not fields of
   `tank`: `tankLive` and `tankTidy` (per PC, never synced) and `tankLayouts`
   (synced as its own gist field, newest list wins). Keeping them out of
   `tank` means `tank.normalize`, `sanitize` and the calling card never see
-  them. Plants don't sway faster when he's hot yet.
+  them. Plants sway faster when he's hot (`tank-gauges.js` `swaySpeed`).
 - **Main pushes readings** (`tank:gauges`) from the Health monitor's `sample`,
   the mood and the dev servers' `change`, coarse enough (whole degrees, four
   CPU steps) that most samples send nothing, and only while the panel shows.

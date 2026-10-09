@@ -15,6 +15,7 @@ const { merge, caseKey, repoKey } = require('./merge');
 const { RepoCache } = require('./github');
 const { withInsights, sessionsFor, sessionsIn, inside } = require('./insights');
 const todo = require('./todo');
+const { moveTodos } = require('./todo-move');
 const terminal = require('./terminal');
 const branches = require('./branches');
 const inbox = require('./inbox');
@@ -161,7 +162,9 @@ class Projects extends EventEmitter {
     this.mainRoot = new Map();  // project key -> its first clone, where its .shellby/tasks.md is
     for (const p of projects) {
       if (p.github?.repo) this.keyByRepo.set(p.github.repo.toLowerCase(), p.key);
-      if (p.local[0]) this.mainRoot.set(p.key, p.local[0].root);
+      // A Shellby copy is tidied away later, and its tasks.md with it: a real checkout first.
+      const home = p.local.find(c => !this.isCopy(c.root)) || p.local[0];
+      if (home) this.mainRoot.set(p.key, home.root);
       for (const c of p.local) {
         this.keyByRoot.set(caseKey(c.root), p.key);
         this.listed.set(caseKey(c.root), c.root);
@@ -169,6 +172,7 @@ class Projects extends EventEmitter {
         Object.assign(c, this.cloneView(c.root));
       }
     }
+    this.moveTodosToRepos();
     if (readGit) this.readGitSoon(projects.flatMap(p => p.local.map(c => c.root)), { force: refresh });
     return {
       projects: withInsights(projects, this.sources()).map(p => ({ ...p, todoCount: this.todoOf(p.key).length })),
@@ -527,6 +531,14 @@ class Projects extends EventEmitter {
   repoTasksFor(key) {
     const root = this.mainRoot?.get(key);
     return root && this.deps.repoTasks ? { root, rt: this.deps.repoTasks } : null;
+  }
+
+  // Config to-dos of a project that now has a clone (a local-only repo's, or older ones) go into its tasks.md, once.
+  moveTodosToRepos() {
+    const r = moveTodos(this.state.todo, this.mainRoot, this.deps.repoTasks);
+    if (!r.changed) return;
+    this.state = { ...this.state, todo: r.todo };
+    this.deps.config.set({ projects: this.state });
   }
 
   /** A project's to-dos: [{ id, text, from, at }]. */

@@ -8,6 +8,7 @@
 
 /* ================================================================ @ files and Ctrl+R */
 .k-shellby { --k: var(--amber); }
+.k-cc { --k: var(--coral); }  /* Claude Code's own commands in the slash menu */
 .pick-item { grid-template-columns: 14px minmax(0, 1fr) auto; }
 .pick-glyph { font: 700 var(--fs-11) var(--font-mono); color: var(--sand-faint); text-align: center; }
 .pick-item .slash-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }

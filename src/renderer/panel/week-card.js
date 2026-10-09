@@ -434,6 +434,7 @@
     const w = await api.getWeek().catch(() => null);
     if (!w) { box.hidden = true; return; }
     box.hidden = false;
+    api.tankBottleRead?.({ kind: 'week' }).catch(() => {}); // you've seen the week: the bottle in his tank sinks back
     $('xpWeekRange').textContent = `· ${range(w)}`;
     const planned = renderPlan(w);
     // The week's work and the extras, one per cell; the shipped chips already say which stickers are new.

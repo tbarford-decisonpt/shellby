@@ -23,7 +23,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'planner', name: 'Master Planner', icon: '🧐', description: 'Approve a plan from Plan mode', stat: 'plansApproved', goal: 1, rewards: ['monocle', 'reading-glasses'] },
   { id: 'special-delivery', name: 'Special Delivery', icon: '✈️', description: 'Drop a file on Shellby', stat: 'filesDropped', goal: 1, rewards: ['paper-plane', 'backpack'] },
   { id: 'loyal', name: 'Old Friends', icon: '🌈', description: 'Use Shellby on 7 different days', stat: 'activeDays', goal: 7, rewards: ['rainbow-scarf', 'barnacles'] },
-  { id: 'check-up', name: 'Check-Up', icon: '🩺', description: "Look at your PC's vitals in the Health view", stat: 'healthViews', goal: 1, rewards: ['stethoscope', 'scanner-visor'] },
+  { id: 'check-up', name: 'Check-Up', icon: '🩺', description: "Look at your PC's vitals in the Health view", stat: 'healthViews', goal: 1, rewards: ['stethoscope', 'scanner-visor', 'glass-thermometer'] },
   { id: 'keep-your-cool', name: 'Keep Your Cool', icon: '🧊', description: 'Shellby cools down after a heat warning', stat: 'heatCooled', goal: 1, rewards: ['sweatband', 'hand-fan', 'fire-extinguisher'], hidden: true },
   { id: 'show-off', name: 'Show-Off', icon: '📸', description: 'Share your crab card', stat: 'cardsShared', goal: 1, rewards: ['camera', 'pearls'] },
   { id: 'spring-cleaning', name: 'Spring Cleaning', icon: '🧹', description: 'Free up space after a low-disk warning', stat: 'spaceFreed', goal: 1, rewards: ['broom', 'toadstool'] },

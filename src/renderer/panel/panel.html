@@ -1191,10 +1191,13 @@
     <section class="us-sec tk-live" aria-labelledby="tkLiveTitle">
       <div class="us-h"><h3 id="tkLiveTitle">Gauges in disguise</h3></div>
       <p class="muted small">A few things in his tank quietly show what Shellby knows about your PC. They stay on this PC: never synced, never on a card.</p>
-      <label class="toggle"><input type="checkbox" data-live="thermometer"><span class="switch"></span>Thermometer on the glass: your GPU (or CPU) temperature, red past your Health line</label>
+      <label class="toggle"><input type="checkbox" data-live="thermometer"><span class="switch"></span>The Glass Thermometer reads your GPU (or CPU) temperature, red past your Health line</label>
       <label class="toggle"><input type="checkbox" data-live="bubbler"><span class="switch"></span>Bubblers hurry when the CPU is busy</label>
       <label class="toggle"><input type="checkbox" data-live="lighthouse"><span class="switch"></span>The lighthouse is lit while a dev server runs, and blinks when one crashes</label>
       <label class="toggle"><input type="checkbox" data-live="moods"><span class="switch"></span>His Health moods reach the water</label>
+      <label class="toggle"><input type="checkbox" data-live="tide"><span class="switch"></span>Tide gauge on the glass: how much of your 5-hour usage window is left</label>
+      <label class="toggle"><input type="checkbox" data-live="chest"><span class="switch"></span>The Sunken Chest glints for a minute when a pull request of yours merges</label>
+      <label class="toggle"><input type="checkbox" data-live="bottle"><span class="switch"></span>A message in a bottle bobs up while a recap or your weekly card is waiting</label>
       <p class="muted small" id="tkLiveNow"></p>
     </section>
     <section class="us-sec tk-share" aria-labelledby="tkShareTitle">
@@ -2485,6 +2488,7 @@
 <script src="review-queue.js"></script>
 <script src="review-view.js"></script>
 <script src="composer.js"></script>
+<script src="builtin-commands.js"></script>
 <script src="tries.js"></script>
 <script src="toolbox-setup.js"></script>
 <script src="toolbox-automemory.js"></script>
@@ -2543,6 +2547,7 @@
 <script src="beach.js"></script>
 <script src="tank-paint.js"></script>
 <script src="tank-gauges.js"></script>
+<script src="tank-gauges-more.js"></script>
 <script src="tank-life.js"></script>
 <script src="tank-render.js"></script>
 <script src="tank.js"></script>

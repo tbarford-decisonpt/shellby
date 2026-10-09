@@ -4,6 +4,7 @@
 const { clean } = require('./mods');
 const { editsOf } = require('../renderer/shared/diff');
 const plainWords = require('./plain-words');
+const { headlessReply } = require('./cli-commands');
 
 const MAX_RESULT_CHARS = 8000;
 
@@ -341,8 +342,10 @@ function toItems(ev) {
         return item;
       });
     }
-    case 'result':
-      return [{
+    case 'result': {
+      // A command print mode can't run ends the turn with only this: say so plainly.
+      const said = headlessReply(ev.result) || headlessReply((ev.errors || []).join('\n'));
+      return [...(said ? [{ kind: 'text', text: said }] : []), {
         kind: 'result', ok: !ev.is_error, subtype: ev.subtype || null,
         durationMs: ev.duration_ms ?? null, turns: ev.num_turns ?? null,
         error: ev.is_error ? (ev.result || (ev.errors || []).join('\n') || null) : null,
@@ -353,6 +356,7 @@ function toItems(ev) {
         // How much of what Claude wrote was thinking (turncost.js shows it beside the effort).
         thinkingTokens: Number.isFinite(ev.usage?.output_tokens_details?.thinking_tokens) ? ev.usage.output_tokens_details.thinking_tokens : null,
       }];
+    }
     case 'rate_limit_event':
       return [usageFrom(ev)];
     case 'control_request':

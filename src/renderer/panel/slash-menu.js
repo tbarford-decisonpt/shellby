@@ -16,7 +16,7 @@
     const tb = state.toolbox || { skills: [], commands: [] };
     return L.slashCandidates(q, {
       local: SB.LOCAL_COMMANDS || [], snippets: state.snippets || [],
-      skills: tb.skills, commands: tb.commands, pinned: state.pinned || [],
+      skills: tb.skills, commands: tb.commands, builtins: tb.builtins || [], pinned: state.pinned || [],
     });
   }
 
@@ -35,7 +35,7 @@
     menu.replaceChildren(...slashItems.map((t, i) => h('button', {
       type: 'button', role: 'option', class: `slash-item${i === slashIndex ? ' on' : ''}`, 'aria-selected': String(i === slashIndex),
       onmousedown: e => { e.preventDefault(); pickSlash(i); },
-    }, h('span', { class: 'slash-name' }, '/', t.name, t.hint ? h('span', { class: 'slash-hint', text: ` <${t.hint}>` }) : null), h('span', { class: `kind-pill k-${t.kind}`, text: t.kind }), h('span', { class: 'slash-desc', text: t.description || '' }))));
+    }, h('span', { class: 'slash-name' }, '/', t.name, t.hint ? h('span', { class: 'slash-hint', text: ` <${t.hint}>` }) : null), h('span', { class: `kind-pill k-${t.pill ? 'cc' : t.kind}`, text: t.pill || t.kind }), h('span', { class: 'slash-desc', text: t.description || '' }))));
   }
 
   function pickSlash(i) {

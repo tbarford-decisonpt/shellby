@@ -480,6 +480,21 @@ test('a project with a clone keeps its to-dos in its tasks.md, not in config', (
   assert.equal(config.sets.length, 0, 'config untouched');
 });
 
+test('config to-dos of a project with a clone move into its tasks.md once', () => {
+  const saved = { added: [], hidden: [], todo: { [SITE_KEY]: [{ id: 't-abcd1234', text: 'Saved in config', from: 'claude', at: 1 }] } };
+  const rt = fakeRepoTasks();
+  const { svc, config } = service({ projects: [site], saved, extra: { repoTasks: rt.api } });
+  svc.mainRoot = new Map([[SITE_KEY, ROOT]]);
+
+  svc.moveTodosToRepos();
+  svc.moveTodosToRepos();
+
+  assert.deepEqual(rt.calls.filter(c => c[0] === 'add'), [['add', ROOT, 'Saved in config', 'claude']]);
+  assert.deepEqual(config.data.projects.todo, {});
+  assert.equal(config.sets.length, 1, 'saved once');
+  assert.deepEqual(svc.todoOf(SITE_KEY).map(t => t.text), ['Saved in config']);
+});
+
 test('a project with no clone still keeps its to-dos in config', () => {
   const rt = fakeRepoTasks();
   const { svc, config } = service({ projects: [site], extra: { repoTasks: rt.api } });

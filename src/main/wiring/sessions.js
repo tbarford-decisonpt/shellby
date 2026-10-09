@@ -167,6 +167,7 @@ function wireSessions(d) {
       if (item.kind === 'task' && item.phase === 'started' && !tab.session?.jobs?.byId.has(item.taskId)) d.stat('helper-spawned'); // a command left running isn't a helper (jobs.js)
       d.crewRoster?.onItem(tabId, item, tab); // each helper's run goes on its crew member's record (wiring/crew.js)
       d.native?.onItem(tabId, item, tab); // a skill's first use, a memory written down (wiring/native.js)
+      d.stepUndo?.onItem(tabId, item, tab); // a checkpoint before each step that changes files (wiring/step-undo.js)
       if (item.kind === 'tool' && (item.name === 'Bash' || item.name === 'PowerShell') && item.id) {
         const dir = tab.session?.cwd || '';
         // On another computer the folder here is only a stand-in: nothing to compare runs in.
@@ -323,6 +324,7 @@ function wireSessions(d) {
     d.sendEveryWindow('usage', item); // a popped-out conversation's meter too (wiring/popouts.js)
     d.onUsage(item);
     d.refreshOutlook();
+    d.tankGauges?.usage(); // the tank's tide gauge
     d.usageService.checkGuards();
   }
 

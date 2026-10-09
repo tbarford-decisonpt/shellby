@@ -223,9 +223,11 @@
     const behind = scene.pieces.filter(p => depthOf(p) <= 2);
     const front = scene.pieces.filter(p => depthOf(p) > 2);
     const alphaOf = p => (dim && dim.has(p.uid) ? dim.get(p.uid) : 1);
-    for (const p of behind) piece(ctx, p, t, still, alphaOf(p));
+    const sway = G ? G.swaySpeed(gauges) : 1; // plants sway faster when he's hot
+    const tOf = p => (p.category === 'plant' ? t * sway : t);
+    for (const p of behind) piece(ctx, p, tOf(p), still, alphaOf(p));
     if (crab && !crab.front) crabOn(ctx, scene, crab);
-    for (const p of front.filter(p => p.layer !== 'float')) piece(ctx, p, t, still, alphaOf(p));
+    for (const p of front.filter(p => p.layer !== 'float')) piece(ctx, p, tOf(p), still, alphaOf(p));
     if (crab && crab.front) crabOn(ctx, scene, crab); // up on something in the front row
     bubbles(ctx, scene, G ? t * G.bubbleSpeed(gauges) : t, still);
     // After dark the room dims, but lamps and bubblers keep their glow.
@@ -242,7 +244,7 @@
         ctx.fillRect(p.x - 2, p.y - p.h - 1, p.w + 4, p.h + 4);
         ctx.globalAlpha = 1;
       }
-      piece(ctx, p, t, still, alphaOf(p));
+      piece(ctx, p, tOf(p), still, alphaOf(p));
     }
     if (ghost) piece(ctx, ghost, t, true, 0.6);
     if (G) G.over(ctx, scene, gauges, t, still);
