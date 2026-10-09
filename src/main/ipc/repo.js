@@ -292,6 +292,10 @@ ${r.detail}` });
   }
   // Copies that changed the same files (wiring/clashes.js): what the panel shows on load.
   ipcMain.handle('clashes:list', () => d.clashesView());
+  // Every conversation at once (wiring/lanes.js): the board, lining copies up, one answer for many prompts.
+  ipcMain.handle('lanes:view', () => d.lanesView());
+  ipcMain.handle('lanes:line-up', (_e, tabIds) => d.lineUpCopies(tabIds));
+  ipcMain.handle('lanes:answer', (_e, { key, decision } = {}) => d.answerPromptGroup(key, decision));
   ipcMain.handle('worktree:discard', async (_e, tabId) => {
     const w = worktreeOf(tabId);
     if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };

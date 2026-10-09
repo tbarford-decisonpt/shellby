@@ -774,3 +774,17 @@ button.rq-title:hover, button.rq-title:focus-visible { color: var(--glass); text
 .mod-status b, .mod-mark .mod-name { font-weight: 600; color: var(--sand); }
 /* "mod" beside a mod's name wherever it speaks: a mod called "Shellby" still reads as a mod. */
 .mod-tag { margin: 0 6px; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--fs-11); line-height: 1.5; color: var(--sand-dim); }
+
+/* Running many conversations at once (tab-board.js): lanes, grouped prompts, merge order. */
+.tl-lane { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; color: var(--sand-faint); }
+.tb-board { flex: none; max-height: 40%; overflow-y: auto; margin-bottom: 6px; }
+.tb-ask, .tb-order { display: flex; align-items: center; gap: 6px; padding: 4px 9px; }
+.tb-ask-text { flex: 1; min-width: 0; display: grid; gap: 1px; font-size: var(--fs-12-5); color: var(--sand); }
+.tb-ask-text code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+.tb-order-list { flex: 1; min-width: 0; margin: 0; padding-left: 18px; font-size: var(--fs-12-5); color: var(--sand); }
+.tb-btn {
+  flex: none; padding: 3px 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: none;
+  color: var(--sand); font: 600 var(--fs-11-5) var(--font-body);
+}
+.tb-btn:hover:not(:disabled) { border-color: var(--glass); }
+.tb-btn.quiet { color: var(--sand-faint); }
