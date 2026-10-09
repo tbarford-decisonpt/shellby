@@ -14,7 +14,12 @@
     "k": "#1a7a36",
     "e": "#021006",
     "w": "#d6ffe0",
-    "l": "#1a7a36"
+    "l": "#1a7a36",
+    "m": "#155c2b",
+    "g": "#46dc6c",
+    "H": "#e2ffe9",
+    "p": "#78f598",
+    "d": "#0e4d22"
   },
   "parts": {
     "S": "shell",
@@ -27,20 +32,25 @@
     "k": "stalks",
     "e": "eyes",
     "w": "eyes",
-    "l": "legs"
+    "l": "legs",
+    "m": "shell",
+    "g": "shell",
+    "H": "shell",
+    "p": "body",
+    "d": "body"
   },
   "pixels": [
-    "......SSSS...ew.ew....",
-    "....SSsssSS..ee.ee....",
-    "...SsshhhssS..k..k....",
-    "..SshhSSSshsS.k..k....",
-    "..SshSsssSshSbbbbbb...",
-    ".SshSshhsSshSbbbbbbb..",
-    ".SshSshSsSshSbbbbbB.cc",
-    ".SshSssSSshsSbbbbBcccC",
-    ".SsshSSsshhsSbbbbBccc.",
-    "..SsshhhhhsSbbbbbBBC..",
-    "...SSsssssSBBBBBBB....",
+    "......mmmS...ew.ew....",
+    "....mmgggSS..ee.ee....",
+    "...mggHhhgsS..k..k....",
+    "..mghhSSSshsS.k..k....",
+    "..mghSggsSshSbppppb...",
+    ".mghSghhsSsgSBbbbbbb..",
+    ".SshSshSsSsgSBbbbbB.cc",
+    ".SsgSssSSsgmSBbbbBcccC",
+    ".SssgSSssggmSBbbbBccC.",
+    "..SsshhggsmSdBbbbBBC..",
+    "...SSsssmmSddBBBBB....",
     "....SSSSSS..ll.ll.ll..",
     "...........l..l..l...."
   ]

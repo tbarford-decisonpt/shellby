@@ -1,0 +1,67 @@
+// Portraits for the moonlight finds (see index.js).
+
+module.exports = {
+  'moon-pearl': {
+    palette: { W: '#ffffff', c: '#f6f8ff', a: '#e8ecff', p: '#f2d6f0', b: '#b8c4ff', B: '#8f9ce8', D: '#6f78cc' },
+    pixels: [
+      '....aaaab....',
+      '..aacccaabb..',
+      '.accWWccaabb.',
+      '.acWcccaaabb.',
+      'accWccaaaabbB',
+      'aaccWcaaabbbB',
+      'aaaaaaapbbbBB',
+      'baaaaappbbbBB',
+      'bbaaappbbbBBB',
+      '.bbappbbbBBB.',
+      '.BbbbbbbBBBD.',
+      '..BBbbbBBDD..',
+      '....BBBDD....',
+    ],
+  },
+  'silver-sand': {
+    palette: { W: '#ffffff', b: '#eef2fa', a: '#c9d1e0', s: '#aeb8cc', A: '#9aa4bd', D: '#737e9b' },
+    pixels: [
+      '......bba.......',
+      '.....bbbaa......',
+      '....bbbbaaA.....',
+      '...bbbbbaWaA....',
+      '..bbsbbaWWWaA...',
+      '.bbbbbaaaWaAAA..',
+      '.bbbbaasaaaAbAA.',
+      'abbbbaaaaAAbWbAD',
+      'aaabWbaaAAAAbAAD',
+      '.AAAbAAADDDDDDD.',
+    ],
+  },
+  'new-moon-stone': {
+    palette: { K: '#11141f', a: '#1d2333', b: '#3a4560', B: '#55628a', c: '#8c9eff', C: '#c5ceff', E: '#3a2a3e', e: '#b77a7a' },
+    pixels: [
+      '....cccBb....',
+      '..cCBbbbaaa..',
+      '.cBbbaaaaaaK.',
+      'cBbaaaaaaBaaK',
+      'cbaaaaaaaaaKK',
+      'BbaaaaaaaaaKK',
+      'baaaaEaaaaKKK',
+      'baaaEeEaaKKKK',
+      '.aaaaEaaKKKK.',
+      '..aaaKKKKKK..',
+      '....KKKKK....',
+    ],
+  },
+  'moonless-glass': {
+    palette: { L: '#b8dcef', b: '#86bbd8', m: '#5b8aa3', M: '#43687e', g: '#4c7890', a: '#2f4858', D: '#1f3343' },
+    pixels: [
+      '.....mbbLbm...',
+      '...mbbbbbbmMa.',
+      '.mMaaaaaaaaaaD',
+      'mMaaggaamaaaDD',
+      'maaggggaamaDDD',
+      'MaaaggaaaaDDD.',
+      '.MaamaaaaDDD..',
+      '..MaaaaDDDD...',
+      '...DDDDDD.....',
+    ],
+  },
+};

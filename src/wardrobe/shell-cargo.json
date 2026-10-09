@@ -14,12 +14,12 @@
       "description": "Took a file off your hands. Packed for a long task.",
       "slot": "shell",
       "pivot": [2, 4],
-      "palette": { "p": "#6b4a2f", "P": "#9c6b3f", "y": "#e9c46a" },
+      "palette": { "p": "#6b4a2f", "P": "#9c6b3f", "y": "#e9c46a", "h": "#c48d58", "d": "#4a3028", "Y": "#b88a3a" },
       "pixels": [
-        ".ppp.",
-        "pPPPp",
-        "pyPyp",
-        ".PPP."
+        ".hPp.",
+        "phPPd",
+        "pyPYd",
+        ".PPp."
       ],
       "unlock": { "achievement": "special-delivery" }
     },
@@ -30,12 +30,12 @@
       "slot": "shell",
       "rarity": "rare",
       "pivot": [2, 5],
-      "palette": { "s": "#edf2f4", "S": "#8d99ae", "k": "#2b2d42" },
+      "palette": { "s": "#edf2f4", "S": "#8d99ae", "k": "#2b2d42", "w": "#ffffff", "m": "#b4bfcc", "D": "#5f6a86", "K": "#4a4e69" },
       "pixels": [
-        ".sss.",
-        "s...s",
-        ".sSs.",
-        "..k..",
+        ".wsm.",
+        "s...m",
+        ".sSD.",
+        "..K..",
         "..k.."
       ]
     },
@@ -45,13 +45,13 @@
       "description": "Two bars. Good enough.",
       "slot": "shell",
       "pivot": [1, 5],
-      "palette": { "k": "#2b2d42", "r": "#ef476f" },
+      "palette": { "k": "#2b2d42", "r": "#ef476f", "m": "#5f6a86", "K": "#4a4e69" },
       "pixels": [
         ".r.",
+        ".m.",
+        ".K.",
         ".k.",
-        ".k.",
-        ".k.",
-        "kkk"
+        "Kkk"
       ]
     },
     {
@@ -61,14 +61,14 @@
       "slot": "shell",
       "rarity": "rare",
       "pivot": [2, 6],
-      "palette": { "f": "#ff8fab", "G": "#52b788", "t": "#c1663f", "T": "#8c4a2b" },
+      "palette": { "f": "#ff8fab", "G": "#52b788", "t": "#c1663f", "T": "#8c4a2b", "L": "#a8dc8c", "g": "#2d7d6a", "h": "#e38a5a", "D": "#5e3030" },
       "pixels": [
         "..f..",
-        ".G.G.",
-        ".GGG.",
-        "..G..",
-        ".ttt.",
-        ".TTT."
+        ".L.G.",
+        ".LGg.",
+        "..g..",
+        ".htt.",
+        ".TTD."
       ]
     },
     {
@@ -77,11 +77,11 @@
       "description": "His first new trick. He read up on it first.",
       "slot": "shell",
       "pivot": [2, 3],
-      "palette": { "r": "#c1121f", "b": "#277da1", "y": "#e9c46a", "w": "#f8f9fa" },
+      "palette": { "r": "#c1121f", "b": "#277da1", "y": "#e9c46a", "w": "#f8f9fa", "R": "#e8434a", "d": "#7e0c22", "B": "#52a8cc", "c": "#1a5478", "Y": "#f7e0a0", "o": "#bf913e", "p": "#d4d9e2", "q": "#aab2c2" },
       "pixels": [
-        "rrrrw",
-        "bbbbw",
-        "yyyyw"
+        "Rrrdw",
+        "Bbbcp",
+        "Yyyoq"
       ],
       "unlock": { "achievement": "toolmaker" }
     },
@@ -92,13 +92,13 @@
       "slot": "shell",
       "rarity": "epic",
       "pivot": [2, 5],
-      "palette": { "s": "#e8f1f2", "S": "#8d99ae", "G": "#52b788" },
+      "palette": { "s": "#e8f1f2", "S": "#8d99ae", "G": "#52b788", "w": "#ffffff", "m": "#a6bcc8", "L": "#a8dc8c", "g": "#2d7d6a", "h": "#b8c2cc", "D": "#5f6a86" },
       "pixels": [
-        ".sss.",
-        "s...s",
-        "s.G.s",
-        "sGGGs",
-        "SSSSS"
+        ".wsm.",
+        "w...m",
+        "s.L.m",
+        "sGGgm",
+        "hSSSD"
       ]
     },
     {
@@ -108,14 +108,14 @@
       "slot": "shell",
       "rarity": "rare",
       "pivot": [0, 6],
-      "palette": { "m": "#8d5524", "w": "#f8f9fa", "b": "#277da1" },
+      "palette": { "m": "#8d5524", "w": "#f8f9fa", "b": "#277da1", "h": "#b8783e", "d": "#5a3424", "s": "#d0d8e2", "S": "#a4b0c2" },
       "pixels": [
-        "mw...",
+        "hw...",
         "mww..",
-        "mwww.",
-        "mwwwb",
+        "mwws.",
+        "mwsSb",
         "m....",
-        "m...."
+        "d...."
       ],
       "unlock": { "achievement": "fleet" }
     },
@@ -126,11 +126,11 @@
       "slot": "shell",
       "rarity": "rare",
       "pivot": [3, 4],
-      "palette": { "k": "#2b2d42", "b": "#1d3557", "c": "#457b9d" },
+      "palette": { "k": "#2b2d42", "b": "#1d3557", "c": "#457b9d", "w": "#cdeefa", "C": "#78b4d4", "n": "#132440", "K": "#4a4e69" },
       "pixels": [
-        "bcbcbc",
-        "bcbcbc",
-        "..k...",
+        "bwbCbc",
+        "bCbcnc",
+        "..K...",
         "..k..."
       ]
     },
@@ -140,11 +140,11 @@
       "description": "Made room on a full drive. Something grew there.",
       "slot": "shell",
       "pivot": [2, 4],
-      "palette": { "R": "#c1121f", "w": "#f8f9fa", "s": "#f1e3d3" },
+      "palette": { "R": "#c1121f", "w": "#f8f9fa", "s": "#f1e3d3", "h": "#ef4b4b", "d": "#7d0a22", "S": "#c8b6ac" },
       "pixels": [
-        ".RRR.",
-        "RwRwR",
-        ".sss.",
+        ".hRR.",
+        "hwRwd",
+        ".sSS.",
         "..s.."
       ],
       "unlock": { "achievement": "spring-cleaning" }
@@ -156,12 +156,12 @@
       "slot": "shell",
       "rarity": "epic",
       "pivot": [2, 4],
-      "palette": { "G": "#52b788", "g": "#2d6a4f", "t": "#8d5524", "p": "#c1663f" },
+      "palette": { "G": "#52b788", "g": "#2d6a4f", "t": "#8d5524", "p": "#c1663f", "L": "#a8dc8c", "D": "#1f4a44", "h": "#e38a5a", "P": "#8c4a2b" },
       "pixels": [
-        "GGGGG",
-        ".GgG.",
+        "LLGGg",
+        ".GgD.",
         "..t..",
-        ".ppp."
+        ".hpP."
       ],
       "unlock": { "achievement": "inventor" }
     }

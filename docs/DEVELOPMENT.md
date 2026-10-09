@@ -52,6 +52,8 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `npm run packs` | Validates the built-in wardrobe packs in `src/wardrobe/` |
 | `npm run packs:format` | Rewrites those packs in the house style: pivot and palette on one line, one pixel row per line |
 | `npm run packs:sheet` | A contact sheet of every built-in pack worn by the crab (Python), to eyeball new art |
+| `node scripts/crab-sheet.js skins\|shells\|<pack>...` | Him drawn as the app draws him (`shared/sprite.js`, ink line and all) on a dark and a light wallpaper: every skin, each shell worn, or each accessory in a pack worn. `--skin id`, `--no-ink` |
+| `node scripts/finds-sheet.js [ids or sets]` | The finds' portraits beside their little art; `--forms` adds the sparkly one and the shelf's silhouette. `scripts/bugdex-sheet.js` does the same for the Bugdex |
 | `npm run tricks` | Films the README's "Things to try" GIFs on the real desktop with a throwaway profile and its own Notepad. It moves windows and the cursor, so leave the mouse alone |
 | `npm run e2e:ci` | The end-to-end checks that need no Claude account, no GitHub and no network, one after another. This is what CI runs, and the only automated coverage the renderer has. It sets `SHELLBY_E2E=1`, so the app ignores what else is open on your desktop (src/main/test-desktop.js). Words narrow it (`npm run e2e:ci -- queue voice`); `--shard=i/n` takes every nth check, which is how CI splits them across four machines. A script joins the run when its first line says what it covers: `// ci: queued messages: queue, edit, drain` |
 | `node scripts/smoke-real.js` | End-to-end check against your real Claude Code install |
@@ -374,6 +376,8 @@ src/main/        Electron main process
                    wiring/events.js counts every stat toward them, says when one starts or ends, and gives the medal (docs/plans/viral.md)
   today.js         the app's one calendar: captureClock for screenshots, SHELLBY_TODAY for dev and test runs, the real day otherwise
   board.js         the friends' board (pure): you and friends who share their Bugdex, ranked by this month's catches
+  gifts.js         finds from digging (pure): rarities, sets, sparkly ones, the shelf; gifts/portraits/ holds the big
+                   drawings, one file per set (scripts/finds-sheet.js draws them to a PNG); life.js does the digging
   swaps.js         swapping finds with friends (pure): offers, answers and call-offs as letters on calling cards (github/mail.js)
   eggs.js          crab eggs (pure): laying, the hash on your card, hatching, the baby both crabs get; wiring/social.js ties both in
   crab-line.js     the crab in a line (pure): the PR badge's text and the bring-home commit trailer
@@ -416,7 +420,8 @@ src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)
   panel/           core · shortcuts (every key, the palette's ranking; pure) · nav (bottom bar, Ctrl+K, Ctrl+/) · files (file links, an edit's diff, zoom) · find (Ctrl+F) · feed (crew lanes) · feed-native (messages between agents, skills, memories, the plan card) · native-strip (the to-do list and background tray above the box) · toolbox-automemory · routines-cloud · tabs · tab-panes (split and pop-out) · notes · bugdex · bugdex-battle · toolbox · shop · routines · workflows · settings · wardrobe · xp · streaks · health · card · moment-card (one 1200×630 card per moment) · sparkle (the sparkly reveal) · tide (tide events) · social (swaps and eggs) · celebrate · crabonly · workmode · outfitcode · github · boot
                    its page, panel.html, is built from html/: frame.html (head, title bar, menus, bar, sheets, scripts) plus a file per screen (chat.html, projects.html, settings.html with a file per tab…). Edit those and run `npm run panel:html`; the built file is committed, and test/panel-html.test.js fails when it's stale
                    a big screen is a file per part (tab-strip, tab-send, feed-asks, settings-account, health-gauges…), and its words and decisions live in a pure module beside it with node:test coverage (tab-logic, feed-logic, settings-text, health-logic, projects-logic, tab-sort)
-  shared/          used by more than one window or by tests too: framecap, workposes (what he holds for each work pose, and how long a pose stays up; the OBS overlay uses it too), diff (an edit's red and green lines), panes (the split grid; pure)
+  shared/          used by more than one window or by tests too: sprite (him and any pixel grid as SVG, each part in its
+                   own animatable group with its ink line inside it, drawn only on cells nothing else fills), framecap, workposes (what he holds for each work pose, and how long a pose stays up; the OBS overlay uses it too), diff (an edit's red and green lines), panes (the split grid; pure)
 src/skins/       built-in skins (JSON pixel grids)
 src/wardrobe/    the built-in wardrobe pack (same format as community packs)
 src/streamdeck/  the Stream Deck plugin (Node 24, no packages): Stream Deck's websocket on one side, deck.js on the other, keys drawn as SVG

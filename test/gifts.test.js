@@ -25,6 +25,42 @@ test('every find is drawable and has a home', () => {
   for (const set of g.SETS) assert.ok(set.members.length >= 4, `${set.id} has enough to collect`);
 });
 
+test('every find has a portrait, drawn within 18×18 in lettered colours, in its own set\'s file', () => {
+  const { FILES, PORTRAITS } = require('../src/main/gifts/portraits');
+  const byFile = new Map(FILES.map(f => [f, Object.keys(require(`../src/main/gifts/portraits/${f}`))]));
+  for (const [file, ids] of byFile) {
+    for (const id of ids) {
+      const f = g.findById(id);
+      assert.ok(f, `${file}.js has a portrait for an unknown find ${id}`);
+      assert.equal(file, f.set || 'strays', `${id} is drawn in ${f.set || 'strays'}.js`);
+    }
+  }
+  for (const f of g.FINDS) {
+    const p = PORTRAITS[f.id];
+    assert.ok(p, `${f.id} has a portrait`);
+    const w = p.pixels[0].length;
+    assert.ok(p.pixels.length <= 18 && w <= 18, `${f.id} is at most 18×18`);
+    assert.ok(p.pixels.every(r => r.length === w), `${f.id} rows are one width`);
+    for (const [key, hex] of Object.entries(p.palette)) {
+      assert.match(key, /^[A-Za-z]$/, `${f.id} palette key '${key}' (digits and symbols are the outline's)`);
+      assert.match(hex, /^#[0-9a-f]{6}$/i, `${f.id} colour ${key}`);
+    }
+    for (const row of p.pixels) for (const ch of row) assert.ok(ch === '.' || Object.hasOwn(p.palette, ch), `${f.id} uses an undefined colour '${ch}'`);
+    assert.ok(Object.isFrozen(f.portrait) && f.portrait.pixels.length === p.pixels.length + 2, `${f.id} is inked and frozen`);
+  }
+});
+
+test('the shelf and the sparkly reveal get the portrait; his claw and the Us page keep the little art', () => {
+  const f = g.findById('pebble');
+  const shelf = g.view({ items: { pebble: { n: 1, first: T0, last: T0, shiny: 1 } } }, T0).finds.find(x => x.id === 'pebble');
+  assert.deepEqual(shelf.pixels, f.portrait.pixels);
+  assert.deepEqual(shelf.sprite.pixels, f.pixels);
+  assert.equal(shelf.shinyArt.pixels.length, f.portrait.pixels.length);
+  assert.deepEqual(g.sparkly(f).pixels, f.pixels);
+  assert.deepEqual(g.sparkly(f, { big: true }).pixels, f.portrait.pixels);
+  assert.notDeepEqual(g.sparkly(f, { big: true }).palette, f.portrait.palette);
+});
+
 test('his first dig always turns something up', () => {
   const r = g.dig(null, {}, T0, never);
   assert.ok(r.find);
@@ -190,7 +226,7 @@ test('a sparkly find is counted apart, and the first one says so', () => {
   const v = g.view(g.normalize({ items: { pebble: { n: 2, first: T0, last: T0, shiny: 1, shinyFirst: T0 } } }), T0);
   const pebble = v.finds.find(f => f.id === 'pebble');
   assert.equal(pebble.shiny, 1);
-  assert.ok(pebble.shinyArt && pebble.shinyArt.palette.a !== pebble.palette.a, 'drawn in its own colours');
+  assert.ok(pebble.shinyArt && Object.keys(pebble.palette).some(k => pebble.shinyArt.palette[k] !== pebble.palette[k]), 'drawn in its own colours');
   assert.equal(v.sparkles, 1);
 });
 

@@ -12,6 +12,7 @@
 // Pure: no I/O, no clock, no randomness of its own (callers pass `now` and
 // `rand`). src/main/life.js does the digging; see test/gifts.test.js.
 const art = require('./bugdex/art');
+const { PORTRAITS } = require('./gifts/portraits');
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -34,6 +35,14 @@ const NEW_BIAS = 2;                // something not on the shelf yet is this muc
 const EVENT_BIAS = 6;              // a tide event's own finds, while it's on
 const SPARKLE_CHANCE = 1 / 128;    // a sparkly one (events.js can raise it, at most 4×)
 const MAX_SPARKLE_BOOST = 4;
+
+// The big shaded drawing for the shelf and the sparkly reveal (gifts/portraits/), inked.
+function portraitOf(id) {
+  const p = PORTRAITS[id];
+  if (!p) return null;
+  const a = art.inked(p);
+  return Object.freeze({ pixels: Object.freeze(a.pixels), palette: Object.freeze(a.palette) });
+}
 
 // Each find: pixel art (one character per pixel, '.' is empty), a line for the
 // shelf, and where it belongs. `season` finds only turn up in that season
@@ -172,7 +181,7 @@ const FINDS = Object.freeze([
   // ---- keepsakes: only on their day
   { id: 'cake-slice', name: 'Birthday cake', rarity: 'special', special: 'birthday', blurb: 'Dug up on your birthday. Still fresh, somehow.', palette: { r: '#e63946', w: '#fff4e4', p: '#f4a261' }, pixels: ['...r.', '..www', '.wwwp', 'wwwpp', 'ppppp'] },
   { id: 'hatch-candle', name: 'Hatch-day candle', rarity: 'special', special: 'hatchday', blurb: 'From the anniversary of the day he moved in.', palette: { y: '#ffd23f', o: '#ff9f1c', w: '#fff4e4', p: '#ff8fab' }, pixels: ['..y..', '..o..', '.www.', '.wpw.', '.www.'] },
-].map(f => Object.freeze({ set: null, season: null, event: null, night: false, moon: null, special: null, ...f, pixels: Object.freeze([...f.pixels]), palette: Object.freeze({ ...f.palette }) })));
+].map(f => Object.freeze({ set: null, season: null, event: null, night: false, moon: null, special: null, ...f, pixels: Object.freeze([...f.pixels]), palette: Object.freeze({ ...f.palette }), portrait: portraitOf(f.id) })));
 
 const SETS = Object.freeze([
   { id: 'beach', name: 'Beach day', icon: '🏖️' },
@@ -302,8 +311,18 @@ function dig(stateIn, ctx = {}, now, rand = Math.random) {
 
 const clampBoost = (v, max) => Math.max(1, Math.min(max, Number(v) || 1));
 
-/** A find in its sparkly colours (the Bugdex's shiny turn, bugdex/art.js). */
-const sparkly = find => (find ? art.shiny({ pixels: find.pixels, palette: find.palette }) : null);
+/** Its portrait for the shelf, or its little art if it has none yet. */
+const portrait = find => find.portrait || find;
+
+/**
+ * A find in its sparkly colours (the Bugdex's shiny turn, bugdex/art.js):
+ * its little art for his claw, or with `big` its portrait for the panel.
+ */
+const sparkly = (find, { big = false } = {}) => {
+  if (!find) return null;
+  const a = big ? portrait(find) : find;
+  return art.shiny({ pixels: a.pixels, palette: a.palette });
+};
 
 /** How many sparkly finds there are on the shelf, all kinds together. */
 const sparkles = stateIn => Object.values(normalize(stateIn).items).reduce((n, it) => n + (it.shiny || 0), 0);
@@ -382,12 +401,14 @@ function view(stateIn, now = Date.now(), { seasons = [], event = null, back = {}
         event: f.event, back: f.event && Number.isFinite(back[f.event]) ? back[f.event] : 0,
         owned: !!it, count: it?.n || 0, first: it?.first || 0,
         shiny: it?.shiny || 0, shinyFirst: it?.shinyFirst || 0, held: it?.held || 0,
-        ...(it?.shiny ? { shinyArt: sparkly(f) } : {}),
+        ...(it?.shiny ? { shinyArt: sparkly(f, { big: true }) } : {}),
         // The name and the line are part of the surprise, except for keepsakes,
         // which say what day to look out for.
         name: it || f.special ? f.name : '???',
         blurb: it ? f.blurb : hintFor(f),
-        pixels: f.pixels, palette: f.palette,
+        // The portrait for the shelf; `sprite`, his size, for beside him on the Us page.
+        pixels: portrait(f).pixels, palette: portrait(f).palette,
+        sprite: { pixels: f.pixels, palette: f.palette },
       };
     }),
     sets: SETS.map(set => ({ id: set.id, name: set.name, icon: set.icon, have: set.members.filter(id => state.items[id]).length, of: set.members.length, done: setDone(state, set), members: set.members })),
@@ -491,6 +512,6 @@ module.exports = {
   FINDS, SETS, RARITY, DIG_CHANCE, DRY_SPELL, DAILY_CAP, FIND_GAP, MANUAL_EVERY, LEGENDARY_AFTER,
   SPARKLE_CHANCE, EVENT_NAMES,
   normalize, findById, eligible, pickFind, dig, keepsake, canDig, nextDigAt, favourite, foundLine, view, setFavourite, markSeen, total,
-  sparkly, sparkles,
+  portrait, sparkly, sparkles,
   spare, hold, release, handOver, receive, swapLists, finishes,
 };

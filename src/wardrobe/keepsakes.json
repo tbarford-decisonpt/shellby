@@ -25,15 +25,21 @@
         "k": "#8d99ae",
         "K": "#ff9f1c",
         "R": "#ff7a5c",
-        "r": "#ffb199"
+        "r": "#ffb199",
+        "h": "#c9d2de",
+        "j": "#5f6a86",
+        "L": "#ffd27a",
+        "O": "#d4680f",
+        "w": "#ffe3d4",
+        "D": "#c44a58"
       },
       "pixels": [
-        "..kkk..",
-        ".k...k.",
-        "KKKKKKK",
-        ".RrrrR.",
-        ".RrrrR.",
-        "..RRR.."
+        "..hkk..",
+        ".h...j.",
+        "KLLKKKO",
+        ".rwRRD.",
+        ".rrRRD.",
+        "..RDD.."
       ]
     },
     {
@@ -52,17 +58,22 @@
       "palette": {
         "k": "#4a4e69",
         "c": "#ffd23f",
-        "y": "#fff4b3"
+        "y": "#fff4b3",
+        "g": "#2b2d42",
+        "m": "#8d93ad",
+        "w": "#ffffff",
+        "o": "#e09a1c",
+        "O": "#a8641c"
       },
       "pixels": [
-        "kk.....",
+        "gg.....",
         ".k.....",
-        "..k....",
-        "...k...",
+        "..m....",
+        "...m...",
         "....k..",
-        "...ccc.",
-        "..cyyyc",
-        "...ccc."
+        "...cco.",
+        "..cwyco",
+        "...ooO."
       ]
     },
     {
@@ -81,14 +92,18 @@
       "palette": {
         "K": "#5e3a1a",
         "b": "#a0693a",
-        "y": "#ffd23f"
+        "y": "#ffd23f",
+        "h": "#cf9259",
+        "d": "#7a4a2a",
+        "Y": "#c98a12",
+        "D": "#3e2620"
       },
       "pixels": [
-        ".KKKKK.",
-        "KbbybbK",
-        "KKKyKKK",
-        "KbbbbbK",
-        "KKKKKKK"
+        ".KhhhK.",
+        "KhbybdK",
+        "KKKYKKD",
+        "KhbbbdK",
+        "KKKDDDD"
       ]
     },
     {
@@ -107,14 +122,17 @@
       "palette": {
         "r": "#e63946",
         "y": "#ffd23f",
-        "Y": "#c99700"
+        "Y": "#c99700",
+        "R": "#a01f3c",
+        "w": "#fff4b3",
+        "o": "#e0961c"
       },
       "pixels": [
-        "r...r",
-        ".r.r.",
-        ".yyy.",
-        "yyYyy",
-        ".yyy."
+        "r...R",
+        ".r.R.",
+        ".wyy.",
+        "yyYyo",
+        ".yoo."
       ]
     },
     {
@@ -132,16 +150,20 @@
       },
       "palette": {
         "g": "#ffd23f",
-        "p": "#ff8fab"
+        "p": "#ff8fab",
+        "G": "#c48a14",
+        "w": "#ffd9e3",
+        "P": "#d4557e",
+        "q": "#a33a6a"
       },
       "pixels": [
-        "g.....g",
-        ".g...g.",
-        "..g.g..",
-        "..p.p..",
-        ".ppppp.",
-        "..ppp..",
-        "...p..."
+        "g.....G",
+        ".g...G.",
+        "..g.G..",
+        "..w.p..",
+        ".pwppP.",
+        "..pPP..",
+        "...q..."
       ]
     },
     {
@@ -159,14 +181,17 @@
       },
       "palette": {
         "g": "#2a9d8f",
-        "G": "#57cc99"
+        "G": "#57cc99",
+        "L": "#b4e88f",
+        "d": "#1f6f74",
+        "D": "#18485e"
       },
       "pixels": [
-        "..g.g..",
-        ".gGgGg.",
-        "gGgGgGg",
-        ".gGgGg.",
-        "ggggggg"
+        "..L.G..",
+        ".LGgLg.",
+        "LGgdGgd",
+        ".gdGgd.",
+        "ggdddDD"
       ]
     },
     {
@@ -184,13 +209,17 @@
       },
       "palette": {
         "y": "#c7f464",
-        "w": "#ffffff"
+        "w": "#ffffff",
+        "h": "#f0ffa8",
+        "d": "#8cc43c",
+        "D": "#5a9a46",
+        "v": "#d6e6c4"
       },
       "pixels": [
-        ".yy.",
-        "ywyy",
-        "yywy",
-        ".yy."
+        ".hy.",
+        "hwyd",
+        "yyvd",
+        ".dD."
       ]
     },
     {
@@ -211,14 +240,18 @@
         "k": "#cfd8dc",
         "r": "#e63946",
         "b": "#3a86ff",
-        "g": "#2dc653"
+        "g": "#2dc653",
+        "L": "#4a4e69",
+        "D": "#1a1b2b",
+        "w": "#ffffff",
+        "s": "#8d99ae"
       },
       "pixels": [
-        ".KKKKK.",
-        "KkKKKrK",
+        ".LLLKK.",
+        "LwKKKrK",
         "kkkKKKb",
-        "KkKKKgK",
-        ".KK.KK."
+        "KsKKKgK",
+        ".DD.DD."
       ]
     },
     {
@@ -238,14 +271,17 @@
         "K": "#2b2d42",
         "k": "#4a4e69",
         "r": "#e63946",
-        "w": "#fff4e4"
+        "w": "#fff4e4",
+        "R": "#ff7a7a",
+        "d": "#b0243c",
+        "D": "#1a1b2b"
       },
       "pixels": [
-        ".KKKKK.",
-        "KrrrrrK",
-        "KrwrwrK",
-        "KrrrrrK",
-        "..kkk.."
+        ".kkKKK.",
+        "kRRrrrK",
+        "KRwrwdK",
+        "KrrrddD",
+        "..kKD.."
       ]
     },
     {
@@ -263,14 +299,18 @@
       },
       "palette": {
         "b": "#8a6a4a",
-        "w": "#a8dadc"
+        "w": "#a8dadc",
+        "h": "#b8915e",
+        "o": "#3a2a2a",
+        "d": "#5c4438",
+        "W": "#f4ffff"
       },
       "pixels": [
-        "....w.w",
+        "....W.w",
         ".....w.",
-        "bbb..w.",
-        "bbbbbbb",
-        ".b....."
+        "hob..w.",
+        "hbdhbbd",
+        ".d....."
       ]
     },
     {
@@ -289,15 +329,18 @@
       "palette": {
         "K": "#8d99ae",
         "c": "#cfd8dc",
-        "s": "#fff4e4"
+        "s": "#fff4e4",
+        "w": "#f4f8fa",
+        "d": "#5f6a86",
+        "D": "#434a66"
       },
       "pixels": [
         "s....",
         ".s...",
         "..s..",
-        "KKK..",
-        "KcK..",
-        "KKK.."
+        "wKK..",
+        "KcD..",
+        "dDD.."
       ]
     },
     {
@@ -316,13 +359,19 @@
       "palette": {
         "k": "#4a4e69",
         "b": "#7fd6c2",
-        "p": "#ff9f80"
+        "p": "#ff9f80",
+        "P": "#ffc8a8",
+        "q": "#e0705e",
+        "h": "#d0f5dc",
+        "d": "#4f9fa8",
+        "D": "#3a7090",
+        "K": "#2b2d42"
       },
       "pixels": [
-        ".p.p.p.",
-        "bbbbbbb",
-        ".bbbbb.",
-        "..kkk.."
+        ".P.p.q.",
+        "bhhbbbd",
+        ".bbbdD.",
+        "..kkK.."
       ]
     },
     {
@@ -340,14 +389,17 @@
       },
       "palette": {
         "w": "#fff4e4",
-        "r": "#e63946"
+        "r": "#e63946",
+        "s": "#ddd0d4",
+        "S": "#b4a4b8",
+        "R": "#a8203c"
       },
       "pixels": [
-        "w.....w",
-        "wwrwrww",
-        ".wwwww.",
-        "..wrw..",
-        "...w..."
+        "w.....s",
+        "wwrwRws",
+        ".wwsws.",
+        "..wrS..",
+        "...S..."
       ]
     },
     {
@@ -366,14 +418,18 @@
       "palette": {
         "y": "#ffd23f",
         "o": "#e9a23b",
-        "w": "#cfe8ff"
+        "w": "#cfe8ff",
+        "W": "#ffffff",
+        "h": "#fff0a0",
+        "d": "#d08a2c",
+        "D": "#a0642c"
       },
       "pixels": [
-        ".w..w",
-        "yyyy.",
-        "yoyoy",
-        "yyyyy",
-        ".yyyy"
+        ".W..w",
+        "hhyy.",
+        "hoyod",
+        "yyody",
+        ".yddD"
       ]
     },
     {
@@ -392,15 +448,18 @@
       "palette": {
         "b": "#b08d57",
         "d": "#8a6a4a",
-        "k": "#2b2d42"
+        "k": "#2b2d42",
+        "h": "#d6b27a",
+        "s": "#7a5e4c",
+        "m": "#e6cfa0"
       },
       "pixels": [
-        "b...b",
-        "bbbbb",
-        "bkbkb",
-        ".bdb.",
-        "bbbbb",
-        "b...b"
+        "h...s",
+        "hhbbs",
+        "hkbks",
+        ".mdm.",
+        "hbbbs",
+        "b...s"
       ]
     },
     {
@@ -418,15 +477,18 @@
       },
       "palette": {
         "a": "#c99700",
-        "b": "#ffd23f"
+        "b": "#ffd23f",
+        "w": "#fff8c8",
+        "o": "#e0a01c",
+        "A": "#8f6414"
       },
       "pixels": [
-        ".bb",
-        "bab",
+        ".wb",
+        "bao",
         ".b.",
+        ".o.",
         ".a.",
-        ".a.",
-        ".a."
+        ".A."
       ]
     }
   ]

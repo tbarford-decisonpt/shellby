@@ -16,13 +16,13 @@
       "rarity": "epic",
       "unlock": { "season": "halloween" },
       "pivot": [3, 4],
-      "palette": { "g": "#4a7c3a", "O": "#e8772e", "o": "#b4531b", "y": "#ffd23f" },
+      "palette": { "g": "#4a7c3a", "O": "#e8772e", "o": "#b4531b", "y": "#ffd23f", "h": "#ffa552", "G": "#2f5626", "Y": "#fff3b0", "d": "#7e3414" },
       "pixels": [
         "...g...",
-        ".OOgOO.",
-        "OyOOOyO",
-        "OOyyyOO",
-        ".ooooo."
+        ".hOGOO.",
+        "hyOoOyo",
+        "OOyYyoo",
+        ".ooood."
       ]
     },
     {
@@ -32,11 +32,11 @@
       "slot": "hat",
       "unlock": { "season": "halloween" },
       "pivot": [4, 2],
-      "palette": { "K": "#1f1a24", "p": "#f4a6c0" },
+      "palette": { "K": "#1f1a24", "p": "#f4a6c0", "m": "#3d3448" },
       "pixels": [
-        ".K.....K.",
-        "KpK...KpK",
-        "KKKKKKKKK"
+        ".m.....m.",
+        "mpK...mpK",
+        "KmmKKKKKK"
       ]
     },
     {
@@ -46,11 +46,11 @@
       "slot": "face",
       "unlock": { "season": "halloween" },
       "pivot": [4, 1],
-      "palette": { "K": "#2b2233", "k": "#4a3b5c" },
+      "palette": { "K": "#2b2233", "k": "#4a3b5c", "h": "#6e5a80" },
       "pixels": [
-        ".KKKKKKK.",
-        "KK..K..KK",
-        "kK..k..Kk"
+        ".hkkkkKK.",
+        "kK..k..KK",
+        "kK..K..KK"
       ]
     },
     {
@@ -61,12 +61,12 @@
       "rarity": "rare",
       "unlock": { "season": "halloween" },
       "pivot": [4, 3],
-      "palette": { "K": "#1a1420", "r": "#a4161a" },
+      "palette": { "K": "#1a1420", "r": "#a4161a", "m": "#3a2c48", "R": "#e0383c", "d": "#62101c" },
       "pixels": [
-        "KK......KK",
-        "KrK....KrK",
-        "KrrK..KrrK",
-        ".KKKKKKKK."
+        "mK......mK",
+        "mRK....KrK",
+        "KrdK..KrdK",
+        ".KmmKKKKK."
       ]
     },
     {
@@ -76,14 +76,14 @@
       "slot": "held",
       "unlock": { "season": "halloween" },
       "pivot": [1, 6],
-      "palette": { "f": "#ffd23f", "F": "#ff8c2a", "w": "#f1ece0", "W": "#c9c0ad", "h": "#6b5b4d" },
+      "palette": { "f": "#ffd23f", "F": "#ff8c2a", "w": "#f1ece0", "W": "#c9c0ad", "h": "#6b5b4d", "m": "#ddd5c4", "S": "#a69c9c", "H": "#94806a", "D": "#463a38" },
       "pixels": [
         ".f.",
         ".F.",
         "wwW",
-        "WwW",
-        "wwW",
-        "hhh"
+        "WwS",
+        "wmS",
+        "HhD"
       ]
     },
     {
@@ -93,13 +93,13 @@
       "slot": "held",
       "unlock": { "season": "halloween" },
       "pivot": [1, 5],
-      "palette": { "s": "#d9b38c", "c": "#c47a2c", "r": "#c1121f" },
+      "palette": { "s": "#d9b38c", "c": "#c47a2c", "r": "#c1121f", "C": "#eaa552", "D": "#8a4b1e", "R": "#ea4048", "q": "#7a0c22" },
       "pixels": [
         ".s.",
-        "ccc",
-        "crc",
-        "rrr",
-        ".r."
+        "CcD",
+        "crD",
+        "Rrq",
+        ".q."
       ]
     },
     {
@@ -110,13 +110,13 @@
       "rarity": "rare",
       "unlock": { "season": "halloween" },
       "pivot": [3, 1],
-      "palette": { "w": "#d8dde3", "k": "#1a1a22" },
+      "palette": { "w": "#d8dde3", "k": "#1a1a22", "W": "#ffffff", "f": "#98a0b4" },
       "pixels": [
-        "w..w..w",
-        ".w.w.w.",
-        "wwwkwww",
-        ".w.w.w.",
-        "w..w..w"
+        "w..w..f",
+        ".W.w.w.",
+        "wwwkwwf",
+        ".w.w.f.",
+        "f..f..f"
       ]
     },
     {
@@ -127,13 +127,13 @@
       "rarity": "epic",
       "unlock": { "season": "halloween" },
       "pivot": [2, 6],
-      "palette": { "W": "#f4f1ea", "g": "#c9c4d6", "k": "#1a1a22" },
+      "palette": { "W": "#f4f1ea", "g": "#c9c4d6", "k": "#1a1a22", "h": "#ffffff", "m": "#e0dbe6", "G": "#a39dbd" },
       "pixels": [
-        ".WWW.",
-        "WkWkW",
-        "WWWWW",
-        "WWWWg",
-        "W.W.g"
+        ".hWW.",
+        "hkWkm",
+        "WWWWm",
+        "WWWmg",
+        "W.m.G"
       ]
     }
   ],
@@ -218,20 +218,20 @@
       "author": "Shellby",
       "description": "Spooky Season collectible. Bare bones, still cheerful.",
       "unlock": { "season": "halloween" },
-      "palette": { "S": "#1c1b22", "s": "#2e2c38", "h": "#e9e4d4", "b": "#e9e4d4", "B": "#a39e8f", "c": "#e9e4d4", "C": "#a39e8f", "k": "#a39e8f", "e": "#1a1a22", "w": "#cfe8ff", "l": "#e9e4d4" },
-      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "palette": { "S": "#1c1b22", "s": "#2e2c38", "h": "#e9e4d4", "b": "#e9e4d4", "B": "#a39e8f", "c": "#e9e4d4", "C": "#a39e8f", "k": "#a39e8f", "e": "#1a1a22", "w": "#cfe8ff", "l": "#e9e4d4", "d": "#26242f", "H": "#fffaea", "m": "#b9b3a6", "g": "#fffbf0", "n": "#fffbf0" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs", "d": "shell", "H": "shell", "m": "shell", "g": "body", "n": "claw" },
       "pixels": [
-        "......SSSS...ew.ew....",
-        "....SSsssSS..ee.ee....",
-        "...SsshhhssS..k..k....",
-        "..SshhSSSshsS.k..k....",
-        "..SshSsssSshSbbbbbb...",
-        ".SshSshhsSshSbbbbbbb..",
-        ".SshSshSsSshSbbbbbB.cc",
-        ".SshSssSSshsSbbbbBcccC",
-        ".SsshSSsshhsSbbbbBccc.",
-        "..SsshhhhhsSbbbbbBBC..",
-        "...SSsssssSBBBBBBB....",
+        "......ddSS...ew.ew....",
+        "....ddsssSS..ee.ee....",
+        "...dssHHhssS..k..k....",
+        "..dshHSSSshsS.k..k....",
+        "..dshSsssSshSbgggbb...",
+        ".dshSshhsSshSBbbbbbb..",
+        ".dshSshSdSsmSBbbbbB.nc",
+        ".SshSsdSSdmdSBbbbBnccC",
+        ".SdsmSSddmmdSBbbbBccC.",
+        "..SddmmmmmdSBbbbbBBC..",
+        "...SSdddddSBBBBBBB....",
         "....SSSSSS..ll.ll.ll..",
         "...........l..l..l...."
       ]
@@ -242,20 +242,20 @@
       "author": "Shellby",
       "description": "Spooky Season collectible. Grew a pumpkin for a shell.",
       "unlock": { "season": "halloween" },
-      "palette": { "S": "#7a3410", "s": "#e8772e", "h": "#ffa552", "b": "#5a8f3c", "B": "#3b6b28", "c": "#5a8f3c", "C": "#3b6b28", "k": "#3b6b28", "e": "#16201f", "w": "#fff4e4", "l": "#3b6b28" },
-      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs" },
+      "palette": { "S": "#7a3410", "s": "#e8772e", "h": "#ffa552", "b": "#5a8f3c", "B": "#3b6b28", "c": "#5a8f3c", "C": "#3b6b28", "k": "#3b6b28", "e": "#16201f", "w": "#fff4e4", "l": "#3b6b28", "d": "#b04a1e", "H": "#ffd08a", "m": "#f08a3c", "g": "#86b553", "n": "#86b553" },
+      "parts": { "S": "shell", "s": "shell", "h": "shell", "b": "body", "B": "body", "c": "claw", "C": "claw", "k": "stalks", "e": "eyes", "w": "eyes", "l": "legs", "d": "shell", "H": "shell", "m": "shell", "g": "body", "n": "claw" },
       "pixels": [
-        "......SSSS...ew.ew....",
-        "....SSsssSS..ee.ee....",
-        "...SsshhhssS..k..k....",
-        "..SshhSSSshsS.k..k....",
-        "..SshSsssSshSbbbbbb...",
-        ".SshSshhsSshSbbbbbbb..",
-        ".SshSshSsSshSbbbbbB.cc",
-        ".SshSssSSshsSbbbbBcccC",
-        ".SsshSSsshhsSbbbbBccc.",
-        "..SsshhhhhsSbbbbbBBC..",
-        "...SSsssssSBBBBBBB....",
+        "......ddSS...ew.ew....",
+        "....ddsssSS..ee.ee....",
+        "...dssHHhssS..k..k....",
+        "..dshHSSSshsS.k..k....",
+        "..dshSsssSshSbgggbb...",
+        ".dshSshhsSshSBbbbbbb..",
+        ".dshSshSdSsmSBbbbbB.nc",
+        ".SshSsdSSdmdSBbbbBnccC",
+        ".SdsmSSddmmdSBbbbBccC.",
+        "..SddmmmmmdSBbbbbBBC..",
+        "...SSdddddSBBBBBBB....",
         "....SSSSSS..ll.ll.ll..",
         "...........l..l..l...."
       ]

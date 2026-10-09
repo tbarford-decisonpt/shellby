@@ -14,12 +14,12 @@
       "description": "Ten tasks in. The board has a gap now.",
       "slot": "hat",
       "pivot": [3, 3],
-      "palette": { "s": "#cfd8dc", "W": "#f8f9fa", "K": "#2b2d42", "k": "#8d99ae" },
+      "palette": { "s": "#cfd8dc", "W": "#f8f9fa", "K": "#2b2d42", "k": "#8d99ae", "d": "#a9b4c2", "g": "#e2e7ee", "D": "#69728c" },
       "pixels": [
         ".sssss.",
-        "sWWWWWs",
-        "sWWKWWs",
-        "kkkkkkk"
+        "sWWWWWd",
+        "sWWKWgd",
+        "kkkkkDD"
       ],
       "unlock": { "achievement": "ten-tasks" }
     },
@@ -29,12 +29,12 @@
       "description": "Whatever it said, it was important.",
       "slot": "face",
       "pivot": [2, 0],
-      "palette": { "y": "#ffe066", "Y": "#e6c84f", "K": "#8d99ae" },
+      "palette": { "y": "#ffe066", "Y": "#e6c84f", "K": "#8d99ae", "h": "#fff4a3", "d": "#cf9f3c" },
       "pixels": [
-        "yyyyy",
-        "yKKKy",
-        "yKK.y",
-        "YYYYY"
+        "hhyyy",
+        "yKKKY",
+        "yKK.Y",
+        "YYYYd"
       ]
     },
     {
@@ -43,12 +43,12 @@
       "description": "Tractor-feed, still warm from the printer.",
       "slot": "neck",
       "pivot": [3, 0],
-      "palette": { "w": "#f8f9fa", "g": "#b7e4c7" },
+      "palette": { "w": "#f8f9fa", "g": "#b7e4c7", "s": "#d2d8e2", "G": "#8fcca5" },
       "pixels": [
-        "wwwwwwww",
-        "gggggggg",
-        ".....ww.",
-        ".....gg."
+        "wwwwwwws",
+        "gggggggG",
+        ".....ws.",
+        ".....gG."
       ]
     },
     {
@@ -58,13 +58,13 @@
       "slot": "held",
       "rarity": "epic",
       "pivot": [2, 5],
-      "palette": { "y": "#ffd23f", "o": "#f77f00", "K": "#1b1b1f" },
+      "palette": { "y": "#ffd23f", "o": "#f77f00", "K": "#1b1b1f", "h": "#fff3a0", "d": "#e3a22a", "D": "#b9781e", "O": "#c4520c" },
       "pixels": [
-        ".yyy.",
-        "yKyoo",
-        ".yyy.",
-        "yyyyy",
-        ".yyy."
+        ".hyy.",
+        "yKyoO",
+        ".yyd.",
+        "hyyyd",
+        ".ydD."
       ],
       "unlock": { "achievement": "tinkerer" }
     },
@@ -75,12 +75,12 @@
       "slot": "shell",
       "rarity": "rare",
       "pivot": [3, 4],
-      "palette": { "s": "#8d99ae", "W": "#cfd8dc", "K": "#2b2d42" },
+      "palette": { "s": "#8d99ae", "W": "#cfd8dc", "K": "#2b2d42", "l": "#aeb8c8", "d": "#66708a", "h": "#f2f6fa", "g": "#b3bfca" },
       "pixels": [
-        "KssssK",
-        "sWWWWs",
-        "sWWWWs",
-        "KssssK"
+        "KlllsK",
+        "shWWWd",
+        "sWWWgd",
+        "KddddK"
       ]
     }
   ],

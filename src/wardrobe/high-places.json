@@ -15,13 +15,13 @@
       "slot": "held",
       "rarity": "rare",
       "pivot": [1, 5],
-      "palette": { "g": "#90e0ef", "y": "#e9c46a", "Y": "#b5838d", "k": "#3d2a00" },
+      "palette": { "g": "#90e0ef", "y": "#e9c46a", "Y": "#b5838d", "k": "#3d2a00", "h": "#fff0a8", "G": "#e8fbff", "K": "#6a4a1a" },
       "pixels": [
-        "......g",
-        "....yYg",
-        "..yYy..",
-        ".yYy...",
-        "kk....."
+        "......G",
+        "....hYg",
+        "..hyY..",
+        ".hyY...",
+        "Kk....."
       ],
       "unlock": { "achievement": "window-sill" }
     },
@@ -32,10 +32,10 @@
       "slot": "face",
       "rarity": "rare",
       "pivot": [4, 1],
-      "palette": { "K": "#2b2d42", "g": "#4cc9f0", "w": "#caf0f8", "r": "#e63946" },
+      "palette": { "K": "#2b2d42", "g": "#4cc9f0", "w": "#caf0f8", "r": "#e63946", "m": "#474a6c", "q": "#a3202e" },
       "pixels": [
-        ".KKK.KKK.",
-        "rKgwKgwKr",
+        ".mKK.mKK.",
+        "rKwgKwgKq",
         ".KKK.KKK."
       ],
       "unlock": { "achievement": "hang-on" }
@@ -47,12 +47,12 @@
       "slot": "hat",
       "rarity": "epic",
       "pivot": [5, 3],
-      "palette": { "b": "#a0693a", "B": "#7f4f24", "k": "#3d2a00" },
+      "palette": { "b": "#a0693a", "B": "#7f4f24", "k": "#3d2a00", "h": "#c8915a", "l": "#5c4214", "d": "#5a3820" },
       "pixels": [
-        "...bBBb...",
-        "..bbBBbb..",
-        "b.kkkkkk.b",
-        "bbbbbbbbbb"
+        "...hBBb...",
+        "..hbBBbB..",
+        "h.lkkkkk.b",
+        "bbbbbbbBBd"
       ],
       "unlock": { "achievement": "rodeo" }
     },
@@ -63,10 +63,10 @@
       "slot": "shell",
       "rarity": "epic",
       "pivot": [3, 6],
-      "palette": { "r": "#e63946", "w": "#fff4e4", "k": "#2b2d42" },
+      "palette": { "r": "#e63946", "w": "#fff4e4", "k": "#2b2d42", "R": "#ff7a6a", "q": "#a8203a", "W": "#d8c8c4" },
       "pixels": [
-        ".rrwrr.",
-        "rrwwwrr",
+        ".Rrwrr.",
+        "rrwwWqq",
         "k.....k",
         ".k...k.",
         "..k.k..",
@@ -81,10 +81,10 @@
       "slot": "neck",
       "rarity": "rare",
       "pivot": [3, 0],
-      "palette": { "r": "#d00000", "Y": "#ffd23f" },
+      "palette": { "r": "#d00000", "Y": "#ffd23f", "L": "#fff2a0", "o": "#d99a1f", "q": "#8a0a1a" },
       "pixels": [
-        "rYrYrYr",
-        ".rYrYr."
+        "rLrYrYq",
+        ".roroq."
       ],
       "unlock": { "achievement": "trapeze" }
     },
@@ -95,11 +95,11 @@
       "slot": "hat",
       "rarity": "rare",
       "pivot": [4, 3],
-      "palette": { "y": "#f4a261", "Y": "#ffd8a8", "k": "#2b2d42" },
+      "palette": { "y": "#f4a261", "Y": "#ffd8a8", "k": "#2b2d42", "o": "#d47a45", "q": "#9e4f3a" },
       "pixels": [
-        "..yyyyy..",
-        ".yYyyyyy.",
-        "yyyyyyyyy",
+        "..yyyyo..",
+        ".yYyyyyo.",
+        "yoooooooq",
         "k.......k"
       ],
       "unlock": { "achievement": "spider-crab" }
@@ -111,11 +111,11 @@
       "slot": "neck",
       "rarity": "epic",
       "pivot": [2, 0],
-      "palette": { "r": "#e63946", "w": "#fff4e4", "W": "#d9d0c1" },
+      "palette": { "r": "#e63946", "w": "#fff4e4", "W": "#d9d0c1", "R": "#ff7466", "q": "#a3243a", "u": "#b4aaa8" },
       "pixels": [
-        "rrrrr",
+        "Rrrrq",
         ".wWw.",
-        ".WWW."
+        ".Wuu."
       ],
       "unlock": { "achievement": "sticky-feet" }
     },
@@ -126,10 +126,10 @@
       "slot": "face",
       "rarity": "epic",
       "pivot": [4, 1],
-      "palette": { "K": "#1d1d1d", "w": "#fff4e4" },
+      "palette": { "K": "#1d1d1d", "w": "#fff4e4", "m": "#3a3540" },
       "pixels": [
-        ".KKKKKKK.",
-        "KKwKKKwKK",
+        ".mmKKKKK.",
+        "mKwKKKwKK",
         ".KKKKKKK."
       ],
       "unlock": { "achievement": "little-gremlin" }

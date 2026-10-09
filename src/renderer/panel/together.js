@@ -20,7 +20,8 @@
   };
   const clock = ms => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
-  // A find's pixels, or its silhouette when it isn't on the shelf yet.
+  // A find's pixels, or its silhouette when it isn't on the shelf yet. Art
+  // without an `owned` of its own (its sparkly look, its sprite) says so.
   function art(f, k, { owned = f.owned } = {}) {
     const palette = owned ? f.palette : Object.fromEntries(Object.keys(f.palette).map(c => [c, '#2b4650']));
     return SB.Sprite.grid(f.pixels, palette, { px: k });
@@ -53,7 +54,7 @@
         'aria-label': f.owned ? `${f.name}, ${f.rarityLabel}${f.count > 1 ? `, ${f.count} of them` : ''}${f.shiny ? `, ${f.shiny} sparkly` : ''}` : `Not found yet. ${f.blurb}`,
         onclick: () => select(f.id),
       },
-      h('span', { class: 'fd-art' }, f.shiny && f.shinyArt ? art(f.shinyArt, fit(f, 40)) : art(f, fit(f, 40))),
+      h('span', { class: 'fd-art' }, f.shiny && f.shinyArt ? art(f.shinyArt, fit(f, 40), { owned: true }) : art(f, fit(f, 40))),
       h('span', { class: 'fd-name', text: f.name }),
       h('span', { class: 'fd-rarity', text: f.owned ? f.rarityLabel : f.special ? 'Keepsake' : f.event ? (f.inSeason ? 'Out now' : 'Tide event') : f.season ? 'Seasonal' : f.night ? 'Night only' : '' }),
       f.shiny ? h('span', { class: 'sparkle-pill', 'aria-hidden': 'true', text: f.shiny > 1 ? `✨×${f.shiny}` : '✨' }) : null,
@@ -72,7 +73,7 @@
     box.hidden = false;
     box.className = `fd-detail rarity-${f.rarity}`;
     box.replaceChildren(
-      h('div', { class: 'fd-big' }, art(f, fit(f, f.shiny ? 80 : 110)), f.shiny && f.shinyArt ? art(f.shinyArt, fit(f, 80)) : null),
+      h('div', { class: 'fd-big' }, art(f, fit(f, f.shiny ? 80 : 110)), f.shiny && f.shinyArt ? art(f.shinyArt, fit(f, 80), { owned: true }) : null),
       h('div', { class: 'fd-info' },
         h('p', { class: 'fd-rarity-line', text: f.owned ? f.rarityLabel : 'Not found yet' }),
         h('h3', { text: f.name }),
@@ -134,7 +135,7 @@
     if (key === propsKey) return;
     propsKey = key;
     const hearts = b.level.index >= HEARTS_AT ? [['h1', 3], ['h2', 2]].map(([cls, px]) => h('span', { class: `us-drawn ${cls}` }, pix(PIX.drawn, 'currentColor', null, px))) : [];
-    $('usProps').replaceChildren(...hearts, fav ? h('span', { class: `us-fav rarity-${fav.rarity}`, title: `${fav.name}, his favourite` }, art(fav, fit(fav, 30))) : '');
+    $('usProps').replaceChildren(...hearts, fav ? h('span', { class: `us-fav rarity-${fav.rarity}`, title: `${fav.name}, his favourite` }, art(fav.sprite || fav, fit(fav.sprite || fav, 30), { owned: true })) : '');
   }
 
   // A heart floats up from him; main counts the pet (and ignores spam).

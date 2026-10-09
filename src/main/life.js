@@ -466,8 +466,9 @@ function createLife(d) {
     later(ms, () => presentDone?.());
     if (r) d.toPanel('life:found', { ...findCard(find), isNew: r.isNew, shiny });
     if (r && shiny) {
+      const big = gifts.sparkly(find, { big: true }); // the reveal has room for its portrait
       d.toPanel('sparkle:reveal', {
-        kind: 'find', id: find.id, name: find.name, rarity: find.rarity, pixels: look.pixels, palette: look.palette,
+        kind: 'find', id: find.id, name: find.name, rarity: find.rarity, pixels: big.pixels, palette: big.palette,
         odds: r.odds || Math.round(1 / gifts.SPARKLE_CHANCE), after: Math.max(0, gifts.total(r.state) - 1), at: now(), level: d.level?.() || 1,
         first: !!r.firstShiny,
       });

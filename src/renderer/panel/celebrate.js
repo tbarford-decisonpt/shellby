@@ -17,7 +17,7 @@
     if (!art) return h('span', { class: 'cel-thumb empty', text: '✦' });
     const w = Math.max(...art.pixels.map(r => r.length)), hgt = art.pixels.length;
     const k = Math.max(2, Math.floor(26 / Math.max(w, hgt)));
-    const svg = SB.Sprite.grid(art.pixels, art.palette, { px: k });
+    const svg = SB.Sprite.grid(art.pixels, art.palette, { px: k, ink: !item.sprites }); // lined like he holds it; effects stay plain
     return h('span', { class: 'cel-thumb' }, svg);
   }
 

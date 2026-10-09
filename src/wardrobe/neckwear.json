@@ -15,15 +15,15 @@
       "slot": "neck",
       "rarity": "rare",
       "pivot": [2, 0],
-      "palette": { "k": "#2b2d42", "K": "#4cc9f0", "w": "#f8f9fa" },
+      "palette": { "k": "#2b2d42", "K": "#4cc9f0", "w": "#f8f9fa", "H": "#a4e8ff", "D": "#2a86c0", "u": "#c6cbd8", "n": "#7f8db0" },
       "pixels": [
         "k.....k.",
         "k.....k.",
         ".k...k..",
         "..kkk...",
-        ".KKKKK..",
-        ".wwwww..",
-        ".wwwww.."
+        ".HKKKD..",
+        ".wnnwu..",
+        ".wwuuu.."
       ]
     },
     {
@@ -32,13 +32,13 @@
       "description": "Dressed for the stakeholder call.",
       "slot": "neck",
       "pivot": [2, 0],
-      "palette": { "k": "#3a0ca3", "T": "#4361ee" },
+      "palette": { "k": "#3a0ca3", "T": "#4361ee", "K": "#5b2bc4", "L": "#7a93ff", "d": "#2c3fb8" },
       "pixels": [
-        ".kkk.",
-        ".TTT.",
-        ".TTT.",
-        ".TTT.",
-        "..T.."
+        ".Kkk.",
+        ".LTd.",
+        ".LTd.",
+        ".TTd.",
+        "..d.."
       ]
     },
     {
@@ -47,14 +47,14 @@
       "description": "Twenty-five tasks. Name, rank and shell size.",
       "slot": "neck",
       "pivot": [2, 0],
-      "palette": { "k": "#8d99ae", "s": "#cfd8dc" },
+      "palette": { "k": "#8d99ae", "s": "#cfd8dc", "W": "#ffffff", "e": "#a4b0c2", "d": "#8a97ad" },
       "pixels": [
         "k.....k.",
         ".k...k..",
         "..kkk...",
-        "..sss...",
-        "..sss...",
-        "..sss..."
+        "..Wss...",
+        "..sed...",
+        "..sdd..."
       ],
       "unlock": { "achievement": "quarter-century" }
     },
@@ -64,13 +64,13 @@
       "description": "Your first helper. Someone has to call them home.",
       "slot": "neck",
       "pivot": [2, 0],
-      "palette": { "k": "#2b2d42", "y": "#e9c46a", "Y": "#bc8a3c" },
+      "palette": { "k": "#2b2d42", "y": "#e9c46a", "Y": "#bc8a3c", "h": "#fff0a8", "D": "#7f5a2a" },
       "pixels": [
         "k.....k.",
         ".k...k..",
         "..kkk...",
-        ".yyyY...",
-        "..yY...."
+        ".hyyY...",
+        "..YD...."
       ],
       "unlock": { "achievement": "crew-boss" }
     },
@@ -81,14 +81,14 @@
       "slot": "neck",
       "rarity": "epic",
       "pivot": [2, 0],
-      "palette": { "r": "#e63946", "y": "#ffd23f", "Y": "#bc8a3c", "s": "#fff4e4" },
+      "palette": { "r": "#e63946", "y": "#ffd23f", "Y": "#bc8a3c", "s": "#fff4e4", "q": "#a3243a", "h": "#fff3a0", "o": "#9a6a28" },
       "pixels": [
-        "r.....r.",
-        ".r...r..",
-        "..rrr...",
-        ".yYYYy..",
-        ".yYsYy..",
-        "..yyy..."
+        "r.....q.",
+        ".r...q..",
+        "..rrq...",
+        ".hYYYy..",
+        ".yYsYo..",
+        "..yoo..."
       ],
       "unlock": { "achievement": "centurion" }
     },
@@ -99,10 +99,10 @@
       "slot": "neck",
       "rarity": "rare",
       "pivot": [3, 0],
-      "palette": { "P": "#f8f9fa", "w": "#e0cdb4" },
+      "palette": { "P": "#f8f9fa", "w": "#e0cdb4", "p": "#cfcbdb", "u": "#b8a690" },
       "pixels": [
-        "PwPwPwPw",
-        "..wPw..."
+        "PwPwPwpu",
+        "..wPu..."
       ],
       "unlock": { "achievement": "show-off" }
     },
@@ -112,12 +112,12 @@
       "description": "Wrapped twice, plugged into nothing.",
       "slot": "neck",
       "pivot": [3, 0],
-      "palette": { "b": "#1d3557", "c": "#457b9d", "w": "#f8f9fa", "y": "#e9c46a" },
+      "palette": { "b": "#1d3557", "c": "#457b9d", "w": "#f8f9fa", "y": "#e9c46a", "h": "#7fb3d0", "m": "#34607e", "u": "#b8bfcc", "o": "#b08a3c" },
       "pixels": [
-        "bcbcbcbc",
-        "cbcbcbcb",
+        "bhbhbcbc",
+        "mbmbmbmb",
         ".....wy.",
-        ".....wy."
+        ".....uo."
       ]
     }
   ]

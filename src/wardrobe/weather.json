@@ -19,14 +19,16 @@
       ],
       "palette": {
         "Y": "#ffd23f",
-        "y": "#e0a800"
+        "y": "#e0a800",
+        "h": "#fff09a",
+        "d": "#b8740c"
       },
       "pixels": [
-        "...YYY...",
-        "..YYYYY..",
-        "..yyyyy..",
-        "YYYYYYYYY",
-        "YY......."
+        "...hYY...",
+        "..hYYYy..",
+        "..yyyyd..",
+        "YYYYYYYyd",
+        "yd......."
       ]
     },
     {
@@ -41,13 +43,15 @@
       "palette": {
         "Y": "#ffd23f",
         "y": "#e0a800",
-        "k": "#3d2a00"
+        "k": "#3d2a00",
+        "h": "#fff09a",
+        "d": "#b8740c"
       },
       "pixels": [
-        "YYYYYYYY",
-        "YYYkYYYY",
-        ".yYYYYy.",
-        "..yYkY.."
+        "hhYYYYYy",
+        "YYYkYYyd",
+        ".yYYyYd.",
+        "..yYkd.."
       ]
     },
     {
@@ -62,13 +66,16 @@
       "palette": {
         "R": "#e63946",
         "w": "#fff4e4",
-        "k": "#4a4e69"
+        "k": "#4a4e69",
+        "q": "#ff7a6e",
+        "D": "#a3203f",
+        "W": "#c6ccdc"
       },
       "pixels": [
-        "..RRwRR..",
-        ".RRRwRRR.",
-        "RRwRwRwRR",
-        "R.R.k.R.R",
+        "..qRwRR..",
+        ".qRRwRRD.",
+        "RRwRwDWDD",
+        "R.R.k.D.D",
         "....k....",
         "....k....",
         "....k....",
@@ -88,13 +95,16 @@
       "palette": {
         "R": "#e63946",
         "w": "#fff4e4",
-        "k": "#4a4e69"
+        "k": "#4a4e69",
+        "q": "#ff7a6e",
+        "D": "#a3203f",
+        "W": "#c6ccdc"
       },
       "pixels": [
-        "R.......R",
-        "RR.....RR",
-        ".RRw.wRR.",
-        "..RRwRR..",
+        "q.......D",
+        "qR.....RD",
+        ".RRw.WDD.",
+        "..RDWDD..",
         "....k....",
         "....k....",
         "....k....",
@@ -114,14 +124,17 @@
       "palette": {
         "R": "#457b9d",
         "r": "#1d3557",
-        "w": "#fff4e4"
+        "w": "#fff4e4",
+        "L": "#78a9c8",
+        "M": "#35628a",
+        "c": "#d2c6d0"
       },
       "pixels": [
-        "...ww...",
-        "..RrRr..",
-        ".RrRrRr.",
-        "RrRrRrRr",
-        "wwwwwwww"
+        "...wc...",
+        "..LrRr..",
+        ".LrRrMr.",
+        "RrRrMrMr",
+        "wwwwwwcc"
       ]
     }
   ],
