@@ -637,12 +637,46 @@ body.surprise-landing .part-claw { animation: wave .4s ease-in-out .9s 3; }
    (which one comes from src/main/voice.js; an unknown one simply does nothing) ---------- */
 body[class*="bit-"].state-idle #sprite { animation: none; }
 
-/* digs a little hole in your wallpaper */
-body.bit-dig .part-claw { animation: dig-claw .42s ease-in-out infinite; }
-body.bit-dig .part-body, body.bit-dig .part-shell { animation: dig-bob .42s ease-in-out infinite; }
-body.bit-dig [class*="part-legs"] { animation: leg .3s steps(1) infinite; }
-@keyframes dig-claw { 0%, 100% { transform: rotate(8deg) translateY(0); } 50% { transform: rotate(-26deg) translateY(3px); } }
-@keyframes dig-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1px); } }
+/* burrows into your wallpaper after something: noses down, sinks in up to his
+   shell while his claws scoop sand out behind him (motion.js flings the grains).
+   The clip trims as much off his bottom as he sinks, so the cut stays on the
+   ground line and the rest of him looks to be under it. */
+body.bit-dig #sprite, body.bit-dig.state-idle #sprite {
+  transform-origin: 50% 100%;
+  animation: dig-sink .5s cubic-bezier(.4, 0, .6, 1) forwards, dig-wriggle .21s ease-in-out .5s infinite;
+}
+body.bit-dig .part-claw { transform-origin: 50% 0; animation: dig-claw .42s cubic-bezier(.5, 0, .3, 1) infinite; }
+body.bit-dig .part-shell { animation: dig-shell .42s ease-in-out infinite; }
+body.bit-dig [class*="part-legs"] { animation: leg .14s steps(1) infinite; }
+body.bit-dig .part-eyes { transform: scaleY(.6); }
+body.bit-dig #shadow { width: calc(var(--px) * 15); opacity: .8; }
+@keyframes dig-sink {
+  0% { transform: none; clip-path: inset(-50% -50% 0 -50%); }
+  30% { transform: translateY(-2px) rotate(calc(var(--dir, 1) * -4deg)); clip-path: inset(-50% -50% 0 -50%); }
+  100% { transform: translateY(calc(var(--px) * 3)) rotate(calc(var(--dir, 1) * 9deg)); clip-path: inset(-50% -50% calc(var(--px) * 3) -50%); }
+}
+@keyframes dig-wriggle {
+  0%, 100% { transform: translateY(calc(var(--px) * 3)) rotate(calc(var(--dir, 1) * 9deg)); clip-path: inset(-50% -50% calc(var(--px) * 3) -50%); }
+  50% { transform: translateY(calc(var(--px) * 3.5)) translateX(1px) rotate(calc(var(--dir, 1) * 12deg)); clip-path: inset(-50% -50% calc(var(--px) * 3.5) -50%); }
+}
+@keyframes dig-claw {
+  0%, 100% { transform: rotate(-30deg) translateY(-2px); }
+  45% { transform: rotate(20deg) translateY(4px); }
+  60% { transform: rotate(38deg) translate(-3px, 3px); }
+}
+@keyframes dig-shell { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1px) rotate(-3deg); } }
+
+/* sand kicked out behind him, arcing up and falling back */
+#dust i.grain {
+  width: calc(var(--px) * .75); height: calc(var(--px) * .75);
+  background: #e9d8a6; box-shadow: 0 0 0 1px rgba(61, 42, 0, .25);
+  animation: grain-fling .55s linear both;
+}
+@keyframes grain-fling {
+  0% { transform: translate(0, 0); opacity: 1; animation-timing-function: cubic-bezier(.2, .6, .4, 1); }
+  45% { transform: translate(calc(var(--dx) * .55), var(--dy)); opacity: 1; animation-timing-function: cubic-bezier(.6, 0, .8, .4); }
+  100% { transform: translate(var(--dx), 4px); opacity: 0; }
+}
 
 /* buffs his own shell, which he is quietly proud of */
 /* the conversation was compacted (wiring/native.js): he squashes his shell down twice and pats it flat */

@@ -54,7 +54,29 @@ function dizzy(ms = DIZZY_MS) {
 }
 
 // A move takes over his body, so whatever little habit he was in the middle of stops.
+// While he burrows, claws full of sand go flying out behind him.
+const GRAIN_EVERY_MS = 140;
+let grainTimer = null;
+function kickSand() {
+  const dir = getComputedStyle(document.documentElement).getPropertyValue('--dir').trim() === '-1' ? -1 : 1;
+  for (let i = 0; i < 2; i++) {
+    const el = document.createElement('i');
+    el.className = 'grain';
+    el.style.setProperty('--dx', `${-dir * (14 + Math.random() * 18)}px`);
+    el.style.setProperty('--dy', `${-(10 + Math.random() * 14)}px`);
+    el.style.animationDelay = `${i * 40}ms`;
+    dustHost.append(el);
+    setTimeout(() => el.remove(), 700);
+  }
+}
+function digSand(on) {
+  clearInterval(grainTimer);
+  grainTimer = null;
+  if (on && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) grainTimer = setInterval(kickSand, GRAIN_EVERY_MS);
+}
+
 function endBit() {
+  digSand(false);
   clearTimeout(bitTimer);
   if (bit) flags.delete(`bit-${bit}`);
   bit = null;
@@ -157,6 +179,7 @@ api.onBit(msg => {
   bit = msg.bit;
   flags.add(`bit-${bit}`);
   paintBody();
+  if (bit === 'dig') digSand(true);
   const ms = Number.isFinite(msg.ms) ? clampN(msg.ms, 400, 10000) : BIT_MS; // a scene's beats can be short
-  bitTimer = setTimeout(() => { flags.delete(`bit-${bit}`); bit = null; paintBody(); }, ms);
+  bitTimer = setTimeout(() => { digSand(false); flags.delete(`bit-${bit}`); bit = null; paintBody(); }, ms);
 });
