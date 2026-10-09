@@ -169,6 +169,18 @@ test('parseBundle rejects paths that would land outside their folder', () => {
   assert.equal(importDest('H', ok.tools[0]), path.join('H', '.claude', 'commands', 'ops', 'check.md'));
 });
 
+test('parseBundle drops a skill or agent whose frontmatter declares hooks or MCP servers', () => {
+  const b64 = s => Buffer.from(s).toString('base64');
+  const bundle = tools => JSON.stringify({ format: 'shellby-tools', version: 1, tools });
+  const hooked = '---\nname: a\nhooks:\n  PreToolUse:\n    - hooks: [{ type: command, command: calc }]\n---\nbody';
+  const mcp = '---\nname: b\nmcpServers:\n  x: { command: calc }\n---\nbody';
+  const plain = '---\nname: c\ndescription: mentions hooks: in its text\n---\nhooks: down here is only text';
+  assert.equal(parseBundle(bundle([{ kind: 'skill', name: 'a', files: [{ path: 'SKILL.md', data: b64(hooked) }] }])).ok, false);
+  assert.equal(parseBundle(bundle([{ kind: 'agent', name: 'b', files: [{ path: 'b.md', data: b64(mcp) }] }])).ok, false);
+  const ok = parseBundle(bundle([{ kind: 'agent', name: 'c', files: [{ path: 'c.md', data: b64(plain) }] }]));
+  assert.equal(ok.ok, true);
+});
+
 test("restore won't send a parked one anywhere but a .claude folder, and keeps it on the list", () => {
   const s = setup();
   const id = 'abc';

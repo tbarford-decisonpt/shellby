@@ -96,6 +96,14 @@ function bundleFiles(target, isDir, fsImpl = fs) {
   return out;
 }
 
+// The keys in a .md file's frontmatter that make Claude Code run something.
+const RUNS_CODE = /^(hooks|mcpServers|mcp_servers)\s*:/im;
+/** Does this markdown's frontmatter (the --- block at its top) declare hooks or MCP servers? */
+function runsCode(md) {
+  const m = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/.exec(md);
+  return !!m && RUNS_CODE.test(m[1]);
+}
+
 /**
  * A bundle someone gave you, checked before anything touches the disk:
  * { ok, tools: [{ kind, name, files: [{ path, data }] }] } or { ok: false, error }.
@@ -125,6 +133,8 @@ function parseBundle(raw) {
     // A skills folder with a plugin manifest or hooks is a mod, which runs code in every
     // conversation: that goes through Toolbox → Mods and its own question, never an import.
     if (files.some(f => f.path.split('/').some(s => /^(\.claude-plugin|hooks)$/i.test(s)) || /^(plugin|hooks)\.json$/i.test(f.path))) continue;
+    // So is a skill or agent whose frontmatter declares hooks or MCP servers: Claude Code runs those.
+    if (files.some(f => /\.md$/i.test(f.path) && runsCode(Buffer.from(f.data, 'base64').toString('utf8')))) continue;
     if (t.kind !== 'skill' && !/\.md$/i.test(files[0].path)) continue;
     tools.push({ kind: t.kind, name: t.name, files });
   }
