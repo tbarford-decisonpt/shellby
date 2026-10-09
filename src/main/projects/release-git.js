@@ -326,18 +326,29 @@ async function cutRelease(root, opts, deps) {
  * deps.gate(root, { rev, remote }): the secret scan, null to push on (secret-gate.js).
  * -> { ok: true, remote, branch } | { ok: false, error, cancelled?, secrets? }
  */
-async function pushRelease(root, { tag }, { git, env = () => ({}), gate = null }) {
+async function pushRelease(root, { tag }, deps) {
   if (!R.parseTag(tag)) return fail('That isn\'t a release tag.');
+  return pushBranch(root, { tag }, deps);
+}
+
+/**
+ * Push the branch, with a release tag on it when given. Without one, it's the
+ * card's "Push them first": CI checks the commits before a release ships them.
+ * -> as pushRelease
+ */
+async function pushBranch(root, { tag = null } = {}, { git, env = () => ({}), gate = null }) {
   const [branchR, tagR, upR] = await Promise.all([
     git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: READ_MS }),
-    git(root, ['rev-parse', '--verify', '--quiet', `refs/tags/${tag}^{commit}`], { timeout: READ_MS }),
+    tag ? git(root, ['rev-parse', '--verify', '--quiet', `refs/tags/${tag}^{commit}`], { timeout: READ_MS }) : null,
     git(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], { timeout: READ_MS }),
   ]);
   const branch = branchR.ok ? branchR.out.trim() : '';
   if (!BRANCH_RE.test(branch)) return fail('This clone isn\'t on a branch.');
-  if (!tagR.ok) return fail(`There's no tag called ${tag} here.`);
-  const onBranch = await git(root, ['merge-base', '--is-ancestor', tagR.out.trim(), 'HEAD'], { timeout: READ_MS });
-  if (!onBranch.ok) return fail(`${tag} isn't on ${branch}.`);
+  if (tag) {
+    if (!tagR.ok) return fail(`There's no tag called ${tag} here.`);
+    const onBranch = await git(root, ['merge-base', '--is-ancestor', tagR.out.trim(), 'HEAD'], { timeout: READ_MS });
+    if (!onBranch.ok) return fail(`${tag} isn't on ${branch}.`);
+  }
   // Where the branch goes: its upstream, else a branch of the same name on origin.
   const up = upR.ok ? upR.out.trim() : '';
   const remotes = await git(root, ['remote'], { timeout: READ_MS });
@@ -350,7 +361,8 @@ async function pushRelease(root, { tag }, { git, env = () => ({}), gate = null }
   // hasn't got, not just the release's: the tag is on the branch, so that's all of it.
   const stopped = gate ? await gate(root, { rev: `refs/heads/${branch}`, remote }) : null;
   if (stopped) return stopped;
-  const push = await git(root, [...NO_HOOKS, 'push', '--atomic', '--quiet', remote, `refs/heads/${branch}:refs/heads/${dest}`, `refs/tags/${tag}:refs/tags/${tag}`],
+  const refs = [`refs/heads/${branch}:refs/heads/${dest}`, ...(tag ? [`refs/tags/${tag}:refs/tags/${tag}`] : [])];
+  const push = await git(root, [...NO_HOOKS, 'push', '--atomic', '--quiet', remote, ...refs],
     { timeout: PUSH_MS, env: env() || {} });
   if (!push.ok) return fail(`The push didn't go through: ${firstLine(push.error) || 'git refused it.'}`);
   if (!up) await git(root, ['branch', '--quiet', `--set-upstream-to=${remote}/${dest}`], { timeout: READ_MS });
@@ -372,4 +384,4 @@ async function ciOf(gh, repo, sha) {
   return verdict(runs?.check_runs, status?.statuses);
 }
 
-module.exports = { readRelease, cutRelease, pushRelease, blocker, ciOf, parseChanged, parseLog, MAX_COMMITS };
+module.exports = { readRelease, cutRelease, pushRelease, pushBranch, blocker, ciOf, parseChanged, parseLog, MAX_COMMITS };

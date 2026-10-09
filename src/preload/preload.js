@@ -380,7 +380,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // A project's next release (src/main/projects/releases-ipc.js): nothing is pushed unless you say so.
   getRelease: invoke('releases:get'),
   cutRelease: invoke('releases:cut'),
-  pushRelease: invoke('releases:push'),
+  pushRelease: invoke('releases:push'), pushReleaseBranch: invoke('releases:pushBranch'),
   releasePolishDraft: invoke('releases:polish'),
   getPlugin: invoke('plugin:get'),
   installPlugin: invoke('plugin:install'),

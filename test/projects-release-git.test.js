@@ -155,6 +155,20 @@ test('without push it stays on this PC, says so, and Push sends it later', async
   } finally { t.done(); }
 });
 
+test('"Push them first" sends the commits without a tag, so CI checks them before a release', async () => {
+  const t = setup();
+  try {
+    t.work('a.txt', 'fix: one');
+    assert.ok((await rg.readRelease(t.dir, deps)).upstream.ahead > 0);
+    const p = await rg.pushBranch(t.dir, {}, deps);
+    assert.equal(p.ok, true, p.error);
+    const after = await rg.readRelease(t.dir, deps);
+    assert.equal(after.upstream.ahead, 0);
+    assert.equal(t.g(t.origin, 'rev-parse', 'refs/heads/main'), after.head);
+    assert.equal(t.g(t.origin, 'tag', '--list', 'v0.1.1'), '', 'no tag goes with it');
+  } finally { t.done(); }
+});
+
 test('a CHANGELOG entry already written (by you or Claude) goes in as it is', async () => {
   const t = setup();
   try {

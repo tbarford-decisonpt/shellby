@@ -111,6 +111,10 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
       if ((checks?.state === 'failing' || checks?.state === 'pending') && o.ack !== true) {
         return { ok: false, error: checks.state === 'failing' ? 'CI failed on this commit. Tick "Release it anyway" to go ahead.' : 'CI hasn\'t finished on this commit. Tick "Release it anyway" to go ahead.' };
       }
+      // Commits CI has never seen (merged here and not pushed, or a branch never pushed) would ship untested.
+      if (now.ok && (!now.upstream || now.upstream.ahead) && (origin.repo || origin.gitlab) && o.ack !== true) {
+        return { ok: false, error: 'CI hasn\'t checked the commits that aren\'t pushed yet. Push them first, or tick the box to release anyway.' };
+      }
       const r = await rg.cutRelease(root, {
         version: str(o.version, 60), title: str(o.title, 300), notes: str(o.notes, R.NOTES_MAX + 1000),
         head: o.head, push: o.push === true,
@@ -129,6 +133,17 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
     return once(root, async () => {
       const r = await rg.pushRelease(root, { tag: t.tag }, { git, env: envFor(await repoOf(root)), gate });
       if (r.ok) released(root, t.version);
+      return r;
+    });
+  });
+
+  // "Push them first": the branch alone, so CI checks it before a release ships it.
+  ipcMain.handle('releases:pushBranch', (_e, { root: given } = {}) => {
+    const root = known(given);
+    if (!root) return no;
+    return once(root, async () => {
+      const r = await rg.pushBranch(root, {}, { git, env: envFor(await repoOf(root)), gate });
+      d.projects.emit?.('change');
       return r;
     });
   });
