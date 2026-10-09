@@ -300,6 +300,40 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await wait(300);
     check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'the 2x2 again once they close');
 
+    // ---- Keys: Alt+arrow to the next pane, Ctrl+Alt+arrow to move one.
+    const press = async (key, mods) => {
+      for (const type of ['rawKeyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key, code: key, windowsVirtualKeyCode: { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 }[key], modifiers: mods });
+      await wait(150);
+    };
+    const ALT = 1, CTRL_ALT = 3; // CDP: Alt = 1, Ctrl = 2
+    await ev(`SB.activate('${A}')`);
+    await press('ArrowRight', ALT);
+    check(await until(`SB.state.activeTab === '${D}'`), 'Alt+→ goes to the pane on the right');
+    await press('ArrowDown', ALT);
+    check(await until(`SB.state.activeTab === '${B}'`), 'Alt+↓ goes to the one below');
+    await press('ArrowLeft', CTRL_ALT);
+    check(await until(`JSON.stringify(SB.state.grid) === JSON.stringify([['${A}', '${B}'], ['${D}', '${C}']])`), 'Ctrl+Alt+← swaps it with the pane on the left');
+    check(await ev(`SB.state.activeTab === '${B}'`), 'and it keeps the focus');
+    await press('ArrowRight', ALT); // B is bottom left now; C is beside it
+    check(await until(`SB.state.activeTab === '${C}'`), 'Alt+→ from the swapped pane reaches C, beside it');
+    await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.activate('${D}')`);
+    await wait(200);
+
+    // ...but not behind the palette or the shortcut list.
+    await ev(`SB.activate('${A}')`);
+    await ev(`document.getElementById('paletteSheet').hidden = false`);
+    await press('ArrowRight', ALT);
+    check(await ev(`SB.state.activeTab === '${A}'`), 'Alt+→ does nothing with the palette open');
+    await ev(`document.getElementById('paletteSheet').hidden = true; document.getElementById('shortcutsSheet').hidden = false`);
+    await press('ArrowRight', CTRL_ALT);
+    check(await ev(`JSON.stringify(SB.state.grid) === JSON.stringify([['${A}', '${C}'], ['${D}', '${B}']])`), 'Ctrl+Alt+→ moves nothing with the shortcut list open');
+    await ev(`document.getElementById('shortcutsSheet').hidden = true`);
+    // And Alt+arrows in the box still do their pane job without typing anything.
+    await ev(`document.getElementById('input').focus()`);
+    await press('ArrowRight', ALT);
+    check(await until(`SB.state.activeTab === '${D}'`), 'Alt+→ works from the message box too');
+    await ev(`SB.activate('${D}')`);
+
     // ---- A click into a pane gives it the box.
     await panel.click(await paneSpot(C, 0.5, 0.5));
     check(await until(`SB.state.activeTab === '${C}'`), 'clicking into C focuses it');

@@ -247,9 +247,20 @@
     if (K.matches(e, 'closeTab')) { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
     if (K.matches(e, 'reopenTab')) { e.preventDefault(); if (!SB.solo) SB.reopenClosed(); return; }
     // A popped-out window has its one conversation: no strip to add to, split or walk along.
-    if (SB.solo && ['newTab', 'splitPane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
+    if (SB.solo && ['newTab', 'splitPane', 'focusPane', 'movePane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
     if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
     if (K.matches(e, 'splitPane')) { e.preventDefault(); SB.splitPane(); return; }
+    if (K.matches(e, 'focusPane') || K.matches(e, 'movePane')) {
+      const dir = SB.paneDir(e.key);
+      // Only while split, and never behind the palette, the cheat sheet or a dialog:
+      // otherwise the keys stay the textarea's and the page's.
+      if (!dir || !state.activeTab || state.view !== 'chat' || SB.panes.ids(state.grid).length < 2 || SB.overlayOpen()) return;
+      e.preventDefault();
+      if (K.matches(e, 'movePane')) { SB.movePane(state.activeTab, dir); return; }
+      const to = SB.panes.neighbor(state.grid, state.activeTab, dir);
+      if (to) SB.activate(to);
+      return;
+    }
     // Reordering from the keyboard, where a browser puts it too — and the only way
     // to do it without a pointer.
     if (K.matches(e, 'moveTab')) {

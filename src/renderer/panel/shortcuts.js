@@ -25,6 +25,8 @@
     { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right' },
     { id: 'tabList', group: 'Conversations', keys: ['Ctrl+Shift+A'], what: 'Every open conversation, grouped by what it needs from you' },
     { id: 'renameTab', fixed: true, group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
+    { id: 'focusPane', group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
+    { id: 'movePane', group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation to the pane beside it (or a column of its own at the edge)' },
     { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'Another conversation alongside this one (or drag a tab into the chat, or out of the window)' },
     { id: 'reopenTab', group: 'Conversations', keys: ['Ctrl+Shift+T'], what: 'Bring back the conversation you closed last (again for the one before)' },
 
@@ -55,7 +57,7 @@
   const GROUPS = [...new Set(SHORTCUTS.map(s => s.group))];
   const byId = new Map(SHORTCUTS.map(s => [s.id, s]));
 
-  const KEY_NAMES = { Esc: 'Escape', PgUp: 'PageUp', PgDn: 'PageDown', '↑': 'ArrowUp', '↓': 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight', Space: ' ' };
+  const KEY_NAMES = { Esc: 'Escape', PgUp: 'PageUp', PgDn: 'PageDown', '↑': 'ArrowUp', '↓': 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight', Space: ' ', '←': 'ArrowLeft', '→': 'ArrowRight' };
   const MODS = new Set(['Ctrl', 'Shift', 'Alt']);
 
   /** "Ctrl+Shift+D" -> { ctrl, shift, alt, key }, or null for one that's only shown. */

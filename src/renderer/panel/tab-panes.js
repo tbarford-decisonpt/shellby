@@ -368,6 +368,24 @@
     if (next) await SB.placeTab(next, side || below, side ? 'right' : 'bottom');
   };
 
+  // Ctrl+Alt+arrow: this conversation swaps with the pane that way, or at the
+  // left or right edge takes a column of its own (panes.moveToward decides; placeTab
+  // checks the room). From another view the chat is shown and settled first, as
+  // for Split, so the room isn't measured on a hidden view. -> moved?
+  const DIRS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+  SB.paneDir = key => DIRS[key] || null;
+  SB.movePane = async (tabId, dir) => {
+    if (SB.solo || !(await chatShowing())) return false;
+    const to = P.moveToward(state.grid, tabId, dir);
+    return to ? SB.placeTab(tabId, to.target, to.zone) : false;
+  };
+
+  // Something on top of the chat that has the keyboard: the jump-anywhere
+  // palette (#paletteSheet), a dialog sheet (.card-sheet: the shortcut list, the
+  // share card and the rest) or an open menu or popover (core.js anyMenuOpen,
+  // which counts the slash and @ menus too).
+  SB.overlayOpen = () => !!document.querySelector('.palette-sheet:not([hidden]), .card-sheet:not([hidden])') || SB.anyMenuOpen();
+
   // ------------------------------------------------------------ where a dragged tab lands
 
   const OUT = 24;   // px past the window's edge before letting go pops the tab out
