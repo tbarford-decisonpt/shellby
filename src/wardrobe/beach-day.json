@@ -16,11 +16,11 @@
       "rarity": "rare",
       "unlock": { "season": "summer" },
       "pivot": [4, 2],
-      "palette": { "t": "#e9c46a", "T": "#bc8a3c", "r": "#e63946" },
+      "palette": { "t": "#e9c46a", "T": "#bc8a3c", "r": "#e63946", "h": "#f8e08e", "q": "#ff7a6e", "R": "#a3214a" },
       "pixels": [
-        "...ttt...",
-        "..trrrt..",
-        "TtttttttT"
+        "...hht...",
+        "..tqrRT..",
+        "ThhtttttT"
       ]
     },
     {
@@ -30,11 +30,11 @@
       "slot": "face",
       "unlock": { "season": "summer" },
       "pivot": [4, 0],
-      "palette": { "w": "#f8f9fa", "O": "#ff8c42", "P": "#ff5c8a" },
+      "palette": { "w": "#f8f9fa", "O": "#ff8c42", "P": "#ff5c8a", "g": "#d5dae6", "s": "#a9b1c6" },
       "pixels": [
-        "wwwwwwwww",
-        ".wOw.wPw.",
-        ".www.www."
+        "wwwwwwwwg",
+        ".wOg.wPg.",
+        ".gss.gss."
       ]
     },
     {
@@ -45,10 +45,10 @@
       "rarity": "rare",
       "unlock": { "season": "summer" },
       "pivot": [3, 0],
-      "palette": { "p": "#ff8fab", "f": "#ffd23f", "g": "#52b788" },
+      "palette": { "p": "#ff8fab", "f": "#ffd23f", "g": "#52b788", "q": "#ffc4d3", "P": "#e05a86", "F": "#e09a2a" },
       "pixels": [
-        "pfgpfgpf",
-        "..fpf..."
+        "qfgpfgPF",
+        "..fPF..."
       ]
     },
     {
@@ -58,13 +58,13 @@
       "slot": "held",
       "unlock": { "season": "summer" },
       "pivot": [1, 6],
-      "palette": { "p": "#4cc9f0", "w": "#a8ecd9", "t": "#c89f6a" },
+      "palette": { "p": "#4cc9f0", "w": "#a8ecd9", "t": "#c89f6a", "l": "#c8f5ff", "P": "#2f9ed8", "D": "#2a72b8", "T": "#9a7046" },
       "pixels": [
-        "ppp",
-        "pwp",
-        "ppp",
-        "ppp",
-        ".t.",
+        "lpp",
+        "pwP",
+        "ppP",
+        "PPD",
+        ".T.",
         ".t."
       ]
     },
@@ -76,15 +76,15 @@
       "rarity": "epic",
       "unlock": { "season": "summer" },
       "pivot": [1, 7],
-      "palette": { "w": "#f8f9fa", "r": "#e63946" },
+      "palette": { "w": "#f8f9fa", "r": "#e63946", "g": "#dde3ee", "s": "#aab4ca", "R": "#b8233e" },
       "pixels": [
         ".w.",
-        "www",
-        "wrw",
-        "www",
-        "wrw",
-        "www",
-        ".w."
+        "wwg",
+        "wrs",
+        "wgs",
+        "wRs",
+        "ggs",
+        ".s."
       ]
     },
     {
@@ -95,12 +95,12 @@
       "rarity": "rare",
       "unlock": { "season": "summer" },
       "pivot": [3, 6],
-      "palette": { "r": "#e63946", "w": "#f8f9fa", "k": "#8d5524" },
+      "palette": { "r": "#e63946", "w": "#f8f9fa", "k": "#8d5524", "q": "#ff7a6e", "R": "#a3203f", "W": "#c6ccdc", "K": "#5c3720" },
       "pixels": [
-        "..rwr..",
-        ".rwrwr.",
-        "rwrwrwr",
-        "...k...",
+        "..qwr..",
+        ".qwrWR.",
+        "rWRWRWR",
+        "...K...",
         "...k...",
         "...k..."
       ]

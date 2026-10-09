@@ -43,6 +43,7 @@ function freeKey(palette, wanted) {
 }
 
 const INK = '#141225';
+const INK_DEPTH = 0.78; // how far the line sinks toward INK; shared/sprite.js lines him the same
 
 /**
  * A portrait with a one-pixel line round its edge, each pixel of it the
@@ -65,7 +66,7 @@ function inked(art) {
     if (!keyFor.has(by)) {
       const k = spare.shift() || by;
       keyFor.set(by, k);
-      if (k !== by) palette[k] = mix(p[by], INK, 0.78);
+      if (k !== by) palette[k] = mix(p[by], INK, INK_DEPTH);
     }
     return keyFor.get(by);
   }).join(''));
@@ -143,4 +144,4 @@ function formed(art, forms = []) {
   return art;
 }
 
-module.exports = { SILHOUETTE, OUTLINE, silhouette, golden, shiny, spectral, staged, jarArt, micro, formed, inked };
+module.exports = { SILHOUETTE, OUTLINE, silhouette, golden, shiny, spectral, staged, jarArt, micro, formed, inked, INK, INK_DEPTH };

@@ -15,11 +15,11 @@
       "slot": "neck",
       "pivot": [2, -1],
       "rarity": "rare",
-      "palette": { "w": "#fff4e4", "p": "#ffb3c6", "b": "#9bf6ff" },
+      "palette": { "w": "#fff4e4", "p": "#ffb3c6", "b": "#9bf6ff", "s": "#d8ccd6" },
       "pixels": [
-        "wwwww",
-        "wpwbw",
-        ".www."
+        "wwwws",
+        "wpwbs",
+        ".wss."
       ],
       "unlock": { "achievement": "hatchling" }
     }

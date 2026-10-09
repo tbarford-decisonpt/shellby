@@ -14,15 +14,15 @@
       "description": "First deploy. Every launch gets a patch.",
       "slot": "neck",
       "pivot": [3, 0],
-      "palette": { "k": "#8d99ae", "n": "#1d3557", "w": "#f1faee", "r": "#e63946" },
+      "palette": { "k": "#8d99ae", "n": "#1d3557", "w": "#f1faee", "r": "#e63946", "j": "#5f6a86", "N": "#33608f", "m": "#132440", "v": "#b4c2d6" },
       "pixels": [
-        "k.....k",
-        ".k...k.",
-        "..nnn..",
-        ".nnwnn.",
-        ".nwwwn.",
-        ".nrnrn.",
-        "..nnn.."
+        "k.....j",
+        ".k...j.",
+        "..NNn..",
+        ".Nnwnn.",
+        ".nwwvm.",
+        ".nrnrm.",
+        "..nmm.."
       ],
       "unlock": { "achievement": "launch-day" }
     },
@@ -33,14 +33,14 @@
       "slot": "held",
       "rarity": "rare",
       "pivot": [1, 5],
-      "palette": { "K": "#8d99ae", "w": "#caf0f8", "g": "#06d6a0", "G": "#b7efc5" },
+      "palette": { "K": "#8d99ae", "w": "#caf0f8", "g": "#06d6a0", "G": "#b7efc5", "h": "#cfd8dc", "d": "#5f6a86", "W": "#ffffff", "c": "#82b4cc", "e": "#04947e" },
       "pixels": [
-        "KKK",
-        "w.w",
-        "wGw",
-        "wgw",
-        "wgw",
-        ".g."
+        "hKd",
+        "W.c",
+        "WGc",
+        "wgc",
+        "wgc",
+        ".e."
       ],
       "unlock": { "achievement": "back-to-green" }
     },
@@ -51,13 +51,13 @@
       "slot": "shell",
       "rarity": "epic",
       "pivot": [2, 5],
-      "palette": { "K": "#6c757d", "k": "#3d405b", "y": "#ffd166", "g": "#4cc9f0", "r": "#e63946" },
+      "palette": { "K": "#6c757d", "k": "#3d405b", "y": "#ffd166", "g": "#4cc9f0", "r": "#e63946", "L": "#a7b0b8", "D": "#272a40", "s": "#525a6e" },
       "pixels": [
-        "KKKKk",
-        "KyKgk",
-        "KKKKk",
+        "LLLKk",
+        "LyKgk",
+        "KssKk",
         "KrKKk",
-        "KKKKk"
+        "KkkkD"
       ],
       "unlock": { "achievement": "ghostbuster" }
     },
@@ -68,15 +68,15 @@
       "slot": "held",
       "rarity": "rare",
       "pivot": [0, 6],
-      "palette": { "b": "#d4a373", "y": "#ffd166" },
+      "palette": { "b": "#d4a373", "y": "#ffd166", "h": "#f2cc94", "d": "#a2724c", "D": "#6e4a40" },
       "pixels": [
-        "...b...",
-        ".b.b.b.",
-        "..bbb..",
-        "bbbybbb",
-        "..bbb..",
-        ".b.b.b.",
-        "...b..."
+        "...h...",
+        ".h.h.b.",
+        "..hbb..",
+        "hhbybbd",
+        "..bdd..",
+        ".b.d.D.",
+        "...D..."
       ],
       "unlock": { "achievement": "issue-to-ship" }
     },
@@ -86,14 +86,14 @@
       "description": "Dependency audit came back clean. Everything checks out.",
       "slot": "held",
       "pivot": [0, 5],
-      "palette": { "k": "#adb5bd", "K": "#6c757d", "b": "#a47148", "w": "#fffaf0", "g": "#2a9d8f" },
+      "palette": { "k": "#adb5bd", "K": "#6c757d", "b": "#a47148", "w": "#fffaf0", "g": "#2a9d8f", "j": "#7c8594", "h": "#c98f5c", "d": "#74503a", "p": "#e2dace" },
       "pixels": [
-        ".kKk.",
-        "bbbbb",
-        "bwwwb",
-        "bwwgb",
-        "bggwb",
-        "bbbbb"
+        ".kKj.",
+        "hbbbb",
+        "hpppd",
+        "hwwgd",
+        "hggwd",
+        "bdddd"
       ],
       "unlock": { "achievement": "clean-bill" }
     },
@@ -103,13 +103,13 @@
       "description": "Switched off a plugin nobody was using. A tidy shell is a happy shell.",
       "slot": "held",
       "pivot": [2, 6],
-      "palette": { "p": "#ff9ec4", "P": "#c77dff", "b": "#8b5a2b" },
+      "palette": { "p": "#ff9ec4", "P": "#c77dff", "b": "#8b5a2b", "h": "#ffd4e4", "q": "#d4679c", "V": "#9454d0", "B": "#5a3a24" },
       "pixels": [
-        ".pp.",
-        "pPPp",
-        "pPPp",
-        ".pp.",
-        "..b.",
+        ".hp.",
+        "hPPp",
+        "pPVq",
+        ".qq.",
+        "..B.",
         "..b.",
         "..b."
       ],
@@ -121,14 +121,14 @@
       "description": "A crowded chat, summed up and started over. Clean slate.",
       "slot": "held",
       "pivot": [0, 5],
-      "palette": { "k": "#6c757d", "w": "#fffaf0", "b": "#90e0ef" },
+      "palette": { "k": "#6c757d", "w": "#fffaf0", "b": "#90e0ef", "K": "#adb5bd", "p": "#e0d8d8", "f": "#bdb4c4", "B": "#6cb8d8" },
       "pixels": [
-        "k.k.k",
-        "wwwww",
-        "wbbbw",
-        "wwwww",
-        "wbbww",
-        "wwwww"
+        "K.k.k",
+        "wwwwp",
+        "wbbBp",
+        "wwwwp",
+        "wbBwp",
+        "wpppf"
       ],
       "unlock": { "achievement": "fresh-start" }
     },
@@ -139,13 +139,13 @@
       "slot": "neck",
       "rarity": "rare",
       "pivot": [3, 0],
-      "palette": { "r": "#e63946", "o": "#f77f00", "y": "#fcbf49" },
+      "palette": { "r": "#e63946", "o": "#f77f00", "y": "#fcbf49", "w": "#ffe8a0", "R": "#a3162e", "O": "#c45a10" },
       "pixels": [
-        "orroyro",
-        "royrory",
-        "....or.",
-        "....ry.",
-        "....o.."
+        "orwoyro",
+        "RoyRoRO",
+        "....oR.",
+        "....rR.",
+        "....O.."
       ],
       "unlock": { "achievement": "on-a-roll" }
     },
@@ -156,14 +156,14 @@
       "slot": "hat",
       "rarity": "legendary",
       "pivot": [3, 5],
-      "palette": { "y": "#ffd166", "o": "#f77f00", "r": "#e63946", "R": "#9d0208" },
+      "palette": { "y": "#ffd166", "o": "#f77f00", "r": "#e63946", "R": "#9d0208", "w": "#fff6c8", "O": "#d0560c", "D": "#5e0a1c" },
       "pixels": [
-        "...y...",
+        "...w...",
         "..yoy.y",
-        "y.yoyoy",
-        "yyorroy",
-        ".orrro.",
-        "..RRR.."
+        "w.yoyoO",
+        "yyorroO",
+        ".orrrO.",
+        "..RRD.."
       ],
       "unlock": { "achievement": "unstoppable" }
     },
@@ -174,11 +174,11 @@
       "slot": "hat",
       "rarity": "epic",
       "pivot": [4, 2],
-      "palette": { "p": "#ff8c69", "c": "#ffb4a2", "y": "#ffd166" },
+      "palette": { "p": "#ff8c69", "c": "#ffb4a2", "y": "#ffd166", "h": "#ffbf94", "q": "#d4564f", "W": "#ffe2d6", "C": "#de8a84" },
       "pixels": [
-        "p..p.p..p",
-        "pp.ppp.pp",
-        "ccccycccc"
+        "h..h.p..q",
+        "hp.hpq.pq",
+        "WcccycccC"
       ],
       "unlock": { "achievement": "double-digits" }
     },
@@ -189,14 +189,14 @@
       "slot": "held",
       "rarity": "epic",
       "pivot": [3, 6],
-      "palette": { "K": "#5c0f14", "r": "#e63946", "R": "#ff8fa3", "w": "#fff4e6" },
+      "palette": { "K": "#5c0f14", "r": "#e63946", "R": "#ff8fa3", "w": "#fff4e6", "e": "#a3203a", "m": "#f2647c", "d": "#b02640" },
       "pixels": [
-        "...K...",
-        "..KRK..",
-        ".KRwRK.",
-        "KRwwwRK",
-        "KrrrrrK",
-        ".KrrrK.",
+        "...e...",
+        "..eRK..",
+        ".eRwmK.",
+        "eRwwwmK",
+        "errrrdK",
+        ".KrrdK.",
         "..KKK.."
       ],
       "unlock": { "achievement": "critical-hit" }
@@ -208,14 +208,14 @@
       "slot": "held",
       "rarity": "legendary",
       "pivot": [3, 6],
-      "palette": { "K": "#7a5200", "r": "#ffc300", "R": "#fff1a8", "w": "#ffffff" },
+      "palette": { "K": "#7a5200", "r": "#ffc300", "R": "#fff1a8", "w": "#ffffff", "e": "#b07a08", "m": "#ffdd5c", "d": "#d99400" },
       "pixels": [
-        "...K...",
-        "..KRK..",
-        ".KRwRK.",
-        "KRwwwRK",
-        "KrrrrrK",
-        ".KrrrK.",
+        "...e...",
+        "..eRK..",
+        ".eRwmK.",
+        "eRwwwmK",
+        "errrrdK",
+        ".KrrdK.",
         "..KKK.."
       ],
       "unlock": { "achievement": "natural-twenty" }
@@ -227,12 +227,12 @@
       "slot": "neck",
       "rarity": "rare",
       "pivot": [4, 0],
-      "palette": { "s": "#dfe7ec", "S": "#8d99ae", "y": "#ffd166" },
+      "palette": { "s": "#dfe7ec", "S": "#8d99ae", "y": "#ffd166", "w": "#ffffff", "m": "#b4bfcc", "D": "#5f6a86", "o": "#d99400" },
       "pixels": [
-        "S.......S",
-        "sSs.y.sSs",
-        ".ssSySss.",
-        "...sss..."
+        "S.......D",
+        "wSs.y.mSm",
+        ".wsSoSmm.",
+        "...smm..."
       ],
       "unlock": { "achievement": "clean-landing" }
     }

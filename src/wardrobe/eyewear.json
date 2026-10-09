@@ -14,11 +14,11 @@
       "description": "Lost an argument with a merge conflict.",
       "slot": "face",
       "pivot": [4, 1],
-      "palette": { "k": "#3a3a3a", "K": "#1b1b1f" },
+      "palette": { "k": "#3a3a3a", "K": "#1b1b1f", "h": "#5a536e", "p": "#2e2b3b" },
       "pixels": [
         "kkkkkkkkk",
-        ".....KKK.",
-        ".....KKK."
+        ".....hpK.",
+        ".....pKK."
       ]
     },
     {
@@ -28,10 +28,10 @@
       "slot": "face",
       "rarity": "rare",
       "pivot": [4, 0],
-      "palette": { "s": "#4a4e69", "K": "#22223b", "c": "#4cc9f0" },
+      "palette": { "s": "#4a4e69", "K": "#22223b", "c": "#4cc9f0", "h": "#6c7196", "m": "#383a5c", "C": "#c2f4ff", "d": "#2b84bd", "S": "#33364f" },
       "pixels": [
-        "sKKKKKKs.",
-        "sKccccKs.",
+        "shmmmmKs.",
+        "SmCccdKS.",
         ".KKKKKK.."
       ]
     },
@@ -42,11 +42,11 @@
       "slot": "face",
       "rarity": "rare",
       "pivot": [4, 0],
-      "palette": { "k": "#2b2d42", "K": "#3f4238", "c": "#8ac926" },
+      "palette": { "k": "#2b2d42", "K": "#3f4238", "c": "#8ac926", "m": "#4b4e66", "L": "#5e624f", "C": "#e6f7a0", "d": "#4f8a1c", "D": "#2b2d26" },
       "pixels": [
-        "kkkkkkkkk",
-        "KcccccccK",
-        "KKKKKKKKK"
+        "kmmmmmmkk",
+        "LCcccccdK",
+        "KKKKKKKKD"
       ],
       "unlock": { "achievement": "deep-focus" }
     },
@@ -56,11 +56,11 @@
       "description": "Everything has depth now, including the stack trace.",
       "slot": "face",
       "pivot": [4, 0],
-      "palette": { "w": "#f1e3d3", "r": "#e63946", "c": "#4cc9f0" },
+      "palette": { "w": "#f1e3d3", "r": "#e63946", "c": "#4cc9f0", "h": "#fff8ec", "W": "#c6b6b0" },
       "pixels": [
-        "wwwwwwwww",
-        ".wrw.wcw.",
-        ".www.www."
+        "hhwwwwwwW",
+        ".wrW.wcW.",
+        ".wWW.wWW."
       ]
     },
     {
@@ -69,11 +69,11 @@
       "description": "Approved a plan. For the long diffs.",
       "slot": "face",
       "pivot": [4, 0],
-      "palette": { "g": "#8d99ae", "K": "#c9c9c9" },
+      "palette": { "g": "#8d99ae", "K": "#c9c9c9", "G": "#c4cede", "d": "#5e6884" },
       "pixels": [
-        ".ggg.ggg.",
-        "g..ggg..g",
-        ".ggg.ggg.",
+        ".GGg.GGg.",
+        "G..dgg..d",
+        ".gdd.gdd.",
         "K.......K"
       ],
       "unlock": { "achievement": "planner" }
@@ -84,11 +84,11 @@
       "description": "It builds now. Mostly.",
       "slot": "face",
       "pivot": [4, 0],
-      "palette": { "t": "#f8f0e3", "T": "#e0cdb4" },
+      "palette": { "t": "#f8f0e3", "T": "#e0cdb4", "u": "#d0c3b9", "P": "#c4a684" },
       "pixels": [
-        ".ttttt...",
-        ".tTTTt...",
-        ".ttttt..."
+        ".ttttu...",
+        ".tTTPu...",
+        ".uuuuu..."
       ]
     },
     {
@@ -98,10 +98,10 @@
       "slot": "face",
       "rarity": "rare",
       "pivot": [4, 0],
-      "palette": { "P": "#5a189a", "p": "#3c096c", "w": "#e0aaff" },
+      "palette": { "P": "#5a189a", "p": "#3c096c", "w": "#e0aaff", "h": "#923fbf" },
       "pixels": [
-        "PPPPPPPPP",
-        "PwwPPwwPP",
+        "PhhPPhhPp",
+        "PwwpPwwPp",
         "ppppppppp"
       ],
       "unlock": { "achievement": "night-owl" }
@@ -114,10 +114,10 @@
       "follows": "eyes",
       "rarity": "epic",
       "pivot": [4, 0],
-      "palette": { "K": "#2b2d42", "r": "#ef233c" },
+      "palette": { "K": "#2b2d42", "r": "#ef233c", "m": "#4a4d6a", "R": "#ffb4a2", "d": "#a3122e" },
       "pixels": [
-        "KKKKKKKKK",
-        ".rrrrrrr."
+        "KmmKKKKKK",
+        ".dRrrrrd."
       ],
       "unlock": { "achievement": "check-up" }
     },
@@ -128,9 +128,9 @@
       "slot": "face",
       "follows": "eyes",
       "pivot": [4, -1],
-      "palette": { "K": "#1b1b1f" },
+      "palette": { "K": "#1b1b1f", "h": "#3a3644" },
       "pixels": [
-        "..KK.KK.."
+        "..hK.hK.."
       ],
       "unlock": { "achievement": "early-bird" }
     }

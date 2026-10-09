@@ -14,15 +14,15 @@
       "description": "First bug in the jar. Fixed, not just spotted.",
       "slot": "held",
       "pivot": [2, 6],
-      "palette": { "K": "#8d99ae", "w": "#f1faee", "v": "#ced4da", "b": "#a47148" },
+      "palette": { "K": "#8d99ae", "w": "#f1faee", "v": "#ced4da", "b": "#a47148", "L": "#c6d0de", "D": "#5f6984", "u": "#a7b2c2", "B": "#74492c" },
       "pixels": [
-        ".KKK.",
-        "KwvwK",
-        "KvwvK",
-        ".KwK.",
+        ".LKK.",
+        "LwvwD",
+        "KvwuD",
+        ".KuD.",
         "..b..",
         "..b..",
-        "..b.."
+        "..B.."
       ],
       "unlock": { "achievement": "gotcha" }
     },
@@ -32,14 +32,14 @@
       "description": "Cork in, label on. Exhibit A.",
       "slot": "shell",
       "pivot": [2, 6],
-      "palette": { "c": "#b08968", "s": "#caf0f8", "g": "#8ac926", "k": "#2b2d42" },
+      "palette": { "c": "#b08968", "s": "#caf0f8", "g": "#8ac926", "k": "#2b2d42", "C": "#dab68e", "d": "#82603f", "W": "#ffffff", "S": "#86b4cc", "G": "#cdef5c" },
       "pixels": [
-        ".ccc.",
-        "sssss",
-        "s.g.s",
-        "sgkgs",
-        "s...s",
-        ".sss."
+        ".Ccd.",
+        "ssssS",
+        "W.G.S",
+        "WgkgS",
+        "s...S",
+        ".sSS."
       ],
       "unlock": { "achievement": "gotcha" }
     },
@@ -50,14 +50,14 @@
       "slot": "face",
       "rarity": "rare",
       "pivot": [4, 1],
-      "palette": { "k": "#495057", "w": "#caf0f8", "W": "#ffffff", "b": "#8b5a2b" },
+      "palette": { "k": "#495057", "w": "#caf0f8", "W": "#ffffff", "b": "#8b5a2b", "m": "#7d8792", "n": "#30353f", "v": "#8cc4da", "B": "#5e3b1a" },
       "pixels": [
-        ".kkk.....",
-        "kWww.k...",
-        "kwww.k...",
-        ".kkk.....",
+        ".mkk.....",
+        "mWww.k...",
+        "kwwv.k...",
+        ".kkn.....",
         "....b....",
-        ".....b..."
+        ".....B..."
       ],
       "unlock": { "achievement": "field-notes" }
     },
@@ -68,12 +68,12 @@
       "slot": "hat",
       "rarity": "epic",
       "pivot": [5, 3],
-      "palette": { "r": "#2a9d8f", "R": "#1d6b62", "w": "#e9d8a6", "k": "#5c4a32" },
+      "palette": { "r": "#2a9d8f", "R": "#1d6b62", "w": "#e9d8a6", "k": "#5c4a32", "h": "#5ccaa2", "W": "#c4ae7e", "l": "#7d6646" },
       "pixels": [
-        "...rrrr....",
-        "..rrwwwr...",
-        ".rrwwkwwr..",
-        ".kkkkkkkkRR"
+        "...hhrr....",
+        "..hrwwwR...",
+        ".hrwwkwWR..",
+        ".lkkkkkkkRR"
       ],
       "unlock": { "achievement": "fix-em-all" }
     },
@@ -84,13 +84,13 @@
       "slot": "shell",
       "rarity": "rare",
       "pivot": [2, 5],
-      "palette": { "y": "#ffd166", "Y": "#e9a23b", "k": "#2b2d42", "K": "#6c757d" },
+      "palette": { "y": "#ffd166", "Y": "#e9a23b", "k": "#2b2d42", "K": "#6c757d", "h": "#fff1b8", "L": "#a3abb3", "o": "#b06a30" },
       "pixels": [
-        ".KK..",
-        "yyyK.",
+        ".LK..",
+        "hyyK.",
         "ykyYK",
-        "yyyY.",
-        "YYYY."
+        "yyYY.",
+        "YYYo."
       ],
       "unlock": { "achievement": "exterminator" }
     },
@@ -101,16 +101,16 @@
       "slot": "held",
       "rarity": "legendary",
       "pivot": [2, 7],
-      "palette": { "Y": "#ffd166", "y": "#e9c46a", "w": "#fff3c4", "s": "#ffffff" },
+      "palette": { "Y": "#ffd166", "y": "#e9c46a", "w": "#fff3c4", "s": "#ffffff", "h": "#ffeb8f", "o": "#b5782e" },
       "pixels": [
         "....s",
-        ".YYY.",
-        "YwywY",
-        "YywyY",
-        ".YwY.",
+        ".hYY.",
+        "hwywo",
+        "Yywyo",
+        ".Ywo.",
         "..y..",
         "..y..",
-        "..y.."
+        "..o.."
       ],
       "unlock": { "achievement": "golden-touch" }
     },
@@ -121,15 +121,15 @@
       "slot": "held",
       "rarity": "epic",
       "pivot": [3, 6],
-      "palette": { "b": "#7f5539", "s": "#b8c0ff", "w": "#f8f9fa", "k": "#3d405b" },
+      "palette": { "b": "#7f5539", "s": "#b8c0ff", "w": "#f8f9fa", "k": "#3d405b", "B": "#a87a52", "d": "#553524", "L": "#e4e8ff", "S": "#7d86d4", "g": "#c3c8ef" },
       "pixels": [
-        "..bbb..",
-        ".sssss.",
-        "s.www.s",
-        "swkwkws",
-        "s.www.s",
-        "s.w.w.s",
-        ".sssss."
+        "..Bbd..",
+        ".LsssS.",
+        "L.www.S",
+        "swkwkgS",
+        "s.wwg.S",
+        "s.w.g.S",
+        ".sssSS."
       ],
       "unlock": { "achievement": "ghost-whisperer" }
     },
@@ -140,11 +140,11 @@
       "slot": "face",
       "rarity": "legendary",
       "pivot": [4, 2],
-      "palette": { "y": "#ffd166", "K": "#22223b", "c": "#4cc9f0", "w": "#e0fbfc", "p": "#9d4edd", "P": "#e0aaff" },
+      "palette": { "y": "#ffd166", "K": "#22223b", "c": "#4cc9f0", "w": "#e0fbfc", "p": "#9d4edd", "P": "#e0aaff", "m": "#42426c", "d": "#2a84bc", "q": "#6527a8" },
       "pixels": [
         "..y...y..",
-        ".KKK.KKK.",
-        "KcwcKpPpK",
+        ".mKK.mKK.",
+        "KwcdKPpqK",
         ".KKK.KKK."
       ],
       "unlock": { "achievement": "heisenberg" }

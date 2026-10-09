@@ -16,12 +16,12 @@
       "rarity": "rare",
       "unlock": { "season": "autumn" },
       "pivot": [3, 3],
-      "palette": { "t": "#8d5524", "T": "#6b4a2f" },
+      "palette": { "t": "#8d5524", "T": "#6b4a2f", "h": "#b5773a", "d": "#4a3224" },
       "pixels": [
         "...t...",
-        ".TTTTT.",
-        "TtTtTtT",
-        "TTTTTTT"
+        ".htttT.",
+        "hTtTtTd",
+        "TTTTTdd"
       ]
     },
     {
@@ -31,11 +31,11 @@
       "slot": "hat",
       "unlock": { "season": "autumn" },
       "pivot": [4, 2],
-      "palette": { "T": "#7f6a53", "t": "#5c4d3c" },
+      "palette": { "T": "#7f6a53", "t": "#5c4d3c", "h": "#a38b6c", "d": "#3f3532" },
       "pixels": [
-        "..TTTT...",
-        ".TTTTTTTt",
-        ".ttttttt."
+        "..hhTT...",
+        ".hTTTTTTt",
+        ".ttttttd."
       ]
     },
     {
@@ -45,11 +45,11 @@
       "slot": "face",
       "unlock": { "season": "autumn" },
       "pivot": [4, 0],
-      "palette": { "g": "#8d99ae", "W": "#e8f1f2" },
+      "palette": { "g": "#8d99ae", "W": "#e8f1f2", "G": "#c4cede", "d": "#5e6884", "F": "#b6c6cf" },
       "pixels": [
-        "ggggggggg",
-        ".gWWgWWg.",
-        ".ggg.ggg."
+        "GGggggggg",
+        ".gWFgWFd.",
+        ".gdd.gdd."
       ]
     },
     {
@@ -60,12 +60,12 @@
       "rarity": "rare",
       "unlock": { "season": "autumn" },
       "pivot": [3, 0],
-      "palette": { "n": "#9c6644", "N": "#7f5539" },
+      "palette": { "n": "#9c6644", "N": "#7f5539", "h": "#c08a5e", "d": "#5e3d2c" },
       "pixels": [
-        ".nnnnnn.",
-        "nNnnNnNn",
-        "nnNnnNnn",
-        ".nnnnnn."
+        ".hhhnnn.",
+        "hNnhNnNd",
+        "nnNnnNnd",
+        ".nddddd."
       ]
     },
     {
@@ -75,14 +75,14 @@
       "slot": "held",
       "unlock": { "season": "autumn" },
       "pivot": [2, 6],
-      "palette": { "h": "#8d5524", "r": "#8d99ae" },
+      "palette": { "h": "#8d5524", "r": "#8d99ae", "H": "#b07a40", "L": "#c6d0de", "D": "#5e6884" },
       "pixels": [
+        "..H..",
         "..h..",
         "..h..",
         "..h..",
-        "..h..",
-        "rrrrr",
-        "r.r.r"
+        "LLrrD",
+        "r.r.D"
       ]
     },
     {
@@ -92,12 +92,12 @@
       "slot": "held",
       "unlock": { "season": "autumn" },
       "pivot": [1, 4],
-      "palette": { "k": "#5c4033", "T": "#6b4a2f", "t": "#c68642" },
+      "palette": { "k": "#5c4033", "T": "#6b4a2f", "t": "#c68642", "H": "#94683f", "D": "#4a3224", "L": "#ebb36c", "o": "#94582e" },
       "pixels": [
         ".k.",
-        "TTT",
-        "ttt",
-        ".t."
+        "HTD",
+        "Lto",
+        ".o."
       ]
     },
     {
@@ -108,14 +108,14 @@
       "rarity": "epic",
       "unlock": { "season": "autumn" },
       "pivot": [2, 6],
-      "palette": { "y": "#e9c46a", "Y": "#bc8a3c" },
+      "palette": { "y": "#e9c46a", "Y": "#bc8a3c", "h": "#fff0a8", "d": "#8a5f2a" },
       "pixels": [
-        "y.y.y",
-        "YyYyY",
-        "yYyYy",
-        ".YYY.",
+        "h.h.y",
+        "YyYyd",
+        "yYyYd",
+        ".YYd.",
         "..Y..",
-        "..Y.."
+        "..d.."
       ]
     }
   ],

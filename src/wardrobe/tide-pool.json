@@ -15,12 +15,12 @@
       "slot": "hat",
       "rarity": "rare",
       "pivot": [2, 3],
-      "palette": { "o": "#ff8c42", "O": "#d96c00", "w": "#fff4e4" },
+      "palette": { "o": "#ff8c42", "O": "#d96c00", "w": "#fff4e4", "h": "#ffbb73", "d": "#b5502a" },
       "pixels": [
-        "..o..",
-        ".oOo.",
-        "oOwOo",
-        ".o.o."
+        "..h..",
+        ".hOo.",
+        "oOwOd",
+        ".o.d."
       ],
       "unlock": { "achievement": "good-crab" }
     },
@@ -31,10 +31,10 @@
       "slot": "face",
       "rarity": "rare",
       "pivot": [4, 0],
-      "palette": { "k": "#1b1b1f", "c": "#a8ecd9", "b": "#ff8c42" },
+      "palette": { "k": "#1b1b1f", "c": "#a8ecd9", "b": "#ff8c42", "W": "#effff9", "C": "#62b9ad", "B": "#c45a24", "g": "#44475a" },
       "pixels": [
-        "bkkkkkkkb",
-        "bkccccckb",
+        "bggkkkkkb",
+        "BkWcccCkB",
         ".kkkkkkk."
       ]
     },
@@ -44,10 +44,10 @@
       "description": "Collected one at a time, over a long summer.",
       "slot": "neck",
       "pivot": [3, 0],
-      "palette": { "w": "#fff4e4", "c": "#e0cdb4", "p": "#ff8fab" },
+      "palette": { "w": "#fff4e4", "c": "#e0cdb4", "p": "#ff8fab", "s": "#b3a3a6", "P": "#d9658a" },
       "pixels": [
-        "pcwcpcwc",
-        "..cpc..."
+        "pcwcpcws",
+        "..cPs..."
       ]
     },
     {
@@ -56,13 +56,13 @@
       "description": "Dinner, or a flag. Depends on the mood.",
       "slot": "held",
       "pivot": [1, 6],
-      "palette": { "G": "#52b788", "g": "#2d6a4f" },
+      "palette": { "G": "#52b788", "g": "#2d6a4f", "h": "#a3d98f", "m": "#3a8c66" },
       "pixels": [
-        ".G.",
-        "GG.",
-        ".GG",
-        "GG.",
-        ".G.",
+        ".h.",
+        "hG.",
+        ".Gm",
+        "hG.",
+        ".m.",
         ".g."
       ]
     },
@@ -72,10 +72,10 @@
       "description": "Seven days together. They are tenants now.",
       "slot": "shell",
       "pivot": [2, 3],
-      "palette": { "w": "#f1e3d3", "W": "#cfc0a8" },
+      "palette": { "w": "#f1e3d3", "W": "#cfc0a8", "h": "#fffaf0", "o": "#7f6f78" },
       "pixels": [
-        ".w.w.",
-        "wWwWw",
+        ".h.w.",
+        "wowoW",
         ".W.W."
       ],
       "unlock": { "achievement": "loyal" }
@@ -87,12 +87,12 @@
       "slot": "shell",
       "rarity": "rare",
       "pivot": [3, 2],
-      "palette": { "R": "#e63946", "w": "#f8f9fa" },
+      "palette": { "R": "#e63946", "w": "#f8f9fa", "q": "#ff7a6e", "D": "#a3203f", "W": "#c6ccdc" },
       "pixels": [
-        ".RwRwR.",
+        ".qwRwR.",
         "R.....R",
-        "R.....R",
-        ".RwRwR."
+        "R.....D",
+        ".RWDWD."
       ],
       "unlock": { "achievement": "frequent-flyer" }
     }

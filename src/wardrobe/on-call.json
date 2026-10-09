@@ -15,12 +15,12 @@
       "slot": "hat",
       "rarity": "rare",
       "pivot": [2, 3],
-      "palette": { "r": "#ff6b6b", "R": "#e63946", "k": "#2b2d42" },
+      "palette": { "r": "#ff6b6b", "R": "#e63946", "k": "#2b2d42", "h": "#ffc4b8", "D": "#a8203f", "m": "#4a4e69" },
       "pixels": [
-        ".rrr.",
-        "rRRRr",
-        "rRRRr",
-        "kkkkk"
+        ".hrr.",
+        "rrRRD",
+        "RRRDD",
+        "mkkkk"
       ]
     },
     {
@@ -29,10 +29,10 @@
       "description": "Twenty-five permissions answered. Between him and the sparks.",
       "slot": "face",
       "pivot": [4, 0],
-      "palette": { "k": "#2b2d42", "a": "#ffb703" },
+      "palette": { "k": "#2b2d42", "a": "#ffb703", "A": "#ffe38f", "d": "#d4800f", "m": "#4a4e69" },
       "pixels": [
-        "kkkkkkkkk",
-        "kaaaaaaak",
+        "kmmkkkkkk",
+        "kAaaaaddk",
         ".kkkkkkk."
       ],
       "unlock": { "achievement": "careful" }
@@ -45,14 +45,14 @@
       "rarity": "rare",
       "unlock": { "achievement": "clockwork" },
       "pivot": [2, 0],
-      "palette": { "k": "#2b2d42", "K": "#4a4e69", "c": "#8ac926" },
+      "palette": { "k": "#2b2d42", "K": "#4a4e69", "c": "#8ac926", "l": "#6e7396", "d": "#34364f", "C": "#c8f07a" },
       "pixels": [
         "k.....k.",
         ".k...k..",
         "..kkk...",
-        ".KKKK...",
-        ".KccK...",
-        ".KKKK..."
+        ".llKK...",
+        ".KCcd...",
+        ".Kddd..."
       ]
     },
     {
@@ -63,14 +63,14 @@
       "rarity": "epic",
       "unlock": { "achievement": "keep-your-cool" },
       "pivot": [1, 6],
-      "palette": { "r": "#c1121f", "w": "#f8f9fa", "k": "#2b2d42" },
+      "palette": { "r": "#c1121f", "w": "#f8f9fa", "k": "#2b2d42", "l": "#e8404a", "h": "#ff8f80", "d": "#7c0a2c", "m": "#4a4e69" },
       "pixels": [
         ".k.",
-        "kkk",
-        "rrr",
-        "rwr",
-        "rrr",
-        ".r."
+        "mkk",
+        "hrd",
+        "lwd",
+        "lrd",
+        ".d."
       ]
     },
     {
@@ -79,11 +79,11 @@
       "description": "Three helpers at once. Everyone stays visible.",
       "slot": "shell",
       "pivot": [3, 2],
-      "palette": { "y": "#ccff33", "w": "#f8f9fa" },
+      "palette": { "y": "#ccff33", "w": "#f8f9fa", "Y": "#e8ff8c", "g": "#a6d92a", "s": "#c3cad8" },
       "pixels": [
-        ".yyyyy.",
-        "wwwwwww",
-        ".yyyyy."
+        ".Yyyyg.",
+        "wwwwwws",
+        ".ygggg."
       ],
       "unlock": { "achievement": "all-hands" }
     }

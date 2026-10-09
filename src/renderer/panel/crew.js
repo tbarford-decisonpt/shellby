@@ -46,7 +46,7 @@
       disabled: !!locked, title: locked ? `${label}: reach level ${locked}` : label, 'aria-label': locked ? `${label}, unlocks at level ${locked}` : label,
       onclick: async () => apply(await api.setCrewHat(m.type, hat)),
     }, art, locked ? h('span', { class: 'cr-hat-lv', text: `Lv ${locked}` }) : null);
-    const pixels = (item, dark) => (item ? SB.Sprite.grid(item.pixels, dark ? Object.fromEntries(Object.keys(item.palette).map(k => [k, '#2b4650'])) : item.palette, { px: 3 }) : h('span', { text: '?' }));
+    const pixels = (item, dark) => (item ? SB.Sprite.grid(item.pixels, dark ? Object.fromEntries(Object.keys(item.palette).map(k => [k, '#2b4650'])) : item.palette, { px: 3, ink: true }) : h('span', { text: '?' }));
     return h('div', { class: 'cr-hats', role: 'group', 'aria-label': `${m.name}'s hat` },
       choice('auto', 'Best earned', h('span', { class: 'cr-hat-word', text: 'Best' })),
       ...view.ladder.map(l => choice(l.id, l.item?.name || l.id, pixels(l.item, l.level > m.level), { locked: l.level > m.level ? l.level : null })),

@@ -14,13 +14,13 @@
       "description": "Shipped a project and slapped its sticker on. Plenty more where that came from.",
       "slot": "held",
       "pivot": [0, 4],
-      "palette": { "w": "#fffaf0", "r": "#ef476f", "b": "#118ab2", "y": "#ffd166", "g": "#06d6a0", "k": "#c9b38a" },
+      "palette": { "w": "#fffaf0", "r": "#ef476f", "b": "#118ab2", "y": "#ffd166", "g": "#06d6a0", "k": "#c9b38a", "s": "#dcd6dc" },
       "pixels": [
         ".wwww",
-        "wrwbw",
-        "wwwww",
-        "wywgw",
-        "wwwwk"
+        "wrwbs",
+        "wwwws",
+        "wywgs",
+        "wsssk"
       ],
       "unlock": { "achievement": "tagged" }
     },
@@ -31,14 +31,14 @@
       "slot": "held",
       "rarity": "rare",
       "pivot": [2, 5],
-      "palette": { "p": "#ff9ec4", "k": "#2b2d42", "K": "#8d99ae", "c": "#ef476f", "y": "#ffd166" },
+      "palette": { "p": "#ff9ec4", "k": "#2b2d42", "K": "#8d99ae", "c": "#ef476f", "y": "#ffd166", "q": "#ffcfe1", "H": "#ffb3c4", "h": "#ff6f8f", "C": "#b3245a", "Y": "#e8a640" },
       "pixels": [
-        "p.k.",
+        "q.k.",
         ".pKk",
-        ".ccc",
-        ".cyc",
-        ".cyc",
-        ".ccc"
+        ".HcC",
+        ".hyC",
+        ".hYC",
+        ".cCC"
       ],
       "unlock": { "achievement": "sticker-bomb" }
     },
@@ -50,9 +50,9 @@
       "follows": "eyes",
       "rarity": "epic",
       "pivot": [4, 0],
-      "palette": { "K": "#2b2d42", "a": "#ff6b9d", "b": "#ffa45b", "c": "#ffd166", "d": "#06d6a0", "e": "#4cc9f0", "f": "#7b61ff", "g": "#c77dff" },
+      "palette": { "K": "#2b2d42", "a": "#ff6b9d", "b": "#ffa45b", "c": "#ffd166", "d": "#06d6a0", "e": "#4cc9f0", "f": "#7b61ff", "g": "#c77dff", "W": "#9a9cc0", "L": "#4a4d6a" },
       "pixels": [
-        "KKKKKKKKK",
+        "KWLKKKKKK",
         ".abcdefg."
       ],
       "unlock": { "achievement": "shiny" }
@@ -64,14 +64,14 @@
       "slot": "shell",
       "rarity": "epic",
       "pivot": [1, 6],
-      "palette": { "r": "#e63946", "w": "#f1faee", "b": "#457b9d", "o": "#ffb703" },
+      "palette": { "r": "#e63946", "w": "#f1faee", "b": "#457b9d", "o": "#ffb703", "q": "#ff7a6e", "R": "#a3203f", "s": "#c4cbda" },
       "pixels": [
-        ".r.",
-        "rwr",
-        "wbw",
-        "www",
-        "rwr",
-        "r.r",
+        ".q.",
+        "rwR",
+        "wbs",
+        "wws",
+        "rwR",
+        "r.R",
         ".o."
       ],
       "unlock": { "achievement": "liftoff" }
@@ -83,14 +83,14 @@
       "slot": "neck",
       "rarity": "rare",
       "pivot": [2, 0],
-      "palette": { "k": "#8d99ae", "t": "#e9c46a", "T": "#6b4a2f", "n": "#264653" },
+      "palette": { "k": "#8d99ae", "t": "#e9c46a", "T": "#6b4a2f", "n": "#264653", "j": "#646d86", "h": "#f7dc8f", "s": "#bf9150" },
       "pixels": [
-        "k...k",
-        ".k.k.",
+        "k...j",
+        ".k.j.",
         "..k..",
-        ".tTt.",
-        ".tnt.",
-        ".ttt."
+        ".hTt.",
+        ".tns.",
+        ".tss."
       ],
       "unlock": { "achievement": "well-traveled" }
     },
@@ -101,14 +101,14 @@
       "slot": "held",
       "rarity": "rare",
       "pivot": [0, 5],
-      "palette": { "b": "#3a86ff", "B": "#1d4e9e", "w": "#fffaf0", "r": "#ff006e", "y": "#ffbe0b" },
+      "palette": { "b": "#3a86ff", "B": "#1d4e9e", "w": "#fffaf0", "r": "#ff006e", "y": "#ffbe0b", "L": "#b0d0ff", "l": "#64a0ff", "D": "#2864d0", "p": "#ddd5cd" },
       "pixels": [
-        "BbbbbB",
+        "BLllbB",
         "Bwrwyb",
-        "Bwwwwb",
-        "Bwywrb",
-        "Bwwwwb",
-        "BbbbbB"
+        "Bwwwpb",
+        "BwywrD",
+        "BwwppD",
+        "BDDDDB"
       ],
       "unlock": { "achievement": "swap-meet" }
     }

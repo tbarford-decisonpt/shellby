@@ -96,7 +96,7 @@
     if (slot === 'voice') art = bubble(item.sample[0]);
     else if (isSkin) art = SB.sprite(item, { plain: true });
     else if (item.sprites) { const sp = bigSprite(item); art = SB.Sprite.grid(sp.pixels, sp.palette); }
-    else art = SB.Sprite.grid(item.pixels, item.palette);
+    else art = SB.Sprite.grid(item.pixels, item.palette, { ink: true }); // lined like he wears it
     const tipLines = [item.name, item.description, item.sample ? quoted(item.sample) : null, locked ? lockText(locked) : null, item.rarity && item.rarity !== 'common' ? RARITY[item.rarity] : null].filter(Boolean);
     // Hovering (or tabbing to) a new item is looking at it: the pill fades out.
     const look = e => {
@@ -324,7 +324,7 @@
         h('div', { class: 'trophy-desc', text: a.description }),
         a.done ? null : h('div', { class: 'trophy-bar' }, h('span', { style: `transform:scaleX(${Math.min(1, a.current / a.goal)})` }), h('em', { text: `${a.current}/${a.goal}` }))),
       h('div', { class: 'trophy-rewards' }, a.rewards.map(r => h('span', { class: 'reward', title: r.name },
-        r.sprites ? SB.Sprite.grid(bigSprite(r).pixels, bigSprite(r).palette) : SB.Sprite.grid(r.pixels, r.palette)))))));
+        r.sprites ? SB.Sprite.grid(bigSprite(r).pixels, bigSprite(r).palette) : SB.Sprite.grid(r.pixels, r.palette, { ink: true })))))));
   }
 
   // ------------------------------------------------------------ wiring

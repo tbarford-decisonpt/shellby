@@ -23,16 +23,22 @@
         "k": "#4a4e69",
         "s": "#cfd8dc",
         "y": "#ffe066",
-        "c": "#ff7a5c"
+        "c": "#ff7a5c",
+        "l": "#6e7396",
+        "m": "#3c3f58",
+        "Y": "#fff6b0",
+        "o": "#e0b23a",
+        "S": "#8d99ae",
+        "D": "#1c1d2c"
       },
       "pixels": [
-        ".k.....k.",
-        ".kkkkkkk.",
-        "KKKKKKKKK",
-        "KsKyyyKsK",
-        "KsKKKKKsK",
+        ".l.....k.",
+        ".lkkkkkk.",
+        "mmmmmmmmK",
+        "KsKYyoKsK",
+        "KSKKKKKSK",
         "KcKKKKKcK",
-        "KKKKKKKKK"
+        "KDDDDDDDD"
       ]
     },
     {
@@ -48,16 +54,19 @@
         "K": "#1b1d2a",
         "k": "#4a4e69",
         "c": "#ff7a5c",
-        "w": "#cfd8dc"
+        "w": "#cfd8dc",
+        "g": "#8d99ae",
+        "C": "#ffab8f",
+        "d": "#cc4f3e"
       },
       "pixels": [
         "..www..",
-        ".wKKKw.",
-        "wKcccKw",
-        "wKc.cKw",
-        "wKcccKw",
-        ".wKKKw.",
-        "..www.."
+        ".wkKKw.",
+        "wkCccKg",
+        "wKc.cKg",
+        "wKccdKg",
+        ".gKKkg.",
+        "..ggg.."
       ]
     },
     {
@@ -72,17 +81,19 @@
       "palette": {
         "K": "#2b2d42",
         "s": "#cfd8dc",
-        "k": "#4a4e69"
+        "k": "#4a4e69",
+        "h": "#f4f7fa",
+        "S": "#8d99ae"
       },
       "pixels": [
-        ".KKK.",
-        "KsKsK",
+        ".kKK.",
+        "KhKsK",
         "KKsKK",
-        "KsKsK",
+        "KsKSK",
         ".KKK.",
         "..k..",
         "..k..",
-        ".KKK."
+        ".kKK."
       ]
     }
   ],

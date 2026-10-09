@@ -16,10 +16,10 @@
       "rarity": "rare",
       "unlock": { "season": "valentine" },
       "pivot": [3, 3],
-      "palette": { "p": "#ff5c8a", "k": "#2b2d42" },
+      "palette": { "p": "#ff5c8a", "k": "#2b2d42", "h": "#ffb3c8", "P": "#c42a6a" },
       "pixels": [
-        "pp...pp",
-        "pp...pp",
+        "hp...hp",
+        "pP...pP",
         ".k...k.",
         "..k.k.."
       ]
@@ -32,9 +32,9 @@
       "follows": "eyes",
       "unlock": { "season": "valentine" },
       "pivot": [4, -1],
-      "palette": { "p": "#ff8fab" },
+      "palette": { "p": "#ff8fab", "q": "#ffb8c8" },
       "pixels": [
-        ".pp...pp."
+        ".qp...qp."
       ]
     },
     {
@@ -45,11 +45,11 @@
       "rarity": "rare",
       "unlock": { "season": "valentine" },
       "pivot": [3, 0],
-      "palette": { "K": "#7a1236", "p": "#ff5c8a" },
+      "palette": { "K": "#7a1236", "p": "#ff5c8a", "k": "#a8204e", "h": "#ffb3c8", "P": "#c42a6a" },
       "pixels": [
-        "KKKKKKKK",
-        "...pp...",
-        "...pp..."
+        "KkkKKKKK",
+        "...hp...",
+        "...pP..."
       ]
     },
     {
@@ -60,12 +60,12 @@
       "rarity": "rare",
       "unlock": { "season": "valentine" },
       "pivot": [2, 4],
-      "palette": { "R": "#e63946", "w": "#6b4a2f", "K": "#ff8fab" },
+      "palette": { "R": "#e63946", "w": "#6b4a2f", "K": "#ff8fab", "q": "#ff7a6e", "D": "#a3203f", "c": "#9b6b45", "C": "#45291f" },
       "pixels": [
-        "RRRRR",
-        "RwKwR",
-        "RwwwR",
-        ".RRR."
+        "qqRRR",
+        "RcKwD",
+        "RwwCD",
+        ".RDD."
       ]
     },
     {
@@ -75,12 +75,12 @@
       "slot": "held",
       "unlock": { "season": "valentine" },
       "pivot": [2, 4],
-      "palette": { "w": "#fff4e4", "W": "#e0cdb4", "P": "#e63946" },
+      "palette": { "w": "#fff4e4", "W": "#e0cdb4", "P": "#e63946", "s": "#cfc2c8" },
       "pixels": [
         "wwwww",
-        "wWwWw",
-        "wwPww",
-        "wwwww"
+        "wWwWs",
+        "wwPws",
+        "wssss"
       ]
     },
     {
@@ -91,12 +91,12 @@
       "rarity": "epic",
       "unlock": { "season": "valentine" },
       "pivot": [3, 4],
-      "palette": { "w": "#fff4e4", "W": "#e0cdb4" },
+      "palette": { "w": "#fff4e4", "W": "#e0cdb4", "s": "#b7a6b4" },
       "pixels": [
         "w.....w",
         "Ww...wW",
-        "WWw.wWW",
-        ".WW.WW."
+        "sWw.wWs",
+        ".sW.Ws."
       ]
     }
   ],

@@ -180,9 +180,10 @@ const heldItem = () => (outfit.accessories || []).find(a => a.slot === 'held') |
 function flyItem(item, cls, ms, done) {
   tossTimers.forEach(clearTimeout);
   const [cx, cy] = skin?.anchors?.claw || window.ShellbySprite.DEFAULT_ANCHORS.claw;
-  tossHost.replaceChildren(window.ShellbySprite.grid(item.pixels, item.palette, { px }));
-  tossHost.style.left = `${(cx - item.pivot[0]) * px}px`;
-  tossHost.style.top = `${(cy - item.pivot[1]) * px}px`;
+  // Lined as it was in his claw; the line is a pixel all round, so it starts a pixel up and left.
+  tossHost.replaceChildren(window.ShellbySprite.grid(item.pixels, item.palette, { px, ink: true }));
+  tossHost.style.left = `${(cx - item.pivot[0] - 1) * px}px`;
+  tossHost.style.top = `${(cy - item.pivot[1] - 1) * px}px`;
   tossHost.className = cls;
   tossTimers = [setTimeout(() => {
     tossHost.className = '';

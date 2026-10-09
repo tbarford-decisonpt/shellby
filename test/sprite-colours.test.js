@@ -39,6 +39,6 @@ test('a grid leaves out colours that are not plain hex', () => {
 
 test('a skin drawn with a bad colour keeps its other parts', () => {
   const skin = { pixels: ['aab', 'bba'], palette: { a: '#ff7a5c', b: 'javascript:alert(1)' }, parts: { a: 'body', b: 'shell' } };
-  const svg = withDocument(() => build(skin));
+  const svg = withDocument(() => build(skin, { ink: false })); // its line is test/sprite-ink.test.js's
   assert.deepEqual(fills(svg), ['#ff7a5c', '#ff7a5c']);
 });

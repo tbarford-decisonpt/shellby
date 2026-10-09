@@ -51,7 +51,7 @@
     }
     if (!art) return h('span', { class: 'cel-thumb', text: '✦' });
     const w = Math.max(...art.pixels.map(r => r.length)), hgt = art.pixels.length;
-    return h('span', { class: 'cel-thumb' }, SB.Sprite.grid(art.pixels, art.palette, { px: Math.max(2, Math.floor(26 / Math.max(w, hgt))) }));
+    return h('span', { class: 'cel-thumb' }, SB.Sprite.grid(art.pixels, art.palette, { px: Math.max(2, Math.floor(26 / Math.max(w, hgt))), ink: !f.item?.sprites }));
   }
 
   function render() {
