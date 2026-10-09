@@ -216,11 +216,15 @@ test('the inbox removes an empty copy at once, asks about one with work, and lea
     assert.match((await p.removeCopy(empty)).error, /working in that copy/);
     open = [];
     assert.deepEqual(await p.removeCopy(empty), { ok: true });
-    await settle(p);
+    // Not waiting for git to look again: the removed copy is off the list at
+    // once, and the rest stay on it, ready to remove next.
+    assert.equal(p.listedCopy(empty), null);
+    assert.ok(p.listedCopy(busy), 'the other copy is still listed');
     const asked = await p.removeCopy(busy);
     assert.deepEqual([asked.needsConfirm, asked.changed, asked.only], [true, 1, 0]);
     assert.deepEqual(retired, ['shellby/empty-aaaaaa'], 'asking removes nothing');
     assert.equal((await p.removeCopy(path.join(r.base, 'proj'))).ok, false, 'never a folder that is not a listed copy');
+    await settle(p); // the re-read after the removal, before its folder goes
   } finally { r.done(); }
 });
 
