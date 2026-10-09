@@ -329,7 +329,7 @@ body.reordering .tab-edge { pointer-events: none; }
 /* ================================================================ slash menu + trick chips */
 .slash-menu {
   position: absolute; left: 12px; right: 12px; bottom: calc(100% - 4px); z-index: 30;
-  max-height: 290px; overflow-y: auto; padding: 5px;
+  max-height: min(290px, var(--room, 290px)); overflow-y: auto; padding: 5px;
   background: var(--reef); border: 1px solid var(--line); border-radius: var(--r);
   box-shadow: 0 -14px 34px rgba(0, 0, 0, .45);
   animation: pop .14s var(--ease-out);

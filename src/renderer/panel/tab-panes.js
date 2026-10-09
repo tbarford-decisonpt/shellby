@@ -19,6 +19,8 @@
 
   const panes = new Map();   // tabId -> { el, head, slot }, for the tabs on screen
   let shape = '';            // the grid the pane elements were last put together for
+  const box = $('composer');
+  const home = $('chatView');
 
   const paneRow = () => $('feeds').querySelector(':scope > .pane-row') || $('feeds').appendChild(h('div', { class: 'pane-row' }));
 
@@ -38,6 +40,7 @@
   function dropPane(id) {
     const p = panes.get(id);
     if (!p) return;
+    if (p.slot.contains(box)) home.append(box);
     const t = state.tabs.get(id);
     if (t && t.el.parentElement === p.el) { t.el.hidden = true; $('feeds').append(t.el); }
     p.el.remove();
@@ -94,6 +97,7 @@
       if (hadFocus) input.focus();
     }
     applySizes();
+    placeBox();
     SB.refreshPaneHeads();
     SB.savePanes?.();
   };
@@ -106,6 +110,46 @@
       col.style.flexGrow = cols[c] ?? 1;
       (state.grid[c] || []).forEach((id, r) => { const p = panes.get(id); if (p) p.el.style.flexGrow = rows[c]?.[r] ?? 1; });
     }
+  }
+
+  // While there's more than one pane the box lives in the focused one, and the
+  // others show their own draft in its place: a stand-in that hands the box
+  // over on a click or a key. With one pane it sits where it always has.
+  function placeBox() {
+    const split = panes.size > 1;
+    const into = split ? panes.get(state.activeTab)?.slot : null;
+    if (box.parentElement !== (into || home)) {
+      const hadFocus = document.activeElement === input;
+      SB.hideSlash?.(); // slash-menu.js and composer.js load after this file
+      SB.hidePick?.();
+      if (into) into.replaceChildren(box); else home.append(box);
+      if (hadFocus) input.focus();
+    }
+    for (const [id, p] of panes) {
+      if (p.slot === into) continue;
+      if (!split) p.slot.replaceChildren();
+      else if (!p.slot.querySelector('.pane-standin')) p.slot.replaceChildren(standIn(id));
+    }
+  }
+
+  function standIn(id) {
+    return h('button', {
+      class: 'pane-standin', type: 'button', dataset: { tab: id },
+      'aria-label': 'Type here to give this conversation a task',
+      // The #feeds pointerdown below hands this pane the box and focuses it;
+      // the press that follows would land on whatever is under the pointer once
+      // the box has moved, and take the focus off it. Cancelling the pointerdown
+      // keeps that press from happening.
+      onpointerdown: e => e.preventDefault(),
+      onkeydown: e => {
+        if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return;
+        e.preventDefault();
+        SB.activate(id);
+        input.setRangeText(e.key, input.selectionStart, input.selectionEnd, 'end');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus();
+      },
+    }, h('span', { class: 'standin-text' }), h('span', { class: 'standin-meta' }));
   }
 
   // The line between two columns (axis 'w', after column c) or two panes in
@@ -186,6 +230,15 @@
       const title = head.querySelector('.pane-title');
       title.textContent = SB.shownTitle(t);
       title.title = t.title;
+      const stand = p.slot.querySelector('.pane-standin');
+      if (stand) {
+        const text = String(t.draft || '').trim().split('\n')[0];
+        stand.querySelector('.standin-text').textContent = text || 'Type to give it a task…';
+        stand.classList.toggle('empty', !text);
+        const q = t.queue?.length || 0;
+        // Working, asking or done: the same mark the strip shows (tab-strip.js tabIcon).
+        stand.querySelector('.standin-meta').replaceChildren(...[SB.tabIcon(t), q ? `${q} queued` : null].filter(Boolean));
+      }
     }
     // Which pane you're typing to, when there's more than one it could be.
     const tab = SB.activeTab();

@@ -22,6 +22,7 @@
       return;
     }
     menu.hidden = false;
+    SB.fitMenu(menu);
     const head = pick.mode === 'history'
       ? h('div', { class: 'pick-head', text: `Search what you've sent${pick.query ? `: "${pick.query}"` : ''} · Enter to use · ${SB.shortcuts.primary('searchSent')} for older` })
       : null;

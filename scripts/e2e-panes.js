@@ -145,6 +145,76 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await wait(300);
     check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'B back under D');
 
+    // ---- The box sits in the focused pane; the others show their own draft.
+    await ev(`SB.activate('${C}'); document.getElementById('input').value = 'draft for C'`);
+    await panel.click(await paneSpot(D, 0.5, 0.5));
+    check(await until(`SB.state.activeTab === '${D}'`), 'clicking D focuses it');
+    check(await ev(`document.getElementById('composer').closest('.pane')?.dataset.tab === '${D}'`), 'the box moved into D\'s pane');
+    check(await ev(`(() => { const s = document.querySelector('.pane[data-tab="${C}"] .pane-standin'); return !!s && s.textContent.includes('draft for C'); })()`), 'C\'s pane shows its draft in a stand-in');
+    check(await ev(`document.querySelectorAll('.pane-standin').length === 3`), 'one stand-in for each pane without the box');
+    check(await ev(`document.getElementById('input').value === ''`), 'the box holds D\'s draft, not C\'s');
+
+    // ---- A click on a stand-in hands that pane the box, ready to type.
+    const standinOf = id => ev(`(() => { const r = document.querySelector('.pane[data-tab="${id}"] .pane-standin').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await panel.click(await standinOf(C));
+    check(await until(`SB.state.activeTab === '${C}'`), 'clicking C\'s stand-in focuses C');
+    await wait(150);
+    const handed = await ev(`({ pane: document.getElementById('composer').closest('.pane')?.dataset.tab === '${C}', draft: document.getElementById('input').value, focus: document.activeElement.id || document.activeElement.tagName })`);
+    check(handed.pane && handed.draft === 'draft for C' && handed.focus === 'input', `and the box moves there with C's draft, ready to type (${JSON.stringify(handed)})`);
+    await panel.click(await paneSpot(D, 0.5, 0.5));
+    await until(`SB.state.activeTab === '${D}'`);
+
+    // ---- A key typed on a stand-in lands in its conversation.
+    await ev(`document.querySelector('.pane[data-tab="${B}"] .pane-standin').focus()`);
+    await ev(`document.querySelector('.pane[data-tab="${B}"] .pane-standin').dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true }))`);
+    await wait(150);
+    check(await ev(`SB.state.activeTab === '${B}' && document.getElementById('input').value.endsWith('x') && document.activeElement.id === 'input'`), 'a key typed on B\'s stand-in starts B\'s message');
+    check(await ev(`SB.state.tabs.get('${D}').draft === ''`), 'and none of it went to D');
+
+    // ---- A message sent from the box in a pane goes to that conversation alone.
+    await ev(`document.getElementById('input').value = ''; SB.send('hello from B')`);
+    check(await until(`[...SB.state.tabs.get('${B}').el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('echo: hello from B'))`), 'B answers B');
+    check(!(await ev(`[...SB.state.tabs.get('${D}').el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('hello from B'))`)), 'and D heard nothing');
+    await until(`!SB.state.tabs.get('${B}').busy`);
+
+    // ---- The slash menu opens out of a box in a pane without being cut off,
+    // in a bottom-row pane (B) and a top-row one (A).
+    const slashOnScreen = async (label) => {
+      await ev(`(() => { const i = document.getElementById('input'); i.value = '/'; i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+      check(await until(`!document.getElementById('slashMenu').hidden`), `the slash menu opens in ${label}`);
+      await wait(200); // its pop-in animation
+      const m = await ev(`(() => { const menu = document.getElementById('slashMenu'); const r = menu.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + 8; return { top: r.top, bottom: r.bottom, h: r.height, feedsTop: document.getElementById('feeds').getBoundingClientRect().top, ok: r.top >= 0 && menu.contains(document.elementFromPoint(x, y)) }; })()`);
+      check(m.ok, `and its top is on screen and not covered (top ${Math.round(m.top)}, ${Math.round(m.h)} tall)`);
+      await ev(`(() => { const i = document.getElementById('input'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); SB.hideSlash(); })()`);
+    };
+    await slashOnScreen('a bottom-row pane');
+    await ev(`SB.activate('${A}')`);
+    await slashOnScreen('a top-row pane');
+    // Three to a column in a short window (the page told it's 760 px tall, about
+    // as short as three rows fit): the menu is taller than the room above the top
+    // pane's box, and is cut down to it rather than off by the chat's edge.
+    await ev(`SB.placeTab('${B}', '${A}', 'bottom')`);
+    await panel.send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 760, deviceScaleFactor: 0, mobile: false });
+    await wait(300);
+    await ev(`SB.activate('${A}')`);
+    await slashOnScreen('the top of three panes');
+    await panel.send('Emulation.clearDeviceMetricsOverride');
+    await ev(`SB.placeTab('${B}', '${D}', 'bottom')`);
+    await wait(300);
+
+    // ---- A stand-in follows its conversation: a draft handed back while it's out of focus shows.
+    await ev(`(() => { SB.state.tabs.get('${C}').draft = 'changed while away'; SB.renderTabStrip(); })()`);
+    check(await until(`document.querySelector('.pane[data-tab="${C}"] .pane-standin')?.textContent.includes('changed while away')`), 'a stand-in shows a draft that changed while its pane was out of focus');
+
+    // ---- Closing the focused pane keeps the box.
+    await ev(`SB.activate('${B}')`);
+    await ev(`SB.closePane('${B}')`);
+    await wait(200);
+    check(await ev(`document.getElementById('composer').isConnected && !!document.getElementById('composer').closest('.pane')`), 'closing the focused pane keeps the box, in the pane that took the focus');
+    await panel.drag(await tabAt(B), await paneSpot(D, 0.5, 0.92));
+    await wait(300);
+    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'B under D again');
+
     // ---- A pane closing mid-drag (its line redrawn away) still ends the drag.
     const line2 = await ev(`(() => { const r = document.querySelector('.pane-divider.across').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: line2.x, y: line2.y, button: 'left', buttons: 1, clickCount: 1 });
@@ -213,6 +283,12 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
       check(await ev(`[...SB.state.tabs.get('${A}').el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('echo: hello from its own window'))`), 'and the whole conversation');
       check(!(await targets()).some(t => t.url.includes('popout=')), 'its window is gone');
     }
+
+    // ---- Back to one pane: the box goes home, no stand-ins.
+    for (const id of await ev('SB.panes.ids(SB.state.grid)')) if ((await ev('SB.panes.ids(SB.state.grid).length')) > 1) await ev(`SB.closePane('${id}')`);
+    await wait(200);
+    check(await ev(`document.getElementById('composer').parentElement.id === 'chatView' && !document.querySelector('.pane-standin')`), 'one pane: the box is back where it always was');
+    check(await ev(`(() => { const f = document.getElementById('feeds').getBoundingClientRect(); const p = document.querySelector('.pane').getBoundingClientRect(); return Math.abs(p.width - f.width) < 2 && Math.abs(p.height - f.height) < 2; })()`), 'and the lone pane fills the whole chat');
   } catch (err) {
     check(false, `crashed: ${err.stack || err}`);
   } finally {

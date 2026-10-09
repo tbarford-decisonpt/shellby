@@ -32,6 +32,7 @@
     const menu = $('slashMenu');
     if (!slashItems.length) return SB.hideSlash();
     menu.hidden = false;
+    SB.fitMenu(menu);
     menu.replaceChildren(...slashItems.map((t, i) => h('button', {
       type: 'button', role: 'option', class: `slash-item${i === slashIndex ? ' on' : ''}`, 'aria-selected': String(i === slashIndex),
       onmousedown: e => { e.preventDefault(); pickSlash(i); },
@@ -65,6 +66,14 @@
   }
 
   SB.hideSlash = () => { $('slashMenu').hidden = true; };
+
+  // The slash and pick menus open upward out of the box, which may sit in a
+  // short pane at the top of the chat (tab-panes.js): no taller than the room
+  // above it, so the top isn't cut off by the view's edge. It scrolls.
+  SB.fitMenu = (menu) => {
+    const room = $('composer').getBoundingClientRect().top - $('chatView').getBoundingClientRect().top;
+    menu.style.setProperty('--room', `${Math.max(40, Math.round(room))}px`);
+  };
   SB.updateSlash = updateSlash;
   SB.slashKeydown = slashKeydown;
 })();
