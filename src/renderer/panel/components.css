@@ -71,22 +71,26 @@ body.reordering .tip { display: none; }
 .tab.shown { background: var(--reef); color: var(--sand); }
 
 /* ================================================================ panes
-   Conversations side by side, or in a 2x2 grid. Each pane is a header row and
-   a feed (tab-panes.js places them); the focused one, which the composer talks to,
-   is outlined. A lone pane has no header and looks as it always did. */
-.feeds:not([data-panes="1"]) { gap: 0 6px; padding: 6px 6px 0; }
+   Conversations side by side: up to four columns of up to three panes. Each
+   pane is its header, its feed and a slot for the box (tab-panes.js); the
+   focused one, which the box talks to, is outlined, and lines between them
+   drag. A lone pane has no header and looks as it always did. */
+.feeds:not([data-panes="1"]) { padding: 6px 6px 0; }
 .feeds[data-panes="1"] .pane-head { display: none; }
-.feeds:not([data-panes="1"]) .feed {
-  padding: 12px 12px 6px; margin-bottom: 6px;
-  border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 var(--r-sm) var(--r-sm);
+/* No overflow: hidden here: the slash and pick menus open upward out of the box
+   in the pane's slot and must not be cut off. The header rounds the top. */
+.feeds:not([data-panes="1"]) .pane {
+  margin-bottom: 6px; border: 1px solid var(--line-soft); border-radius: var(--r-sm);
 }
-.feeds:not([data-panes="1"]) .feed.focused { border-color: var(--glass); }
+.feeds:not([data-panes="1"]) .pane-head { border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.feeds:not([data-panes="1"]) .pane.focused { border-color: var(--glass); }
+.feeds:not([data-panes="1"]) .feed { padding: 12px 12px 6px; }
 .pane-head {
-  display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 2px 0 10px;
-  background: var(--abyss); border: 1px solid var(--line-soft); border-radius: var(--r-sm) var(--r-sm) 0 0;
+  flex: none; display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 2px 0 10px;
+  background: var(--abyss); border-bottom: 1px solid var(--line-soft);
   color: var(--sand-dim); font-size: 12px; cursor: grab; user-select: none;
 }
-.pane-head.focused { color: var(--sand); border-color: var(--glass); box-shadow: inset 0 2px 0 var(--glass); }
+.pane-head.focused { color: var(--sand); box-shadow: inset 0 2px 0 var(--glass); }
 .pane-state:empty { display: none; }
 .pane-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pane-btn {
@@ -97,6 +101,12 @@ body.reordering .tip { display: none; }
 .pane-btn:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
 .pane-btn svg { width: 14px; height: 14px; }
 body.reordering .pane-head { cursor: grabbing; }
+.pane-divider { flex: none; border-radius: 3px; }
+.pane-divider.across { width: 6px; cursor: col-resize; margin-bottom: 6px; }
+.pane-divider.down { height: 6px; cursor: row-resize; margin-top: -6px; }
+.pane-divider:hover, body.resizing-panes .pane-divider:active { background: color-mix(in srgb, var(--glass) 35%, transparent); }
+body.resizing-panes { user-select: none; }
+body.resizing-panes .feed { pointer-events: none; }
 
 /* Where a tab dragged into the chat will land. */
 .drop-hint {

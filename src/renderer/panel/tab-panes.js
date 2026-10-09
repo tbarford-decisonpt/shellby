@@ -1,6 +1,6 @@
 /* Shellby panel — conversations side by side, and in windows of their own.
    The chat view shows the tabs in state.grid (shared/panes.js decides the
-   shapes: one pane, two side by side, up to a 2x2 grid), each pane with a slim
+   shapes: up to four columns of up to three), each pane with a slim
    header that hides while there's only one. The box belongs to the focused
    pane. A tab dragged out of the window (tab-strip.js) or sent out with its
    button gets a window of its own (main's wiring/popouts.js). tabs.js owns
@@ -17,7 +17,32 @@
 
   // ------------------------------------------------------------ panes
 
-  const paneHeads = new Map();   // tabId -> header, for the tabs on screen
+  const panes = new Map();   // tabId -> { el, head, slot }, for the tabs on screen
+  let shape = '';            // the grid the pane elements were last put together for
+
+  const paneRow = () => $('feeds').querySelector(':scope > .pane-row') || $('feeds').appendChild(h('div', { class: 'pane-row' }));
+
+  // A tab's pane: its header, its feed and the slot under it for the box.
+  function paneOf(t) {
+    let p = panes.get(t.id);
+    if (!p) {
+      const head = paneHead(t);
+      const slot = h('div', { class: 'pane-slot' });
+      p = { el: h('div', { class: 'pane', dataset: { tab: t.id } }, head, t.el, slot), head, slot };
+      panes.set(t.id, p);
+    } else if (t.el.parentElement !== p.el) p.el.insertBefore(t.el, p.slot);
+    return p;
+  }
+
+  // A pane leaves the screen. Its feed goes back to waiting, hidden, in #feeds.
+  function dropPane(id) {
+    const p = panes.get(id);
+    if (!p) return;
+    const t = state.tabs.get(id);
+    if (t && t.el.parentElement === p.el) { t.el.hidden = true; $('feeds').append(t.el); }
+    p.el.remove();
+    panes.delete(id);
+  }
 
   // `tabId` takes the focused pane, unless it's on screen already: then its
   // pane takes the focus. With the focused tab just gone, it takes that one's
@@ -28,28 +53,105 @@
   };
 
   SB.renderPanes = () => {
-    const feeds = $('feeds');
-    const { cols, rows, cells } = P.layout(state.grid);
-    const at = new Map(cells.map(c => [c.id, c]));
-    feeds.dataset.panes = cells.length;
-    feeds.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
-    feeds.style.gridTemplateRows = `repeat(${rows}, auto minmax(0, 1fr))`;
-    for (const [id, head] of paneHeads) if (!at.has(id)) { head.remove(); paneHeads.delete(id); }
-    const appearing = [];
-    for (const t of state.tabs.values()) {
-      const cell = at.get(t.id);
-      if (cell && t.el.hidden) appearing.push(t);
-      t.el.hidden = !cell;
-      if (!cell) continue;
-      Object.assign(t.el.style, { gridColumn: cell.col, gridRow: cell.feed });
-      let head = paneHeads.get(t.id);
-      if (!head) { head = paneHead(t); paneHeads.set(t.id, head); feeds.append(head); }
-      Object.assign(head.style, { gridColumn: cell.col, gridRow: cell.head });
+    state.paneSizes = P.fitSizes(state.grid, state.paneSizes);
+    const shown = new Set(P.ids(state.grid));
+    $('feeds').dataset.panes = shown.size;
+    for (const id of [...panes.keys()]) if (!shown.has(id) || !state.tabs.has(id)) dropPane(id);
+    for (const t of state.tabs.values()) if (!shown.has(t.id)) t.el.hidden = true;
+    const next = JSON.stringify(state.grid);
+    // A tab made anew under an id already on screen (the screenshot demo) has a feed no pane holds yet.
+    const loose = [...shown].some(id => state.tabs.get(id)?.el.parentElement !== panes.get(id)?.el);
+    if (next !== shape || loose) {
+      shape = next;
+      // Moving a feed in the page loses its scroll; put each back after.
+      const kept = new Map();
+      for (const id of shown) {
+        const t = state.tabs.get(id);
+        if (t && !t.el.hidden && t.el.isConnected) kept.set(id, t.stuck ? null : t.el.scrollTop);
+      }
+      const hadFocus = document.activeElement === input;
+      const nodes = [];
+      state.grid.forEach((col, c) => {
+        if (c) nodes.push(divider('w', c - 1));
+        const colEl = h('div', { class: 'pane-col', dataset: { col: c } });
+        col.forEach((id, r) => {
+          if (r) colEl.append(divider('h', c, r - 1));
+          colEl.append(paneOf(state.tabs.get(id)).el);
+        });
+        nodes.push(colEl);
+      });
+      paneRow().replaceChildren(...nodes);
+      for (const id of shown) state.tabs.get(id).el.hidden = false;
+      requestAnimationFrame(() => {
+        for (const id of shown) {
+          const t = state.tabs.get(id);
+          if (!t) continue;
+          const top = kept.get(id);
+          if (top == null) t.scrollToEnd(); // a hidden feed comes back showing the latest
+          else t.el.scrollTop = top;
+        }
+      });
+      if (hadFocus) input.focus();
     }
+    applySizes();
     SB.refreshPaneHeads();
-    // A hidden feed loses its place; it comes back showing the latest.
-    requestAnimationFrame(() => { for (const t of appearing) t.scrollToEnd(); });
+    SB.savePanes?.();
   };
+
+  // Shares, not raw weights: a flex-grow sum under 1 leaves part of the row empty.
+  function applySizes() {
+    const { cols, rows } = P.shares(state.grid, state.paneSizes);
+    for (const col of paneRow().querySelectorAll(':scope > .pane-col')) {
+      const c = +col.dataset.col;
+      col.style.flexGrow = cols[c] ?? 1;
+      (state.grid[c] || []).forEach((id, r) => { const p = panes.get(id); if (p) p.el.style.flexGrow = rows[c]?.[r] ?? 1; });
+    }
+  }
+
+  // The line between two columns (axis 'w', after column c) or two panes in
+  // column c (axis 'h', after pane r). Drag it; double-click to even them out.
+  function divider(axis, c, r = null) {
+    return h('div', {
+      class: `pane-divider ${axis === 'w' ? 'across' : 'down'}`, role: 'separator',
+      'aria-orientation': axis === 'w' ? 'vertical' : 'horizontal',
+      title: 'Drag to resize · double-click to even out',
+      onpointerdown: e => dragDivider(e, axis, c, r),
+      ondblclick: () => { state.paneSizes = P.even(state.grid, state.paneSizes, axis, c); applySizes(); SB.savePanes?.(); },
+    });
+  }
+
+  function dragDivider(e, axis, c, r) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const across = axis === 'w';
+    const ids = across ? [state.grid[c][0], state.grid[c + 1][0]] : [state.grid[c][r], state.grid[c][r + 1]];
+    const els = across ? [...paneRow().querySelectorAll(':scope > .pane-col')].slice(c, c + 2) : ids.map(id => panes.get(id).el);
+    const [aPx, bPx] = els.map(el => el.getBoundingClientRect()[across ? 'width' : 'height']);
+    const s0 = P.fitSizes(state.grid, state.paneSizes);
+    const [a, b] = ids.map(id => s0[axis][id]);
+    const start = across ? e.clientX : e.clientY;
+    const min = across ? P.MIN.width : P.MIN.height;
+    const line = e.currentTarget;
+    line.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing-panes');
+    const move = ev => {
+      const [na, nb] = P.splitPair(a, b, aPx, bPx, (across ? ev.clientX : ev.clientY) - start, min);
+      const s = P.setWeight(state.grid, s0, axis, c, across ? null : r, na);
+      state.paneSizes = P.setWeight(state.grid, s, axis, across ? c + 1 : c, across ? null : r + 1, nb);
+      applySizes();
+    };
+    const up = () => {
+      line.removeEventListener('pointermove', move);
+      line.removeEventListener('pointerup', up);
+      line.removeEventListener('pointercancel', up);
+      document.body.classList.remove('resizing-panes');
+      SB.savePanes?.();
+    };
+    line.addEventListener('pointermove', move);
+    line.addEventListener('pointerup', up);
+    line.addEventListener('pointercancel', up);
+  }
 
   function paneHead(t) {
     return h('div', { class: 'pane-head', dataset: { tab: t.id }, onpointerdown: e => SB.dragTab(e, t.id) },
@@ -65,13 +167,15 @@
   // in place, so a button being pressed is never swapped out from under you.
   // tab-strip.js calls this whenever it redraws.
   SB.refreshPaneHeads = () => {
-    const split = paneHeads.size > 1;
-    for (const [id, head] of paneHeads) {
+    const split = panes.size > 1;
+    for (const [id, p] of panes) {
+      const head = p.head;
       const t = state.tabs.get(id);
       if (!t) continue;
       const focused = split && id === state.activeTab;
       head.classList.toggle('focused', focused);
       t.el.classList.toggle('focused', focused);
+      p.el.classList.toggle('focused', focused);
       head.querySelector('.pane-state').replaceChildren(...[SB.tabIcon(t)].filter(Boolean));
       const title = head.querySelector('.pane-title');
       title.textContent = SB.shownTitle(t);
@@ -132,22 +236,19 @@
     if (y < $('tabstrip').getBoundingClientRect().bottom) return { kind: 'strip' };
     if (state.view !== 'chat') return null;
     for (const id of P.ids(state.grid)) {
+      if (!panes.has(id)) continue;
       const pane = paneRect(id);
       if (x < pane.left || x >= pane.left + pane.width || y < pane.top || y >= pane.top + pane.height) continue;
       if (id === dragId) return null;
       const zone = P.zoneAt(pane, x, y, P.zones(state.grid, id, dragId));
-      return { kind: 'pane', target: id, zone, rect: P.previewRect(zone, pane, $('feeds').getBoundingClientRect()) };
+      const colRect = panes.get(id).el.parentElement.getBoundingClientRect();
+      return { kind: 'pane', target: id, zone, rect: P.previewRect(zone, pane, colRect) };
     }
     return null;
   };
 
-  // A pane is its header (when it shows) and its feed.
-  function paneRect(id) {
-    const feed = state.tabs.get(id).el.getBoundingClientRect();
-    const head = paneHeads.get(id)?.getBoundingClientRect();
-    const top = head?.height ? head.top : feed.top;
-    return { left: feed.left, top, width: feed.width, height: feed.bottom - top };
-  }
+  // A pane: its header (when it shows), its feed and its box slot.
+  const paneRect = id => panes.get(id).el.getBoundingClientRect();
 
   // The preview of where it will land, or none.
   SB.showDrop = (drop) => {
@@ -189,9 +290,8 @@
   SB.forgetTab = (tabId) => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;
+    dropPane(tabId);
     tab.destroy();
-    paneHeads.get(tabId)?.remove();
-    paneHeads.delete(tabId);
     state.tabs.delete(tabId);
     state.grid = P.remove(state.grid, tabId);
     if (state.activeTab !== tabId) return SB.renderPanes();

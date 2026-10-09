@@ -117,6 +117,34 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await ev(`SB.panes.zones(SB.state.grid, '${A}', 'x').includes('right')`), 'a 2x2 can still take another column');
     await panel.shot('quad');
 
+    // ---- The line between two columns drags; a double-click evens them out.
+    const colRects = () => ev(`[...document.querySelectorAll('.pane-row > .pane-col')].map(c => { const r = c.getBoundingClientRect(); return { left: r.left, width: r.width }; })`);
+    const before = await colRects();
+    const line = await ev(`(() => { const r = document.querySelector('.pane-divider.across').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    check(!!line, 'a line between the columns');
+    await panel.drag(line, { x: line.x + 120, y: line.y });
+    await wait(200);
+    const after = await colRects();
+    check(after[0].width > before[0].width + 80, `dragging it widens the left column (${Math.round(before[0].width)} -> ${Math.round(after[0].width)})`);
+    check(await ev(`(() => { const s = SB.state.paneSizes; return s.w['${A}'] > s.w['${D}']; })()`), 'and the sizes say so');
+    await ev(`document.querySelector('.pane-divider.across').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+    await wait(200);
+    const evened = await colRects();
+    check(Math.abs(evened[0].width - evened[1].width) < 3, 'a double-click evens them out');
+
+    // ---- A feed scrolled up keeps its place when the grid changes around it.
+    await ev(`(() => { const t = SB.state.tabs.get('${A}'); for (let i = 0; i < 80; i++) t.render({ kind: 'text', text: 'filler line ' + i }, { replay: true }); })()`);
+    await ev(`(() => { const el = SB.state.tabs.get('${A}').el; el.scrollTop = 40; el.dispatchEvent(new Event('scroll')); })()`);
+    await wait(150);
+    await ev(`SB.closePane('${B}')`);
+    await wait(300);
+    check(await ev(`SB.state.tabs.get('${A}').el.scrollTop`) === 40, 'a scrolled-up feed keeps its place when a pane closes');
+    // D was half its column; alone now, it takes the whole column (sizes are normalized).
+    check(await ev(`(() => { const p = document.querySelector('.pane[data-tab="${D}"]').getBoundingClientRect(); const c = document.querySelector('.pane[data-tab="${D}"]').parentElement.getBoundingClientRect(); return p.height > c.height - 20; })()`), 'D fills its column once B\'s pane closes');
+    await panel.drag(await tabAt(B), await paneSpot(D, 0.5, 0.92));
+    await wait(300);
+    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'B back under D');
+
     // ---- A click into a pane gives it the box.
     await panel.click(await paneSpot(C, 0.5, 0.5));
     check(await until(`SB.state.activeTab === '${C}'`), 'clicking into C focuses it');

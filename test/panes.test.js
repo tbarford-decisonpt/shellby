@@ -172,12 +172,3 @@ test('the preview shows the half the new pane will take', () => {
   assert.deepEqual(P.previewRect('bottom', pane, view), { left: 0, top: 50, width: 100, height: 50 });
   assert.deepEqual(P.previewRect('center', pane, view), pane);
 });
-
-test('layout gives every pane a header row, and a lone pane the full column', () => {
-  assert.deepEqual(P.layout([['a']]), { cols: 1, rows: 1, cells: [{ id: 'a', col: 1, head: 1, feed: '2 / span 1' }] });
-  assert.deepEqual(P.layout([['a', 'c'], ['b']]).cells, [
-    { id: 'a', col: 1, head: 1, feed: '2 / span 1' },
-    { id: 'c', col: 1, head: 3, feed: '4 / span 1' },
-    { id: 'b', col: 2, head: 1, feed: '2 / span 3' },
-  ]);
-});

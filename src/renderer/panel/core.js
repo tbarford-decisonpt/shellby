@@ -20,6 +20,7 @@ const SB = window.SB = {
     tabs: new Map(),      // tabId -> Tab (see feed.js)
     activeTab: null,      // the focused pane: where the box sends
     grid: [],             // the tabs on screen, as columns of ids (see shared/panes.js)
+    paneSizes: null,      // the panes' sizes: weights by tab id (shared/panes.js)
     popped: new Set(),    // tabs out in windows of their own (main's 'tabs' says which)
     clashes: [],          // copies that changed the same files (clashes.js; src/main/clash.js has the shape)
   },

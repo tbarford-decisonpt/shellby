@@ -93,8 +93,8 @@
   }
 
   // Where a split will put the new pane, for the drop preview. A new column
-  // takes half the whole view; a new row, half of its column (which is one
-  // pane tall, or there'd be no room for it).
+  // takes half of `view`, the column it splits (see placeSizes); a new row,
+  // half of the pane it splits.
   function previewRect(zone, pane, view) {
     const half = (r, side) => ({
       left: side === 'right' ? r.left + r.width / 2 : r.left,
@@ -105,17 +105,6 @@
     if (zone === 'left' || zone === 'right') return half(view, zone);
     if (zone === 'top' || zone === 'bottom') return half(pane, zone);
     return { left: pane.left, top: pane.top, width: pane.width, height: pane.height };
-  }
-
-  // CSS grid placement. Every pane gets two grid rows, a header and the feed;
-  // a column with one pane in a two-row grid runs its feed the full height.
-  function layout(grid) {
-    const rows = Math.max(1, ...grid.map(col => col.length));
-    const cells = grid.flatMap((col, c) => col.map((id, r) => {
-      const span = col.length === 1 ? rows : 1;
-      return { id, col: c + 1, head: r * 2 + 1, feed: `${r * 2 + 2} / span ${span * 2 - 1}` };
-    }));
-    return { cols: Math.max(1, grid.length), rows, cells };
   }
 
   // ------------------------------------------------------------ sizes
@@ -251,7 +240,7 @@
   }
 
   const api = {
-    MAX_COLS, MAX_ROWS, MIN, ids, has, keep, remove, find, replace, zones, place, zoneAt, previewRect, layout,
+    MAX_COLS, MAX_ROWS, MIN, ids, has, keep, remove, find, replace, zones, place, zoneAt, previewRect,
     fitSizes, placeSizes, setWeight, splitPair, even, clean, neighbor, moveToward, needs, shares,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
