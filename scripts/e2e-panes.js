@@ -114,7 +114,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     })()`);
     check(JSON.stringify(quad.grid) === JSON.stringify([[A, C], [D, B]]), `four panes: ${JSON.stringify(quad.grid)}`);
     check(quad.grid2x2, 'laid out two by two');
-    check(await ev(`SB.panes.zones(SB.state.grid, '${A}', 'x').join() === 'center'`), 'a full grid only swaps');
+    check(await ev(`SB.panes.zones(SB.state.grid, '${A}', 'x').includes('right')`), 'a 2x2 can still take another column');
     await panel.shot('quad');
 
     // ---- A click into a pane gives it the box.
