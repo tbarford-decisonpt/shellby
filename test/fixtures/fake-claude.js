@@ -331,7 +331,12 @@ function onLine(line) {
     const [, file, ...words] = (carried || content).split(' ');
     remember({ user: content });
     const write = () => {
-      require('fs').writeFileSync(require('path').join(process.cwd(), file), `${words.join(' ')}\n`);
+      // Through a Write tool call, as a real turn does: a turn's changes count only the files its own tools named.
+      const abs = require('path').join(process.cwd(), file);
+      const id = `tu_edit_${turn}`;
+      out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Write', input: { file_path: abs, content: `${words.join(' ')}\n` } }] }, parent_tool_use_id: null, session_id: sessionId });
+      require('fs').writeFileSync(abs, `${words.join(' ')}\n`);
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: `The file ${abs} has been updated.` }] }, parent_tool_use_id: null, session_id: sessionId });
       remember({ edited: file });
       text(`edited ${file}`);
       result(true);

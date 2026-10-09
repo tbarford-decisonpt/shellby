@@ -146,6 +146,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await ev('SB.state.view') === 'chat' && await ev('SB.activeTab().title') === 'Ask: export to STL', 'and opens that conversation');
 
     // ---- 11. delete, with Undo; and the lists only take projects Shellby knows
+    // Build's "Moved to <copy>" holds the toast slot until you move on, which a
+    // scripted click never does: dismiss it, or Delete's Undo waits behind it.
+    await ev("document.querySelector('#toast .toast-close')?.click()");
     await open();
     await ev(`${row(1)}.querySelector('.note-more').click()`);
     await ev("[...document.querySelectorAll('#noteMenu .menu-item')].find(b => b.textContent === 'Delete').click()");

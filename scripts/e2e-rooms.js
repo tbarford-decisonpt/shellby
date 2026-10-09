@@ -86,7 +86,7 @@ const SHOWN = "[...document.querySelectorAll('.dock .dock-btn')].filter(b => get
       // 4. Show every screen.
       await ev('SB.openAllRooms()');
       check(await until(`(${SHOWN}) === 'wardrobe,chat,toolbox,workflows,health,history,projects,notes'`), '"Show every screen" opens the rest and hides More');
-      check(await ev(TABS) === 'wardrobe,trophies,crew,stickers,finds,bugdex,tank,us,beach', 'and every tab of his screen');
+      check(await ev(TABS) === 'wardrobe,trophies,crew,council,stickers,finds,bugdex,tank,us,beach', 'and every tab of his screen');
     });
 
     // 5. Someone who was here before rooms: no rooms value yet, already onboarded.
