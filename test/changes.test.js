@@ -202,6 +202,18 @@ test('a turn that only edits claims just the files its edits named, and undoes o
   } finally { r.done(); }
 });
 
+test("an edit named by another path to the folder (8.3 short name, junction) still counts as the turn's", async () => {
+  const r = realRepo();
+  const link = path.join(fs.realpathSync.native(os.tmpdir()), `shellby-link-${process.pid}-${Date.now()}`);
+  fs.symlinkSync(r.dir, link, 'junction');
+  try {
+    const s = await sharedTurn(r);
+    const touch = newTouch();
+    noteTool(touch, { kind: 'tool', name: 'Write', filePath: path.join(link, 'mine.txt') });
+    assert.deepEqual(scope(s, touch).files.map(f => f.path), ['mine.txt']);
+  } finally { fs.rmdirSync(link); r.done(); }
+});
+
 test('a turn with a shell keeps the folder diff, minus what overlapping conversations edited', async () => {
   const r = realRepo();
   try {

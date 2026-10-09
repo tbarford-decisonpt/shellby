@@ -178,6 +178,14 @@ const READ_ONLY_TOOLS = new Set([
 const FILE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const SHELLBY_TOOL = /^mcp__(plugin_shellby_)?shellby__/;
 
+// A path as git names it: long names (no 8.3 RUNNER~1), links followed. A file
+// a Write is about to create isn't there yet, so its folder is looked up instead.
+function realPath(p) {
+  const abs = path.resolve(p);
+  try { return fs.realpathSync.native(abs); } catch { /* not there yet */ }
+  try { return path.join(fs.realpathSync.native(path.dirname(abs)), path.basename(abs)); } catch { return abs; }
+}
+
 /** A fresh record of what a turn's own tools could have written. */
 const newTouch = () => ({ paths: new Set(), broad: false });
 
@@ -185,7 +193,7 @@ const newTouch = () => ({ paths: new Set(), broad: false });
 function noteTool(touch, item) {
   if (!touch || item?.kind !== 'tool' || typeof item.name !== 'string') return;
   if (FILE_TOOLS.has(item.name)) {
-    if (typeof item.filePath === 'string' && item.filePath) touch.paths.add(path.resolve(item.filePath));
+    if (typeof item.filePath === 'string' && item.filePath) touch.paths.add(realPath(item.filePath));
     else touch.broad = true;
   } else if (!READ_ONLY_TOOLS.has(item.name) && !SHELLBY_TOOL.test(item.name)) {
     touch.broad = true;
