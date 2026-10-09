@@ -267,6 +267,7 @@ contextBridge.exposeInMainWorld('shellby', {
   ultraReview: invoke('review:ultra'),
   onSkillFirst: on('native:skill-first'),
   reconnectMcp: (tabId, name) => ipcRenderer.invoke('mcp:reconnect', { tabId, name }),
+  signInMcp: (tabId, name) => ipcRenderer.invoke('mcp:signin', { tabId, name }),
   toggleMcp: (tabId, name, enabled) => ipcRenderer.invoke('mcp:toggle', { tabId, name, enabled }),
   addMcp: invoke('mcp:add'),
   removeMcp: (tabId, name) => ipcRenderer.invoke('mcp:remove', { tabId, name }),
@@ -758,6 +759,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabSent: on('tab:sent'), // a held message went out after the reset
   onHeldReturned: on('held:returned'), // one that couldn't, back to its box
   onToolbox: on('toolbox'),
+  onMcpNeedsAuth: on('mcp:needs-auth'),
   onSnippets: on('snippets'),
   onTeam: on('team'), // Shellby's folder changed: that repo's team pack, or none
   onTeamNotice: on('team:notice'), // the repo you're in has a team pack you haven't seen

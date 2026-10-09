@@ -159,10 +159,23 @@ function parseGet(text) {
   return { scope, status: field('Status'), type: field('Type'), target: field('URL') || field('Command') };
 }
 
+/**
+ * The sign-in page mcp_authenticate handed back, if it's one to open in the
+ * browser: https, or http on this PC (a local server's own page). -> href | null
+ */
+function signInUrl(raw) {
+  if (typeof raw !== 'string' || raw.length > 8000 || CONTROL.test(raw)) return null;
+  let url;
+  try { url = new URL(raw); } catch { return null; }
+  if (url.protocol === 'https:') return url.href;
+  if (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) return url.href;
+  return null;
+}
+
 const SCOPE_WORDS = {
   local: 'just you, in this project',
   project: "this project's shared .mcp.json, so everyone who opens it",
   user: 'you, in every project',
 };
 
-module.exports = { splitArgs, addArgs, removeArgs, parseGet, findServer, SCOPES, TRANSPORTS, SCOPE_WORDS };
+module.exports = { splitArgs, addArgs, removeArgs, parseGet, findServer, signInUrl, SCOPES, TRANSPORTS, SCOPE_WORDS };

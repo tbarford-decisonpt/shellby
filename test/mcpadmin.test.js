@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { splitArgs, addArgs, removeArgs, parseGet } = require('../src/main/mcpadmin');
+const { splitArgs, addArgs, removeArgs, parseGet, signInUrl } = require('../src/main/mcpadmin');
 
 test('splitArgs: spaces separate, quotes group, Windows backslashes survive', () => {
   assert.deepEqual(splitArgs('npx -y @scope/server --root "C:\\My Files"'), ['npx', '-y', '@scope/server', '--root', 'C:\\My Files']);
@@ -86,4 +86,14 @@ test('findServer: reads the scope from the config files, local before project be
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
+});
+
+test('signInUrl: opens https and this PC only', () => {
+  assert.equal(signInUrl('https://mcp.stripe.com/authorize?state=x'), 'https://mcp.stripe.com/authorize?state=x');
+  assert.equal(signInUrl('http://localhost:8123/login'), 'http://localhost:8123/login');
+  assert.equal(signInUrl('http://evil.example/login'), null);
+  assert.equal(signInUrl('file:///C:/Windows/system32/calc.exe'), null);
+  assert.equal(signInUrl('javascript:alert(1)'), null);
+  assert.equal(signInUrl('https://a.example/\nx'), null);
+  assert.equal(signInUrl(undefined), null);
 });

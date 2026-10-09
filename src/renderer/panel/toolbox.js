@@ -288,7 +288,7 @@
   const MCP_SAYS = {
     connected: 'Connected.',
     failed: 'Couldn\'t connect. Reconnect to try again.',
-    'needs-auth': 'Waiting for you to sign in. Reconnect to start that.',
+    'needs-auth': 'Waiting for you to sign in. Sign in opens its page in your browser.',
     pending: 'Still connecting.',
     disabled: 'Turned off for open conversations.',
   };
@@ -454,7 +454,15 @@
     const busy = mcpBusy.has(t.name);
     const off = t.status === 'disabled';
     const broken = /failed|needs-auth|pending/.test(t.status || '');
+    const signIn = async () => {
+      const r = await mcpCall(t.name, () => api.signInMcp(tabId, t.name), null);
+      if (!r?.ok) return;
+      if (r.done) SB.toast(`${t.name} is signed in`);
+      else if (r.connector) SB.toast(`Finish signing in to ${t.name} in your browser, then press Reconnect.`, { ms: 10000 });
+      else SB.toast(`Finish signing in to ${t.name} in your browser. Shellby connects it when you're done.`, { ms: 10000 });
+    };
     return [
+      t.status === 'needs-auth' ? h('button', { class: 'btn primary slim-btn', type: 'button', disabled: busy, onclick: signIn }, busy ? '…' : 'Sign in') : null,
       broken || busy ? h('button', { class: 'btn slim-btn', type: 'button', disabled: busy, onclick: () => mcpCall(t.name, () => api.reconnectMcp(tabId, t.name), `Reconnected ${t.name}`) }, busy ? '…' : 'Reconnect') : null,
       h('button', { class: 'btn ghost slim-btn', type: 'button', disabled: busy, title: off ? 'Turn it on for open conversations' : 'Turn it off for open conversations',
         onclick: () => mcpCall(t.name, () => api.toggleMcp(tabId, t.name, off), `${t.name} turned ${off ? 'on' : 'off'}`) }, off ? 'Turn on' : 'Turn off'),

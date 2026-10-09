@@ -110,6 +110,7 @@ function wireSessions(d) {
     // Queued messages just handed to Claude mid-turn: their chips can't be edited now.
     d.manager.on('steering', (tabId, ids) => { const win = d.tabWindow(tabId); d.send(win, 'tab:steering', { tabId, ids }); });
 
+    const nudgedSignIn = new Set(); // MCP servers already offered a sign-in this run
     d.manager.on('item', (tabId, item, tab, tail) => {
       if (item.kind === 'usage') {
         d.usagePlan?.onUsage(tabId, item); // before lastUsage moves on: the rise is measured from it
@@ -120,6 +121,11 @@ function wireSessions(d) {
       if (item.kind === 'init') {
         d.lastInit = item.toolbox;
         d.toolbox?.setInit(item.toolbox);
+        // A server waiting for sign-in: offer it once per server per run, so
+        // nobody has to find /mcp in a terminal (parity.js mcp:signin).
+        const waiting = item.toolbox.mcp_servers.filter(s => s.status === 'needs-auth' && !nudgedSignIn.has(s.name)).map(s => s.name);
+        for (const n of waiting) nudgedSignIn.add(n);
+        if (waiting.length) d.send(d.panel, 'mcp:needs-auth', { tabId, names: waiting });
         return; // toolbox lists are large; the panel doesn't need them per tab
       }
       if (item.kind === 'commands') {

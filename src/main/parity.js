@@ -25,6 +25,9 @@ const { run: runCli, skipSettings } = require('./claude/cli');
 const MAX_PROMPTS = 100;
 const MAX_PROMPT_CHARS = 4000;
 const MCP_TIMEOUT_MS = 60000;
+// After the sign-in page opens: look for "connected" every 3 s for 5 minutes.
+const SIGNIN_POLL_MS = 3000;
+const SIGNIN_POLLS = 100;
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 
 // Kept out of the history file: anything that looks like it carries a key.
@@ -44,7 +47,8 @@ function addPrompt(list, text) {
  *   runClaude(args, timeout, { cwd }), currentCwd(), toolbox(), lastInit(),
  *   turnEnding(tabId) -> promise of that tab's last diff being noted,
  *   correctionFromTurns(tabId, kind, refs), noteCorrection(tabId, event),
- *   dataDir, stat(event), noteUndone(turns) -> the weekly card's turns taken back, log }
+ *   dataDir, stat(event), noteUndone(turns) -> the weekly card's turns taken back,
+ *   openExternal(url) -> the browser, log }
  */
 function register(deps) {
   const { ipcMain, manager, history, config, confirm, dialog, clipboard, app } = deps;
@@ -325,6 +329,45 @@ function register(deps) {
     return { ok: true, done: results.length - failed.length, of: results.length };
   }
   ipcMain.handle('mcp:reconnect', (_e, { tabId, name } = {}) => (isStr(name) ? everyRunning(tabId, 'mcp_reconnect', { serverName: name }, 'Reconnecting') : { ok: false, error: 'Unknown server.' }));
+  // Sign in to a server that needs it, without a terminal: the CLI's
+  // mcp_authenticate hands back the sign-in page and waits on its own
+  // localhost callback, then reconnects that conversation by itself. Shellby
+  // opens the page, watches for "connected", and reconnects the other running
+  // conversations so they pick up the new sign-in too. A claude.ai connector
+  // finishes on claude.ai with no callback: Reconnect afterwards picks it up.
+  const signingIn = new Set();
+  async function watchSignIn(t, tabId, name) {
+    if (signingIn.has(name)) return;
+    signingIn.add(name);
+    try {
+      for (let i = 0; i < SIGNIN_POLLS; i++) {
+        await new Promise(r => setTimeout(r, SIGNIN_POLL_MS));
+        if (!t.session.proc) return;
+        const r = await t.session.request('mcp_status');
+        const s = r.ok && Array.isArray(r.response.mcpServers) ? r.response.mcpServers.find(x => x && x.name === name) : null;
+        if (s?.status === 'connected') {
+          await Promise.all(running().filter(o => o !== t).map(o => o.session.request('mcp_reconnect', { serverName: name }, MCP_TIMEOUT_MS)));
+          await refreshMcp(tabId);
+          deps.stat('mcp-signed-in');
+          return;
+        }
+        if (s && s.status !== 'needs-auth' && s.status !== 'pending') return;
+      }
+    } finally { signingIn.delete(name); }
+  }
+  ipcMain.handle('mcp:signin', async (_e, { tabId, name } = {}) => {
+    if (!isStr(name)) return { ok: false, error: 'Unknown server.' };
+    const t = tabOf(tabId)?.session.proc ? tabOf(tabId) : running()[0];
+    if (!t) return { ok: false, error: 'Signing in needs a running conversation. Send one a message, then try again.' };
+    const r = await t.session.request('mcp_authenticate', { serverName: name }, MCP_TIMEOUT_MS);
+    if (!r.ok) return r;
+    if (!r.response.requiresUserAction) { await refreshMcp(tabId); return { ok: true, done: true }; }
+    const url = mcpAdmin.signInUrl(r.response.authUrl);
+    if (!url) return { ok: false, error: `${name} didn't give Shellby a sign-in page it could open.` };
+    deps.openExternal(url);
+    if (r.response.callbackExpected) watchSignIn(t, tabId, name);
+    return { ok: true, opened: true, connector: !r.response.callbackExpected };
+  });
   ipcMain.handle('mcp:toggle', (_e, { tabId, name, enabled } = {}) => (isStr(name) ? everyRunning(tabId, 'mcp_toggle', { serverName: name, enabled: !!enabled }, 'Turning a server on or off') : { ok: false, error: 'Unknown server.' }));
 
   ipcMain.handle('mcp:add', async (_e, input) => {

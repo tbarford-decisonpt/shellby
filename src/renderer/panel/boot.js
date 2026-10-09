@@ -70,6 +70,22 @@
   api.onNewTabRequest(() => SB.newTab());
   api.onUsage(SB.applyUsage);
   api.onRecap(d => SB.showRecap(d));
+  // A server waiting for sign-in when a conversation starts: one tap opens its page.
+  api.onMcpNeedsAuth(({ tabId, names } = {}) => {
+    if (!Array.isArray(names) || !names.length) return;
+    const one = names.length === 1 ? names[0] : null;
+    SB.toast(one ? `${one} needs you to sign in before Claude can use it.` : `${names.join(', ')} need you to sign in before Claude can use them.`, {
+      ms: 15000,
+      action: one ? 'Sign in' : 'Show me',
+      onAction: async () => {
+        if (!one) return SB.showToolbox?.('mcp');
+        const r = await api.signInMcp(tabId, one);
+        if (!r?.ok) SB.toast(r?.error || "Couldn't start signing in.", { ms: 8000 });
+        else if (r.done) SB.toast(`${one} is signed in`);
+        else SB.toast(r.connector ? `Finish signing in to ${one} in your browser, then press Reconnect in the Toolbox.` : `Finish signing in to ${one} in your browser. Shellby connects it when you're done.`, { ms: 10000 });
+      },
+    });
+  });
   api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
   api.onLearned(SB.onLearned);
   api.onSnippets(SB.applySnippets);
