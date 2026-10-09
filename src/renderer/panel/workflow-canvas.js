@@ -328,7 +328,8 @@
 
     stage.addEventListener('wheel', e => {
       e.preventDefault();
-      if (e.ctrlKey) zoomAt({ x: e.clientX, y: e.clientY }, Math.exp(-e.deltaY * 0.0015));
+      // Ctrl+wheel zooms the canvas alone: kept from the panel zoom listening on window (files.js).
+      if (e.ctrlKey) { e.stopPropagation(); zoomAt({ x: e.clientX, y: e.clientY }, Math.exp(-e.deltaY * 0.0015)); }
       else { v.x -= e.deltaX; v.y -= e.deltaY; v.auto = false; apply(); }
     }, { passive: false });
 
