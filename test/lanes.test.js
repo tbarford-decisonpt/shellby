@@ -60,11 +60,24 @@ test('identical prompts across conversations are one group, biggest first', () =
   const groups = groupPrompts([
     prompt('a', '1', 'Bash', { command: 'npm test' }),
     prompt('b', '2', 'Bash', { command: 'rm -rf dist' }),
-    prompt('c', '3', 'Bash', { command: 'npm  test' }),
+    prompt('c', '3', 'Bash', { command: 'npm test' }),
     prompt('d', '4', 'Bash', { command: 'npm test' }),
   ]);
   assert.deepEqual(groups.map(g => [g.what, g.count, g.look]), [['npm test', 3, false], ['rm -rf dist', 1, false]]);
   assert.deepEqual(groups[0].prompts, [{ tabId: 'a', requestId: '1' }, { tabId: 'c', requestId: '3' }, { tabId: 'd', requestId: '4' }]);
+});
+
+test('prompts that only look the same on one line are never grouped', () => {
+  const long = `echo ${'x'.repeat(300)}`;
+  const groups = groupPrompts([
+    prompt('a', '1', 'Bash', { command: 'npm test' }),
+    prompt('b', '2', 'Bash', { command: 'npm  test' }),
+    prompt('c', '3', 'Bash', { command: 'npm test', run_in_background: true }),
+    prompt('d', '4', 'Bash', { command: long }),
+    prompt('e', '5', 'Bash', { command: long }),
+  ]);
+  assert.equal(groups.length, 5);
+  assert.ok(groups.filter(g => g.what.startsWith('echo')).every(g => g.look));
 });
 
 test('a prompt that has to be read at the desk is never grouped', () => {

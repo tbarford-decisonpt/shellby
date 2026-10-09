@@ -135,13 +135,25 @@ function whatOf(p) {
  * -> [{ key, toolName, what, count, look, prompts: [{ tabId, requestId }] }],
  *    the biggest group first, then the oldest.
  */
+/** The whole input, keys sorted, so two prompts only match when they want exactly the same thing. */
+function exactInput(v) {
+  if (Array.isArray(v)) return `[${v.map(exactInput).join(',')}]`;
+  if (v && typeof v === 'object') {
+    return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${exactInput(v[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(v ?? null);
+}
+
 function groupPrompts(prompts) {
   const groups = new Map();
   (prompts || []).forEach((p, i) => {
     if (!p || typeof p.tabId !== 'string' || typeof p.requestId !== 'string') return;
-    const look = !!deskOnlyReason(p);
     const what = whatOf(p);
-    const key = look ? `look\n${p.tabId}\n${p.requestId}` : `${p.toolName || ''}\n${what}`;
+    // Group on the exact input, never the shortened line shown: a prompt whose
+    // line can't show all of it is read on its own.
+    const raw = String(p.input?.command ?? p.input?.file_path ?? p.input?.url ?? p.label ?? p.detail ?? '');
+    const look = !!deskOnlyReason(p) || raw.length > MAX_WHAT || p.input == null;
+    const key = look ? `look\n${p.tabId}\n${p.requestId}` : `${p.toolName || ''}\n${exactInput(p.input)}`;
     if (!groups.has(key)) groups.set(key, { key, toolName: p.toolName || '', what, look, first: i, prompts: [] });
     groups.get(key).prompts.push({ tabId: p.tabId, requestId: p.requestId });
   });
