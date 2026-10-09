@@ -232,7 +232,10 @@ function scanToolbox({ home, cwd, plugins = [], metaCache = null, pluginCache = 
     for (const k of KINDS) {
       for (const t of found[k]) {
         const prev = maps[k].get(t.name);
-        if (!prev || r.rank > prev.rank) maps[k].set(t.name, { rank: r.rank, t });
+        // The loser is remembered, so the Toolbox can say one copy hides another.
+        if (!prev) maps[k].set(t.name, { rank: r.rank, t, hides: [] });
+        else if (r.rank > prev.rank) maps[k].set(t.name, { rank: r.rank, t, hides: [...prev.hides, { source: prev.t.source, path: prev.t.path }] });
+        else prev.hides.push({ source: t.source, path: t.path });
       }
     }
   }
@@ -244,7 +247,8 @@ function scanToolbox({ home, cwd, plugins = [], metaCache = null, pluginCache = 
     const live = new Set(roots.filter(r => r.rank === PRIORITY.plugin).map(r => `${r.prefix}=${r.dir}`));
     for (const k of [...plugCache.keys()]) if (!live.has(k)) plugCache.delete(k);
   }
-  const list = k => [...maps[k].values()].map(v => v.t).sort(byName).slice(0, MAX_ITEMS);
+  // A copy, never the cached item itself: a plugin's found list is reused between scans.
+  const list = k => [...maps[k].values()].map(v => (v.hides.length ? { ...v.t, hides: v.hides } : v.t)).sort(byName).slice(0, MAX_ITEMS);
   return { skills: list('skills'), agents: list('agents'), commands: list('commands'), mcp: [], scannedAt: Date.now() };
 }
 

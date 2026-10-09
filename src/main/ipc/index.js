@@ -15,6 +15,7 @@ const { createLean } = require('../lean');
 const { createModsService } = require('../mods-service');
 const parity = require('../parity');
 const { createSkillRemover } = require('../skillremove');
+const { createToolBatch } = require('../toolbatch');
 const { loadSkins } = require('../skins');
 const stickers = require('../stickers');
 const teamIpcModule = require('../team-ipc');
@@ -85,6 +86,22 @@ function registerIpc(electronIpcMain, d) {
     trash: p => shell.trashItem(p),
     usage: () => lean.usage(),
     unpin: (kind, name) => config.set({ pinnedTools: (config.get('pinnedTools') || []).filter(p => !(p?.kind === kind && p?.name === name)) }),
+  }).register(ipcMain);
+  // Toolbox: many at once (toolbatch.js), with the same rules as removing one.
+  createToolBatch({
+    toolbox: () => d.toolbox, askOnce: d.askOnce, log, stat: d.stat,
+    where: () => ({ home: os.homedir(), cwd: d.currentCwd() }),
+    trash: p => shell.trashItem(p),
+    unpin: (kind, name) => config.set({ pinnedTools: (config.get('pinnedTools') || []).filter(p => !(p?.kind === kind && p?.name === name)) }),
+    parkDir: path.join(app.getPath('userData'), 'parked-tools'),
+    saveFile: async ({ title, name }) => {
+      const r = await dialog.showSaveDialog(d.panel, { title, defaultPath: path.join(app.getPath('documents'), name), filters: [{ name: 'Shellby tools', extensions: ['json'] }] });
+      return r.canceled ? null : r.filePath || null;
+    },
+    openFile: async ({ title }) => {
+      const r = await dialog.showOpenDialog(d.panel, { title, properties: ['openFile'], filters: [{ name: 'Shellby tools', extensions: ['json'] }, { name: 'All files', extensions: ['*'] }] });
+      return r.canceled ? null : r.filePaths?.[0] || null;
+    },
   }).register(ipcMain);
   // Toolbox → Mods (mods-service.js): the CLI runs in the shop's empty folder.
   createModsService({

@@ -207,6 +207,13 @@ contextBridge.exposeInMainWorld('shellby', {
   removeTool: (kind, name) => ipcRenderer.invoke('toolbox:remove', { kind, name }),
   readTool: (kind, path) => ipcRenderer.invoke('toolbox:read', { kind, path }),
   writeTool: (kind, path, text, mtimeMs) => ipcRenderer.invoke('toolbox:write', { kind, path, text, mtimeMs }),
+  // Many at once, named [{ kind, name }] (toolbatch.js): removing asks first; parked ones come back by id
+  removeTools: refs => ipcRenderer.invoke('toolbox:remove-many', refs),
+  parkTools: refs => ipcRenderer.invoke('toolbox:park', refs),
+  restoreTools: ids => ipcRenderer.invoke('toolbox:restore', ids),
+  parkedTools: invoke('toolbox:parked'),
+  exportTools: refs => ipcRenderer.invoke('toolbox:export', refs),
+  importTools: invoke('toolbox:import'),
   // Toolbox → Mods (mods-service.js): named by plugin id; turning one on and running its tests ask first
   checkMod: invoke('mods:check'),
   setModEnabled: (id, on) => ipcRenderer.invoke('mods:set-enabled', { id, on }),
