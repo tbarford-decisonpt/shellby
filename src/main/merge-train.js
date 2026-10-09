@@ -33,6 +33,8 @@ async function runTrain(steps, { git, check, onStep = () => {} }) {
     const st = await git(step.path, ['status', '--porcelain', '--untracked-files=no']);
     if (!st.ok) return fail('git', st.error);
     if (st.out.trim()) return fail('dirty', 'It has uncommitted changes.');
+    // A ref git could read as an option is never passed on (rebase has no `--` for it).
+    if (typeof onto !== 'string' || !onto || onto.startsWith('-')) return fail('git', `"${onto}" isn't a branch Shellby can line up onto.`);
     onStep({ index, step, phase: 'rebasing' });
     const r = await git(step.path, [...NO_HOOKS, 'rebase', '--no-autostash', onto], { timeout: REBASE_TIMEOUT_MS, env: { LC_ALL: 'C' } });
     if (!r.ok) {
