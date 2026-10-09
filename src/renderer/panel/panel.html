@@ -1449,6 +1449,7 @@
     <p class="small muted settings-search-line" id="settingsSearchLine" role="status" hidden></p>
     <nav class="seg settings-tabs" id="settingsTabs" role="tablist" aria-label="Settings">
       <button type="button" role="tab" id="setTab-shellby" data-tab="shellby" aria-controls="setPanel-shellby" aria-selected="false" tabindex="-1">Shellby</button>
+      <button type="button" role="tab" id="setTab-around" data-tab="around" aria-controls="setPanel-around" aria-selected="false" tabindex="-1">Around you</button>
       <button type="button" role="tab" id="setTab-claude" data-tab="claude" aria-controls="setPanel-claude" aria-selected="false" tabindex="-1">Claude</button>
       <button type="button" role="tab" id="setTab-connect" data-tab="connect" aria-controls="setPanel-connect" aria-selected="false" tabindex="-1">Connections</button>
       <button type="button" role="tab" id="setTab-general" data-tab="general" aria-controls="setPanel-general" aria-selected="false" tabindex="-1">General<span class="dot-badge tab-dot" id="updateTabDot" hidden></span></button>
@@ -1558,7 +1559,22 @@
         <p class="small muted">He goes quiet during focus, calls and when the screen is locked.</p>
       </section>
 
-      <p class="settings-sub" id="extrasLabel">Extras <span>Off until you turn them on</span></p>
+      <section class="setting-group" id="gamesGroup" data-nav="Games">
+        <h3>Games</h3>
+        <label class="toggle"><input type="checkbox" id="catchBugsToggle"><span class="switch"></span>Catch bugs for the Bugdex</label>
+        <p class="muted small">When Claude fixes a failing command in Shellby's tabs, that kind of bug goes in a jar. Keeps only which kind it was and the project, never the error text.</p>
+        <div class="sub-toggles" id="bugdexOptions">
+          <label class="toggle"><input type="checkbox" id="bugBattlesToggle"><span class="switch"></span>Bug battles: watch Claude take on each bug while it's loose</label>
+          <label class="toggle"><input type="checkbox" id="bugFollowerToggle"><span class="switch"></span>His favourite catch follows him round the desk</label>
+          <label class="toggle"><input type="checkbox" id="shareBugdexToggle"><span class="switch"></span>Share my Bugdex with friends</label>
+          <p class="muted small">Puts which kinds you've caught and how many badges you hold on your calling card, so friends see your reports and bring you jars. No counts, projects or errors. Needs Visiting crabs.</p>
+        </div>
+        <label class="toggle"><input type="checkbox" id="tideEventsToggle"><span class="switch"></span>Tide events: a week or so with its own bug, finds and medal</label>
+        <p class="muted small">Six times a year (The Haunting, Frostbite, Pen Pal Week, Spring Clean, Low Tide and Harvest Moon), with a countdown on the Us page and four goals counted from what you already do. Finish them while it's on for that year's medal. Off hides the banner and the event's bug and finds.</p>
+        <label class="toggle"><input type="checkbox" id="surprisesToggle"><span class="switch"></span>Small surprises for real wins: a critical hit, a clean landing</label>
+        <p class="muted small">Now and then, when one turn takes failing tests all the way to green, or a copy comes home with its checks green on the first try, he makes a little fuss. Rare on purpose, and only for the real thing: never for being quick, and never when tests were skipped or deleted to get there. Clean landings need <button type="button" class="link-btn inline" data-jump-setting="checkEachTurnToggle">Run the tests after a turn</button>, on the Claude tab.</p>
+      </section>
+
       <details class="setting-group setting-fold mischief-group" id="mischiefGroup" data-nav="Mischief" data-fold-on="mischiefPranks">
         <summary><h3>Mischief</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Off unless you turn it on. A cheeky crab gets up to a little harmless trouble now and then, Desktop Goose style. He never does it while you're clicking, on a call, guarding your focus, gaming or presenting, or while a task is running.</p>
@@ -1580,7 +1596,11 @@
         </fieldset>
         <p class="small muted" id="mischiefNote" hidden>Right-click him for <b>Do something cheeky</b> to see it now, or <b>Behave for an hour</b> when you need him to.</p>
       </details>
+      </div>
 
+    <div class="settings-panel" role="tabpanel" id="setPanel-around" data-tab="around" aria-labelledby="setTab-around" hidden>
+      <p class="small muted settings-lede">Each of these is off until you turn it on, and says what it reads and where anything goes.</p>
+      <p class="settings-sub">What he notices</p>
       <details class="setting-group setting-fold" id="musicGroup" data-nav="Music" data-fold-on="npBody">
         <summary><h3>Listening along</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Shellby notices what's playing on this PC — Spotify, a browser tab, anything that shows up in the volume flyout — and puts his headphones on. Read from Windows itself: no account, and nothing leaves the PC.</p>
@@ -1617,6 +1637,7 @@
         </div>
       </details>
 
+      <p class="settings-sub">Where he shows up</p>
       <details class="setting-group setting-fold" id="rgbGroup" data-nav="Desk lighting" data-fold-on="rgbBody">
         <summary><h3>Desk lighting</h3><span class="fold-state"></span></summary>
         <p class="small muted ext-lede">Put his mood on your keyboard and fans through <a data-href="https://openrgb.org" href="#">OpenRGB</a>: coral while he works, amber when he needs you, red when a build goes red or something overheats. Shellby can install it for you and starts it in the tray whenever the lighting is on.</p>
@@ -1741,10 +1762,42 @@
         <p class="muted small" id="styleNote">How Claude talks while it works. Applies to new conversations.</p>
       </section>
 
+      <section class="setting-group" id="limitGroup" data-nav="Usage limit">
+        <h3>Your 5-hour limit</h3>
+        <label class="toggle"><input type="checkbox" id="forecastToggle"><span class="switch"></span>Warn me when I'm on pace to hit my 5-hour limit before it resets</label>
+        <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
+        <label class="toggle"><input type="checkbox" id="spendGuardToggle"><span class="switch"></span>Stop routines and workflows before they use up my 5-hour limit</label>
+        <div class="row wrap" id="spendGuardOptions">
+          <label class="inline-label" for="spendReserveSelect">Keep for me
+            <select id="spendReserveSelect" class="field slim">
+              <option value="10">10%</option>
+              <option value="25">25%</option>
+              <option value="50">50%</option>
+            </select>
+          </label>
+          <label class="inline-label" for="spendMaxSelect">Stop a routine after
+            <select id="spendMaxSelect" class="field slim">
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="120">2 hours</option>
+              <option value="240">4 hours</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small">A routine due past that point waits for the reset; one already running stops, and its conversation is kept so you can carry on. Autonomous tabs stop too, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back.</p>
+        <label class="toggle"><input type="checkbox" id="holdBigToggle"><span class="switch"></span>Hold big tasks for the reset when I'm close to the limit</label>
+        <p class="muted small">Shellby learns what tasks like yours usually take. When a message would carry you past the line (the share you keep, or the limit with the guard off), it waits for the reset instead, with a "Send now" if you change your mind. It needs a few similar tasks to go on first, and it's all worked out on this PC.</p>
+      </section>
+
       <section class="setting-group" data-nav="Folder">
         <h3>Working folder</h3>
         <div class="row"><code class="path" id="settingsFolder">~</code><button type="button" class="btn" id="changeFolderBtn">Change…</button></div>
         <p class="muted small">New conversations start here and load any CLAUDE.md they find.</p>
+      </section>
+
+      <section class="setting-group" id="copiesGroup" data-nav="Copies">
+        <h3>Copies of a project</h3>
         <label class="toggle"><input type="checkbox" id="worktreeToggle"><span class="switch"></span>Give a conversation its own copy of a git project when it starts changing things</label>
         <p class="muted small">Tabs in the same repository stop stepping on each other. The first time a conversation changes a file, it moves into its own copy (a git worktree) on a new branch; your checkout stays as it is. <b>Bring it home</b>, on the branch chip above the chat, merges it back. Ignored folders like node_modules aren't copied, so a copy may need its own install.</p>
         <label class="toggle"><input type="checkbox" id="clashToggle"><span class="switch"></span>Warn me when two copies change the same file</label>
@@ -1753,41 +1806,38 @@
         <p class="muted small">Adds one line at the end of the commits Shellby makes bringing a copy home: <code>Shipped-with: Shellby (Lv 12 Abyssal Admin)</code>. Only his level and title. Claude Code's own commits keep their own sign-off.</p>
       </section>
 
-      <section class="setting-group" id="remoteGroup" data-nav="Other computers">
-        <h3>Other computers</h3>
-        <p class="small muted ext-lede">Run Claude Code on another computer, like a server or a PC that stays on, and work with it here as usual. Shellby connects with ssh, through any computer in between. Add a folder there, and conversations in that folder run over there.</p>
-        <p class="small warn" id="rcNoSsh" hidden>Windows' own ssh isn't installed. Add <b>OpenSSH Client</b> in Windows Settings, under System, Optional features, then come back.</p>
-        <div class="rc-list" id="rcList"></div>
-        <div class="row wrap" id="rcAddRow">
-          <select class="field slim" id="rcPick" aria-label="A computer from your ssh settings"></select>
-          <button type="button" class="btn slim-btn" id="rcAdd">Add</button>
-          <button type="button" class="btn ghost slim-btn" id="rcNew">A new computer…</button>
+      <section class="setting-group" id="checksGroup" data-nav="Checks">
+        <h3>Checking Claude's work</h3>
+        <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
+        <div class="row wrap" id="checkEachTurnOptions">
+          <label class="inline-label" for="checkTimeoutSelect">Give up after
+            <select id="checkTimeoutSelect" class="field slim">
+              <option value="2">2 minutes</option>
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="20">20 minutes</option>
+            </select>
+          </label>
         </div>
-        <form class="rc-form" id="rcForm" hidden>
-          <label class="field-label"><span>Name</span><input type="text" class="field" id="rcAlias" placeholder="homebox" spellcheck="false" autocomplete="off" maxlength="63"></label>
-          <label class="field-label"><span>Address</span><input type="text" class="field" id="rcAddress" placeholder="192.168.1.20 or homebox.lan" spellcheck="false" autocomplete="off" maxlength="253"></label>
-          <div class="rc-form-row">
-            <label class="field-label"><span>User</span><input type="text" class="field" id="rcUser" placeholder="you" spellcheck="false" autocomplete="off" maxlength="32"></label>
-            <label class="field-label rc-port"><span>Port</span><input type="text" class="field" id="rcPort" placeholder="22" inputmode="numeric" autocomplete="off" maxlength="5"></label>
-          </div>
-          <label class="field-label"><span>Reach it through</span><select class="field" id="rcJump"></select></label>
-          <p class="small muted">Through another computer if this one is only reachable from there, like a home PC behind a VPS. Shellby adds it to your ssh settings, so your own terminal can use it too.</p>
-          <p class="small warn" id="rcFormError" role="alert" hidden></p>
-          <div class="row wrap end">
-            <button type="button" class="btn ghost slim-btn" id="rcFormCancel">Cancel</button>
-            <button type="submit" class="btn primary slim-btn" id="rcFormSave">Add computer</button>
-          </div>
-        </form>
-        <div class="sl-card" id="rcAgent">
-          <div class="sl-head">
-            <b>Windows' ssh agent</b>
-            <span class="row">
-              <button type="button" class="btn ghost slim-btn" id="rcAgentSkip" hidden></button>
-              <button type="button" class="btn slim-btn" id="rcAgentBtn" hidden></button>
-            </span>
-          </div>
-          <p class="small muted" id="rcAgentText">Checking…</p>
+        <p class="muted small">This runs the project's own scripts on this PC: its test script, and a typecheck or build if it has one. He asks once per project before the first run, and keeps sign-in tokens and keys out of their environment. The verdict is stamped on the turn's changes. It also checks a copy before bringing it home, and won't merge red without asking. Off by default: tests use your CPU. "Run checks" on any turn works either way.</p>
+        <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
+        <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
+      </section>
+
+      <section class="setting-group" id="devServersGroup" data-nav="Dev servers">
+        <h3>Dev servers</h3>
+        <p class="muted small">The servers you start from the Projects page. Shellby watches each one and holds up a sign if it crashes.</p>
+        <p class="field-label" id="setOnQuitLabel">When Shellby quits</p>
+        <div class="pj-quit-choices" role="group" aria-labelledby="setOnQuitLabel">
+          <label class="pj-radio"><input type="radio" name="setOnQuit" value="keep"> Leave dev servers running</label>
+          <label class="pj-radio"><input type="radio" name="setOnQuit" value="stop"> Stop them</label>
         </div>
+        <p class="muted small">Left running, they carry on after Shellby closes, and Shellby picks them back up, log and all, when it starts again.</p>
+        <label class="toggle"><input type="checkbox" id="srvCrabToggle"><span class="switch"></span>Show running servers on the crab (":5173")</label>
+        <label class="toggle"><input type="checkbox" id="srvSignToggle"><span class="switch"></span>Hold up a sign when one crashes</label>
+        <label class="toggle"><input type="checkbox" id="srvToastToggle"><span class="switch"></span>Notify me when one crashes</label>
+        <label class="toggle"><input type="checkbox" id="turnShotsToggle"><span class="switch"></span>Before/after pictures of your dev server</label>
+        <p class="muted small">When a conversation works in a folder Shellby is running a dev server from, he photographs the page as the turn starts and again if it changed anything you'd see. Kept on this PC: the last 50 per conversation, for two weeks.</p>
       </section>
 
       <section class="setting-group" id="editorGroup" data-nav="Editor">
@@ -1804,20 +1854,6 @@
           </select>
         </div>
         <p class="muted small" id="editorNote"></p>
-      </section>
-
-      <section class="setting-group" id="devServersGroup" data-nav="Dev servers">
-        <h3>Dev servers</h3>
-        <p class="muted small">The servers you start from the Projects page. Shellby watches each one and holds up a sign if it crashes.</p>
-        <p class="field-label" id="setOnQuitLabel">When Shellby quits</p>
-        <div class="pj-quit-choices" role="group" aria-labelledby="setOnQuitLabel">
-          <label class="pj-radio"><input type="radio" name="setOnQuit" value="keep"> Leave dev servers running</label>
-          <label class="pj-radio"><input type="radio" name="setOnQuit" value="stop"> Stop them</label>
-        </div>
-        <p class="muted small">Left running, they carry on after Shellby closes, and Shellby picks them back up, log and all, when it starts again.</p>
-        <label class="toggle"><input type="checkbox" id="srvCrabToggle"><span class="switch"></span>Show running servers on the crab (":5173")</label>
-        <label class="toggle"><input type="checkbox" id="srvSignToggle"><span class="switch"></span>Hold up a sign when one crashes</label>
-        <label class="toggle"><input type="checkbox" id="srvToastToggle"><span class="switch"></span>Notify me when one crashes</label>
       </section>
 
       <section class="setting-group" id="externalGroup" data-nav="Everywhere">
@@ -2053,6 +2089,43 @@
         </form>
         <p class="small muted gh-note">gitlab.com is always asked. Hosts your clones point at are found by themselves when their name says gitlab; add any others here, separated by commas, and sign glab in to each with <code>glab auth login --hostname &lt;host&gt;</code>.</p>
       </section>
+
+      <section class="setting-group" id="remoteGroup" data-nav="Other computers">
+        <h3>Other computers</h3>
+        <p class="small muted ext-lede">Run Claude Code on another computer, like a server or a PC that stays on, and work with it here as usual. Shellby connects with ssh, through any computer in between. Add a folder there, and conversations in that folder run over there.</p>
+        <p class="small warn" id="rcNoSsh" hidden>Windows' own ssh isn't installed. Add <b>OpenSSH Client</b> in Windows Settings, under System, Optional features, then come back.</p>
+        <div class="rc-list" id="rcList"></div>
+        <div class="row wrap" id="rcAddRow">
+          <select class="field slim" id="rcPick" aria-label="A computer from your ssh settings"></select>
+          <button type="button" class="btn slim-btn" id="rcAdd">Add</button>
+          <button type="button" class="btn ghost slim-btn" id="rcNew">A new computer…</button>
+        </div>
+        <form class="rc-form" id="rcForm" hidden>
+          <label class="field-label"><span>Name</span><input type="text" class="field" id="rcAlias" placeholder="homebox" spellcheck="false" autocomplete="off" maxlength="63"></label>
+          <label class="field-label"><span>Address</span><input type="text" class="field" id="rcAddress" placeholder="192.168.1.20 or homebox.lan" spellcheck="false" autocomplete="off" maxlength="253"></label>
+          <div class="rc-form-row">
+            <label class="field-label"><span>User</span><input type="text" class="field" id="rcUser" placeholder="you" spellcheck="false" autocomplete="off" maxlength="32"></label>
+            <label class="field-label rc-port"><span>Port</span><input type="text" class="field" id="rcPort" placeholder="22" inputmode="numeric" autocomplete="off" maxlength="5"></label>
+          </div>
+          <label class="field-label"><span>Reach it through</span><select class="field" id="rcJump"></select></label>
+          <p class="small muted">Through another computer if this one is only reachable from there, like a home PC behind a VPS. Shellby adds it to your ssh settings, so your own terminal can use it too.</p>
+          <p class="small warn" id="rcFormError" role="alert" hidden></p>
+          <div class="row wrap end">
+            <button type="button" class="btn ghost slim-btn" id="rcFormCancel">Cancel</button>
+            <button type="submit" class="btn primary slim-btn" id="rcFormSave">Add computer</button>
+          </div>
+        </form>
+        <div class="sl-card" id="rcAgent">
+          <div class="sl-head">
+            <b>Windows' ssh agent</b>
+            <span class="row">
+              <button type="button" class="btn ghost slim-btn" id="rcAgentSkip" hidden></button>
+              <button type="button" class="btn slim-btn" id="rcAgentBtn" hidden></button>
+            </span>
+          </div>
+          <p class="small muted" id="rcAgentText">Checking…</p>
+        </div>
+      </section>
       </div>
 
     <div class="settings-panel" role="tabpanel" id="setPanel-general" data-tab="general" aria-labelledby="setTab-general" hidden>
@@ -2060,73 +2133,18 @@
         <h3>System</h3>
         <label class="toggle"><input type="checkbox" id="loginToggle"><span class="switch"></span>Start with Windows</label>
         <p class="muted small" id="loginNote" hidden>Available in the installed app.</p>
+        <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
+        <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
+      </section>
+
+      <section class="setting-group" id="notifyGroup" data-nav="Notifications">
+        <h3>Notifications</h3>
         <label class="toggle"><input type="checkbox" id="notifyToggle"><span class="switch"></span>Notify me when a task finishes, needs approval, or Shellby learns a trick</label>
         <label class="toggle"><input type="checkbox" id="recapToggle"><span class="switch"></span>When I'm back after an hour away, sum up what happened</label>
         <p class="muted small">What finished, what failed, what's waiting on you, and roughly where your 5-hour usage window went.</p>
         <label class="toggle"><input type="checkbox" id="claudeTricksToggle"><span class="switch"></span>When Claude Code updates, show me what it can do now</label>
         <p class="muted small">A few highlights from Claude Code's public changelog, each new feature with a prompt to try it. Reading the changelog costs no usage.</p>
-      </section>
-
-      <section class="setting-group" id="limitGroup" data-nav="Usage limit">
-        <h3>Your 5-hour limit</h3>
-        <label class="toggle"><input type="checkbox" id="forecastToggle"><span class="switch"></span>Warn me when I'm on pace to hit my 5-hour limit before it resets</label>
-        <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
-        <label class="toggle"><input type="checkbox" id="spendGuardToggle"><span class="switch"></span>Stop routines and workflows before they use up my 5-hour limit</label>
-        <div class="row wrap" id="spendGuardOptions">
-          <label class="inline-label" for="spendReserveSelect">Keep for me
-            <select id="spendReserveSelect" class="field slim">
-              <option value="10">10%</option>
-              <option value="25">25%</option>
-              <option value="50">50%</option>
-            </select>
-          </label>
-          <label class="inline-label" for="spendMaxSelect">Stop a routine after
-            <select id="spendMaxSelect" class="field slim">
-              <option value="15">15 minutes</option>
-              <option value="30">30 minutes</option>
-              <option value="60">1 hour</option>
-              <option value="120">2 hours</option>
-              <option value="240">4 hours</option>
-            </select>
-          </label>
-        </div>
-        <p class="muted small">A routine due past that point waits for the reset; one already running stops, and its conversation is kept so you can carry on. Autonomous tabs stop too, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back.</p>
-        <label class="toggle"><input type="checkbox" id="holdBigToggle"><span class="switch"></span>Hold big tasks for the reset when I'm close to the limit</label>
-        <p class="muted small">Shellby learns what tasks like yours usually take. When a message would carry you past the line (the share you keep, or the limit with the guard off), it waits for the reset instead, with a "Send now" if you change your mind. It needs a few similar tasks to go on first, and it's all worked out on this PC.</p>
-      </section>
-
-      <section class="setting-group" id="safetyGroup" data-nav="Safety nets">
-        <h3>Safety nets</h3>
-        <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
-        <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
-        <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
-        <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
-        <label class="toggle"><input type="checkbox" id="catchBugsToggle"><span class="switch"></span>Catch bugs for the Bugdex</label>
-        <p class="muted small">When Claude fixes a failing command in Shellby's tabs, that kind of bug goes in a jar. Keeps only which kind it was and the project, never the error text.</p>
-        <div class="sub-toggles" id="bugdexOptions">
-          <label class="toggle"><input type="checkbox" id="bugBattlesToggle"><span class="switch"></span>Bug battles: watch Claude take on each bug while it's loose</label>
-          <label class="toggle"><input type="checkbox" id="bugFollowerToggle"><span class="switch"></span>His favourite catch follows him round the desk</label>
-          <label class="toggle"><input type="checkbox" id="shareBugdexToggle"><span class="switch"></span>Share my Bugdex with friends</label>
-          <p class="muted small">Puts which kinds you've caught and how many badges you hold on your calling card, so friends see your reports and bring you jars. No counts, projects or errors. Needs Visiting crabs.</p>
-        </div>
-        <label class="toggle"><input type="checkbox" id="tideEventsToggle"><span class="switch"></span>Tide events: a week or so with its own bug, finds and medal</label>
-        <p class="muted small">Six times a year (The Haunting, Frostbite, Pen Pal Week, Spring Clean, Low Tide and Harvest Moon), with a countdown on the Us page and four goals counted from what you already do. Finish them while it's on for that year's medal. Off hides the banner and the event's bug and finds.</p>
-        <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
-        <div class="row wrap" id="checkEachTurnOptions">
-          <label class="inline-label" for="checkTimeoutSelect">Give up after
-            <select id="checkTimeoutSelect" class="field slim">
-              <option value="2">2 minutes</option>
-              <option value="5">5 minutes</option>
-              <option value="10">10 minutes</option>
-              <option value="20">20 minutes</option>
-            </select>
-          </label>
-        </div>
-        <p class="muted small">This runs the project's own scripts on this PC: its test script, and a typecheck or build if it has one. He asks once per project before the first run, and keeps sign-in tokens and keys out of their environment. The verdict is stamped on the turn's changes. It also checks a copy before bringing it home, and won't merge red without asking. Off by default: tests use your CPU. "Run checks" on any turn works either way.</p>
-        <label class="toggle"><input type="checkbox" id="surprisesToggle"><span class="switch"></span>Small surprises for real wins: a critical hit, a clean landing</label>
-        <p class="muted small">Now and then, when one turn takes failing tests all the way to green, or a copy comes home with its checks green on the first try, he makes a little fuss. Rare on purpose, and only for the real thing: never for being quick, and never when tests were skipped or deleted to get there. Clean landings need the checks above.</p>
-        <label class="toggle"><input type="checkbox" id="turnShotsToggle"><span class="switch"></span>Before/after pictures of your dev server</label>
-        <p class="muted small">When a conversation works in a folder Shellby is running a dev server from, he photographs the page as the turn starts and again if it changed anything you'd see. Kept on this PC: the last 50 per conversation, for two weeks.</p>
+        <p class="muted small">For a line on your phone while you're away, turn on <button type="button" class="link-btn inline" data-jump-setting="chEnabled">Tell me when I'm away</button> under Connections.</p>
       </section>
 
       <section class="setting-group" data-nav="Shortcut">

@@ -24,7 +24,7 @@ South of the equator (the town you picked for the weather), Harvest Moon, Spring
 - He mentions the event now and then, says so on its first day, and reminds you on its last day if goals are left.
 - Your goals and medals follow you between PCs with Sync on.
 
-Switch: **Settings → Safety nets → Tide events**.
+Switch: **Settings → Shellby → Games → Tide events**.
 
 ## Sparklies
 
@@ -64,7 +64,7 @@ Trophies: 🤝 *Fair Trade* (your first swap) and 🧩 *Missing Piece* (a swap t
 
 ## The friends' board
 
-With **Share my Bugdex with friends** on (Settings → Safety nets), the Bugdex page shows **This month**: you and the friends who share theirs, ranked by the bugs Claude fixed for each of you since the 1st. There's a tab for every habitat someone caught in, and one for sparklies. A friend whose card is from last month counts as nothing until they're back.
+With **Share my Bugdex with friends** on (Settings → Shellby → Games), the Bugdex page shows **This month**: you and the friends who share theirs, ranked by the bugs Claude fixed for each of you since the 1st. There's a tab for every habitat someone caught in, and one for sparklies. A friend whose card is from last month counts as nothing until they're back.
 
 **📸 Share the board** makes a picture of the podium. When a month ends, where you finished goes in the journal on the Us page, and topping it earns 🥇 *Top Crab*.
 
@@ -74,4 +74,4 @@ Your card only shares counts: how many bugs this month, how many sparkly, and in
 
 If you've turned on the **pull request badge** (Settings → GitHub), its line now reads like *🦀 Built with Shellby · Lv 12 Abyssal Admin · Tester · 3 bugs jarred this week · 🎃*.
 
-**Sign Shellby's bring-home commits** (Settings → Folder) adds one line to the commits Shellby makes bringing a copy home: `Shipped-with: Shellby (Lv 12 Abyssal Admin)`. Claude Code's own commits keep their own sign-off.
+**Sign Shellby's bring-home commits** (Settings → Claude → Copies of a project) adds one line to the commits Shellby makes bringing a copy home: `Shipped-with: Shellby (Lv 12 Abyssal Admin)`. Claude Code's own commits keep their own sign-off.

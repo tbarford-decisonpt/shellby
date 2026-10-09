@@ -166,7 +166,7 @@ Afterwards the note says *Planned*, *Built* or *Asked*, with a link back to that
 - **One click in his menu** checks the projects you've worked in lately for commits no remote has, uncommitted changes (in Shellby's copies too), stashes and anything that looks like a secret in work that's still to go out, plus running dev servers and anything Claude is still working on or waiting for: *"2 projects have unpushed work."*
 - **Tidy up** hands it to Claude, who is told never to commit or push a `.env` file, a key or anything Shellby flagged as a secret.
 - **Lock the PC** checks first and locks straight away when it's all clear.
-- **Shutdowns wait:** a shutdown or sign-out with unpushed or uncommitted work, or with Claude mid-task, is held up with the reason and Windows' **Shut down anyway**. Turn that off under **Settings → Safety nets**.
+- **Shutdowns wait:** a shutdown or sign-out with unpushed or uncommitted work, or with Claude mid-task, is held up with the reason and Windows' **Shut down anyway**. Turn that off under **Settings → General → System**.
 
 ## Streaks and nudges
 

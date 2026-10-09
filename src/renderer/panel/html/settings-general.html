@@ -3,73 +3,18 @@
         <h3>System</h3>
         <label class="toggle"><input type="checkbox" id="loginToggle"><span class="switch"></span>Start with Windows</label>
         <p class="muted small" id="loginNote" hidden>Available in the installed app.</p>
+        <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
+        <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
+      </section>
+
+      <section class="setting-group" id="notifyGroup" data-nav="Notifications">
+        <h3>Notifications</h3>
         <label class="toggle"><input type="checkbox" id="notifyToggle"><span class="switch"></span>Notify me when a task finishes, needs approval, or Shellby learns a trick</label>
         <label class="toggle"><input type="checkbox" id="recapToggle"><span class="switch"></span>When I'm back after an hour away, sum up what happened</label>
         <p class="muted small">What finished, what failed, what's waiting on you, and roughly where your 5-hour usage window went.</p>
         <label class="toggle"><input type="checkbox" id="claudeTricksToggle"><span class="switch"></span>When Claude Code updates, show me what it can do now</label>
         <p class="muted small">A few highlights from Claude Code's public changelog, each new feature with a prompt to try it. Reading the changelog costs no usage.</p>
-      </section>
-
-      <section class="setting-group" id="limitGroup" data-nav="Usage limit">
-        <h3>Your 5-hour limit</h3>
-        <label class="toggle"><input type="checkbox" id="forecastToggle"><span class="switch"></span>Warn me when I'm on pace to hit my 5-hour limit before it resets</label>
-        <p class="muted small">Then you can hold messages and routines for after the reset. Holding works with this off, too.</p>
-        <label class="toggle"><input type="checkbox" id="spendGuardToggle"><span class="switch"></span>Stop routines and workflows before they use up my 5-hour limit</label>
-        <div class="row wrap" id="spendGuardOptions">
-          <label class="inline-label" for="spendReserveSelect">Keep for me
-            <select id="spendReserveSelect" class="field slim">
-              <option value="10">10%</option>
-              <option value="25">25%</option>
-              <option value="50">50%</option>
-            </select>
-          </label>
-          <label class="inline-label" for="spendMaxSelect">Stop a routine after
-            <select id="spendMaxSelect" class="field slim">
-              <option value="15">15 minutes</option>
-              <option value="30">30 minutes</option>
-              <option value="60">1 hour</option>
-              <option value="120">2 hours</option>
-              <option value="240">4 hours</option>
-            </select>
-          </label>
-        </div>
-        <p class="muted small">A routine due past that point waits for the reset; one already running stops, and its conversation is kept so you can carry on. Autonomous tabs stop too, but only once you've been away from the PC for 15 minutes. Runs you start by hand aren't held back.</p>
-        <label class="toggle"><input type="checkbox" id="holdBigToggle"><span class="switch"></span>Hold big tasks for the reset when I'm close to the limit</label>
-        <p class="muted small">Shellby learns what tasks like yours usually take. When a message would carry you past the line (the share you keep, or the limit with the guard off), it waits for the reset instead, with a "Send now" if you change your mind. It needs a few similar tasks to go on first, and it's all worked out on this PC.</p>
-      </section>
-
-      <section class="setting-group" id="safetyGroup" data-nav="Safety nets">
-        <h3>Safety nets</h3>
-        <label class="toggle"><input type="checkbox" id="leaveGuardToggle"><span class="switch"></span>Hold up a shutdown or sign-out while work is unpushed, uncommitted, or Claude is mid-task</label>
-        <p class="muted small">Windows shows why, with "Shut down anyway". To check before you lock, use "Lock the PC" or "Is it safe to leave?" in his menu.</p>
-        <label class="toggle"><input type="checkbox" id="flakyToggle"><span class="switch"></span>Spot flaky tests: ones that fail, then pass with the code unchanged</label>
-        <p class="muted small">Watches tests Claude runs in Shellby's tabs. Keeps test names only, never their output, on this PC. The list is on the Routines page.</p>
-        <label class="toggle"><input type="checkbox" id="catchBugsToggle"><span class="switch"></span>Catch bugs for the Bugdex</label>
-        <p class="muted small">When Claude fixes a failing command in Shellby's tabs, that kind of bug goes in a jar. Keeps only which kind it was and the project, never the error text.</p>
-        <div class="sub-toggles" id="bugdexOptions">
-          <label class="toggle"><input type="checkbox" id="bugBattlesToggle"><span class="switch"></span>Bug battles: watch Claude take on each bug while it's loose</label>
-          <label class="toggle"><input type="checkbox" id="bugFollowerToggle"><span class="switch"></span>His favourite catch follows him round the desk</label>
-          <label class="toggle"><input type="checkbox" id="shareBugdexToggle"><span class="switch"></span>Share my Bugdex with friends</label>
-          <p class="muted small">Puts which kinds you've caught and how many badges you hold on your calling card, so friends see your reports and bring you jars. No counts, projects or errors. Needs Visiting crabs.</p>
-        </div>
-        <label class="toggle"><input type="checkbox" id="tideEventsToggle"><span class="switch"></span>Tide events: a week or so with its own bug, finds and medal</label>
-        <p class="muted small">Six times a year (The Haunting, Frostbite, Pen Pal Week, Spring Clean, Low Tide and Harvest Moon), with a countdown on the Us page and four goals counted from what you already do. Finish them while it's on for that year's medal. Off hides the banner and the event's bug and finds.</p>
-        <label class="toggle"><input type="checkbox" id="checkEachTurnToggle"><span class="switch"></span>Run the tests after a turn that changed files</label>
-        <div class="row wrap" id="checkEachTurnOptions">
-          <label class="inline-label" for="checkTimeoutSelect">Give up after
-            <select id="checkTimeoutSelect" class="field slim">
-              <option value="2">2 minutes</option>
-              <option value="5">5 minutes</option>
-              <option value="10">10 minutes</option>
-              <option value="20">20 minutes</option>
-            </select>
-          </label>
-        </div>
-        <p class="muted small">This runs the project's own scripts on this PC: its test script, and a typecheck or build if it has one. He asks once per project before the first run, and keeps sign-in tokens and keys out of their environment. The verdict is stamped on the turn's changes. It also checks a copy before bringing it home, and won't merge red without asking. Off by default: tests use your CPU. "Run checks" on any turn works either way.</p>
-        <label class="toggle"><input type="checkbox" id="surprisesToggle"><span class="switch"></span>Small surprises for real wins: a critical hit, a clean landing</label>
-        <p class="muted small">Now and then, when one turn takes failing tests all the way to green, or a copy comes home with its checks green on the first try, he makes a little fuss. Rare on purpose, and only for the real thing: never for being quick, and never when tests were skipped or deleted to get there. Clean landings need the checks above.</p>
-        <label class="toggle"><input type="checkbox" id="turnShotsToggle"><span class="switch"></span>Before/after pictures of your dev server</label>
-        <p class="muted small">When a conversation works in a folder Shellby is running a dev server from, he photographs the page as the turn starts and again if it changed anything you'd see. Kept on this PC: the last 50 per conversation, for two weeks.</p>
+        <p class="muted small">For a line on your phone while you're away, turn on <button type="button" class="link-btn inline" data-jump-setting="chEnabled">Tell me when I'm away</button> under Connections.</p>
       </section>
 
       <section class="setting-group" data-nav="Shortcut">

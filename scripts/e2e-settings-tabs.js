@@ -1,4 +1,4 @@
-// ci: Settings' four tabs: what's on each, the arrow keys, jumps by name
+// ci: Settings' five tabs: what's on each, the arrow keys, jumps by name, links between them
 // End-to-end check of the Settings tabs against the dev app over CDP: each tab
 // shows only its own sections, the arrow keys walk them, jumps by name (the tray,
 // the palette) land on the right tab, and just-the-crab starts on Shellby.
@@ -44,10 +44,11 @@ async function launch(profile) {
 }
 
 const TABS = {
-  shellby: ['Look', 'Moving around', 'Personality', 'Sound', 'Mischief', 'Music', 'Typing along', 'Weather', 'Desk lighting', 'Discord', 'On a stream', 'Stream Deck'],
-  claude: ['Claude Code', 'Mode', 'Model', 'Folder', 'Other computers', 'Editor', 'Dev servers', 'Everywhere'],
-  connect: ['Elsewhere', 'GitHub', 'GitLab'],
-  general: ['System', 'Usage limit', 'Safety nets', 'Shortcut', 'What you use', 'About'],
+  shellby: ['Look', 'Moving around', 'Personality', 'Sound', 'Games', 'Mischief'],
+  around: ['Music', 'Typing along', 'Weather', 'Desk lighting', 'Discord', 'On a stream', 'Stream Deck'],
+  claude: ['Claude Code', 'Mode', 'Model', 'Usage limit', 'Folder', 'Copies', 'Checks', 'Dev servers', 'Editor', 'Everywhere'],
+  connect: ['Elsewhere', 'GitHub', 'GitLab', 'Other computers'],
+  general: ['System', 'Notifications', 'Shortcut', 'What you use', 'About'],
 };
 
 (async () => {
@@ -86,9 +87,9 @@ const TABS = {
       await shot(panel, `tab-${tab}`);
     }
     // the extras start folded to one line that says whether each is on
-    await panel.ev("document.getElementById('setTab-shellby').click()");
+    await panel.ev("document.getElementById('setTab-around').click()");
     await wait(200);
-    check(await panel.ev("[...document.querySelectorAll('#setPanel-shellby .setting-fold')].every(f => !f.open)"), 'the extras start folded');
+    check(await panel.ev("[...document.querySelectorAll('#settingsView .setting-fold')].every(f => !f.open)"), 'the extras start folded');
     check(await panel.ev("document.querySelector('#musicGroup .fold-state').textContent") === 'Off', 'a folded extra says Off');
     await panel.ev("document.getElementById('npEnabled').click()");
     await wait(600);
@@ -131,9 +132,26 @@ const TABS = {
     await wait(100);
     await panel.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
     await wait(1000);
-    check(await selected(panel) === 'shellby', 'picking Desk lighting in the palette opens the Shellby tab');
+    check(await selected(panel) === 'around', 'picking Desk lighting in the palette opens the Around you tab');
     check(await panel.ev("document.getElementById('rgbGroup').open"), 'and unfolds Desk lighting');
     await shot(panel, 'jump-desk-lighting');
+
+    // the highlight sits under the chosen tab, and every tab's name fits
+    check(await panel.ev(`(() => {
+      const bar = document.getElementById('settingsTabs');
+      const b = bar.querySelector('[aria-selected="true"]');
+      const near = (v, want) => Math.abs(parseFloat(bar.style.getPropertyValue(v)) - want) < 1;
+      return bar.classList.contains('has-ink') && near('--ink-x', b.offsetLeft) && near('--ink-w', b.offsetWidth);
+    })()`), 'the highlight sits under the chosen tab');
+    check(await panel.ev("[...document.querySelectorAll('#settingsTabs [role=tab]')].every(b => b.scrollWidth <= b.clientWidth + 1)"), 'every tab name fits without clipping');
+
+    // a setting that talks about one on another tab links straight to it
+    check(await panel.ev("[...document.querySelectorAll('#settingsView [data-jump-setting]')].every(a => document.getElementById(a.dataset.jumpSetting))"),
+      'every link between settings points at one that exists');
+    await panel.ev("document.getElementById('setTab-general').click(); document.querySelector('#notifyGroup [data-jump-setting]').click()");
+    await wait(600);
+    check(await selected(panel) === 'connect' && await panel.ev('document.activeElement.id') === 'chEnabled',
+      "Notifications' phone link opens Tell me when I'm away on Connections");
 
     // the autonomous-mode warning lives on the Claude tab
     await panel.ev("document.getElementById('setTab-general').click(); SB.chooseMode('autonomous')");

@@ -44,17 +44,39 @@
 
   // ------------------------------------------------------------ Settings tabs
 
-  // Four tabs instead of one long page: the crab, Claude, the outside world, the
-  // app itself. Settings reopens on the last tab you looked at; the first time,
-  // Claude users start on Claude and just-the-crab users on Shellby.
+  // Five tabs instead of one long page, each named for what it changes: the crab,
+  // what he does around your PC, Claude, the outside world, the app itself.
+  // Settings reopens on the last tab you looked at; the first time, Claude users
+  // start on Claude and just-the-crab users on Shellby.
   const settingsView = $('settingsView');
-  const tabs = [...$('settingsTabs').querySelectorAll('[role="tab"]')];
+  const tabBar = $('settingsTabs');
+  const tabs = [...tabBar.querySelectorAll('[role="tab"]')];
   const allGroups = () => [...settingsView.querySelectorAll('.setting-group[data-nav]')];
   const tabOf = group => group.closest('.settings-panel')?.dataset.tab;
+  const tabIndex = tab => tabs.findIndex(b => b.dataset.tab === tab);
   let currentTab = null;
+
+  // The highlight under the chosen tab slides to the next one. The tabs are as
+  // wide as their names, so it's measured, not worked out from the count.
+  function placeInk() {
+    const b = tabs[tabIndex(currentTab)];
+    if (!b || !b.offsetWidth) return;
+    tabBar.style.setProperty('--ink-x', `${b.offsetLeft}px`);
+    tabBar.style.setProperty('--ink-w', `${b.offsetWidth}px`);
+    // ::before only transitions once has-ink is on, so the first placement lands
+    // in place instead of sliding in from the left edge.
+    if (!tabBar.classList.contains('has-ink')) {
+      void tabBar.offsetWidth;
+      tabBar.classList.add('has-ink');
+    }
+  }
+  new ResizeObserver(placeInk).observe(tabBar);
+  document.fonts.ready.then(placeInk);
 
   function showTab(tab, { focus = false } = {}) {
     const changed = tab !== currentTab;
+    // The new tab's page comes in from the side its tab is on.
+    if (changed && currentTab) settingsView.dataset.dir = tabIndex(tab) > tabIndex(currentTab) ? 'next' : 'prev';
     currentTab = tab;
     for (const b of tabs) {
       const on = b.dataset.tab === tab;
@@ -64,6 +86,7 @@
     }
     for (const p of settingsView.querySelectorAll('.settings-panel')) p.hidden = p.dataset.tab !== tab;
     if (changed) settingsView.scrollTop = 0;
+    placeInk();
   }
 
   SB.showSettingsTab = tab => showTab(tab);
@@ -93,8 +116,13 @@
     sync();
   }
   for (const b of tabs) b.addEventListener('click', () => showTab(b.dataset.tab));
+  // A setting that talks about one on another tab links straight to it.
+  settingsView.addEventListener('click', e => {
+    const link = e.target.closest('[data-jump-setting]');
+    if (link) SB.showSetting(link.dataset.jumpSetting);
+  });
   // Arrow keys walk the tabs, the usual way for a tab list.
-  $('settingsTabs').addEventListener('keydown', e => {
+  tabBar.addEventListener('keydown', e => {
     const i = tabs.indexOf(document.activeElement);
     if (i < 0) return;
     const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
@@ -122,7 +150,11 @@
       group.classList.add('arrived');
     });
   };
-  settingsView.addEventListener('animationend', e => e.target.classList.remove('arrived'));
+  settingsView.addEventListener('animationend', e => {
+    e.target.classList.remove('arrived');
+    // The slide is for a tab change only: coming back to Settings just fades in.
+    if (e.target.classList.contains('settings-panel')) delete settingsView.dataset.dir;
+  });
 
   const renderSettings = SB.views.settings.render;
   SB.views.settings.render = () => {

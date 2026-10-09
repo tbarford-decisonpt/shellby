@@ -188,4 +188,41 @@
         </form>
         <p class="small muted gh-note">gitlab.com is always asked. Hosts your clones point at are found by themselves when their name says gitlab; add any others here, separated by commas, and sign glab in to each with <code>glab auth login --hostname &lt;host&gt;</code>.</p>
       </section>
+
+      <section class="setting-group" id="remoteGroup" data-nav="Other computers">
+        <h3>Other computers</h3>
+        <p class="small muted ext-lede">Run Claude Code on another computer, like a server or a PC that stays on, and work with it here as usual. Shellby connects with ssh, through any computer in between. Add a folder there, and conversations in that folder run over there.</p>
+        <p class="small warn" id="rcNoSsh" hidden>Windows' own ssh isn't installed. Add <b>OpenSSH Client</b> in Windows Settings, under System, Optional features, then come back.</p>
+        <div class="rc-list" id="rcList"></div>
+        <div class="row wrap" id="rcAddRow">
+          <select class="field slim" id="rcPick" aria-label="A computer from your ssh settings"></select>
+          <button type="button" class="btn slim-btn" id="rcAdd">Add</button>
+          <button type="button" class="btn ghost slim-btn" id="rcNew">A new computer…</button>
+        </div>
+        <form class="rc-form" id="rcForm" hidden>
+          <label class="field-label"><span>Name</span><input type="text" class="field" id="rcAlias" placeholder="homebox" spellcheck="false" autocomplete="off" maxlength="63"></label>
+          <label class="field-label"><span>Address</span><input type="text" class="field" id="rcAddress" placeholder="192.168.1.20 or homebox.lan" spellcheck="false" autocomplete="off" maxlength="253"></label>
+          <div class="rc-form-row">
+            <label class="field-label"><span>User</span><input type="text" class="field" id="rcUser" placeholder="you" spellcheck="false" autocomplete="off" maxlength="32"></label>
+            <label class="field-label rc-port"><span>Port</span><input type="text" class="field" id="rcPort" placeholder="22" inputmode="numeric" autocomplete="off" maxlength="5"></label>
+          </div>
+          <label class="field-label"><span>Reach it through</span><select class="field" id="rcJump"></select></label>
+          <p class="small muted">Through another computer if this one is only reachable from there, like a home PC behind a VPS. Shellby adds it to your ssh settings, so your own terminal can use it too.</p>
+          <p class="small warn" id="rcFormError" role="alert" hidden></p>
+          <div class="row wrap end">
+            <button type="button" class="btn ghost slim-btn" id="rcFormCancel">Cancel</button>
+            <button type="submit" class="btn primary slim-btn" id="rcFormSave">Add computer</button>
+          </div>
+        </form>
+        <div class="sl-card" id="rcAgent">
+          <div class="sl-head">
+            <b>Windows' ssh agent</b>
+            <span class="row">
+              <button type="button" class="btn ghost slim-btn" id="rcAgentSkip" hidden></button>
+              <button type="button" class="btn slim-btn" id="rcAgentBtn" hidden></button>
+            </span>
+          </div>
+          <p class="small muted" id="rcAgentText">Checking…</p>
+        </div>
+      </section>
       </div>

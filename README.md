@@ -90,7 +90,7 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
 - **Keyboard first:** <kbd>Ctrl</kbd>+<kbd>K</kbd> runs what the mouse can, by name: stop, undo the last turn, try it another way, bring it home, compact, change mode or effort, start the project's dev server, run a routine (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> opens it too, for VS Code hands). <kbd>Ctrl</kbd>+<kbd>F</kbd> finds text in a conversation, <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> size the panel's text, and <kbd>Ctrl</kbd>+<kbd>/</kbd> lists every shortcut.
 - **In your terminal and editor too:** with the plugin he reacts to Claude Code in VS Code, Cursor, Windsurf, Zed, JetBrains and Windows Terminal, and sits in its status line.
-- **On your other computers:** keep Claude Code and your files on a server or a PC that stays on, and work with it from here. **Settings → Claude → Other computers** connects over ssh, through a VPS or any other computer in between, and walks you through the rest: Windows' ssh agent switched on for a key with a passphrase, a key set up from your password, Claude Code installed and signed in over there. Add a folder there, and conversations in it run there. Claude Code doesn't have to be on this PC at all (a locked-down work PC, say): pick **Claude Code on another computer** when Shellby first starts.
+- **On your other computers:** keep Claude Code and your files on a server or a PC that stays on, and work with it from here. **Settings → Connections → Other computers** connects over ssh, through a VPS or any other computer in between, and walks you through the rest: Windows' ssh agent switched on for a key with a passphrase, a key set up from your password, Claude Code installed and signed in over there. Add a folder there, and conversations in it run there. Claude Code doesn't have to be on this PC at all (a locked-down work PC, say): pick **Claude Code on another computer** when Shellby first starts.
 - **To the terminal and back:** **Continue in a terminal** carries a conversation on in Windows Terminal with `claude --resume`, and **Bring it into Shellby** (or `/shellby:handoff`) brings a terminal session into a tab.
 
 **[Everything he does with Claude Code →](docs/CLAUDE-CODE.md)** · **[Already use Claude Code in a terminal or editor? Here's what he adds →](docs/WHY-SHELLBY.md)**
@@ -272,7 +272,7 @@ And a few more:
 | **Flick him** while you drag him | tumbles across the screen, bonks off the edges and lands on the taskbar | always on: you started it |
 | **Throw him at the top** of the screen | sticks to it and walks along it upside down, legs swinging | Settings → Shellby → Climbing the edges of the screen |
 | **Rub the mouse** back and forth over him | gets petted, and you two grow a little closer | always on |
-| **Play some music** | puts his headphones on | Settings → Listening along |
+| **Play some music** | puts his headphones on | Settings → Around you → Listening along |
 | **Right-click → Play → Dig for treasure** | digs, and every so often holds up a find: sea glass, a pearl, and very rarely a gold doubloon | only when you ask |
 | **Right-click → Play → Hide and seek** | burrows into the sand and pops up behind one of your windows | only when you ask |
 | **Right-click → Play → Fetch** | waits for you to throw the pebble, scuttles after it and brings it back | only when you ask |

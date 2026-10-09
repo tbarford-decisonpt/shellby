@@ -12,7 +12,7 @@ Your phone, your stream, your desk lights, your Discord profile, your pull reque
 
 ## 🎥 On a stream
 
-**Settings → On a stream** serves him as an OBS browser source on a transparent background: the same crab, outfit and animations, reacting live in the corner. It's the critter's own stylesheet behind it, on 127.0.0.1 only.
+**Settings → Around you → On a stream** serves him as an OBS browser source on a transparent background: the same crab, outfit and animations, reacting live in the corner. It's the critter's own stylesheet behind it, on 127.0.0.1 only.
 
 ## 💡 Desk lighting
 
@@ -20,7 +20,7 @@ Through [OpenRGB](https://openrgb.org): coral while he works, amber when he need
 
 ## 🎮 On your Discord profile
 
-**Settings → On your Discord profile** puts him under your name the way a game shows up: *Lv 12 Abyssal Admin · working with Claude Code*, with a clock for how long he's been at it. Shellby talks to the Discord app on your PC, so there's nothing to sign in to. **Say what the task is** shows the running task's title instead, never in Work mode. With Visiting crabs on, a **Visit my crab** button links your calling card, so the people who see it can add you.
+**Settings → Around you → On your Discord profile** puts him under your name the way a game shows up: *Lv 12 Abyssal Admin · working with Claude Code*, with a clock for how long he's been at it. Shellby talks to the Discord app on your PC, so there's nothing to sign in to. **Say what the task is** shows the running task's title instead, never in Work mode. With Visiting crabs on, a **Visit my crab** button links your calling card, so the people who see it can add you.
 
 ## ✅ CI on your pull requests
 
