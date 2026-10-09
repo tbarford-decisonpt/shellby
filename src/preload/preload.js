@@ -1,5 +1,4 @@
-// The only bridge between the sandboxed renderers and the main process.
-// Every channel is explicit; renderers get no Node.js access.
+// The only bridge between the sandboxed renderers and main. Every channel is explicit; no Node.js access.
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const on = channel => cb => {
@@ -42,9 +41,7 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
   pathsForFiles: files => Array.from(files || []).map(f => { try { return webUtils.getPathForFile(f); } catch { return ''; } }).filter(Boolean),
-  // The same, for a drop or a paste that may hold a picture with no file behind
-  // it (a Win+Shift+S snip, an image dragged out of a browser): main saves those
-  // first. Resolves to { paths, error } — error is the last thing that failed.
+  // The same, for a drop or paste that may hold a fileless picture (a snip): main saves those first. -> { paths, error }
   attachFiles: async files => {
     const paths = [];
     let error = null;
@@ -73,8 +70,7 @@ contextBridge.exposeInMainWorld('shellby', {
   claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"
   onClaudeStatus: on('claude:status'), // re-checked after the sign-in window closes, or a sign-out
   locateClaude: invoke('claude:locate'), // when the search missed it (unusual install)
-  // Keeping Claude Code itself current (claude/update.js): the daily look at the
-  // registry, `claude update` on request, and tell | auto | off.
+  // Keeping Claude Code current (claude/update.js): a daily look, `claude update` on request, tell | auto | off.
   checkClaudeUpdate: invoke('claude:update-check'),
   updateClaude: invoke('claude:update'),
   setClaudeUpdateMode: mode => ipcRenderer.invoke('claude:update-mode', String(mode)),
@@ -153,7 +149,6 @@ contextBridge.exposeInMainWorld('shellby', {
   lanesView: invoke('lanes:view'), // { lanes, order, prompts, training }: every conversation at once (wiring/lanes.js)
   lineUpCopies: invoke('lanes:line-up'), // [tabId] in merge order: asks, then rebases each onto the last and checks
   answerPromptGroup: (key, decision) => ipcRenderer.invoke('lanes:answer', { key, decision }),
-
   // history
   listSessions: invoke('session:list'),
   openSession: invoke('session:open'),
@@ -409,13 +404,11 @@ contextBridge.exposeInMainWorld('shellby', {
   devUsage: invoke('dev:usage'), // dev builds with SHELLBY_FORECAST_TEST only: a backdated 5-hour reading
   dev: { throw: invoke('dev:throw'), stroll: invoke('dev:stroll'), focusEnd: invoke('dev:focus-end'), critterPos: invoke('dev:critter-pos'), say: invoke('dev:say'), bit: invoke('dev:bit'), temperament: invoke('dev:temperament'), perch: invoke('dev:perch'), perchState: invoke('dev:perch-state'), climb: invoke('dev:climb'), prank: invoke('dev:prank'), edges: invoke('dev:edges'), scene: invoke('dev:scene'), life: invoke('dev:life'), quest: invoke('dev:quest') }, // SHELLBY_MOTION_TEST only
   onNewTabIn: on('tab:new-in'),
-
   // focus sessions
   getFocus: invoke('focus:get'),
   startFocus: invoke('focus:start'),
   stopFocus: invoke('focus:stop'),
   onFocus: on('focus'),
-
   // XP and levels
   getXp: invoke('xp:get'),
   getHomes: invoke('homes:get'),
@@ -426,7 +419,6 @@ contextBridge.exposeInMainWorld('shellby', {
   onLevelUp: on('xp:levelup'),
   onXpBounty: on('xp:bounty'),
   onXpClass: on('xp:class'),
-
   // rooms: which screens are open yet (rooms.js)
   getRooms: invoke('rooms:get'),
   openRoom: invoke('rooms:open'),
@@ -435,12 +427,10 @@ contextBridge.exposeInMainWorld('shellby', {
   // what you use: screens opened, counted on this PC (feature-use.js)
   featureUsed: fire('features:used'),
   featureReport: invoke('features:report'),
-
   // quests: the features worth finding, one at a time (quests.js)
   getQuests: invoke('quests:get'),
   hideQuests: invoke('quests:hide'),
   onQuests: on('quests'),
-
   // his life between tasks: finds, the bond, the journal, games (life.js, playtime.js)
   getLife: invoke('life:get'),
   setBirthday: invoke('life:birthday'),
@@ -452,13 +442,11 @@ contextBridge.exposeInMainWorld('shellby', {
   onLifeMoment: on('life:moment'), // a day worth marking, a closer bond, a finished set
   // looking after him (care.js, needs.js): each answers { ok, error?, life }
   needs: { feed: invoke('needs:feed'), rinse: invoke('needs:rinse'), tuck: invoke('needs:tuck'), introSeen: fire('needs:intro-seen') },
-
   // the crew: one lasting helper crab per agent type (crew-roster.js)
   getCrew: invoke('crew:get'),
   renameCrew: invoke('crew:rename'),
   setCrewHat: invoke('crew:hat'),
   onCrew: on('crew'),
-
   // shell stickers: one per project shipped (stickers.js)
   getStickers: invoke('stickers:get'),
   placeSticker: (id, slot, shell) => ipcRenderer.invoke('stickers:place', { id, slot, shell }),
