@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.77.0: Sign-ins, shared tools and a glow-up
+
+### New
+- **Usage for another computer's Claude account.** When a computer you work on over ssh is signed in to a different Claude account, its tabs show that account's 5-hour and weekly meters, outlined and marked with a little person, and say whose plan it is. Shellby asks that computer for its numbers as soon as you open a conversation there, so they show before your first message.
+- **Pick many tools at once.** Your own skills, agents and commands have a checkbox in the Toolbox (Shift+click picks a range). With some picked, one bar pins, unpins, parks, exports or removes them all, and removing asks just once.
+- **Park a skill instead of deleting it.** Parking turns a skill, agent or command off for new conversations and keeps it safe in Shellby. Parked ones sit at the bottom of the list, one Restore away.
+- **Pick unused.** One click picks every one of your own that Claude hasn't reached for lately, ready to park and free up room in every conversation.
+- **Share a set of tools.** Export picks a handful of skills, agents and commands into one file, and Import adds someone's file to your Claude folder. It asks first and never overwrites one you already have.
+- **A health line above the Toolbox.** It counts MCP servers that won't connect, skills with no description, and skills hidden by a copy with the same name somewhere else. Click a count to see just those. A hidden copy's row shows which one loads and where the others are.
+- **Finds get portraits.** Every find on the shelf is drawn big now, shaded and inked like the Bugdex's creatures: the shelf, its card and the sparkly reveal show them off, while the little one stays in his claw.
+- **He's had a glow-up.** Shellby, every skin, every shell and everything in the wardrobe is reshaded, with a fine dark line round him and whatever he's wearing, so he stands out on any wallpaper and matches the Bugdex and the finds. Same crab, same outfits, crisper.
+- **Sign in to MCP servers without a terminal.** A server waiting for you to sign in (Stripe, Notion, Sentry and the like) now has a Sign in button in the Toolbox, and a new conversation offers it once in a toast. Shellby opens the sign-in page in your browser and connects the server, in every open conversation, as soon as you're done.
+
+### Fixed
+- **Another account's usage no longer moves your meter.** A conversation on a computer signed in to another Claude account used to overwrite your own meter with its numbers, and could set off your limit nap, forecast and usage guard. Now they stay with that account.
+- **Sparkly finds show their colours on the shelf.** They were drawn as dark silhouettes, as if you hadn't found them yet.
+- Clicking a file link that points at a network share (`\\server\share\...`) no longer opens it. Just looking at one made Windows sign in to that computer with your account.
+- Importing a tools file now skips any skill or agent that sets up hooks or MCP servers in its header, the same way it already skipped hook files. Those run commands, so they go through Mods and its own question.
+- Only programs running as you can list or start your routines and workflows through Shellby's local port. The Shellby plugin now sends his token for them.
+- The Downloads sorter and Red build fixer workflows mark file names and build-log text as something to read, not instructions to follow.
+- More kinds of file that run when opened (`.jnlp`, `.wsc`, `.dll`, certificates and others) are shown in their folder instead of opened.
+- Problem reports and the log hide GitLab tokens and Discord or Slack webhook addresses.
+
+### Changed
+- Bug battles have more going on. A bug now strikes back when Claude re-runs a command and it fails just as before (each type has its own move), and the fix that catches it is a finishing blow you watch land, so the HP bar no longer vanishes in one go.
+- Re-running a type check, linter or build now wears a bug down as the error count falls, the way failing tests already did. Before, every re-run of one missed.
+- Reading round and editing count for a little more, and keep counting for 20 minutes after the bug last showed itself instead of 10.
+- Opening a battle that's under way replays its last few moves from the past 10 minutes, so there's something to see.
+- **The Toolbox remembers where you left it.** It reopens on the same tab, source filter and order.
+- **Settings, sorted by what each one changes.** A new **Around you** tab holds everything he does around your PC: listening along, typing along, the weather, desk lighting, Discord, streams and Stream Deck. The Bugdex, tide events and small surprises sit together under **Games** on the Shellby tab. Your 5-hour limit, the test checks and copies of a project moved to the Claude tab, and Other computers to Connections. General keeps the app itself, with its notifications in one place.
+- **Links between related settings.** Where a setting depends on one in another tab, it links straight to it. Notifications point to your phone, and small surprises point to the test checks they need.
+- **A smoother tab bar.** The highlight slides to the tab you pick, and its page comes in from that side. Both stay still with reduced motion on.
+
 ## 0.76.0: Conversations that follow you, and helpers that report back
 
 ### New

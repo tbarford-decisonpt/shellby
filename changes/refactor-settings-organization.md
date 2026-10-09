@@ -1,4 +1,0 @@
-### Changed
-- **Settings, sorted by what each one changes.** A new **Around you** tab holds everything he does around your PC: listening along, typing along, the weather, desk lighting, Discord, streams and Stream Deck. The Bugdex, tide events and small surprises sit together under **Games** on the Shellby tab. Your 5-hour limit, the test checks and copies of a project moved to the Claude tab, and Other computers to Connections. General keeps the app itself, with its notifications in one place.
-- **Links between related settings.** Where a setting depends on one in another tab, it links straight to it. Notifications point to your phone, and small surprises point to the test checks they need.
-- **A smoother tab bar.** The highlight slides to the tab you pick, and its page comes in from that side. Both stay still with reduced motion on.
