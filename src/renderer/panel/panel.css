@@ -37,6 +37,9 @@ body::after {
 
 button { font: inherit; color: inherit; cursor: pointer; }
 button:disabled { cursor: default; }
+/* A button that reads as a link. Screens tint it further; without this, a bare one shows the browser's grey box. */
+.link-btn { padding: 0; border: 0; background: none; color: var(--sand); text-decoration: underline dotted; }
+.link-btn:hover, .link-btn:focus-visible { color: var(--glass); }
 :focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
 kbd {
   font: 600 var(--fs-10-5)/1 var(--font-mono); padding: 2px 5px; border-radius: 4px;
