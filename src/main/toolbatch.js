@@ -122,6 +122,9 @@ function parseBundle(raw) {
     }
     if (bad) continue;
     if (t.kind === 'skill' && !files.some(f => /^skill\.md$/i.test(f.path))) continue;
+    // A skills folder with a plugin manifest or hooks is a mod, which runs code in every
+    // conversation: that goes through Toolbox → Mods and its own question, never an import.
+    if (files.some(f => f.path.split('/').some(s => /^(\.claude-plugin|hooks)$/i.test(s)) || /^(plugin|hooks)\.json$/i.test(f.path))) continue;
     if (t.kind !== 'skill' && !/\.md$/i.test(files[0].path)) continue;
     tools.push({ kind: t.kind, name: t.name, files });
   }

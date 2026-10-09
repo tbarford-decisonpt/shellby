@@ -241,3 +241,12 @@ test('import leaves a linked Claude folder alone', async () => {
   assert.match(r.error, /link/);
   assert.deepEqual(fs.readdirSync(real), []);
 });
+
+test('parseBundle turns away a skill that is really a mod', () => {
+  const b64 = Buffer.from('x').toString('base64');
+  const skill = extra => JSON.stringify({ format: 'shellby-tools', version: 1, tools: [{ kind: 'skill', name: 'm', files: [{ path: 'SKILL.md', data: b64 }, { path: extra, data: b64 }] }] });
+  assert.equal(parseBundle(skill('.claude-plugin/plugin.json')).ok, false);
+  assert.equal(parseBundle(skill('hooks/hooks.json')).ok, false);
+  assert.equal(parseBundle(skill('hooks.json')).ok, false);
+  assert.equal(parseBundle(skill('scripts/run.sh')).ok, true);
+});
