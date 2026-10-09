@@ -213,7 +213,9 @@
 
   // Ctrl+Alt+arrow: where `id` goes. A swap with its neighbour that way; at
   // the left or right edge, a column of its own if it shares one and there's
-  // room. -> { target, zone } for place, or null.
+  // room. Up and down only swap inside the column: past its
+  // ends the pane is already the last or first one there, so that's null.
+  // -> { target, zone } for place, or null.
   function moveToward(grid, id, dir) {
     const to = neighbor(grid, id, dir);
     if (to) return { target: to, zone: 'center' };

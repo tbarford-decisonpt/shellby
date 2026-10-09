@@ -111,6 +111,14 @@ test('moveToward: swap with the neighbour, or a column of its own at the edge', 
   assert.deepEqual(P.moveToward(g, 'c', 'left'), { target: 'a', zone: 'left' });
   assert.equal(P.moveToward(g, 'b', 'right'), null, 'alone in its column: nowhere to go');
   assert.equal(P.moveToward([['a'], ['b'], ['c'], ['d', 'e']], 'e', 'right'), null, 'no fifth column');
+  // Up and down: a swap inside the column, and nothing past its ends (it is already the last or first pane there).
+  const col = [['a', 'b', 'c'], ['d']];
+  assert.deepEqual(P.moveToward(col, 'b', 'down'), { target: 'c', zone: 'center' });
+  assert.deepEqual(P.moveToward(col, 'b', 'up'), { target: 'a', zone: 'center' });
+  assert.equal(P.moveToward(col, 'c', 'down'), null, 'bottom of its column');
+  assert.equal(P.moveToward(col, 'a', 'up'), null, 'top of its column');
+  assert.equal(P.moveToward(col, 'd', 'down'), null, 'alone in its column: no column of its own to make');
+  assert.equal(P.moveToward(col, 'zzz', 'down'), null, 'not on screen');
 });
 
 test('shares: what flex-grow gets, always summing to 1, so a lone pane fills the row', () => {

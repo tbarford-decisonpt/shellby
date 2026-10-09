@@ -319,6 +319,15 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.activate('${D}')`);
     await wait(200);
 
+    // Up and down swap inside a column and stop at its ends.
+    await ev(`SB.activate('${A}')`);
+    await press('ArrowDown', CTRL_ALT);
+    check(await until(`JSON.stringify(SB.state.grid) === JSON.stringify([['${C}', '${A}'], ['${D}', '${B}']])`), 'Ctrl+Alt+↓ swaps it with the pane below');
+    await press('ArrowDown', CTRL_ALT);
+    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[C, A], [D, B]]), 'Ctrl+Alt+↓ from the bottom pane is a no-op: it is already the last in its column');
+    await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.activate('${A}')`);
+    await wait(200);
+
     // ...but not behind the palette or the shortcut list.
     await ev(`SB.activate('${A}')`);
     await ev(`document.getElementById('paletteSheet').hidden = false`);

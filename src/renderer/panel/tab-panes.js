@@ -377,7 +377,13 @@
   SB.movePane = async (tabId, dir) => {
     if (SB.solo || !(await chatShowing())) return false;
     const to = P.moveToward(state.grid, tabId, dir);
-    return to ? SB.placeTab(tabId, to.target, to.zone) : false;
+    if (to) return SB.placeTab(tabId, to.target, to.zone); // which toasts when the room's not there
+    // At the left or right edge with a column to itself to take, but no fifth column or no room: say so.
+    const at = P.find(state.grid, tabId);
+    if ((dir === 'left' || dir === 'right') && at && state.grid[at.c].length > 1 && !P.neighbor(state.grid, tabId, dir)) {
+      SB.toast(state.grid.length >= P.MAX_COLS ? 'Four columns is as many as there are. Close a pane first.' : NO_ROOM);
+    }
+    return false;
   };
 
   // Something on top of the chat that has the keyboard: the jump-anywhere
