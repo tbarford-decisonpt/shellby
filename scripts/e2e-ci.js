@@ -4,7 +4,7 @@
 //
 //   node scripts/e2e-ci.js              all of them
 //   node scripts/e2e-ci.js queue voice  just the ones whose name contains these
-//   node scripts/e2e-ci.js --shard=2/4  every fourth one, starting with the second
+//   node scripts/e2e-ci.js --shard=2/6  the second of six shards that take about as long
 //
 // They run one at a time on purpose: each launches its own Electron and some
 // share hook ports. CI splits them across machines with --shard instead.
@@ -32,20 +32,42 @@ const SUITE = discover();
 
 const TIMEOUT_MS = 5 * 60 * 1000;
 
+// Seconds each check took on CI (scripts/e2e-times.js writes it), to split the
+// shards by time: by name, one ran 7.2 minutes while another was done in 3.6.
+const TIMES = (() => { try { return require('./e2e-times.json'); } catch { return {}; } })();
+
+/**
+ * Splits checks into n shards that take about as long: the slowest first, each
+ * onto the shard with the least so far. A check with no time yet counts as a
+ * typical one. Ties go by name, so every machine splits alike. Pure.
+ */
+function balance(checks, n, times = TIMES) {
+  const known = checks.map(c => times[c]).filter(Number.isFinite).sort((a, b) => a - b);
+  const typical = known.length ? known[Math.floor(known.length / 2)] : 1;
+  const secs = c => (Number.isFinite(times[c]) ? times[c] : typical);
+  const shards = Array.from({ length: n }, () => ({ checks: [], secs: 0 }));
+  for (const c of [...checks].sort((a, b) => secs(b) - secs(a) || (a < b ? -1 : a > b ? 1 : 0))) {
+    const s = shards.reduce((min, x) => (x.secs < min.secs ? x : min));
+    s.checks.push(c);
+    s.secs += secs(c);
+  }
+  return shards.map(s => s.checks.sort());
+}
+
 /**
  * The checks to run: those whose name contains a word asked for (all, with
- * none), then, with --shard=i/n, every nth of those starting at the ith. Taking
- * every nth rather than a block spreads the slow checks across the shards.
+ * none), then, with --shard=i/n, the ith of n shards balanced by how long each
+ * check takes on CI (balance).
  * -> { suite } | { error }. Pure.
  */
-function pick(all, args) {
+function pick(all, args, times = TIMES) {
   const wanted = args.filter(a => !a.startsWith('-'));
   const shardArg = args.find(a => a.startsWith('--shard'));
   const m = shardArg && /^--shard=(\d+)\/(\d+)$/.exec(shardArg);
   if (shardArg && (!m || +m[1] < 1 || +m[1] > +m[2])) return { error: `${shardArg}: use --shard=i/n, with i from 1 to n` };
   const matched = wanted.length ? all.filter(s => wanted.some(w => s.includes(w))) : all;
   if (!matched.length) return { error: `No checks match ${wanted.join(', ')}. Known: ${all.join(', ')}` };
-  const suite = m ? matched.filter((_, k) => k % +m[2] === +m[1] - 1) : matched;
+  const suite = m ? balance(matched, +m[2], times)[+m[1] - 1] : matched;
   // Green with nothing run would read as a pass.
   if (!suite.length) return { error: `${shardArg} of ${matched.length} check${matched.length === 1 ? '' : 's'} leaves this shard none to run` };
   return { suite };
@@ -86,7 +108,7 @@ function reap(rootPid, sinceMs) {
 }
 
 if (require.main !== module) {
-  module.exports = { SUITE, discover, pick, reap, reapScript };
+  module.exports = { SUITE, discover, pick, balance, reap, reapScript };
   return;
 }
 

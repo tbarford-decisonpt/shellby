@@ -39,11 +39,16 @@ The git stash stack is shared by every worktree. Use a WIP commit instead.
   `### New`, `### Fixed`, `### Faster` or `### Changed` sections of bullets in the
   CHANGELOG's own voice. One file per branch, so notes never conflict. See
   [changes/README.md](changes/README.md).
-- Releases are cut on main: `npm run release:cut -- X.Y.Z "Title"` gathers the
-  notes into the CHANGELOG, bumps the version, commits and tags locally. Then push
-  main, run `npm run release:ready` (waits for CI on that commit to be green) and
-  push the tag. A tag that fails to release is never moved: the fix ships as the
-  next patch.
+- Releases are cut on main, over code CI has passed: merge, push main, then
+  `npm run release:cut -- X.Y.Z "Title" --wait` waits for CI on main (stopping at
+  the first red job), gathers the notes into the CHANGELOG, bumps the version,
+  commits and tags locally. Then `git push --atomic origin main vX.Y.Z`: the
+  release commit is version-only, so CI's pass on its parent counts and the
+  release skips re-running e2e. A tag that fails to release is never moved: the
+  fix ships as the next patch.
+- After merging several branches, run the full `npm run e2e:ci` once before
+  pushing: merged branches break each other's checks, and each CI round trip is
+  about 5 minutes.
 
 ## Commits
 
