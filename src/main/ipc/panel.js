@@ -77,6 +77,7 @@ function registerPanelIpc(ipcMain, d) {
       cutOff: (d.cutOff || []).splice(0),
       tabs,
       tabItems: Object.fromEntries(tabs.map(t => [t.id, d.history.load(t.id)])),
+      paneLayout: d.CAPTURE ? null : d.config.get('paneLayout') || null,
       startView: (() => { const v = d.startView; d.startView = null; return v; })(),
     };
   });

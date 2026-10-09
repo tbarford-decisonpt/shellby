@@ -94,6 +94,14 @@ test('clean: a saved layout with gone, duplicate and junk entries', () => {
   assert.equal(P.clean({ grid: [['x'.repeat(300)]] }), null, 'absurd ids dropped');
 });
 
+test('clean: ids every object already has are junk, so the sizes stay numbers', () => {
+  const saved = JSON.parse('{"grid":[["__proto__","a"],["constructor"],["toString","b"]],"sizes":{"w":{"__proto__":9,"a":1,"b":1},"h":{}}}');
+  const out = P.clean(saved);
+  assert.deepEqual(out.grid, [['a'], ['b']]);
+  const { cols } = P.shares(out.grid, out.sizes);
+  assert.deepEqual(cols, [0.5, 0.5]);
+});
+
 test('neighbor: the pane beside or above, level with this one', () => {
   const g = [['a', 'c'], ['b'], ['d', 'e', 'f']];
   assert.equal(P.neighbor(g, 'a', 'right'), 'b');

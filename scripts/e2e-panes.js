@@ -54,15 +54,18 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
 (async () => {
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
-  const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
+  // The same profile both times: the restart below has to find the layout it saved.
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
+  const launch = () => spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
-    env: { ...process.env, SHELLBY_USER_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-')), SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47960' },
+    env: { ...process.env, SHELLBY_USER_DATA: userData, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47960' },
   });
+  let app = launch();
   try {
     let list = [];
     for (let i = 0; i < 40 && !list.some(t => t.url.endsWith('panel.html')); i++) { list = await targets(); await wait(500); }
     const panel = await connect(list.find(t => t.url.endsWith('panel.html')));
-    const { ev, until } = panel;
+    let { ev, until } = panel; // rebound when the app restarts
     await wait(3000);
     await ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
     // Not maximized yet: Split has to make room for itself.
@@ -342,6 +345,38 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await press('ArrowRight', ALT);
     check(await until(`SB.state.activeTab === '${D}'`), 'Alt+→ works from the message box too');
     await ev(`SB.activate('${D}')`);
+
+    // ---- A restart brings the layout and its sizes back. Only conversations
+    // that have said something reopen after a restart (main's openTabs), and A
+    // and B have, so C and D say something first.
+    for (const id of [C, D]) {
+      await ev(`SB.activate('${id}'); document.getElementById('input').value = ''; SB.send('hello from ' + '${id}'.slice(0, 4))`);
+      await until(`!SB.state.tabs.get('${id}').busy && SB.state.tabs.get('${id}').el.querySelector('.msg.assistant')`, 15000);
+    }
+    await ev(`(() => { const s = SB.state.paneSizes; for (const id of SB.state.grid[0]) s.w[id] = 3; SB.renderPanes(); })()`);
+    const layout = await ev('JSON.stringify({ grid: SB.state.grid, w: SB.state.paneSizes.w })');
+    // A screen with room for the left column at three times the right one, both
+    // at least 280 px, gets them back as they were; a smaller one evens them out.
+    const roomAsLeft = await ev('SB.roomFor(SB.state.grid, SB.state.paneSizes).ok');
+    await ev('shellby.maximize()'); // back to its own size, so the restart has to grow it
+    await wait(1500); // past the save's 500 ms
+    panel.ws.close();
+    app.kill();
+    await wait(1500);
+    app = launch();
+    let again = [];
+    for (let i = 0; i < 40 && !again.some(t => t.url.endsWith('panel.html')); i++) { again = await targets(); await wait(500); }
+    Object.assign(panel, await connect(again.find(t => t.url.endsWith('panel.html'))));
+    ({ ev, until } = panel);
+    await wait(3000);
+    await ev("SB.setView('chat')");
+    check(await until(`SB.state.grid.length > 1`), 'the panel comes back split');
+    const back = await ev('JSON.stringify({ grid: SB.state.grid, w: SB.state.paneSizes.w })');
+    if (roomAsLeft) check(back === layout, 'with the same panes, in the same places, at the same sizes');
+    else check(JSON.stringify(JSON.parse(back).grid) === JSON.stringify(JSON.parse(layout).grid), `with the same panes in the same places (sizes evened: no room for them as left on a ${await ev('screen.availWidth')} px screen)`);
+    check(await until(`[...document.querySelectorAll('.pane')].every(p => p.getBoundingClientRect().width >= 279)`, 5000), 'and the panel grew to fit them');
+    await ev('shellby.maximize()'); // the drags that follow want the room
+    await wait(800);
 
     // ---- A click into a pane gives it the box.
     await panel.click(await paneSpot(C, 0.5, 0.5));

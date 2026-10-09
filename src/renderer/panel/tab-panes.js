@@ -112,6 +112,47 @@
     }
   }
 
+  // The layout, for the next start: a moment after it settles, only while
+  // split, never from a popped-out window. Back to one pane, it's cleared once,
+  // so one pane writes nothing and starts as it always has.
+  let saveTimer = null;
+  SB.savePanes = () => {
+    if (SB.solo) return;
+    const split = P.ids(state.grid).length > 1;
+    if (!split && !state.panesSaved) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      state.panesSaved = split;
+      api.savePaneLayout(split ? { grid: state.grid, sizes: state.paneSizes } : null);
+    }, 500);
+  };
+
+  // A split brought back at boot (boot.js) that needs more room than the panel
+  // has grows it, as a split would. Measured with the chat on screen only: from
+  // another view (first run, a deep link) it waits until the chat shows.
+  let growWanted = false;
+  SB.growForPanes = () => { growWanted = true; if (state.view === 'chat') growNow(); };
+  SB.views.chat = { render: () => { if (growWanted) growNow(); } };
+  // Room for the panes at the sizes they were left at; on a screen too small
+  // for that, room for them evened out, and the sizes evened as far as they
+  // have to be, so no pane comes back under P.MIN.
+  async function growNow() {
+    growWanted = false;
+    await null; // the map's observer of the view change runs before this goes on
+    await SB.roomSettled?.();
+    await new Promise(requestAnimationFrame);
+    if (state.view !== 'chat') { growWanted = true; return; }
+    if (P.ids(state.grid).length < 2) return;
+    const asLeft = SB.roomFor(state.grid, state.paneSizes);
+    const room = asLeft.ok ? asLeft : SB.roomFor(state.grid);
+    if (!room.ok) return; // not even evened out on this screen: as it is, then
+    if (room.want) await api.fitPanel(room.want);
+    if (asLeft.ok) return;
+    state.paneSizes = atLeastMin(state.grid, state.paneSizes, room.space);
+    applySizes();
+    SB.savePanes();
+  }
+
   // While there's more than one pane the box lives in the focused one, and the
   // others show their own draft in its place: a stand-in that hands the box
   // over on a click or a key. With one pane it sits where it always has.
@@ -165,15 +206,26 @@
   // Main keeps a grown panel this far inside the screen's work area (wiring/panel.js ROOMY.gap).
   const SCREEN_GAP = 8 * 2;
 
+  // CSS px `grid` takes with its smallest pane at P.MIN, at `sizes`: the
+  // forward of atLeastMin below. Even sizes come to P.needs plus the padding.
+  function needAt(grid, sizes) {
+    const { cols, rows } = P.shares(grid, sizes);
+    return {
+      width: Math.ceil(FEEDS_PAD + grid.length * PANE_CHROME.width + P.MIN.width / Math.min(...cols)),
+      height: Math.ceil(FEEDS_PAD + Math.max(...grid.map((col, c) => col.length * PANE_CHROME.height + P.MIN.height / Math.min(...rows[c])))),
+    };
+  }
+
   // Room for `grid` in this window: { ok: true } as it is, { ok: true, want }
   // once the window grows to `want` ({ width, height } in DIP, what main's
   // fitPanel takes), or { ok: false }: not on this screen. `space`: the CSS px
   // the panes get then. The DOM measures in CSS px, which the page's zoom
-  // scales; the window and screen are in DIP.
-  SB.roomFor = (grid) => {
+  // scales; the window and screen are in DIP. With `sizes`, room for the
+  // panes at those sizes; without, evened out.
+  SB.roomFor = (grid, sizes = null) => {
     const f = $('feeds').getBoundingClientRect();
     const n = P.needs(grid, PANE_CHROME);
-    const need = { width: n.width + FEEDS_PAD, height: n.height + FEEDS_PAD };
+    const need = sizes ? needAt(grid, sizes) : { width: n.width + FEEDS_PAD, height: n.height + FEEDS_PAD };
     // Split, the box moves into a pane and the feeds take its place.
     // Shown again from another view, the chat can have a scrollbar for a frame
     // or two (10 px of the feeds' width); the panes never scroll it, so count it in.

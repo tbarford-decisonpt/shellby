@@ -228,13 +228,21 @@
       for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
     }
     // A conversation the last run cut off mid-turn comes to the front, and the toast says which.
+    // The split view as it was left, with the conversations still open. Only a
+    // real split: anything that cleans down to one pane starts as it always has.
+    state.panesSaved = !!b.paneLayout;
+    const kept = SB.panes.clean(b.paneLayout, [...state.tabs.keys()]);
+    const saved = kept && SB.panes.ids(kept.grid).length > 1 ? kept : null;
+    if (saved) { state.grid = saved.grid; state.paneSizes = saved.sizes; }
     const cut = (b.cutOff || []).filter(c => state.tabs.has(c.id));
     if (cut.length) SB.activate(cut[0].id);
+    else if (saved) SB.activate(saved.grid[0][0]);
     else if (state.tabs.size) SB.activate([...state.tabs.keys()].pop());
     else await SB.newTab();
 
     if (b.cutOff?.length) setTimeout(() => SB.toast(window.ShellbyFeedLogic.cutOffToast(b.cutOff), { ms: 9000 }), 1200);
     SB.setView(SB.needsOnboarding() ? 'onboarding' : b.startView || state.view === 'wardrobe' && 'wardrobe' || 'chat');
+    if (saved) SB.growForPanes(); // more room than the panel's own size: it grows, now or once the chat shows
     if (b.claudeTricks && !SB.needsOnboarding()) SB.showClaudeTricks(b.claudeTricks); // Claude Code updated: what it can do now
     performance.mark('shellby:panel-ready'); // booted, tabs back: scripts/perf-budget.js times app-ready to here
   })();

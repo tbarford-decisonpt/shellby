@@ -181,14 +181,16 @@
   }
 
   // A layout saved last time, made safe: only the open ids (any string id with
-  // openIds null), each once, within the caps. null when nothing's left.
+  // openIds null), each once, within the caps. null when nothing's left. An id
+  // every object already has (__proto__, constructor) is junk: the sizes are
+  // plain objects keyed by id, and it would read or set their prototype.
   function clean(saved, openIds = null) {
     if (!saved || typeof saved !== 'object' || !Array.isArray(saved.grid)) return null;
     const open = openIds && new Set(openIds);
     const seen = new Set();
     const grid = saved.grid
       .map(col => (Array.isArray(col) ? col : []).filter(id => {
-        if (typeof id !== 'string' || !id || id.length > MAX_ID || seen.has(id) || (open && !open.has(id))) return false;
+        if (typeof id !== 'string' || !id || id.length > MAX_ID || id in Object.prototype || seen.has(id) || (open && !open.has(id))) return false;
         seen.add(id);
         return true;
       }).slice(0, MAX_ROWS))
