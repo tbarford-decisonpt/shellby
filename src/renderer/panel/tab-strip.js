@@ -279,7 +279,7 @@
     lift();
     SB.showDrop(null);
     if (e.type === 'pointercancel') return;
-    if (d.drop?.kind === 'pane') SB.placeTab(d.id, d.drop.target, d.drop.zone);
+    if (d.drop?.kind === 'pane') SB.placeTab(d.id, d.drop.target, d.drop.zone).catch(() => {}); // a failed grow leaves it where it was
     if (d.drop?.kind === 'out') SB.popOut(d.id, { x: e.screenX, y: e.screenY });
     // On the strip, the click that follows this pointerup is left alone on purpose:
     // you grabbed that tab, so ending up in its conversation is what you asked for.

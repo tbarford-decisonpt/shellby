@@ -83,7 +83,14 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await until(`!SB.state.tabs.get('${A}').busy`);
 
     // ---- Split: the newest conversation off screen goes beside the focused one.
-    await ev('SB.splitPane()');
+    // Asked for from another view with the shortcut: the chat comes back, and is
+    // measured as it shows, not as the hidden 0 x 0 it was.
+    const chromeW = startWidth - await ev(`document.getElementById('feeds').getBoundingClientRect().width`);
+    await ev("SB.setView('settings')");
+    await wait(300);
+    for (const type of ['keyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key: '\\', code: 'Backslash', windowsVirtualKeyCode: 220, modifiers: 2 });
+    check(await until('SB.state.grid.length === 2'), 'Ctrl+\\ from Settings splits');
+    check(await ev("SB.state.view === 'chat'"), 'and shows the chat');
     await wait(300);
     const split = await ev(`(() => {
       const r = id => SB.state.tabs.get(id).el.getBoundingClientRect();
@@ -100,7 +107,35 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     // Two columns need 2 x 286 + 6 px of chat; a 460 px panel can't hold that, so it must have grown.
     const grownTo = await ev('window.innerWidth');
     check(startWidth >= 700 || grownTo > startWidth, `the panel grew to fit two panes (${startWidth} -> ${grownTo})`);
+    check(grownTo <= Math.max(startWidth, 2 * 286 + 6 + chromeW + 2), `and no wider than they need (${grownTo})`);
     check(await ev(`[...document.querySelectorAll('.pane')].every(p => p.getBoundingClientRect().width >= ${280 - 1})`), 'no pane narrower than 280 px');
+
+    // ---- Split from a workflow map with Make room on (the palette shows the chat
+    // and splits at once): the room goes back first, then the panel grows for the
+    // panes, so the map's width is never taken for room the chat has.
+    await ev("SB.setView('workflows')");
+    await wait(300);
+    await ev(`(() => { const b = [...document.querySelectorAll('#workflowsView button')].find(x => /template/i.test(x.textContent)); b && b.click(); })()`);
+    await wait(300);
+    await ev(`(() => { const b = [...document.querySelectorAll('#workflowsView button, #workflowsView [role=button]')].find(x => /Red build fixer/.test(x.textContent)); b && b.click(); })()`);
+    const roomBtn = await until(`!!document.querySelector('#workflowsView [data-room-btn]')`);
+    check(roomBtn, 'a workflow map with its Make room button');
+    if (roomBtn) {
+      await ev(`document.querySelector('#workflowsView [data-room-btn]').click()`);
+      const roomy = await until(`window.innerWidth > ${grownTo + 100}`, 3000);
+      check(roomy, `Make room widens the panel (${await ev('window.innerWidth')})`);
+      await ev("SB.setView('chat'); SB.splitPane()"); // what the palette's Split does
+      check(await until('SB.state.grid.length === 3'), 'Split from the map adds a third column');
+      await wait(1200); // anything still settling (the room going back, the grow) has
+      const three = await ev(`({ w: window.innerWidth, panes: [...document.querySelectorAll('.pane')].map(p => Math.round(p.getBoundingClientRect().width)) })`);
+      check(three.panes.length === 3 && three.panes.every(w => w >= 280 - 1), `three panes, none under 280 px once the room's given back (${JSON.stringify(three)})`);
+      check(three.w <= Math.max(grownTo, 3 * 286 + 6 + chromeW + 2), `the panel is as wide as the panes need, not the map (${three.w})`);
+      check(await ev(`localStorage.getItem('shellby.wf.roomy') === '1'`), 'and maps still ask for room next time (the grow didn\'t take it as yours)');
+      await ev(`SB.closePane(SB.state.grid[2][0])`);
+      await wait(300);
+    }
+    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A], [D]]), 'back to A beside D');
+    await ev(`SB.activate('${D}')`);
     await ev('shellby.maximize()'); // room for the 2x2 grid the drags below make
     await wait(800);
 

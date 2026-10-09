@@ -148,3 +148,10 @@ test('panel:fit: only the panel, only a sensible size, passed through untouched'
   await assert.rejects(ipc.invokeAs(ipc.senders.critter, 'panel:fit', { width: 1300, height: 760 }));
   assert.equal(asked.length, 1);
 });
+
+test('giving the room back says the size it went back to, so the page can wait for it', () => {
+  const { setPanelRoomy } = panelHarness();
+  setPanelRoomy(true);
+  assert.deepEqual(setPanelRoomy(false), { ok: true, roomy: false, size: { width: 460, height: 700 } });
+  assert.deepEqual(setPanelRoomy(false), { ok: true, roomy: false }, 'nothing to give back: no size to wait for');
+});

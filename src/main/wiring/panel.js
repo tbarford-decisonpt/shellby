@@ -102,8 +102,9 @@ function wirePanel(d) {
         const back = c.x === set.x && c.y === set.y ? from : shrunkBounds(roomyFrom, c, screen.getDisplayMatching(c).workArea);
         roomyAt = Date.now();
         panel.setBounds(back);
+        roomyFrom = null;
+        return { ok: true, roomy: false, size: { width: back.width, height: back.height } }; // what the page waits to be
       }
-      roomyFrom = null;
       return { ok: true, roomy: false };
     }
     if (roomyFrom) return { ok: true, roomy: true };

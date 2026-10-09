@@ -175,7 +175,10 @@
     const n = P.needs(grid, PANE_CHROME);
     const need = { width: n.width + FEEDS_PAD, height: n.height + FEEDS_PAD };
     // Split, the box moves into a pane and the feeds take its place.
-    const avail = { width: f.width, height: f.height + (box.parentElement === home ? box.offsetHeight : 0) };
+    // Shown again from another view, the chat can have a scrollbar for a frame
+    // or two (10 px of the feeds' width); the panes never scroll it, so count it in.
+    const bar = Math.max(0, home.offsetWidth - home.clientWidth);
+    const avail = { width: f.width + bar, height: f.height + (box.parentElement === home ? box.offsetHeight : 0) };
     const space = { width: Math.max(avail.width, need.width), height: Math.max(avail.height, need.height) };
     if (need.width <= avail.width && need.height <= avail.height) return { ok: true, space };
     const zoom = api.zoomFactor?.() || 1;
@@ -313,12 +316,15 @@
     const before = state.grid;
     let next = P.place(before, tabId, target, zone);
     if (next === before) return false;
-    const room = SB.roomFor(next);
+    let room = SB.roomFor(next);
     if (!room.ok) { SB.toast(NO_ROOM); return false; }
     if (room.want) {
       await api.fitPanel(room.want);
-      // The grid may have changed while the window grew (a tab closed, say).
-      if (state.grid !== before && (next = P.place(state.grid, tabId, target, zone)) === state.grid) return false;
+      // The grid may have changed while the window grew (a tab closed, say): place it on that one.
+      if (state.grid !== before) {
+        if ((next = P.place(state.grid, tabId, target, zone)) === state.grid) return false;
+        if (!(room = SB.roomFor(next)).ok) { SB.toast(NO_ROOM); return false; }
+      }
     }
     state.paneSizes = atLeastMin(next, P.placeSizes(state.grid, state.paneSizes, tabId, target, zone), room.space);
     state.grid = next;
@@ -334,12 +340,22 @@
     else { SB.renderPanes(); SB.renderTabStrip(); }
   };
 
+  // The chat on screen at the size it will stay, for measuring the room in it.
+  // From another view (the split shortcut, the palette) it's shown first, and a
+  // map's Make room (wf-kit.js) is let go before anything's measured. -> shows?
+  async function chatShowing() {
+    if (state.view !== 'chat') SB.setView('chat');
+    await null; // the map's observer of the view change runs before this goes on
+    await SB.roomSettled?.();
+    return state.view === 'chat'; // just the crab has no chat
+  }
+
   // The split shortcut and button: the newest conversation that isn't on screen
   // (or a fresh one) goes beside the focused pane while there's room for
   // another column, then below one. ('new' stands in for it: an id never in
   // the grid, so place treats it as a tab coming from off screen.)
   SB.splitPane = async () => {
-    if (SB.solo || !state.activeTab) return;
+    if (SB.solo || !state.activeTab || !(await chatShowing())) return;
     const spots = [state.activeTab, ...P.ids(state.grid)];
     const fits = zone => id => P.zones(state.grid, id).includes(zone) && SB.roomFor(P.place(state.grid, 'new', id, zone)).ok;
     const side = spots.find(fits('right'));
