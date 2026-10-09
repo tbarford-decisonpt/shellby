@@ -246,6 +246,31 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await wait(300);
     await ev(`SB.activate('${A}')`);
     await slashOnScreen('the top of three panes');
+    // A busy box in a pane that short: the Working bar and Claude's to-do list,
+    // opened, are taller than the pane has room for. The box stays inside its
+    // pane (the list scrolls), its input row shows, and the feed keeps a few lines.
+    await ev(`SB.send('todos')`);
+    check(await until(`!document.getElementById('todos').hidden && !SB.state.tabs.get('${A}').busy`), 'a to-do list in the top pane\'s box');
+    await ev(`SB.send('wait 6000')`);
+    check(await until(`!document.getElementById('status').hidden`), 'and the Working bar with it');
+    await wait(300);
+    const busyBox = await ev(`(() => {
+      const pane = document.querySelector('.pane[data-tab="${A}"]').getBoundingClientRect();
+      // Everything in the box that takes up room (the menus are absolute), down to its last line.
+      const parts = [...document.getElementById('composer').children].filter(el => getComputedStyle(el).position !== 'absolute' && el.getClientRects().length);
+      const bottom = Math.max(...parts.map(el => el.getBoundingClientRect().bottom));
+      const row = document.getElementById('form').getBoundingClientRect();
+      const bar = document.getElementById('status').getBoundingClientRect();
+      const feed = SB.state.tabs.get('${A}').el.getBoundingClientRect();
+      return { pane: Math.round(pane.height), paneTop: Math.round(pane.top), paneBottom: Math.round(pane.bottom), boxBottom: Math.round(bottom), rowBottom: Math.round(row.bottom), barTop: Math.round(bar.top), feed: Math.round(feed.height) };
+    })()`);
+    check(busyBox.boxBottom <= busyBox.paneBottom + 1 && busyBox.rowBottom <= busyBox.paneBottom + 1, `a busy box stays inside its pane, input row and all (${JSON.stringify(busyBox)})`);
+    check(busyBox.barTop >= busyBox.paneTop, 'and the Working bar shows');
+    check(busyBox.feed >= 40, `and the feed above it keeps a few lines (${busyBox.feed} px)`);
+    await panel.shot('busy-box');
+    await until(`!SB.state.tabs.get('${A}').busy`, 15000);
+    await ev(`SB.send('todos done')`);
+    await until(`!SB.state.tabs.get('${A}').busy && document.getElementById('todos').hidden`);
     await panel.send('Emulation.clearDeviceMetricsOverride');
     await ev(`SB.placeTab('${B}', '${D}', 'bottom')`);
     await wait(300);
@@ -299,10 +324,12 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await wait(300);
     for (const id of [E, F]) { await ev(`SB.closePane('${id}')`); await ev(`SB.closeTab('${id}')`); }
     await wait(300);
-    if (JSON.stringify(await ev('SB.state.grid')) !== JSON.stringify([[A, C], [D, B]])) await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.renderPanes()`);
+    const quadAgain = JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]);
+    check(quadAgain, 'the 2x2 again once they close');
+    // Only to keep going after that failure: the steps below start from the 2x2.
+    if (!quadAgain) await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.renderPanes()`);
     await ev(`SB.activate('${D}')`);
     await wait(300);
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'the 2x2 again once they close');
 
     // ---- Keys: Alt+arrow to the next pane, Ctrl+Alt+arrow to move one.
     const press = async (key, mods) => {
@@ -346,6 +373,67 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await press('ArrowRight', ALT);
     check(await until(`SB.state.activeTab === '${D}'`), 'Alt+→ works from the message box too');
     await ev(`SB.activate('${D}')`);
+
+    // Alt+↑ from an empty box with a message queued moves to the pane above and
+    // leaves the queue alone (a bare ↑ there pulls the message back to edit it).
+    await ev(`SB.activate('${C}'); document.getElementById('input').value = ''; SB.send('wait 4000')`);
+    await until(`SB.state.tabs.get('${C}').busy`);
+    await ev(`SB.send('held back')`);
+    check(await ev(`SB.state.tabs.get('${C}').queue.length === 1`), 'a message queued behind C\'s turn');
+    await ev(`(() => { const i = document.getElementById('input'); i.value = ''; i.focus(); })()`);
+    await press('ArrowUp', ALT);
+    const queueKept = await ev(`({ active: SB.state.activeTab === '${A}', queue: SB.state.tabs.get('${C}').queue.length, draft: SB.state.tabs.get('${C}').draft || '' })`);
+    check(queueKept.active, 'Alt+↑ from C\'s empty box goes to A, above it');
+    check(queueKept.queue === 1 && queueKept.draft === '', `and C's queued message stays queued, not pulled into its draft (${JSON.stringify(queueKept)})`);
+    await until(`!SB.state.tabs.get('${C}').busy && !SB.state.tabs.get('${C}').queue.length`, 20000);
+    await until(`!SB.state.tabs.get('${C}').busy`, 10000);
+
+    // ---- A button at the bottom of a pane out of focus takes the click that
+    // focuses it: the box moving in for the stand-in doesn't shift it away.
+    await ev(`SB.activate('${B}')`);
+    await ev(`(() => { const t = SB.state.tabs.get('${B}'); for (let i = 0; i < 80; i++) t.render({ kind: 'text', text: 'filler line ' + i }, { replay: true }); })()`);
+    await ev(`document.getElementById('input').value = ''; SB.send('tool please')`);
+    check(await until(`!!SB.state.tabs.get('${B}').el.querySelector('.btn.allow')`), 'B asks to use a tool');
+    await ev(`SB.activate('${D}')`);
+    await wait(300);
+    await ev(`SB.state.tabs.get('${B}').scrollToEnd()`);
+    await wait(300);
+    const allowAt = await ev(`(() => { const r = [...SB.state.tabs.get('${B}').el.querySelectorAll('.btn.allow')].pop().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    // A person's press and release, a moment apart.
+    await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: allowAt.x, y: allowAt.y, button: 'left', buttons: 1, clickCount: 1 });
+    await wait(120);
+    await panel.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: allowAt.x, y: allowAt.y, button: 'left', buttons: 0, clickCount: 1 });
+    check(await until(`SB.state.activeTab === '${B}'`, 3000), 'clicking Allow in B\'s pane focuses B');
+    const allowed = await until(`[...SB.state.tabs.get('${B}').el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('ALLOWED'))`, 5000);
+    check(allowed, 'and the click lands on Allow, though the box moved into that pane');
+    if (!allowed) await ev(`[...SB.state.tabs.get('${B}').el.querySelectorAll('.btn.allow')].pop()?.click()`); // let the turn end
+    await until(`!SB.state.tabs.get('${B}').busy`);
+
+    // ---- A stand-in from the keyboard: Enter hands it the box, and its
+    // accessible name is what it shows (the draft), not a fixed label.
+    await ev(`SB.activate('${D}'); SB.state.tabs.get('${C}').draft = 'C waits'; SB.renderTabStrip()`);
+    await wait(150);
+    check(await ev(`(() => { const s = document.querySelector('.pane[data-tab="${C}"] .pane-standin'); return !!s && !s.hasAttribute('aria-label') && s.textContent.includes('C waits'); })()`), 'a stand-in is named by its draft');
+    await ev(`document.querySelector('.pane[data-tab="${C}"] .pane-standin').focus()`);
+    for (const type of ['keyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, ...(type === 'keyDown' ? { text: '\r' } : {}) });
+    check(await until(`SB.state.activeTab === '${C}' && document.activeElement.id === 'input'`, 3000), 'Enter on C\'s stand-in hands C the box');
+    check(await ev(`document.getElementById('input').value === 'C waits'`), 'with C\'s draft in it, nothing sent');
+    await ev(`document.getElementById('input').value = ''; SB.activate('${D}')`);
+
+    // A press on a stand-in closes an open menu, as a press anywhere else does.
+    await ev(`document.getElementById('modeChip').click()`);
+    const menuUp = await until('SB.anyMenuOpen()', 3000);
+    check(menuUp, 'the mode menu opens');
+    await panel.click(await standinOf(C));
+    check(menuUp && await until(`SB.state.activeTab === '${C}' && !SB.anyMenuOpen()`, 3000), 'a press on C\'s stand-in closes it and hands C the box');
+    await ev(`SB.closeMenus(); SB.activate('${D}')`);
+
+    // AltGr characters (Ctrl+Alt to the browser) type on a stand-in too: @ on a German keyboard.
+    await ev(`document.querySelector('.pane[data-tab="${B}"] .pane-standin').focus()`);
+    await ev(`document.querySelector('.pane[data-tab="${B}"] .pane-standin').dispatchEvent(new KeyboardEvent('keydown', { key: '@', ctrlKey: true, altKey: true, modifierAltGraph: true, bubbles: true, cancelable: true }))`);
+    await wait(150);
+    check(await ev(`SB.state.activeTab === '${B}' && document.getElementById('input').value.endsWith('@')`), 'AltGr+Q (@) on B\'s stand-in starts B\'s message with @');
+    await ev(`document.getElementById('input').value = ''; SB.activate('${D}')`);
 
     // ---- A restart brings the layout and its sizes back. Only conversations
     // that have said something reopen after a restart (main's openTabs), and A
