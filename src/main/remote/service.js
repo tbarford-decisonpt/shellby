@@ -281,6 +281,20 @@ function createRemoteService(deps) {
     return { exe: sshCommand.exe, argsPrefix: sshCommand.prefix, host: place.host, dir: place.dir, env: askEnv || {}, extra: configArgs };
   }
 
+  /**
+   * A short-lived claude there with `args`, for its plan usage (usage.js probe).
+   * Never asks for a passphrase: it runs on its own, so it just fails without a key. -> { exe, args, env } | null
+   */
+  function probeCommand(alias, args) {
+    if (!computer(alias)) return null;
+    const script = ssh.sessionScript({ dir: '~', args, env: { SHELLBY_OWNED: '1' } });
+    return {
+      exe: sshCommand.exe,
+      args: [...sshCommand.prefix, ...ssh.sshArgs(alias, script, { batch: true, extra: configArgs })],
+      env: { ...process.env, ...(askEnv || {}) },
+    };
+  }
+
   /** Carry a conversation on in a terminal on that computer. */
   function resumeInTerminal(place, sessionId) {
     return openTerminal({ host: place.host, script: ssh.resumeScript({ dir: place.dir, sessionId }), extra: configArgs });
@@ -324,7 +338,7 @@ function createRemoteService(deps) {
   return {
     warm, view, addComputer, createComputer, removeComputer, check, installClaude, signInClaude, setupKey,
     enableAgent: () => agent.enable(), unlockKey: name => agent.add(name),
-    browse, addFolder, removeFolder, placeOf, launch, resumeInTerminal, runSsh,
+    browse, addFolder, removeFolder, placeOf, launch, probeCommand, resumeInTerminal, runSsh,
   };
 }
 

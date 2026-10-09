@@ -228,6 +228,17 @@ test('checking a computer: reached, and what Claude Code there says', { skip: ne
   assert.equal(off.config.get('remoteComputers')[0].check.kind, 'remote-unreachable', 'kept for Settings');
 });
 
+test("plan usage there: a short-lived claude over ssh, asked without a prompt", { skip: needsSh }, async () => {
+  otherComputer();
+  const { svc } = makeService({ computers: [{ alias: 'sandbox' }] });
+  const { PROBE_ARGS, probe } = require('../src/main/usage');
+  assert.equal(svc.probeCommand('nowhere', PROBE_ARGS), null, 'only a computer of yours');
+  const cmd = svc.probeCommand('sandbox', PROBE_ARGS);
+  assert.ok(cmd.args.includes('BatchMode=yes'), 'never asks for a passphrase on its own');
+  const u = await probe({ exe: process.execPath, args: [FAKE_SSH, ...cmd.args], env: cmd.env, cwd: os.tmpdir() });
+  assert.deepEqual([u?.fiveHour?.pct, u?.sevenDay?.pct], [42, 8]);
+});
+
 test('folders there: browsed, added with a stand-in here, and found again by it', { skip: needsSh }, async () => {
   otherComputer();
   const { svc, config, dir } = makeService({ computers: [{ alias: 'sandbox' }] });

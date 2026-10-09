@@ -134,6 +134,7 @@ const DEFAULTS = {
   syncStamps: null,   // { outfitAt, skinAt }: when they last changed, so sync keeps the newest
   autonomousAcknowledged: false,
   lastUsage: null,
+  usageByHost: {},    // { host: reading }: plan usage of other computers signed in to another Claude account (usage/accounts.js)
   journalPending: [], // conversations whose handoff note was still settling at quit (see wiring/journal.js)
   spendLedger: [],    // who used the 5-hour and weekly limits (see spend.js)
   turnCosts: [],      // what each turn cost, by project and kind of ask, never the prompt (see usage/ledger.js); this PC only

@@ -62,6 +62,7 @@
       $('branchLabel').textContent = w.branch.replace(/^shellby\//, '');
       $('branchChip').title = `Its own copy, on branch ${w.branch} (from ${w.base})`;
     }
+    SB.refreshUsage?.(); // a folder on another computer may be another account's plan (tab-meters.js)
   }
   SB.applyFolderLabel = applyFolderLabel;
 

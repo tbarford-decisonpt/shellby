@@ -11,6 +11,8 @@ const { randomUUID } = require('crypto');
 const { claudeEnv } = require('./claude/cli');
 
 const TIMEOUT_MS = 30_000;
+// claude's arguments for the probe; on another computer they go into ssh's script (remote/service.js).
+const PROBE_ARGS = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose'];
 
 /** get_usage's response -> the same { kind: 'usage', ... } item a turn produces, or null. */
 function fromGetUsage(r) {
@@ -24,13 +26,16 @@ function fromGetUsage(r) {
   return { kind: 'usage', status: null, fiveHour, sevenDay };
 }
 
-/** Resolves to a usage item, or null if the CLI couldn't say (offline, API key login, old CLI). */
-function probe({ exe, argsPrefix = [], cwd, timeout = TIMEOUT_MS }) {
+/**
+ * Resolves to a usage item, or null if the CLI couldn't say (offline, API key login, old CLI).
+ * args/env: the whole command line and environment instead, for ssh to another computer.
+ */
+function probe({ exe, argsPrefix = [], cwd, timeout = TIMEOUT_MS, args = [...argsPrefix, ...PROBE_ARGS], env = claudeEnv() }) {
   return new Promise(resolve => {
     let proc;
     try {
-      proc = spawn(exe, [...argsPrefix, '-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose'], {
-        cwd, env: claudeEnv(), windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'],
+      proc = spawn(exe, args, {
+        cwd, env, windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'],
       });
     } catch {
       resolve(null);
@@ -62,4 +67,4 @@ function probe({ exe, argsPrefix = [], cwd, timeout = TIMEOUT_MS }) {
   });
 }
 
-module.exports = { fromGetUsage, probe };
+module.exports = { PROBE_ARGS, fromGetUsage, probe };

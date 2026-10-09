@@ -18,6 +18,7 @@ const stickers = require('../stickers');
 const toolPictures = require('../tool-pictures');
 const { detailOf } = require('../trouble');
 const usage = require('../usage');
+const accounts = require('../usage/accounts');
 const voice = require('../voice');
 const { classifyCommand, markRed } = require('../xp');
 
@@ -70,7 +71,11 @@ function wireSessions(d) {
       // A folder on another computer: Claude Code runs there, over ssh (remote/service.js).
       getRemote: cwd => {
         const place = d.remoteService?.placeOf(cwd);
-        return place ? d.remoteService.launch(place) : null;
+        if (!place) return null;
+        // Another account's meter fills in before its first turn reports anything.
+        const other = accountOfCwd(cwd);
+        if (other) setImmediate(() => probeOther(other));
+        return d.remoteService.launch(place);
       },
       compose: (text, files) => d.composePrompt(text, files),
       prepareTurn: async tab => {
@@ -93,7 +98,9 @@ function wireSessions(d) {
       onTool: (tab, name, args) => d.crabTool(tab, name, args),
       decorate: (tab, prompt) => {
         if (!d.config.get('selfAware') || selfaware.isSlashCommand(prompt)) return prompt;
-        const u = selfaware.usageNote(d.config.get('lastUsage'), tab.usageTold, Date.now());
+        const other = accountOfCwd(tab.session?.cwd);
+        const reading = other ? accounts.readingFor(d.config.get('usageByHost'), other) : d.config.get('lastUsage');
+        const u = selfaware.usageNote(reading, tab.usageTold, Date.now());
         tab.usageTold = u.told;
         return selfaware.withUsageNote(prompt, u.text);
       },
@@ -112,6 +119,11 @@ function wireSessions(d) {
 
     d.manager.on('item', (tabId, item, tab, tail) => {
       if (item.kind === 'usage') {
+        // Another Claude account's plan, over ssh: its own meter, never this PC's.
+        // Until this PC's own sign-in is known, a reading from over there can't be placed.
+        if (!d.claudeStatus && d.remoteService?.placeOf(tab.session?.cwd)) return;
+        const other = accountOfCwd(tab.session?.cwd);
+        if (other) return applyOtherUsage(other, item);
         d.usagePlan?.onUsage(tabId, item); // before lastUsage moves on: the rise is measured from it
         applyUsage(item);
         d.noteRecap(recap.usageEvent(tabId, tab.title, item));
@@ -308,14 +320,64 @@ function wireSessions(d) {
     d.usageService.checkGuards();
   }
 
+  // At most this often a reading is asked for, here or on another computer.
+  const USAGE_REFRESH_MS = 2 * 60 * 1000;
+
+  // ---- other computers on another Claude account (usage/accounts.js)
+
+  function accountOfCwd(cwd) {
+    const place = d.remoteService?.placeOf(cwd);
+    if (!place) return null;
+    const list = d.config.get('remoteComputers');
+    const computer = (Array.isArray(list) ? list : []).find(c => accounts.hostKey(c?.alias) === accounts.hostKey(place.host)) || null;
+    return accounts.accountFor({ place, computer, local: d.claudeStatus });
+  }
+
+  const otherUsage = () => accounts.othersView(d.config.get('remoteComputers'), d.config.get('usageByHost'), d.claudeStatus);
+
+  function applyOtherUsage(account, item) {
+    if (!item.fiveHour && !item.sevenDay) return; // nothing a meter could show
+    d.config.set({ usageByHost: accounts.withReading(d.config.get('usageByHost'), account, item, Date.now()) });
+    d.sendEveryWindow('usage:other', otherUsage());
+  }
+
+  // get_usage over ssh, as refreshUsage does here: at most every couple of minutes a computer.
+  const otherProbes = new Map(); // host key -> its probe while one runs
+  const otherProbedAt = new Map(); // host key -> when it was last asked, answered or not
+  function probeOther(account) {
+    const key = accounts.hostKey(account.host);
+    const last = Math.max(accounts.readingFor(d.config.get('usageByHost'), account)?.at || 0, otherProbedAt.get(key) || 0);
+    if (otherProbes.has(key) || d.config.get('crabOnly') || Date.now() - last < USAGE_REFRESH_MS) return;
+    const cmd = d.remoteService?.probeCommand(account.host, usage.PROBE_ARGS);
+    if (!cmd) return;
+    const started = Date.now();
+    otherProbedAt.set(key, started);
+    otherProbes.set(key, usage.probe({ exe: cmd.exe, args: cmd.args, env: cmd.env, cwd: os.homedir(), timeout: 45_000 }).then(u => {
+      // A turn there may have reported fresher numbers while we waited.
+      const now = accounts.readingFor(d.config.get('usageByHost'), account)?.at || 0;
+      if (u && now < started) applyOtherUsage(account, u);
+    }).catch(err => d.log.info(`usage on ${account.host}: ${err.message}`)).finally(() => otherProbes.delete(key)));
+  }
+
+  // The computers you have a conversation open on.
+  function refreshOtherUsage() {
+    const seen = new Set();
+    for (const tab of d.manager?.tabs?.values() || []) {
+      const other = accountOfCwd(tab.session?.cwd);
+      if (!other || seen.has(accounts.hostKey(other.host))) continue;
+      seen.add(accounts.hostKey(other.host));
+      probeOther(other);
+    }
+  }
+
   // The meter only moves when a turn reports usage, so usage spent elsewhere
   // (another device, the terminal) would wait for your next prompt. Ask Claude
   // Code directly (usage.js: no message is sent, so it costs nothing) when the
   // panel comes up, after the PC wakes and at startup, at most every couple of
   // minutes. Not counted against a tab: no turn of Shellby's spent it.
-  const USAGE_REFRESH_MS = 2 * 60 * 1000;
   let usageProbe = null;
   function refreshUsage() {
+    refreshOtherUsage();
     const last = d.config.get('lastUsage')?.at || 0;
     if (usageProbe || d.config.get('crabOnly') || Date.now() - last < USAGE_REFRESH_MS) return;
     const exe = d.FAKE_CLI ? process.env.SHELLBY_NODE || 'node' : d.claudeExe();
@@ -335,7 +397,7 @@ function wireSessions(d) {
     refreshUsage();
   }
 
-  return { SNAPSHOT_WAIT_MS, createManager, currentCwd, endTurn, refreshUsage, toolPicture, turnEnds, turnStarts, watchUsage };
+  return { SNAPSHOT_WAIT_MS, createManager, currentCwd, endTurn, otherUsage, refreshUsage, toolPicture, turnEnds, turnStarts, watchUsage };
 }
 
 module.exports = { wireSessions };
