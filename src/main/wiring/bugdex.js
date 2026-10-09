@@ -337,7 +337,7 @@ function wireBugdex(d) {
    * Jar it: the book, the rewards and the moment.
    *   e: the encounter (or { species, fp, project, name, firstAt })
    */
-  function catchIt(e, { remedy = false, quiet = false } = {}) {
+  function catchIt(e, { remedy = false, quiet = false, move = null } = {}) {
     const now = Date.now();
     const sp = speciesById(e.species);
     const boosts = d.eventBoosts?.() || null;
@@ -350,7 +350,7 @@ function wireBugdex(d) {
     }, now);
     const next = e.source ? bugdex.closeEncounter(r.state, lifecycle.encId(e)) : r.state;
     save(next);
-    if (e.source) endBattle(e, r, now);
+    if (e.source) endBattle(e, r, now, remedy ? 'remedy' : move);
     if (!r.counted) { push(); return r; }
     d.log.info(`bugdex: caught ${e.species}${r.isNew ? ' (new)' : ''}`);
     reward(e, r, { quiet, boosts });
@@ -380,14 +380,14 @@ function wireBugdex(d) {
     }, EVENT_BUG_AFTER_MS);
   }
 
-  /** The battle's ending: it faints, the jar, and the crew who helped get it on their record. */
-  function endBattle(e, r, now) {
+  /** The battle's ending: the fix's finishing blow, the jar, and the crew who helped get it on their record. */
+  function endBattle(e, r, now, move) {
     const sp = speciesById(e.species);
     const was = battles.get(lifecycle.encId(e));
     // A squatter that was a zombie all along: the battle was with what it looked like.
     const reveal = was && was.species !== sp.id ? sp.name : null;
     fight(e, b => battle.finish(b, {
-      at: now, outcome: 'caught',
+      at: now, outcome: 'caught', move,
       jar: { isNew: r.isNew, forms: r.forms, evolved: r.evolved, badge: r.badge, league: r.league, fame: r.fame, reveal, counted: r.counted },
     }));
     const party = battles.get(lifecycle.encId(e))?.party || [];
@@ -527,7 +527,7 @@ function wireBugdex(d) {
     }
     // One pass, one moment: the rarest is the catch, the rest come along quietly.
     caught.sort((a, b) => RARITY_ORDER[speciesById(b.e.species).rarity] - RARITY_ORDER[speciesById(a.e.species).rarity]);
-    caught.forEach(({ e, remedy }, i) => catchIt(reveal(e, remedy), { remedy, quiet: i > 0 }));
+    caught.forEach(({ e, remedy }, i) => catchIt(reveal(e, remedy), { remedy, quiet: i > 0, move: r.kind }));
   }
 
   // A squatter or a stuck file fixed by killing a leftover process was a
@@ -558,10 +558,10 @@ function wireBugdex(d) {
     // Read again: settling a conflict took a while, and caught what it caught.
     const now = state().open.filter(e => e.project === p.id && e.source === 'bash');
     if (r.fairPush) {
-      for (const e of now.filter(x => x.species === 'bounced-bottle')) catchIt(e);
+      for (const e of now.filter(x => x.species === 'bounced-bottle')) catchIt(e, { move: 'git' });
       engageCi(p.id);
     }
-    if (r.hookedCommit) for (const e of now.filter(x => x.species === 'gatekeeper-goby' && x.engaged)) catchIt(e);
+    if (r.hookedCommit) for (const e of now.filter(x => x.species === 'gatekeeper-goby' && x.engaged)) catchIt(e, { move: 'git' });
   }
 
   /** A merge was committed: caught, if git agrees nothing is left unmerged and no markers are left. */
@@ -575,7 +575,7 @@ function wireBugdex(d) {
       const files = conflicts.get(lifecycle.encId(e))?.files || [];
       if (files.some(f => markersLeft(root, f))) continue;
       conflicts.delete(lifecycle.encId(e));
-      catchIt(e);
+      catchIt(e, { move: 'git' });
     }
   }
 
@@ -800,7 +800,7 @@ function wireBugdex(d) {
     if (!on() || !pr?.key) return;
     const e = lifecycle.byKey(state().open, 'ci', String(pr.key).slice(0, 200))[0];
     // Only when Shellby took part: "Fix this build", or a push from here since it went red.
-    if (e?.engaged) catchIt(e);
+    if (e?.engaged) catchIt(e, { move: 'tests' });
     else if (e) update(s => bugdex.closeEncounter(s, lifecycle.encId(e)));
   }
 
@@ -823,7 +823,7 @@ function wireBugdex(d) {
       return;
     }
     if (!merged?.ok || !merged.merged) return;
-    for (const e of lifecycle.byKey(state().open, 'home', key)) if (e.engaged) catchIt(e);
+    for (const e of lifecycle.byKey(state().open, 'home', key)) if (e.engaged) catchIt(e, { move: 'git' });
   }
 
   async function secretSpotted(root, kinds = []) {
@@ -844,7 +844,7 @@ function wireBugdex(d) {
   async function pushedClean(root) {
     if (!on() || !root) return;
     const key = path.resolve(root).toLowerCase().slice(0, 200);
-    for (const e of lifecycle.byKey(state().open, 'push', key)) if (e.engaged) catchIt(e);
+    for (const e of lifecycle.byKey(state().open, 'push', key)) if (e.engaged) catchIt(e, { move: 'git' });
     const p = await project(root);
     if (p) engageCi(p.id);
   }

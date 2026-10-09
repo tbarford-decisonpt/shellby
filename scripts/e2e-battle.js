@@ -104,7 +104,9 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     await task('patch app.js fixed');
     await task('suite 0');
     b = await fight();
-    check(b?.over === 'caught' && b.moves.slice(-2).map(m => m.fx).join() === 'ko,caught', `the fix knocks it out and jars it (${b?.over})`);
+    const blow = b?.moves.at(-3);
+    check(b?.over === 'caught' && b.moves.slice(-3).map(m => m.fx).join() === 'finish,ko,caught' && blow.move === 'tests' && blow.dmg > 0,
+      `the passing suite is the finishing blow, then it's out and in the jar (${b?.over}, ${blow?.move} ${blow?.fx} ${blow?.dmg})`);
     if (b?.over !== 'caught') console.log(JSON.stringify({ battles: await ev('shellby.getBugBattles()'), loose: (await ev('shellby.getBugdex()')).loose }).slice(0, 1500));
     if (SHOTS) {
       for (let i = 0; i < 6; i++) { await wait(1400); await snap(`finish-${i}`); }

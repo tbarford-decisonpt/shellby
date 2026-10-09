@@ -32,7 +32,7 @@ test('scouting and patching wear it down, but never past the floor before a prov
 test('scouting chips only so much in all', () => {
   let b = fresh();
   for (let i = 0; i < 30; i++) b = battle.act(b, { move: 'scout', at: T0 + i * 15 * S });
-  assert.ok(b.max - b.hp <= Math.ceil(b.max * 0.15) + 1);
+  assert.ok(b.max - b.hp <= Math.ceil(b.max * battle.SCOUT_MAX) + 1);
   assert.equal(b.moves.at(-1).fx, 'miss'); // studied out
 });
 
@@ -77,11 +77,28 @@ test('failing just as before misses, failing worse heals it', () => {
   assert.ok(b.hp > hp);
 });
 
-test('with no test counts to go on, a failing re-run is a miss', () => {
+test('with no test counts to go on, a failing re-run is a miss, and the bug strikes back', () => {
   let b = fresh();
   b = battle.act(b, { move: 'run', failed: null, at: T0 + S });
   assert.equal(b.moves.at(-1).fx, 'miss');
+  assert.equal(b.moves.at(-1).strike, true);
   assert.equal(b.hp, b.max);
+  assert.equal(battle.view(b, 'Nullfish').moves.at(-1).line, 'Claude tries Run It! Nullfish shrugs it off and uses Stack Smash!');
+});
+
+test('a re-run that fails worse heals it, and it strikes back; one that does better gets no turn', () => {
+  let b = fresh({ failed: 4 });
+  b = battle.act(b, { move: 'tests', failed: 2, at: T0 + S });
+  assert.ok(!b.moves.at(-1).strike);
+  b = battle.act(b, { move: 'tests', failed: 3, at: T0 + 2 * S });
+  assert.equal(b.moves.at(-1).fx, 'heal');
+  assert.equal(b.moves.at(-1).strike, true);
+  assert.match(battle.view(b, 'Nullfish').moves.at(-1).line, /digs in and uses Stack Smash!$/);
+});
+
+test('every type hits back with a move of its own', () => {
+  const { TYPES } = require('../src/main/bugdex/species');
+  for (const t of Object.keys(TYPES)) assert.ok(battle.STRIKES[t], t);
 });
 
 test('a helper joins the party; on its specialty it is super effective', () => {
@@ -111,7 +128,8 @@ test('a catch knocks it out, then jars it; nothing moves after', () => {
   let b = fresh({ failed: 3 });
   b = battle.finish(b, { at: T0 + S, outcome: 'caught', jar: { isNew: true, forms: ['golden'], badge: 'kelp' } });
   assert.equal(b.over, 'caught');
-  assert.deepEqual(b.moves.slice(-2).map(m => m.fx), ['ko', 'caught']);
+  assert.deepEqual(b.moves.slice(-3).map(m => m.fx), ['finish', 'ko', 'caught']);
+  assert.equal(b.moves.at(-3).dmg, b.max); // the finishing blow takes what was left
   assert.equal(b.hp, 0);
   assert.equal(b.moves.at(-1).jar.isNew, true);
   assert.equal(b.moves.at(-1).jar.badge, 'kelp');
@@ -142,6 +160,7 @@ test('the view gives every move its line', () => {
     'A wild Nullfish appeared!',
     'Claude tries Test Run! A big one!',
     'Pinchy pitches in!',
+    'Claude tries Run It! It passes: a finishing blow!',
     'Nullfish is out cold!',
     'Nullfish is in the jar!',
   ]);
@@ -167,4 +186,14 @@ test('work long after the bug last showed itself is about something else: it jus
   const hp = b.hp;
   b = battle.act(b, { move: 'patch', at: later + S });
   assert.ok(b.hp < hp);
+});
+
+test('the finishing blow is the move that proved the fix', () => {
+  const blow = opts => battle.finish(fresh(), { at: T0 + S, outcome: 'caught', ...opts }).moves.at(-3);
+  assert.equal(blow({ move: 'typecheck' }).move, 'typecheck');
+  assert.equal(blow({ move: 'remedy' }).move, 'remedy');
+  assert.equal(blow({ move: 'nonsense' }).move, 'run');
+  assert.equal(blow({}).move, 'run');
+  const b = battle.finish(fresh(), { at: T0 + S, outcome: 'caught', move: 'remedy' });
+  assert.equal(battle.view(b, 'Nullfish').moves.at(-3).line, 'Claude tries Remedy! That did it: a finishing blow!');
 });
