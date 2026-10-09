@@ -1,3 +1,4 @@
+// ci: split panes: side by side up to twelve, sizes, a box in each, a saved layout, windows of their own
 // Conversations side by side (tab-panes.js, shared/panes.js) and in windows of
 // their own (main's wiring/popouts.js): Split puts one beside another, dragging
 // a tab into the chat splits a pane and fills a 2x2 grid, a click picks which
