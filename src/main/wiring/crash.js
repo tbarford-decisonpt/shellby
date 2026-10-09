@@ -4,6 +4,7 @@
 // swallowed. Sentry is held back by the user's answer (crash-report.js).
 // Kept out of main.js, which only wires it up (and hangs snag() on the
 // process's own error events there, before anything else can throw).
+const os = require('os');
 const { app } = require('electron');
 const crashReport = require('../crash-report');
 
@@ -37,7 +38,8 @@ function wireCrash(d) {
   // moment. Only by the Shellby holding the lock: a second launch bowing out
   // isn't a crash. -> { lastRun, sentry }
   function startCrashReports(primary) {
-    const lastRun = primary && !d.CAPTURE ? crashReport.startRun(d.LOG_DIR, { version: app.getVersion() }) : { unclean: false };
+    const bootedAt = Date.now() - os.uptime() * 1000;
+    const lastRun = primary && !d.CAPTURE ? crashReport.startRun(d.LOG_DIR, { version: app.getVersion(), bootedAt }) : { unclean: false };
     return { lastRun, sentry: primary ? startSentry() : null };
   }
 

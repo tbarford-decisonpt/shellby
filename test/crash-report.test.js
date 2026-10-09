@@ -28,7 +28,38 @@ test('a run that never quit is reported by the next start', () => {
   const dir = tmp();
   cr.startRun(dir, { version: '0.63.1', now: () => 1000 });
   const next = cr.startRun(dir, { version: '0.63.2', now: () => 2000 });
-  assert.deepEqual(next, { unclean: true, startedAt: 1000, version: '0.63.1' });
+  assert.deepEqual(next, { unclean: true, startedAt: 1000, version: '0.63.1', cause: null });
+});
+
+test('a run Windows was shutting down is blamed on the shutdown, not him', () => {
+  const dir = tmp();
+  cr.startRun(dir, { version: '0.63.1', now: () => 1000 });
+  cr.markEnding(dir, true, { now: () => 1500 });
+  const next = cr.startRun(dir, { version: '0.63.1', now: () => 2000, bootedAt: 500 });
+  assert.equal(next.unclean, true);
+  assert.equal(next.cause, 'shutdown');
+});
+
+test('a cancelled shutdown takes the excuse back', () => {
+  const dir = tmp();
+  cr.startRun(dir, { now: () => 1000 });
+  cr.markEnding(dir, true, { now: () => 1500 });
+  cr.markEnding(dir, false);
+  assert.equal(cr.startRun(dir, { now: () => 2000, bootedAt: 500 }).cause, null);
+});
+
+test('a PC that booted since the run started is a restart or power loss', () => {
+  const dir = tmp();
+  cr.startRun(dir, { now: () => 1000 });
+  assert.equal(cr.startRun(dir, { now: () => 9000, bootedAt: 5000 }).cause, 'restart');
+});
+
+test('a shutdown question after a clean quit leaves no marker behind', () => {
+  const dir = tmp();
+  cr.startRun(dir);
+  cr.endRun(dir);
+  cr.markEnding(dir);
+  assert.equal(fs.existsSync(cr.markerFile(dir)), false);
 });
 
 test('a folder it cannot write to does not throw', () => {

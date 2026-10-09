@@ -55,24 +55,52 @@ const normalizeConsent = v => (CONSENTS.includes(v) ? v : 'ask');
 
 const markerFile = dir => path.join(dir, 'running.json');
 
+// How long after Windows asked about ending the session that still explains
+// him going. Still here past it, the shutdown was cancelled.
+const ENDING_GRACE_MS = 5 * 60 * 1000;
+
+const readMarker = dir => {
+  try { return JSON.parse(fs.readFileSync(markerFile(dir), 'utf8')); } catch { return null; } // none, or unreadable
+};
+
 /**
  * Note that this run has begun, and say whether the last one ended cleanly.
- * -> { unclean, startedAt, version }: startedAt and version describe the run
- * that didn't finish, when there was one.
+ * -> { unclean, startedAt, version, cause }: startedAt and version describe the
+ * run that didn't finish, when there was one. cause is why it ended when that
+ * wasn't Shellby's doing: 'shutdown' (Windows asked, then ended him without
+ * session-end, as "Shut down anyway" does) or 'restart' (the PC booted since he
+ * started: a restart, the power going, a held power button). Fast Startup keeps
+ * the boot time across a plain shut down, which is what 'shutdown' covers.
+ * Otherwise null.
  */
-function startRun(dir, { version = '', now = Date.now } = {}) {
-  let last = null;
-  try { last = JSON.parse(fs.readFileSync(markerFile(dir), 'utf8')); } catch { /* none, or unreadable */ }
+function startRun(dir, { version = '', now = Date.now, bootedAt = null } = {}) {
+  const last = readMarker(dir);
   try {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(markerFile(dir), JSON.stringify({ startedAt: now(), version, pid: process.pid }));
   } catch { /* no marker means no warning next time; nothing worse */ }
-  return last ? { unclean: true, startedAt: last.startedAt || null, version: last.version || '' } : { unclean: false };
+  if (!last) return { unclean: false };
+  const startedAt = last.startedAt || null;
+  const cause = bootedAt && startedAt && bootedAt > startedAt ? 'restart' : last.endingAt ? 'shutdown' : null;
+  return { unclean: true, startedAt, version: last.version || '', cause };
 }
 
 /** A clean quit: the next start has nothing to report. */
 function endRun(dir) {
   try { fs.rmSync(markerFile(dir), { force: true }); } catch { /* fine */ }
+}
+
+/**
+ * Windows asked to end the session: if he's ended without a session-end, the
+ * next start blames the shutdown, not him. `ending` false takes it back (the
+ * shutdown was cancelled). Never makes a marker a clean quit already removed.
+ */
+function markEnding(dir, ending = true, { now = Date.now } = {}) {
+  const marker = readMarker(dir);
+  if (!marker) return;
+  const rest = { ...marker };
+  delete rest.endingAt;
+  try { fs.writeFileSync(markerFile(dir), JSON.stringify(ending ? { ...rest, endingAt: now() } : rest)); } catch { /* fine */ }
 }
 
 /**
@@ -169,6 +197,6 @@ const keepIntegrations = defaults => defaults.filter(i => !LEFT_OUT.has(i.name))
 
 module.exports = {
   CONSENTS, DSN, LEFT_OUT, dsnFor, normalizeConsent,
-  startRun, endRun, previousLogTail, markerFile,
+  startRun, endRun, markEnding, ENDING_GRACE_MS, previousLogTail, markerFile,
   envelopeTime, makeGate, addDecision, scrubEvent, keepIntegrations,
 };

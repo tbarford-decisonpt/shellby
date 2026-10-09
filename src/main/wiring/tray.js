@@ -167,6 +167,11 @@ function wireTray(d) {
   function reportUncleanExit() {
     if (!d.lastRun.unclean) return;
     const started = d.lastRun.startedAt ? new Date(d.lastRun.startedAt).toISOString() : 'unknown';
+    // Windows ending him, or the PC going down under him, is nothing he did.
+    if (d.lastRun.cause) {
+      d.log.info('the last run ended without quitting', d.lastRun.cause === 'restart' ? 'the PC restarted or lost power' : 'Windows ended the session');
+      return;
+    }
     d.log.warn('the last run ended without quitting', `started ${started}${d.lastRun.version ? `, version ${d.lastRun.version}` : ''}`);
     if (d.sentry && d.crashConsent() !== 'never') {
       d.sentry.captureMessage('Shellby closed unexpectedly', {

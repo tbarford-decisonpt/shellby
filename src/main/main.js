@@ -393,7 +393,16 @@ app.whenReady().then(() => {
   createShop();
   createTray();
   // Windows signing out or shutting down ends him without will-quit: that's no crash.
-  for (const w of [critter, panel]) w?.on('session-end', () => crashReport.endRun(LOG_DIR));
+  // Forced ("Shut down anyway") there's no session-end, only the question before it.
+  let ending = null;
+  for (const w of [critter, panel]) {
+    w?.on('session-end', () => crashReport.endRun(LOG_DIR));
+    w?.on('query-session-end', () => {
+      if (!ending) crashReport.markEnding(LOG_DIR);
+      clearTimeout(ending);
+      ending = setTimeout(() => { ending = null; crashReport.markEnding(LOG_DIR, false); }, crashReport.ENDING_GRACE_MS);
+    });
+  }
   reportUncleanExit();
   // Answers given before a restart still apply: walk the queue once so what was
   // turned down leaves the disk, and what was okayed goes.
