@@ -1,9 +1,10 @@
 // ci: split panes: side by side up to twelve, sizes, a box in each, a saved layout, windows of their own
 // Conversations side by side (tab-panes.js, shared/panes.js) and in windows of
 // their own (main's wiring/popouts.js): Split puts one beside another, dragging
-// a tab into the chat splits a pane and fills a 2x2 grid, a click picks which
-// pane the box talks to, and a tab dragged out of the window gets one of its
-// own, with its conversation and what was typed. Its × hands it back.
+// a tab into the chat splits a pane and fills a 2x2 grid and a strip of columns,
+// the lines between panes resize them, the box follows the focused pane, and a
+// restart brings the layout back. A click picks which pane the
+// box talks to, and a tab dragged out of the window gets one of its own, with its conversation and what was typed. Its × hands it back.
 // No Claude account needed: the fake CLI answers.
 //   node scripts/e2e-panes.js [--shots <dir>]
 const { spawn } = require('child_process');
