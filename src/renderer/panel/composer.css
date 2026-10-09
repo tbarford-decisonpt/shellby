@@ -242,6 +242,18 @@
    stand-in with the draft in the others. */
 .pane-slot > .composer { padding: 6px 8px 8px; background: none; }
 .pane-slot #sendHint { display: none; }
+/* In a pane the box has a ceiling. The feed above it keeps a few lines, and
+   what stacks up over the input row (the .box-extras: the to-do list,
+   background jobs, queued messages and the rest) scrolls instead of pushing
+   the box out of the pane. The Working bar and the input row stay. The box
+   itself never clips: the slash and pick menus open up out of it. Outside a
+   pane the .box-extras are plain blocks, their margins collapsing through. */
+.feeds:not([data-panes="1"]) .feed { min-height: 40px; }
+.pane-slot { display: flex; flex-direction: column; min-height: 0; }
+.pane-slot > .composer { display: flex; flex-direction: column; min-height: 0; }
+.pane-slot > .composer > * { flex: none; }
+.pane-slot .box-extras { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.pane-slot .input-hint { flex: 0 1 auto; min-height: 0; overflow: hidden; }
 .pane-standin {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px;
   border: 0; border-top: 1px solid var(--line-soft); background: var(--abyss);
