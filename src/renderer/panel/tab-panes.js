@@ -141,16 +141,22 @@
       state.paneSizes = P.setWeight(state.grid, s, axis, across ? c + 1 : c, across ? null : r + 1, nb);
       applySizes();
     };
-    const up = () => {
+    // Lost capture ends it too: renderPanes may redraw the line away mid-drag,
+    // and then no pointerup ever comes. A line no longer on the page loses it at
+    // the document, so listen there as well. Whichever comes first ends it, once.
+    let done = false;
+    const up = ev => {
+      if (done || ev.pointerId !== e.pointerId) return;
+      done = true;
       line.removeEventListener('pointermove', move);
-      line.removeEventListener('pointerup', up);
-      line.removeEventListener('pointercancel', up);
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) line.removeEventListener(type, up);
+      document.removeEventListener('lostpointercapture', up, true);
       document.body.classList.remove('resizing-panes');
       SB.savePanes?.();
     };
     line.addEventListener('pointermove', move);
-    line.addEventListener('pointerup', up);
-    line.addEventListener('pointercancel', up);
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) line.addEventListener(type, up);
+    document.addEventListener('lostpointercapture', up, true);
   }
 
   function paneHead(t) {

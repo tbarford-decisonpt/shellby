@@ -46,7 +46,7 @@ async function connect(target) {
     const r = await Promise.race([send('Page.captureScreenshot', { format: 'png' }), wait(SHOT_TIMEOUT_MS).then(() => null)]);
     if (r?.result?.data) fs.writeFileSync(path.join(SHOTS, `${name}.png`), Buffer.from(r.result.data, 'base64'));
   };
-  return { ws, ev, until, drag, click, shot };
+  return { ws, send, ev, until, drag, click, shot };
 }
 
 const targets = async () => { try { return await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json(); } catch { return []; } };
@@ -144,6 +144,19 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await panel.drag(await tabAt(B), await paneSpot(D, 0.5, 0.92));
     await wait(300);
     check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'B back under D');
+
+    // ---- A pane closing mid-drag (its line redrawn away) still ends the drag.
+    const line2 = await ev(`(() => { const r = document.querySelector('.pane-divider.across').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: line2.x, y: line2.y, button: 'left', buttons: 1, clickCount: 1 });
+    await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: line2.x + 20, y: line2.y, button: 'left', buttons: 1 });
+    check(await ev(`document.body.classList.contains('resizing-panes')`), 'pressing a line starts a drag');
+    await ev(`SB.closePane('${B}')`);
+    await wait(200);
+    check(!(await ev(`document.body.classList.contains('resizing-panes')`)), 'a pane closing mid-drag ends it, so the feeds take clicks again');
+    await panel.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: line2.x + 20, y: line2.y, button: 'left', buttons: 0, clickCount: 1 });
+    await ev(`SB.placeTab('${B}', '${D}', 'bottom')`);
+    await wait(300);
+    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'and B goes back under D');
 
     // ---- A click into a pane gives it the box.
     await panel.click(await paneSpot(C, 0.5, 0.5));
