@@ -9,7 +9,9 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const TANK = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'panel', 'tank.js'), 'utf8');
+const panelFile = name => fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'panel', name), 'utf8');
+const TANK_RENDER = panelFile('tank-render.js'); // loaded before tank.js, as in the panel
+const TANK = panelFile('tank.js');
 const flush = () => new Promise(r => setImmediate(r));
 
 function element() {
@@ -48,6 +50,7 @@ function loadTank() {
     CustomEvent: class {}, performance: { now: () => 1000 + timers.length * 100 },
     setTimeout: fn => { timers.push(fn); return timers.length; }, clearTimeout() {},
   });
+  vm.runInContext(TANK_RENDER, context, { filename: 'tank-render.js' });
   vm.runInContext(TANK, context, { filename: 'tank.js' });
   return {
     timers, paints, docListeners,

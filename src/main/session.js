@@ -12,9 +12,7 @@ const { randomUUID } = require('crypto');
 const { parseLine, spendFrom } = require('./stream');
 const { troubleOf, remoteTroubleOf } = require('./trouble');
 const remoteSsh = require('./remote/ssh');
-const { weightOf } = require('./spend');
 const ctx = require('./context');
-const turncost = require('./turncost');
 const planPace = require('./plan-pace');
 const eff = require('./efficiency');
 const { claudeEnv } = require('./claude/cli');
@@ -27,6 +25,8 @@ const processJob = require('./process-job');
 const todos = require('../renderer/shared/todos');
 const jobs = require('./jobs');
 const { memoryOf } = require('./automemory');
+const { accounting } = require('./session-accounting');
+const { crew, TALK_MS } = require('./session-crew');
 
 // The tools that can change files, for the beforeWork hook.
 const WORK_TOOLS = 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell';
@@ -63,8 +63,6 @@ async function placeEdit(item) {
 
 // Effort levels Claude Code takes (--effort). '' leaves it to Claude Code.
 const { EFFORTS, unknownType } = require('./cli-contract');
-// How long a helper shows a message it sent or was sent (noteMessage).
-const TALK_MS = 8000;
 // How long Shellby waits for the CLI to answer one of its own control requests.
 const REQUEST_TIMEOUT_MS = 15000;
 
@@ -469,167 +467,6 @@ class ClaudeSession extends EventEmitter {
     this.emit('item', item);
   }
 
-  // What each API call cost, for the usage-by-project ledger (spend.js). One
-  // call arrives as several events repeating its usage, so only growth past
-  // what was already reported counts. Kept off the 'item' stream so it never
-  // lands in the transcript.
-  countSpend(s) {
-    if (!s) return;
-    if (this.turn) this.countTurnTokens(s);
-    const weight = weightOf(s.usage, s.model);
-    const before = this.counted.get(s.messageId) || 0;
-    if (weight <= before) return;
-    this.counted.delete(s.messageId);
-    this.counted.set(s.messageId, weight);
-    if (this.counted.size > 500) this.counted.delete(this.counted.keys().next().value);
-    if (this.turn) {
-      this.turn.weight += weight - before;
-      if (s.parent) this.helperOf(s.parent).weight += weight - before;
-    }
-    this.emit('spend', { messageId: s.messageId, weight: weight - before });
-  }
-
-  // The running turn's tokens so far, counted as its result's cost will count
-  // them, for the panel's live "12s · 4.2k tokens". 'tokens' only when it grows.
-  countTurnTokens(s) {
-    const turn = this.turn;
-    turn.usages.set(s.messageId, turncost.mergeUsage(turn.usages.get(s.messageId), s.usage));
-    if (s.parent) {
-      const helper = this.helperOf(s.parent);
-      helper.usages.set(s.messageId, turn.usages.get(s.messageId));
-    }
-    const { fresh } = turncost.tokensOf([...turn.usages.values()]);
-    if (fresh <= turn.tokens) return;
-    turn.tokens = fresh;
-    this.emit('tokens', fresh);
-  }
-
-  // What one helper (by the Agent call that sent it) has spent this turn.
-  helperOf(parent) {
-    const helpers = this.turn.helpers ||= new Map();
-    if (!helpers.has(parent)) helpers.set(parent, { usages: new Map(), weight: 0 });
-    return helpers.get(parent);
-  }
-
-  // The turn's cost goes on its result, so History keeps it with the turn.
-  // Helpers' calls count too: they spend from the same window. Each helper's
-  // part is kept beside it, for its lane.
-  closeTurn(item) {
-    const turn = this.turn;
-    this.turn = null;
-    if (!turn) return;
-    const helpers = [...(turn.helpers || [])].map(([id, x]) => ({ id, usages: [...x.usages.values()], weight: x.weight }));
-    const cost = turncost.turnCost({ usages: [...turn.usages.values()], weight: turn.weight, effort: turn.effort, thinking: item.thinkingTokens, helpers }, this.context);
-    if (cost) item.cost = cost;
-    this.growths = turncost.addGrowth(this.growths, turn.before, this.context?.tokens);
-  }
-
-  // The prompt cache and setup weight (efficiency.js), off the transcript like
-  // spend. 'call' carries each call's growth in cache reads, cache writes and
-  // fresh input; 'cache' says when the main thread last touched the cache.
-  countCall(event) {
-    const c = eff.callFrom(event);
-    if (!c) return;
-    const prev = this.calls.get(c.messageId);
-    const grow = f => Math.max(0, c[f] - (prev?.[f] || 0));
-    const delta = { input: grow('input'), write: grow('write'), read: grow('read'), isNew: !prev };
-    this.calls.delete(c.messageId);
-    this.calls.set(c.messageId, { input: Math.max(c.input, prev?.input || 0), write: Math.max(c.write, prev?.write || 0), read: Math.max(c.read, prev?.read || 0) });
-    if (this.calls.size > 500) this.calls.delete(this.calls.keys().next().value);
-    // A brand-new conversation's first call is everything it carries before your first word.
-    let setup = null;
-    if (c.main && !prev && this.setupChars !== null) {
-      setup = eff.setupTokens(c, this.setupChars);
-      this.setupChars = null;
-    }
-    if (delta.input || delta.write || delta.read || setup) this.emit('call', { ...delta, setup });
-    // Stamped on a call's first event, close to when it read the cache: its later
-    // blocks arrive as it writes, which would make the cache look warmer than it is.
-    if (c.main && !prev) {
-      this.cache = { at: Date.now(), ttlMs: c.ttlMs || this.cache?.ttlMs || eff.DEFAULT_TTL_MS };
-      this.emit('cache', this.cache);
-    }
-  }
-
-  // How full the context window is, from each main-thread reply's token counts.
-  // Emitted as 'context', off the transcript like spend.
-  measure(event) {
-    const windows = ctx.windowsFrom(event);
-    if (windows) {
-      this.windows = windows;
-      if (this.context) this.setContext(this.context.tokens, this.lastModel);
-      return;
-    }
-    if (event?.type === 'system' && event.subtype === 'compact_boundary') return this.setContext(0);
-    const t = ctx.tokensFrom(event);
-    if (!t) return;
-    this.lastModel = t.model || this.lastModel;
-    this.setContext(t.tokens, this.lastModel);
-  }
-
-  setContext(tokens, model = this.lastModel) {
-    const next = ctx.view(tokens, ctx.windowFor(model, this.windows, this.model));
-    const before = this.context;
-    if (before?.tokens === next?.tokens && before?.window === next?.window) return;
-    this.context = next;
-    this.emit('context', next, before);
-  }
-
-  // Keeps a live map of subagents so permission prompts can be attributed and
-  // the desktop can show one helper crab per running agent.
-  trackTask(item) {
-    if (!item.taskId) return;
-    const prev = this.tasks.get(item.taskId) || { taskId: item.taskId, status: 'running', startedAt: Date.now() };
-    const next = { ...prev };
-    for (const k of ['toolUseId', 'description', 'subagentType', 'background', 'lastTool', 'usage']) {
-      if (item[k] == null || (k === 'description' && prev.description && item.phase === 'progress')) continue;
-      // A helper sent another message (SendMessage) starts again under that call's
-      // id, but its messages still point at the Agent call that made it.
-      if (k === 'toolUseId' && prev.toolUseId && prev.toolUseId !== item.toolUseId) { next.messagedBy = item.toolUseId; continue; }
-      next[k] = item[k];
-    }
-    if (item.phase === 'started' && prev.status !== 'running') { next.status = 'running'; next.startedAt = Date.now(); delete next.activity; }
-    if (!next.name && this.agentNames.get(next.toolUseId)) next.name = this.agentNames.get(next.toolUseId);
-    if (item.phase === 'progress' && item.description) next.activity = item.description;
-    if (item.status) next.status = item.status === 'completed' ? 'completed' : item.status;
-    if (item.phase === 'done' && !item.status) next.status = 'completed';
-    if (prev.status === 'running' && next.status !== 'running') next.endedAt = Date.now(); // the crab window walks it home with how it went
-    this.tasks.set(item.taskId, next);
-    this.emit('crew', this.crew);
-  }
-
-  get crew() {
-    return [...this.tasks.values()];
-  }
-
-  runningCrew() {
-    return this.crew.filter(t => t.status === 'running');
-  }
-
-  nameAgent(item) {
-    if (!item.agent.name) return;
-    this.agentNames.set(item.id, item.agent.name);
-    if (this.agentNames.size > 200) this.agentNames.delete(this.agentNames.keys().next().value);
-  }
-
-  // One agent wrote to another (SendMessage): the helper it's for heard it, and
-  // a helper that sent it said it. The crab window shows both for a moment.
-  noteMessage(item) {
-    const { to, text, summary } = item.message;
-    const helpers = [...this.tasks.values()];
-    const target = helpers.find(t => t.name === to || t.taskId === to);
-    const from = item.parent ? helpers.find(t => t.toolUseId === item.parent) : null;
-    const words = summary || text;
-    if (!words || (!target && !from)) return;
-    const at = Date.now();
-    if (target) this.tasks.set(target.taskId, { ...this.tasks.get(target.taskId), heard: { text: words, from: from ? (from.name || from.subagentType || 'a helper') : null, at } });
-    if (from) this.tasks.set(from.taskId, { ...this.tasks.get(from.taskId), said: { text: words, to: target?.name || to, at } });
-    this.emit('crew', this.crew);
-    clearTimeout(this.talkTimer);
-    this.talkTimer = setTimeout(() => this.emit('crew', this.crew), TALK_MS + 50);
-    this.talkTimer.unref?.();
-  }
-
   /** Background commands and watches, running and just finished (jobs.js). */
   jobView(now = Date.now()) {
     return jobs.view(this.jobs, now);
@@ -893,5 +730,8 @@ class ClaudeSession extends EventEmitter {
     setTimeout(() => { if (this.proc === proc) this.kill(); }, 3000);
   }
 }
+
+Object.defineProperties(ClaudeSession.prototype, Object.getOwnPropertyDescriptors(accounting));
+Object.defineProperties(ClaudeSession.prototype, Object.getOwnPropertyDescriptors(crew));
 
 module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS, initHooks, setLogger, placeEdit, TALK_MS };
