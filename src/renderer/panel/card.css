@@ -163,9 +163,9 @@ body.celebrating .toast { bottom: auto; top: 64px; }
 .toast-action { flex: none; white-space: nowrap; padding: 5px 12px; }
 /* A toast with a headline: bold title, lighter body, quiet note. */
 .toast-body { display: flex; flex-direction: column; gap: 2px; }
-.toast-title { font-size: var(--fs-12-5); font-weight: 800; overflow-wrap: anywhere; }
-.toast-text { font-size: var(--fs-11-5); font-weight: 500; line-height: 1.4; }
-.toast-note { font-size: var(--fs-11-5); font-weight: 500; color: color-mix(in srgb, var(--ink) 65%, transparent); }
+.toast-title { font-size: var(--fs-12-5); font-weight: 800; color: var(--sand); overflow-wrap: anywhere; }
+.toast-text { font-size: var(--fs-11-5); font-weight: 500; line-height: 1.4; color: var(--sand-dim); }
+.toast-note { font-size: var(--fs-11-5); font-weight: 500; color: var(--sand-faint); }
 
 /* Shellby screen headers are tight: the share button is icon-only there. */
 .view-head .share-icon { padding: 0 9px; font-size: var(--fs-15); }

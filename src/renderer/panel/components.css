@@ -648,10 +648,14 @@ button.rq-title:hover, button.rq-title:focus-visible { color: var(--glass); text
 .h-done { color: var(--glass); }
 
 /* toast with action */
-.toast-action { border: 0; background: var(--ink); color: var(--sand); border-radius: 99px; padding: 3px 10px; font-size: var(--fs-12); font-weight: 700; }
-.toast-action:hover { background: var(--reef-3); }
-.toast-close { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-right: -4px; padding: 0; border: 0; border-radius: 99px; background: none; color: color-mix(in srgb, var(--ink) 60%, transparent); }
-.toast-close:hover, .toast-close:focus-visible { color: var(--ink); background: color-mix(in srgb, var(--ink) 12%, transparent); }
+/* The offer is the toast's one action, so it's coral like .btn.primary; a second one sits back in reef. */
+.toast-action { border: 1px solid var(--coral); background: var(--coral); color: #1a0d09; border-radius: var(--r-sm); padding: 3px 10px; font-size: var(--fs-12); font-weight: 700; box-shadow: 0 2px 0 var(--coral-deep); }
+.toast-action:hover { background: #ff8e74; border-color: #ff8e74; }
+.toast-action:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--coral-deep); }
+.toast-action ~ .toast-action { background: var(--reef-2); border-color: var(--line); color: var(--sand); box-shadow: none; }
+.toast-action ~ .toast-action:hover { border-color: var(--glass); background: var(--reef-2); }
+.toast-close { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-right: -4px; padding: 0; border: 0; border-radius: 99px; background: none; color: var(--sand-faint); }
+.toast-close:hover, .toast-close:focus-visible { color: var(--sand); background: rgba(127, 214, 194, .12); }
 .toast-close svg { width: 14px; height: 14px; }
 /* Always in the page so screen readers hear it; empty means nothing showing. */
 .toast:empty { opacity: 0; padding: 0; box-shadow: none; pointer-events: none; animation: none; }
