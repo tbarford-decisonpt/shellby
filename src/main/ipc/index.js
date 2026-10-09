@@ -127,6 +127,7 @@ function registerIpc(electronIpcMain, d) {
     noteUndone: n => d.noteWeek('undone', null, n),
     turnEnding: tabId => d.turnEnds.get(tabId) || Promise.resolve(),
     dataDir: app.getPath('userData'),
+    openExternal: url => shell.openExternal(url),
     runClaude, log,
   });
   d.teamIpc = teamIpcModule.register({
