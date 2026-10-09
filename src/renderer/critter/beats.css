@@ -18,6 +18,7 @@
 /* work starts: a crouch, a spring, and he's off */
 body.lead-work #crab #sprite { transform-origin: 50% 100%; animation: lead-work .5s steps(1); }
 body.lead-work #crab .part-eyes { animation: none; transform: scaleY(1.25); }
+body.lead-work #crab .part-stalks { animation: none; }
 body.lead-work #shadow { animation: lead-work-shadow .5s steps(1); }
 @keyframes lead-work {
   0% { transform: translateY(2px) scale(1.08, .9); }
@@ -44,6 +45,7 @@ body.lead-ask #crab .part-stalks { animation: none; transform: translateY(-1px);
 /* you answered: a nod, and a blink that says "got it" */
 body.lead-answer #crab #sprite { transform-origin: 50% 100%; animation: lead-answer .5s steps(1); }
 body.lead-answer #crab .part-eyes { animation: lead-answer-eyes .5s steps(1); }
+body.lead-answer #crab .part-stalks { animation: none; }
 @keyframes lead-answer {
   0% { transform: translateY(1px) rotate(2deg); }
   33.333% { transform: none; }
@@ -55,6 +57,7 @@ body.lead-answer #crab .part-eyes { animation: lead-answer-eyes .5s steps(1); }
 /* after a cheer: he lets the moment go with a big, contented breath */
 body.after-win #crab #sprite { transform-origin: 50% 100%; animation: after-win 1s steps(1); }
 body.after-win #crab .part-eyes { animation: after-win-eyes 1s steps(1); }
+body.after-win #crab .part-stalks { animation: none; }
 body.after-win #crab .part-claw { animation: after-win-claw 1s steps(1); }
 @keyframes after-win {
   0% { transform: translateY(1px) scale(1.04, .94); }
@@ -67,6 +70,7 @@ body.after-win #crab .part-claw { animation: after-win-claw 1s steps(1); }
 /* after an error: he shakes it off (never a sulk) */
 body.after-oof #crab #sprite { transform-origin: 50% 100%; animation: after-oof .833s steps(1); }
 body.after-oof #crab .part-eyes { animation: after-oof-eyes .833s steps(1); }
+body.after-oof #crab .part-stalks { animation: none; }
 @keyframes after-oof {
   0% { transform: rotate(-2deg); }
   20% { transform: rotate(2deg); }
@@ -78,6 +82,7 @@ body.after-oof #crab .part-eyes { animation: after-oof-eyes .833s steps(1); }
 /* work over with nothing to cheer (stopped, or handed back): he settles down */
 body.after-work #crab #sprite { transform-origin: 50% 100%; animation: after-work .667s steps(1); }
 body.after-work #crab .part-eyes { animation: after-work-eyes .667s steps(1); }
+body.after-work #crab .part-stalks { animation: none; }
 @keyframes after-work { 0% { transform: translateY(1px) scale(1.03, .96); } 50%, 100% { transform: none; } }
 @keyframes after-work-eyes { 0%, 100% { transform: none; } 25% { transform: scaleY(.1); } 50% { transform: none; } }
 
@@ -91,6 +96,7 @@ body.dozing #crab .part-claw { transition-delay: .667s; }
 body.dozing #crab .part-body { transition-delay: .833s; }
 body.dozing #crab .part-stalks, body.dozing #crab .part-eyes { transition-delay: 1s; }
 body.dozing #crab .part-eyes { animation: doze-eyes 1.333s steps(1) forwards; }
+body.dozing #crab .part-stalks { animation: none; }
 body.dozing #crab #sprite { transform-origin: 50% 100%; animation: doze-nod 1.333s steps(1); }
 body.dozing #crab .part-shell { animation: none; }
 body.dozing #zzz { transition-delay: 1s; }
