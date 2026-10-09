@@ -45,6 +45,10 @@ async function connect(url) {
   fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ tideEvents: false }));
   // Claude Code's own folder, for its memories: under temp, so the fake CLI writes into it.
   const config = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-native-cfg-')));
+  // Quiet: anything he says outranks his "plan?" bubble, and some of it goes by
+  // the calendar (the last day of a tide event is said at boot, whatever the
+  // chatter cooldowns).
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ chatter: 'quiet' }));
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
     env: {
