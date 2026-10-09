@@ -85,6 +85,7 @@
     $('notifyToggle').checked = !!state.settings.notifications;
     $('recapToggle').checked = state.settings.recap !== false;
     $('claudeTricksToggle').checked = state.settings.claudeTricks !== false;
+    $('justSawToggle').checked = state.settings.attachWhatISaw === true;
     $('forecastToggle').checked = state.settings.forecast !== false;
     $('spendGuardToggle').checked = state.settings.spendGuard !== false;
     $('spendReserveSelect').value = String(state.settings.spendReserve || 25);
@@ -186,6 +187,7 @@
   api.onSettings(s => {
     state.settings = s;
     SB.applyMode(s.mode);
+    SB.syncJustSaw?.();
     SB.refreshUsage?.(); // a computer checked again may now be on another account
     if (state.view === 'settings') renderSettings();
   });
@@ -289,6 +291,7 @@
   $('notifyToggle').addEventListener('change', async e => { const r = await api.setSettings({ notifications: e.target.checked }); state.settings = r.settings; });
   $('recapToggle').addEventListener('change', async e => { const r = await api.setSettings({ recap: e.target.checked }); state.settings = r.settings; });
   $('claudeTricksToggle').addEventListener('change', async e => { const r = await api.setSettings({ claudeTricks: e.target.checked }); state.settings = r.settings; });
+  $('justSawToggle').addEventListener('change', async e => { const r = await api.setSettings({ attachWhatISaw: e.target.checked }); state.settings = r.settings; SB.syncJustSaw?.(); });
   $('flakyToggle').addEventListener('change', async e => { const r = await api.setSettings({ flakyTests: e.target.checked }); state.settings = r.settings; SB.refreshFlaky?.(); });
   $('catchBugsToggle').addEventListener('change', async e => { const r = await api.setSettings({ catchBugs: e.target.checked }); state.settings = r.settings; $('bugdexOptions').hidden = !e.target.checked; });
   for (const [id, key] of [['bugBattlesToggle', 'bugBattles'], ['bugFollowerToggle', 'bugFollower'], ['shareBugdexToggle', 'shareBugdex']]) {

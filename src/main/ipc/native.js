@@ -6,9 +6,11 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { shell } = require('electron');
+const { clipboard, nativeImage, shell } = require('electron');
+const attach = require('../attachments');
 const confirm = require('../confirm');
 const jobs = require('../jobs');
+const justSaw = require('../just-saw');
 const automemory = require('../automemory');
 const cloud = require('../cloud-routines');
 const { findClaude, run: runCli } = require('../claude/cli');
@@ -62,6 +64,49 @@ function registerNativeIpc(ipcMain, d) {
     if (!jobs.outputPathOk(file, realTmp())) return { ok: false, error: "That output isn't somewhere Shellby reads." };
     const t = await tail(file, OUTPUT_TAIL);
     return t ? { ok: true, text: t.text, cut: t.cut } : { ok: false, error: "Couldn't read its output." };
+  });
+
+  // ---- "Attach what I just saw" (just-saw.js): opt-in, and only read when pressed
+
+  async function clipboardPicture() {
+    try {
+      for (const item of await clipboard.read()) {
+        const type = item.types.find(t => /^image\/(?:png|jpeg)$/.test(t));
+        if (!type) continue;
+        const blob = /** @type {Blob} */ (await item.getType(type)); // a picture type, so never a bookmark
+        return new Uint8Array(await blob.arrayBuffer());
+      }
+    } catch (e) { d.log.info(`just saw: no picture read (${e?.message})`); }
+    return null;
+  }
+
+  async function failedJobOutput(found) {
+    if (!found?.job.outputFile) return '';
+    let file;
+    try { file = fs.realpathSync.native(found.job.outputFile); } catch { return ''; }
+    if (!jobs.outputPathOk(file, realTmp())) return '';
+    return (await tail(file, OUTPUT_TAIL))?.text || '';
+  }
+
+  // -> { ok, kind, label, draft, attachments, cwd } | { ok: false, off?, error }
+  ipcMain.handle('justsaw:take', async () => {
+    if (d.config.get('attachWhatISaw') !== true) return { ok: false, off: true, error: 'Turn on "Attach what I just saw" in Settings first.' };
+    let clipText = '';
+    try { clipText = await clipboard.readText(); } catch (e) { d.log.info(`just saw: clipboard text unread (${e?.message})`); }
+    const found = justSaw.lastFailedJob([...d.manager.tabs.entries()].map(([tabId, t]) => ({
+      tabId, cwd: t.session?.cwd, jobs: [...(t.session?.jobs?.byId.values() || [])],
+    })));
+    const picture = justSaw.looksLikeError(clipText) || found ? null : await clipboardPicture();
+    const [best] = justSaw.offers({ clipText, job: found, hasImage: !!picture });
+    if (!best) return { ok: false, error: 'Nothing to attach: copy an error first, or let a command fail.' };
+    const cwd = (best.kind === 'job' && found.cwd) || d.currentCwd();
+    if (best.kind === 'image') {
+      const saved = attach.saveImage(picture, d.shotsDir(), { nativeImage });
+      if (!saved.path) return { ok: false, error: saved.error };
+      return { ok: true, kind: best.kind, label: best.label, cwd, draft: justSaw.draft('image'), attachments: [saved.path] };
+    }
+    const text = best.kind === 'job' ? await failedJobOutput(found) : clipText;
+    return { ok: true, kind: best.kind, label: best.label, cwd, draft: justSaw.draft(best.kind, { text, job: found }), attachments: [] };
   });
 
   ipcMain.handle('jobs:stop', async (_e, { tabId, jobId } = {}) => {

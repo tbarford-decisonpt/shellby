@@ -4,6 +4,7 @@
 // Moved out of main.js; the limit and forecast it waits on are usage/service.js.
 const path = require('path');
 const held = require('./held');
+const queueWhen = require('./queue-when');
 const recap = require('./recap');
 const { isModel } = require('./models');
 const worktrees = require('./worktrees');
@@ -72,7 +73,7 @@ function createHeldQueue(d) {
     if (h.kind === 'message') return { ...base, tabId: h.tabId, text: h.text, attachments: h.attachments };
     if (h.kind === 'routine') return { ...base, routineId: h.routineId, name: h.name };
     return {
-      ...base, name: h.name, prompt: h.prompt, cwd: h.cwd, folder: h.cwd ? path.basename(h.cwd) : null, mode: h.mode, model: h.model || '',
+      ...base, name: h.name, prompt: h.prompt, cwd: h.cwd, folder: h.cwd ? path.basename(h.cwd) : null, mode: h.mode, model: h.model || '', when: h.when || 'reset',
       tabId: h.tabId, running: !!h.tabId && queueWaits.has(h.tabId),
       // Started before and still here: it ran dry partway (or Shellby restarted), and carries on.
       resuming: !!h.tabId && !queueWaits.has(h.tabId),
@@ -83,11 +84,17 @@ function createHeldQueue(d) {
 
   /** Hold a message or a routine run for after the reset. raw: { kind, ... } from held.js. */
   function holdForReset(raw) {
-    const at = d.resetTarget();
-    // A window seen before and since run out: you're on a fresh one already.
-    if (!at && raw.kind === 'task' && d.config.get('lastUsage')?.fiveHour) return { ok: false, idle: true, error: "There's no 5-hour window running to wait for, so it would just start now. Run it as a normal task instead." };
-    if (!at) return { ok: false, error: "Shellby doesn't know when your window resets yet. He finds out with your next message." };
-    const res = held.hold(heldList(), { ...raw, at: at + d.graceMs }, Date.now());
+    const reset = d.resetTarget();
+    // A task says when: at the reset, or tonight (queue-when.js). A window seen
+    // before and since run out means you're on a fresh one already.
+    const when = queueWhen.startAt({
+      when: raw.kind === 'task' ? raw.when : 'reset',
+      resetAt: reset ? reset + d.graceMs : null,
+      limited: !!d.limitWait(),
+      sawWindow: raw.kind === 'task' && !!d.config.get('lastUsage')?.fiveHour,
+    }, Date.now());
+    if (when.error) return { ok: false, error: when.error, ...(when.idle ? { idle: true } : {}) };
+    const res = held.hold(heldList(), { ...raw, at: when.at }, Date.now());
     if (res.error) return { ok: false, error: res.error };
     const added = res.list.length > heldList().length;
     if (added) saveHeld(res.list);
@@ -119,8 +126,9 @@ function createHeldQueue(d) {
       if (response !== 0) return { ok: false, cancelled: true };
     }
     const model = typeof input.model === 'string' && isModel(input.model) ? input.model : '';
-    const res = holdForReset({ kind: 'task', prompt, cwd, mode, model });
-    if (res.ok) d.log.info('Task queued for the reset', `${held.taskName(prompt)} at ${res.atText}`);
+    const when = queueWhen.WHENS.includes(input.when) ? input.when : 'reset';
+    const res = holdForReset({ kind: 'task', prompt, cwd, mode, model, when });
+    if (res.ok) d.log.info(when === 'tonight' ? 'Task queued for tonight' : 'Task queued for the reset', `${held.taskName(prompt)} at ${res.atText}`);
     return res;
   }
 

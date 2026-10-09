@@ -15,6 +15,7 @@ const eggs = require('../eggs');
 const events = require('../events');
 const gifts = require('../gifts');
 const recap = require('../recap');
+const ciProposals = require('../ci-proposals');
 const { TokenStore } = require('../github/auth');
 const { CiHub } = require('../ci-hub');
 const { CiWatcher } = require('../github/ci');
@@ -341,6 +342,7 @@ function wireGithub(d) {
     setTimeout(retry, 30 * 1000);
   }
   const CARD_RETRY_MS = 10 * 60 * 1000;
+  let proposed = ciProposals.create(); // what's been offered, so a busy pull request doesn't offer again and again
 
   function onCiEvent({ type, pr }) {
     if (!pr) return;
@@ -376,7 +378,14 @@ function wireGithub(d) {
     } else if (type === 'comment') {
       d.flashState('asking', 4000);
       const who = pr.talk?.people?.length ? pr.talk.people.join(', ') : 'Someone';
-      d.notify(`New on ${where}`, `${who} on "${pr.title}"`.slice(0, 160), () => { d.ci?.markSeen(pr.key); open(); });
+      // With Claude set up, offer to address it: the click opens the sheet with what
+      // would be sent (in a copy at the pull request's head), never a task by itself.
+      const canFix = !d.config.get('crabOnly') && !!d.claudeStatus?.installed && !!d.claudeStatus?.loggedIn;
+      const offer = canFix ? ciProposals.decide(proposed, { type: 'review', key: pr.key, stamp: pr.talk?.unread }, Date.now()) : null;
+      if (offer) proposed = offer.state;
+      const review = offer?.propose ? () => { d.ci?.markSeen(pr.key); d.showBuildFix(pr.key, 'review'); } : null;
+      d.notify(`New on ${where}`, `${who} on "${pr.title}"`.slice(0, 160), review || (() => { d.ci?.markSeen(pr.key); open(); }),
+        review ? { action: 'Address the review' } : undefined);
     } else if (type === 'merged') {
       // Your pull request is in: XP, a line and a little dance.
       d.awardXp('merged', { project: pr.repo, label: `Merged ${where}` });
