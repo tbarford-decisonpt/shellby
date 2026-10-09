@@ -170,6 +170,18 @@ if (args.includes('--json-schema')) {
       // "Quiz me" (quiz.js): three questions on the diff it was given, the right answer always first.
       const file = (/^diff --git a\/(\S+)/m.exec(prompt) || [])[1] || 'the file';
       answer = { questions: [1, 2, 3].map(n => ({ question: `Question ${n} about ${file}?`, choices: [`right ${n}`, `wrong ${n}a`, `wrong ${n}b`], answer: 0, why: `Because of ${file}.` })) };
+    } else if (schema.properties.opinions || schema.properties.stance || schema.properties.verdict || schema.properties.rebuttals) {
+      // The Council (council/run.js): every seat for, the chair says go ahead.
+      const opinion = id => ({ stance: `${id} says yes`, argument: `The ${id} thinks it is worth doing.`, risks: [`${id} risk`], vote: id === 'skeptic' ? 'against' : 'for', confidence: 70 });
+      const chair = { verdict: 'Go ahead, small first.', agree: ['It is worth doing'], split: ['The skeptic worries'], next: ['Build the smallest version'], confidence: 75 };
+      const system = args[args.indexOf('--system-prompt') + 1] || '';
+      const seatOf = (/You are the (\w+)/.exec(system) || [])[1] || 'seat';
+      if (schema.properties.opinions) answer = { opinions: Object.fromEntries(Object.keys(schema.properties.opinions.properties).map(id => [id, opinion(id)])), chair };
+      else if (schema.properties.stance) answer = opinion(seatOf.toLowerCase());
+      else if (schema.properties.rebuttals) answer = { rebuttals: [...system.matchAll(/^- (\S+) \(/gm)].map(m => ({ seat: m[1], reply: `${m[1]} stands firm`, vote: 'conditional' })) };
+      else answer = chair;
+      out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer, total_cost_usd: 0.001 });
+      return;
     } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {
       answer = { reply: 'Added a daily 9:00 trigger and a step where Shellby says good morning. Let me test it.', workflow_json: hello([{ id: 'check', type: 'stop', status: 'error', message: 'not finished yet' }]), test: true };

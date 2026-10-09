@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="bugdex-battle.css">
 <link rel="stylesheet" href="tide.css">
 <link rel="stylesheet" href="crew.css">
+<link rel="stylesheet" href="council.css">
 <link rel="stylesheet" href="needs.css">
 <link rel="stylesheet" href="beach.css">
 <link rel="stylesheet" href="tank.css">
@@ -609,6 +610,7 @@
         <button type="button" aria-current="page" data-goto="wardrobe">Outfits <span class="n" id="wdCount"></span></button>
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
@@ -680,6 +682,7 @@
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" aria-current="page" data-goto="trophies">Trophies <span class="n" id="trophyCount"></span></button>
         <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
@@ -773,6 +776,7 @@
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" aria-current="page" data-goto="crew">Crew <span class="n" id="crewCount"></span></button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
@@ -794,6 +798,77 @@
     <p class="muted small cr-note">“Acted on” means Claude went on to change files after that helper reported back, in the same turn.</p>
   </main>
 
+  <!-- ====================== COUNCIL: advisor crabs round a table argue a question out (council.js, src/main/council/) ====================== -->
+  <main class="view view-council" id="councilView">
+    <div class="view-head">
+      <h2 class="sr-only">Council</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" aria-current="page" data-goto="council">Council</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us</button>
+        <button type="button" data-goto="beach">Beach <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+
+    <section class="cc-chamber" id="ccChamber" aria-label="The council table">
+      <div class="cc-room" aria-hidden="true"><i class="cc-banner"></i><i class="cc-glow"></i></div>
+      <div class="cc-corner">
+        <button type="button" class="cc-corner-btn" id="ccSeatsBtn" aria-expanded="false" aria-controls="ccSeatsEditor">Seats</button>
+        <button type="button" class="cc-corner-btn" id="ccHistoryBtn" aria-expanded="false" aria-controls="ccHistory">Past sessions</button>
+      </div>
+      <div class="cc-crabs" id="ccCrabs" aria-hidden="true"></div>
+      <div class="cc-table" aria-hidden="true"><div class="cc-felt"><i class="cc-sigil"></i></div></div>
+      <div class="cc-seats" id="ccSeats" role="list"></div>
+      <button type="button" class="cc-scroll" id="ccScroll" aria-live="polite">
+        <span class="cc-scroll-text" id="ccScrollText">The council is waiting for a question.</span>
+        <span class="cc-tally" id="ccTally"></span>
+      </button>
+    </section>
+
+    <form class="cc-ask" id="ccAsk" autocomplete="off">
+      <label class="sr-only" for="ccQuestion">Your question for the council</label>
+      <textarea id="ccQuestion" rows="2" placeholder="Put a decision to the council: should we move settings to SQLite?"></textarea>
+      <div class="cc-ask-row">
+        <div class="seg cc-modes" role="radiogroup" aria-label="How the council sits" id="ccModes">
+          <button type="button" role="radio" data-mode="quick" title="One call: every advisor and the chair in a single answer. About the cost of one reply.">Quick</button>
+          <button type="button" role="radio" data-mode="full" title="Each advisor thinks on their own (a small model), then the chair weighs them.">Full</button>
+          <button type="button" role="radio" data-mode="debate" title="Full, plus a round where each advisor answers the others before the chair rules.">Debate</button>
+        </div>
+        <label class="cc-check"><input type="checkbox" id="ccProject"> Include this project</label>
+        <span class="cc-hint muted small" id="ccHint"></span>
+        <button type="submit" class="btn primary" id="ccConvene">Convene</button>
+      </div>
+    </form>
+
+    <section class="cc-minutes" id="ccMinutes" aria-label="Minutes" hidden>
+      <article class="cc-verdict" id="ccVerdict"></article>
+      <ol class="cc-opinions" id="ccOpinions"></ol>
+    </section>
+
+    <section class="cc-drawer" id="ccSeatsEditor" aria-label="Who sits at the table" hidden>
+      <h3>Who sits at the table</h3>
+      <p class="muted small" id="ccSeatsNote"></p>
+      <ul class="cc-seat-list" id="ccSeatList"></ul>
+      <form class="cc-custom" id="ccCustomForm" autocomplete="off">
+        <h4>Add your own advisor</h4>
+        <input id="ccCustomName" maxlength="20" placeholder="Name, e.g. Accountant" aria-label="Advisor name">
+        <input id="ccCustomBrief" maxlength="160" placeholder="What they argue for, e.g. Count the cost in hours and money." aria-label="What they argue for">
+        <button type="submit" class="btn">Add a seat</button>
+      </form>
+    </section>
+
+    <section class="cc-drawer" id="ccHistory" aria-label="Past sessions" hidden>
+      <h3>Past sessions</h3>
+      <ul class="cc-history-list" id="ccHistoryList"></ul>
+    </section>
+  </main>
+
   <!-- ====================== STICKERS ====================== -->
   <main class="view view-stickers" id="stickersView">
     <div class="view-head">
@@ -802,6 +877,7 @@
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" aria-current="page" data-goto="stickers">Stickers <span class="n st-count"></span></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
@@ -855,6 +931,7 @@
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="finds">Finds <span class="n fd-count"></span></button>
         <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
@@ -888,6 +965,7 @@
       <nav class="seg shellby-tabs" aria-label="Shellby">
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" aria-current="page" data-goto="bugdex">Bugdex <span class="n bd-count"></span></button>
@@ -942,6 +1020,7 @@
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
@@ -1064,6 +1143,7 @@
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
@@ -1108,6 +1188,7 @@
         <button type="button" data-goto="wardrobe">Outfits</button>
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="council">Council</button>
         <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
         <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
         <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
@@ -2533,6 +2614,7 @@
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
 <script src="crew.js"></script>
+<script src="council.js"></script>
 <script src="together.js"></script>
 <script src="bugdex.js"></script>
 <script src="bugdex-battle.js"></script>

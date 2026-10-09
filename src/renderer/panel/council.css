@@ -1,0 +1,245 @@
+/* Shellby — the Council (council.js). A candlelit hall under the sea: a
+   driftwood table with a kelp-green top, Shellby on a high-backed chair at its
+   head, advisors round the far side so the table faces you. Crabs sit in one
+   layer under the table (it hides their legs); plaques, lamps, votes and
+   speech bubbles sit in another above it. Seat positions come from council.js
+   as --x/--y (the crab) and --px/--py (its place on the table). */
+
+body[data-view="council"] .view-council { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+.view-council {
+  --cc-wood: #6b4a2e; --cc-wood-hi: #8d6540; --cc-wood-lo: #3d2817;
+  --cc-felt: #1f4a3c; --cc-felt-lo: #143229;
+  --cc-flame: #ffd98a;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+body.crab-only [data-goto="council"] { display: none; }
+
+/* ---------------------------------------------------------------- the hall */
+.cc-chamber {
+  position: relative; margin: 12px 0 10px; aspect-ratio: 16 / 9.5; min-height: 260px; max-height: 420px; width: 100%;
+  border-radius: var(--r-lg); border: 1px solid var(--line); overflow: hidden; isolation: isolate;
+  background:
+    radial-gradient(70% 55% at 50% 58%, rgba(255, 193, 94, .13), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .018) 0 2px, transparent 2px 46px),
+    linear-gradient(#0a1a1d 0 40%, #0d2024 40% 41%, var(--abyss) 41%);
+}
+.cc-room { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+/* A banner behind the chair, with his shell on it. */
+.cc-banner {
+  position: absolute; left: 50%; top: 0; width: 15%; height: 30%; transform: translateX(-50%);
+  background: linear-gradient(var(--coral-deep), #9c3524);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .18);
+}
+.cc-banner::after {
+  content: ""; position: absolute; left: 50%; top: 34%; width: 34%; aspect-ratio: 1; transform: translate(-50%, -50%);
+  border-radius: 50% 50% 46% 46%; background: repeating-radial-gradient(circle at 50% 100%, var(--amber) 0 3px, #d99a3a 3px 6px);
+  opacity: .85;
+}
+.cc-corner { position: absolute; z-index: 50; inset: 8px 8px auto; display: flex; justify-content: space-between; pointer-events: none; }
+.cc-corner-btn {
+  pointer-events: auto; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line);
+  background: rgba(7, 16, 18, .72); color: var(--sand-dim); font-size: var(--fs-11); font-weight: 700; cursor: pointer;
+}
+.cc-corner-btn:hover, .cc-corner-btn[aria-expanded="true"] { color: var(--sand); border-color: var(--glass); }
+.cc-corner-btn:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.cc-glow { position: absolute; inset: auto 0 0; height: 30%; background: linear-gradient(transparent, rgba(0, 0, 0, .4)); }
+
+/* ---------------------------------------------------------------- the table */
+.cc-table {
+  position: absolute; z-index: 20; left: 50%; top: 60%; width: 74%; height: 52%; transform: translate(-50%, -50%);
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 30%, var(--cc-wood-hi), var(--cc-wood) 55%, var(--cc-wood-lo));
+  /* The near edge: the table's thickness, lit from above. */
+  box-shadow: 0 10px 0 var(--cc-wood-lo), 0 14px 0 rgba(0, 0, 0, .25), 0 22px 28px rgba(0, 0, 0, .55);
+}
+.cc-felt {
+  position: absolute; inset: 9% 7%; border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(255, 217, 138, .16), transparent 60%),
+    repeating-linear-gradient(35deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 6px),
+    radial-gradient(ellipse, var(--cc-felt), var(--cc-felt-lo));
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, .55), 0 0 0 2px rgba(255, 193, 94, .25);
+}
+.cc-sigil { position: absolute; inset: 30% 38%; border-radius: 50%; border: 2px dashed rgba(255, 193, 94, .18); }
+
+/* ---------------------------------------------------------------- the crabs */
+.cc-crabs { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.cc-crab {
+  position: absolute; left: var(--x); top: var(--y); z-index: var(--z);
+  width: calc(13% * var(--s)); transform: translate(-50%, -72%);
+}
+.cc-crab-sprite { display: block; }
+.cc-crab-sprite svg { display: block; width: 100%; height: auto; image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .35)); }
+.cc-crab[data-state="silent"] .cc-crab-sprite { opacity: .45; filter: grayscale(.8); }
+/* His chair: a tall carved back behind him. */
+.cc-throne {
+  position: absolute; left: 50%; bottom: 18%; width: 118%; height: 150%; transform: translateX(-50%); z-index: -1;
+  border-radius: 46% 46% 6px 6px / 30% 30% 6px 6px;
+  background: linear-gradient(90deg, var(--cc-wood-lo), var(--cc-wood-hi) 50%, var(--cc-wood-lo));
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .25), inset 0 10px 0 rgba(255, 193, 94, .25);
+}
+
+/* ---------------------------------------------------------------- places at the table */
+.cc-seats { position: absolute; inset: 0; z-index: 30; margin: 0; padding: 0; pointer-events: none; }
+.cc-seat { position: absolute; inset: 0; pointer-events: none; }
+.cc-hit {
+  position: absolute; left: var(--x); top: var(--y); width: calc(13% * var(--s)); aspect-ratio: 1; transform: translate(-50%, -78%);
+  border: 0; border-radius: 50%; background: none; cursor: pointer; pointer-events: auto;
+}
+.cc-hit:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.cc-place {
+  position: absolute; left: var(--px); top: var(--py); transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 4px;
+}
+.cc-plaque {
+  padding: 1px 6px; border-radius: 3px; white-space: nowrap;
+  font: 600 var(--fs-10)/1.4 var(--font-pixel); color: #2a1c0f;
+  background: linear-gradient(#f0d9a8, #c9a86c); box-shadow: 0 2px 0 rgba(0, 0, 0, .4);
+}
+.cc-seat.is-focus .cc-plaque { outline: 2px solid var(--glass); outline-offset: 1px; }
+.cc-lamp {
+  width: 6px; height: 9px; border-radius: 50% 50% 30% 30%; background: #5a4630;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .3);
+}
+.cc-seat[data-state="thinking"] .cc-lamp, .cc-seat[data-state="spoke"] .cc-lamp {
+  background: var(--cc-flame); box-shadow: 0 0 8px 3px rgba(255, 193, 94, .55);
+}
+.cc-vote {
+  min-width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%;
+  font: 700 var(--fs-11)/1 var(--font-pixel); color: var(--abyss); background: transparent;
+}
+.cc-vote:empty { visibility: hidden; }
+.cc-vote[data-vote="for"], .cc-pip[data-vote="for"], .cc-chip[data-vote="for"] { background: var(--glass); color: var(--abyss); }
+.cc-vote[data-vote="against"], .cc-pip[data-vote="against"], .cc-chip[data-vote="against"] { background: var(--coral); color: var(--abyss); }
+.cc-vote[data-vote="conditional"], .cc-pip[data-vote="conditional"], .cc-chip[data-vote="conditional"] { background: var(--amber); color: var(--abyss); }
+
+/* Speech: above the crab, leaning in toward the middle of the table. */
+.cc-bubble {
+  position: absolute; left: var(--x); top: calc(var(--y) - 17% * var(--s)); transform: translate(-50%, -100%);
+  max-width: 24%; padding: 4px 7px; border-radius: 8px;
+  font-size: var(--fs-10-5); line-height: 1.3; color: var(--ink); background: var(--sand);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .35); text-align: center;
+}
+.cc-bubble::after { content: ""; position: absolute; left: 50%; bottom: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: var(--sand); transform: translateX(-50%); }
+.cc-bubble:empty { display: none; }
+.cc-bubble { opacity: 0; visibility: hidden; transition: opacity .15s, visibility 0s .15s; z-index: 1; }
+.cc-seat[data-state="thinking"] .cc-bubble, .cc-seat.is-focus .cc-bubble, .cc-seat.is-speaking .cc-bubble, .cc-hit:hover + .cc-bubble, .cc-hit:focus-visible + .cc-bubble {
+  opacity: 1; visibility: visible; transition: opacity .15s; z-index: 2;
+}
+.cc-seat.is-focus, .cc-seat.is-speaking, .cc-seat:has(.cc-hit:hover) { z-index: 5; }
+.cc-seat.is-speaking .cc-plaque { outline: 2px solid var(--amber); outline-offset: 1px; }
+.cc-seat[data-state="thinking"] .cc-bubble { font-weight: 700; letter-spacing: 2px; }
+.cc-seat[data-state="silent"] .cc-bubble { background: var(--reef-3); color: var(--sand-dim); }
+.cc-seat[data-state="silent"] .cc-bubble::after { border-top-color: var(--reef-3); }
+
+/* ---------------------------------------------------------------- the scroll in the middle */
+.cc-scroll {
+  position: absolute; z-index: 40; left: 50%; top: 62%; transform: translate(-50%, -50%);
+  width: 40%; max-height: 30%; overflow: hidden; padding: 7px 12px 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 0; border-radius: 4px; color: #2f2213; text-align: center;
+  font-size: var(--fs-11); line-height: 1.35;
+  background: linear-gradient(90deg, #d8bf8c, #f3e3bd 12%, #f3e3bd 88%, #d8bf8c);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .35), -6px 0 0 -2px #b99a63, 6px 0 0 -2px #b99a63;
+}
+.cc-scroll:disabled { cursor: default; opacity: .9; }
+.cc-scroll:not(:disabled) { cursor: pointer; }
+.cc-scroll:focus-visible { outline: 2px solid var(--glass); outline-offset: 3px; }
+.cc-scroll-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; }
+.cc-tally { display: flex; gap: 4px; }
+.cc-tally:empty { display: none; }
+.cc-pip { padding: 0 6px; border-radius: 99px; font: 700 var(--fs-10)/1.6 var(--font-pixel); }
+
+/* ---------------------------------------------------------------- asking */
+.cc-ask { display: grid; gap: 8px; padding: 10px; border-radius: var(--r-lg); background: var(--reef); border: 1px solid var(--line); }
+.cc-ask textarea {
+  width: 100%; resize: vertical; min-height: 44px; padding: 8px 10px; border-radius: var(--r);
+  background: var(--abyss); color: var(--sand); border: 1px solid var(--line); font: inherit;
+}
+.cc-ask textarea:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.cc-ask-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.cc-modes { flex: 0 0 auto; min-width: 210px; }
+.cc-modes button[aria-checked="true"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
+.cc-check { display: flex; align-items: center; gap: 5px; color: var(--sand-dim); font-size: var(--fs-12); }
+.cc-hint { flex: 1; min-width: 120px; }
+
+/* ---------------------------------------------------------------- the minutes */
+.cc-minutes { display: grid; gap: 10px; margin-top: 12px; }
+.cc-minutes[hidden] { display: none; }
+.cc-verdict {
+  padding: 12px 14px; border-radius: var(--r-lg); border: 1px solid rgba(255, 193, 94, .35);
+  background: linear-gradient(rgba(255, 193, 94, .08), transparent 60%), var(--reef);
+}
+.cc-verdict header { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: end; }
+.cc-eyebrow { grid-column: 1 / -1; margin: 0; color: var(--amber); font: 600 var(--fs-11) var(--font-pixel); overflow-wrap: anywhere; }
+.cc-verdict h3 { margin: 0; font-size: var(--fs-15); line-height: 1.35; color: var(--sand); }
+.cc-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+.cc-list h4 { margin: 0 0 3px; font-size: var(--fs-11); text-transform: uppercase; letter-spacing: .06em; color: var(--sand-dim); }
+.cc-list ul { margin: 0; padding-left: 16px; font-size: var(--fs-12); color: var(--sand); }
+.cc-list li + li { margin-top: 3px; }
+.cc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.cc-cost { margin-left: auto; }
+
+.cc-opinions { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cc-row {
+  display: grid; grid-template-columns: 36px 1fr; gap: 10px; padding: 9px 11px;
+  border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft);
+}
+.cc-row.is-silent { opacity: .65; }
+.cc-row.is-flash, .cc-verdict.is-flash { animation: cc-flash 1.2s var(--ease-out); }
+.cc-row-crab svg { width: 36px; height: auto; image-rendering: pixelated; }
+.cc-row-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cc-row-head h4 { margin: 0; font: 600 var(--fs-12-5) var(--font-pixel); color: var(--sand); }
+.cc-chip { padding: 0 7px; border-radius: 99px; font-size: var(--fs-10-5); font-weight: 700; line-height: 1.7; }
+.cc-stance { margin: 3px 0 0; font-weight: 700; color: var(--sand); font-size: var(--fs-12-5); }
+.cc-argument { margin: 3px 0 0; color: var(--sand-dim); font-size: var(--fs-12); line-height: 1.45; }
+.cc-risks { margin: 5px 0 0; padding-left: 16px; color: var(--coral); font-size: var(--fs-11-5); }
+.cc-rebuttal { margin: 6px 0 0; padding: 5px 8px; border-left: 2px solid var(--amber); color: var(--sand); font-size: var(--fs-11-5); background: rgba(255, 193, 94, .06); }
+.cc-meter { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-10-5); color: var(--sand-dim); }
+.cc-meter i { position: relative; width: 52px; height: 5px; border-radius: 3px; background: var(--abyss); overflow: hidden; }
+.cc-meter i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--v); background: var(--glass); }
+.cc-meter b { font-weight: 600; min-width: 28px; text-align: right; }
+
+/* ---------------------------------------------------------------- drawers */
+.cc-drawer { margin-top: 12px; padding: 12px; border-radius: var(--r-lg); background: var(--reef); border: 1px solid var(--line); }
+.cc-drawer[hidden] { display: none; }
+.cc-drawer h3 { margin: 0 0 4px; font-size: var(--fs-13); color: var(--sand); }
+.cc-seat-list, .cc-history-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.cc-seat-item { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 4px 6px; border-radius: var(--r); }
+.cc-seat-item:hover { background: var(--reef-2); }
+.cc-seat-item .cc-row-crab svg { width: 30px; }
+.cc-seat-item label { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; align-items: center; cursor: pointer; }
+.cc-seat-item label .small { grid-column: 2; }
+.cc-custom { display: grid; grid-template-columns: 1fr 2fr auto; gap: 6px; margin-top: 10px; align-items: center; }
+.cc-custom[hidden] { display: none; }
+.cc-custom h4 { grid-column: 1 / -1; margin: 0; font-size: var(--fs-12); color: var(--sand-dim); }
+.cc-custom input { min-width: 0; padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--abyss); color: var(--sand); font: inherit; font-size: var(--fs-12); }
+.cc-history-item { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+.cc-history-open {
+  display: grid; gap: 1px; text-align: left; padding: 6px 8px; border: 0; border-radius: var(--r);
+  background: none; color: var(--sand); cursor: pointer; min-width: 0;
+}
+.cc-history-open:hover, .cc-history-open:focus-visible { background: var(--reef-2); }
+.cc-history-open b, .cc-history-open span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- motion (none for reduced motion) */
+@media (prefers-reduced-motion: no-preference) {
+  .cc-crab .cc-crab-sprite { animation: cc-breathe 3.2s ease-in-out infinite; animation-delay: calc(var(--z) * -.37s); }
+  .cc-crab[data-state="thinking"] .cc-crab-sprite { animation: cc-think .7s ease-in-out infinite; }
+  .cc-seat[data-state="thinking"] .cc-lamp { animation: cc-flicker .5s steps(2) infinite; }
+  .cc-seat.is-speaking .cc-bubble, .cc-seat.is-focus .cc-bubble { animation: cc-pop .35s var(--ease-spring) both; }
+  .cc-crab.is-speaking .cc-crab-sprite { animation: cc-think .6s ease-in-out 2; }
+  .cc-seat[data-state="spoke"] .cc-vote:not(:empty) { animation: cc-slide .45s var(--ease-spring) .15s both; }
+  .cc-scroll:not(:disabled) { animation: cc-unroll .5s var(--ease-out) both; }
+  .cc-hit:hover ~ .cc-place .cc-plaque { transform: translateY(-2px); }
+  .cc-plaque { transition: transform .15s var(--ease-out); }
+}
+@keyframes cc-breathe { 50% { transform: translateY(-1.5px); } }
+@keyframes cc-think { 50% { transform: translateY(-3px) rotate(-2deg); } }
+@keyframes cc-flicker { 50% { box-shadow: 0 0 4px 1px rgba(255, 193, 94, .4); } }
+@keyframes cc-pop { from { opacity: 0; scale: .6; } }
+@keyframes cc-slide { from { opacity: 0; translate: 0 -10px; } }
+@keyframes cc-unroll { from { clip-path: inset(0 50%); } to { clip-path: inset(0 0); } }
+@keyframes cc-flash { from { box-shadow: 0 0 0 2px var(--glass); } }

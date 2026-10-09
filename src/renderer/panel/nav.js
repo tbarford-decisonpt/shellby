@@ -294,6 +294,7 @@
       { icon: '🎩', title: 'Shellby: outfits', sub: 'Dress him up', keys: 'crab wardrobe hats skins colors effects packs', run: go('wardrobe') },
       { icon: '🏆', title: 'Shellby: trophies & XP', sub: 'Level, XP and trophies', keys: 'level achievements', run: go('trophies') },
       claude() && { icon: '🦀', title: 'Shellby: crew', sub: 'Your helper agents, each a crab with a level and a record', keys: 'crew helpers subagents agents party roster level hats code-reviewer explore', run: go('crew') },
+      claude() && { icon: '🏛️', title: 'Shellby: council', sub: 'Advisor crabs argue a decision out, and he rules on it', keys: 'council advisors debate decide decision opinions verdict vote board panel second opinion', run: go('council') },
       { icon: '🐚', title: 'Shellby: finds', sub: 'Everything he’s dug up for you', keys: 'gifts shelf treasure dig collection sets', run: go('finds') },
       claude() && { icon: '🫙', title: 'Shellby: Bugdex', sub: 'Every kind of bug Claude has fixed for you', keys: 'bugdex bugs errors caught collection dex', run: go('bugdex') },
       { icon: '💞', title: 'Shellby: us', sub: 'How close you are, your story, games, your birthday', keys: 'bond friendship memories journal birthday temperament scenes', run: go('us') },
