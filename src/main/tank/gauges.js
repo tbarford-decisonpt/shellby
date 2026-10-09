@@ -7,13 +7,21 @@
 //   lighthouse   lit while a dev server is running, blinking when one crashed
 //   moods        Health's moods reach the water: hot warms it, dizzy swirls
 //                it, stuffed piles boxes in a corner. They clear with the mood.
+//   tide         a tide gauge on the glass: how much of the 5-hour usage
+//                window is left (config.lastUsage), in tenths
+//   chest        the sunken chest glints for a minute when a PR of yours merges
+//   bottle       a message in a bottle bobs at the surface while a "While you
+//                were away" recap or a weekly card is waiting unread
 //
 // Each one can be turned off (config `tankLive`, per PC). None of it is ever
 // synced or put on a card. Main pushes a new reading only when what the tank
 // would show changes (the values here are coarse on purpose), so the panel
 // never asks on a timer. Pure: see test/tank-gauges.test.js.
 
-const KEYS = Object.freeze(['thermometer', 'bubbler', 'lighthouse', 'moods']);
+const KEYS = Object.freeze(['thermometer', 'bubbler', 'lighthouse', 'moods', 'tide', 'chest', 'bottle']);
+const UNREAD = Object.freeze(['recap', 'week']); // what a bottle can bring, the first one first
+const GLINT_MS = 60 * 1000;                     // how long the chest glints after a merge
+const TIDE_STEP = 10;                           // the tide moves in tenths of the window
 const MOODS = Object.freeze(['hot', 'scorching', 'dizzy', 'stuffed']);
 const LOAD_STEPS = Object.freeze([25, 50, 75]);   // CPU % where the bubbles speed up a notch
 const TEMP_MIN = 0;
@@ -63,19 +71,54 @@ function lighthouseOf(servers) {
 }
 
 /**
+ * The tide gauge, from a usage reading ({ fiveHour: { pct, resetsAt } }):
+ * { left } as a percent of the 5-hour window, in TIDE_STEP steps. A window
+ * that has already reset is a full tide. No reading is null.
+ */
+function tideOf(usage, now) {
+  const w = isObj(usage) && isObj(usage.fiveHour) ? usage.fiveHour : null;
+  const pct = num(w?.pct);
+  if (pct === null) return null;
+  const resetsAt = num(w.resetsAt);
+  if (resetsAt !== null && Number.isFinite(now) && resetsAt <= now) return { left: 100 };
+  const left = Math.max(0, Math.min(100, 100 - pct));
+  return { left: Math.round(left / TIDE_STEP) * TIDE_STEP };
+}
+
+/** Whether the chest glints: for GLINT_MS after a PR merged at `mergedAt`. */
+function chestOf(mergedAt, now) {
+  const at = num(mergedAt), t = num(now);
+  return at !== null && t !== null && t >= at && t - at < GLINT_MS;
+}
+
+/** What the bottle brings: 'recap' or 'week' while one is unread, else null. */
+function bottleOf(unread) {
+  const list = Array.isArray(unread) ? unread : [];
+  return UNREAD.find(k => list.includes(k)) || null;
+}
+
+/**
  * What the tank shows now. Anything turned off, or not known, is null.
  *   health: the Health monitor's latest snapshot ({ sample, thresholds }), or null
  *   mood:   Health's mood ({ mood } or null; null too when Health moods are off)
  *   servers: DevServers#summary(), or null
+ *   usage:  config.lastUsage, or null
+ *   mergedAt: when a PR of yours last merged (ms), or null
+ *   unread: which of UNREAD are waiting unread, e.g. ['recap']
+ *   now:    the time (ms)
  *   live:   normalizeLive()
+ * @param {{ health?: any, mood?: any, servers?: any, usage?: any, mergedAt?: number | null, unread?: string[] | null, now?: number, live?: any }} [opts]
  */
-function gauges({ health = null, mood = null, servers = null, live = null } = {}) {
+function gauges({ health = null, mood = null, servers = null, usage = null, mergedAt = null, unread = null, now = Date.now(), live = null } = {}) {
   const on = normalizeLive(live);
   return {
     thermometer: on.thermometer ? tempOf(health) : null,
     bubbler: on.bubbler ? loadStep(health) : null,
     lighthouse: on.lighthouse ? lighthouseOf(servers) : null,
     mood: on.moods ? moodOf(mood) : null,
+    tide: on.tide ? tideOf(usage, now) : null,
+    chest: on.chest ? chestOf(mergedAt, now) : null,
+    bottle: on.bottle ? bottleOf(unread) : null,
     live: on,
   };
 }
@@ -83,4 +126,4 @@ function gauges({ health = null, mood = null, servers = null, live = null } = {}
 /** Whether two readings would look the same in the tank. */
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-module.exports = { KEYS, MOODS, LOAD_STEPS, normalizeLive, tempOf, loadStep, moodOf, lighthouseOf, gauges, same };
+module.exports = { KEYS, MOODS, UNREAD, LOAD_STEPS, GLINT_MS, TIDE_STEP, normalizeLive, tempOf, loadStep, moodOf, lighthouseOf, tideOf, chestOf, bottleOf, gauges, same };

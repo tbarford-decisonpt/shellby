@@ -326,6 +326,8 @@
     if (text.startsWith('!')) { if (attachments.length) return false; runShell(tab, text.slice(1).trim()); return true; }
     const m = /^\/([\w-]+)(?:\s+(.*))?$/s.exec(text);
     const fn = m && LOCAL[m[1].toLowerCase()];
+    // Then Claude Code's own that print mode can't run (builtin-commands.js).
+    if (!fn && !attachments.length) return !!SB.runBuiltin?.(text, tab);
     if (!fn || (attachments.length && !TAKES_FILES.has(m[1].toLowerCase()))) return false;
     SB.notePrompt(text);
     fn(tab, (m[2] || '').trim());

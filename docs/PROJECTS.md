@@ -65,7 +65,7 @@ The repos you work in, the dev servers in them, the hours you spend, the tests t
 
 The first card on a project's page answers "what now?" with one ranked list, drawn from three places:
 
-- **Your to-do list**, kept in the repository as `.shellby/tasks.md` (a project that's only on GitHub keeps it in Shellby): plain Markdown checkboxes, so they're version-controlled, travel with the clone, and read fine on GitHub. **+ Add a task…** puts one at the end of `## Next`. Put things under `## Now` to have them first and `## Later` to have them last; lines indented under a task are its notes. Your order is never reshuffled.
+- **Your to-do list**, kept in the repository as `.shellby/tasks.md` (a project that's only on GitHub keeps it in Shellby; a repo with no remote at all keeps it in the file too, so it follows the repo once it gets one, and to-dos Shellby kept for it before move into the file by themselves): plain Markdown checkboxes, so they're version-controlled, travel with the clone, and read fine on GitHub. **+ Add a task…** puts one at the end of `## Next`. Put things under `## Now` to have them first and `## Later` to have them last; lines indented under a task are its notes. Your order is never reshuffled.
 - **Its GitHub issues and milestones**, read when you open the page (signed in, with **Show my repositories** on). The nearest milestone gets a strip at the top: *"v0.71 · due in 4 days · 6 of 9 closed"*.
 - **Loose ends:** the TODO, FIXME and HACK comments in its tracked files (anything .gitignore'd or untracked is left out).
 - If you want them, **its Linear or Jira issues**, read through your own MCP server (see [Linear and Jira](#linear-and-jira)).

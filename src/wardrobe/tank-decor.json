@@ -632,6 +632,39 @@
       }
     },
     {
+      "id": "glass-thermometer",
+      "name": "Glass Thermometer",
+      "category": "bubbler",
+      "layer": "float",
+      "rarity": "common",
+      "description": "For your first check-up. It sticks to the glass and reads your PC, not the water.",
+      "palette": {
+        "s": "#9ad1e6",
+        "g": "#cfe8f2",
+        "w": "#f7fbff",
+        "k": "#6c7689",
+        "r": "#e63946"
+      },
+      "pixels": [
+        ".sss.",
+        "..s..",
+        ".gwg.",
+        ".gkg.",
+        ".gwg.",
+        ".gkg.",
+        ".gwg.",
+        ".gkg.",
+        ".gwg.",
+        ".gwg.",
+        "grrrg",
+        "grrrg",
+        ".ggg."
+      ],
+      "unlock": {
+        "achievement": "check-up"
+      }
+    },
+    {
       "id": "diver",
       "name": "Deep-Sea Diver",
       "category": "treasure",

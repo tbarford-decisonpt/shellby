@@ -394,8 +394,13 @@ answer, so `finish_task` by id can't tick off the wrong one if the list changed
 in between. Server output goes through the same redaction and fence as Send to
 Claude.
 
-Not yet: a to-do on a local-only repo is kept under `local:<root>`, so it doesn't
-follow the repo if it later gets a GitHub remote.
+A project with a clone here, a local-only repo (`local:<root>`) included, keeps
+its to-dos in its own `.shellby/tasks.md`, so they follow the repo when it later
+gets a GitHub remote. Config holds only those of a project with no clone. To-dos
+saved in config before that move into the file once, on the next list
+(`projects/todo-move.js`): each is added by text, which the file treats as the
+same to-do when it's already there, so nothing doubles, and one the file refuses
+stays in config to try again.
 
 ## Integrations
 

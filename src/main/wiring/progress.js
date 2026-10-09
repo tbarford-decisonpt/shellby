@@ -481,6 +481,7 @@ function wireProgress(d) {
     if (!d.sayText(`What a week: ${w.headline.charAt(0).toLowerCase()}${w.headline.slice(1)}!`, 'sticker', 9000)) return;
     d.config.set({ weekly: weekly.markWrapped(d.config.get('weekly'), key) });
     d.send(d.panel, 'week:ready', w);
+    d.tankGauges?.unread('week'); // a message in a bottle in his tank until you look at it
   }
 
   return {

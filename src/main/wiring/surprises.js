@@ -93,7 +93,7 @@ function wireSurprises(d) {
   // Green by fixing things, not by deleting or skipping tests (surprises.shortcutIn).
   // A diff that can't be read, or only in part, can't vouch for that: no crit.
   async function honest(turn) {
-    const read = await changes.patchFor({ root: turn.root, before: turn.before, after: turn.after }).catch(() => null);
+    const read = await changes.patchFor({ root: turn.root, before: turn.before, after: turn.after, ...(turn.scoped ? { paths: turn.files.map(f => f.path) } : {}) }).catch(() => null);
     if (!read || read.error || read.truncated) { d.log.info('surprises: no crit, the turn\'s diff could not be read in full'); return false; }
     const why = surprises.shortcutIn({ files: turn.files, patch: read.patch });
     if (why) d.log.info(`surprises: no crit, the turn ${why}`);

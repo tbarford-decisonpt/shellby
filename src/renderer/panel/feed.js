@@ -238,7 +238,10 @@
         case 'cutoff': return this.renderCutOff(item, replay);
         case 'branched': return this.renderBranched(item);
         case 'branched-off': return this.renderBranchedOff(item);
-        case 'checkpoint': return; // where the files stood, for branching: nothing to show
+        // Where the files stood at the turn's end, for branching; and its steps' Undo to here can show now (feed-changes.js).
+        case 'checkpoint': return this.showStepUndos?.(item);
+        case 'step-point': return this.renderStepPoint?.(item);
+        case 'undone-step': return this.markStepUndone?.(item);
         case 'shell': return this.renderShell(item, replay);
         case 'error': return this.append(this.troubleBlock(item.trouble, item.text));
         case 'lesson': return SB.renderLesson ? this.append(SB.renderLesson(item)) : undefined; // lessons.js

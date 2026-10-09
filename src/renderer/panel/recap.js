@@ -110,6 +110,7 @@
   function dismiss() {
     const el = host.firstElementChild;
     if (!el) return;
+    SB.api.tankBottleRead?.({ kind: 'recap' }).catch(() => {}); // the bottle in his tank sinks back
     el.classList.add('leaving');
     setTimeout(() => el.remove(), 220);
   }

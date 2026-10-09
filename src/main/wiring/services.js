@@ -107,6 +107,7 @@ function wireServices(d) {
     get speak() { return d.speak; },
     get notify() { return d.notify; },
     get dialogLook() { return d.dialogLook; },
+    get tankGauges() { return d.tankGauges; },
     limitWait: usageService.limitWait,
   });
   const stickerService = createStickers({

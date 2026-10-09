@@ -108,7 +108,9 @@ test('mergeInit: adds cli-only items, no skill duplicates from slash_commands, m
   assert.equal(tb.skills[1].source, 'cli');
   assert.equal(tb.skills[1].path, null);
   assert.deepEqual(names(tb.agents), ['Explore', 'general-purpose']);
-  assert.deepEqual(names(tb.commands), ['compact', 'mine', 'review']);
+  // compact is Claude Code's own: it's in builtins, from the catalogue.
+  assert.deepEqual(names(tb.commands), ['mine', 'review']);
+  assert.ok(tb.builtins.some(t => t.name === 'compact' && t.builtin));
   assert.equal(tb.commands.find(t => t.name === 'mine').source, 'user');
   assert.deepEqual(tb.mcp, [
     { kind: 'mcp', name: 'figma', description: '', source: 'plugin:figma', path: null, status: 'needs-auth' },
@@ -420,7 +422,7 @@ test('watcher: a first launch with nothing at all still counts as one', () => {
 // ---- built-in commands
 test('mergeInit: Claude Code built-in commands get a description, unknown ones none', () => {
   const tb = mergeInit({ skills: [], agents: [], commands: [] }, { slash_commands: ['compact', 'brand-new-thing', 'constructor'] });
-  const by = Object.fromEntries(tb.commands.map(t => [t.name, t.description]));
+  const by = Object.fromEntries([...tb.commands, ...tb.builtins].map(t => [t.name, t.description]));
   assert.match(by.compact, /Summarize/);
   assert.equal(by['brand-new-thing'], '');
   assert.equal(by.constructor, '');
@@ -441,8 +443,9 @@ test('mergeInit: init.commands adds commands with their descriptions, once each'
     commands: [{ name: 'probe', description: 'Says hello from the probe mod.' }, { name: 'later', description: 'Added after start' }, { name: 'later', description: 'dupe' }, { name: '' }, null],
   });
   const byName = Object.fromEntries(out.commands.map(c => [c.name, c]));
-  assert.deepEqual(Object.keys(byName).sort(), ['compact', 'later', 'probe']);
-  assert.equal(out.commands.length, 3);
+  assert.deepEqual(Object.keys(byName).sort(), ['later', 'probe']);
+  assert.equal(out.commands.length, 2);
+  byName.compact = out.builtins.find(c => c.name === 'compact');
   assert.equal(byName.probe.description, 'Says hello from the probe mod.');
   assert.equal(byName.later.description, 'Added after start');
   assert.equal(byName.probe.source, 'cli');

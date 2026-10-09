@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const changes = require('../changes');
+const { effectiveAfter } = require('../step-undo');
 const ctx = require('../context');
 const editor = require('../editor');
 const quiz = require('../quiz');
@@ -186,15 +187,19 @@ function registerTabsIpc(ipcMain, d) {
     if (!ref) return { ok: false, error: "That isn't a change from this conversation." };
     if (ref.retired) return { ok: false, error: 'That copy has been tidied away, and its work is in your checkout now. Undo it there with git.' };
     if (d.manager.isBusy(ref.tabId)) return { ok: false, error: 'Let him finish first, then undo.' };
+    if (d.manager.tabs.get(ref.tabId)?.undoingStep) return { ok: false, error: 'Already undoing.' };
     // Read before the undo is noted: what that turn changed and what you'd asked for.
     const lesson = d.correctionFromTurns?.(ref.tabId, 'undo', { afters: [ref.after] });
-    const r = await changes.undo(ref);
+    // After an Undo to here, the turn's work stands at that step, not at its end (step-undo.js).
+    const r = await changes.undo(effectiveAfter(d.history.load(ref.tabId), ref));
     if (r.ok) {
       d.manager.note(ref.tabId, { kind: 'undone', after: ref.after, restored: r.restored });
       d.noteCorrection?.(ref.tabId, lesson); // a correction: twice in one place and he offers a rule (corrections.js)
     }
     return r;
   });
+  // Undo to here: the files back to a checkpoint before one step of a turn (wiring/step-undo.js).
+  ipcMain.handle('changes:undo-step', (_e, raw) => d.stepUndo.undoStep(raw));
   // The project's own tests, on demand, whatever the setting says (wiring/checks.js).
   ipcMain.handle('checks:run', async (_e, raw) => {
     const ref = d.changeRef(raw);

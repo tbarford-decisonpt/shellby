@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
 const { scanMods } = require('./mods');
+const { CATALOGUE, builtinCommands, isBuiltin } = require('./cli-commands');
 
 const MAX_FILE = 256 * 1024;   // bigger than this isn't a real skill/agent/command file
 const MAX_ITEMS = 1000;        // per list
@@ -254,40 +255,9 @@ function scanToolbox({ home, cwd, plugins = [], metaCache = null, pluginCache = 
 
 // ---- CLI init merge
 
-// Claude Code's own slash commands aren't files, so the CLI only names them.
-// Unknown ones (newer than this list) just go without.
-const BUILTIN_COMMANDS = {
-  'add-dir': 'Add another folder Claude can work in.',
-  agents: 'Manage helper agents.',
-  bashes: 'List and manage background shell commands.',
-  bug: 'Report a bug to Anthropic.',
-  clear: 'Start the conversation over, without its history.',
-  compact: 'Summarize the conversation so far to free up context.',
-  config: 'Open Claude Code settings.',
-  context: 'Show what is using the context window.',
-  cost: 'Show what this conversation has cost.',
-  doctor: 'Check the Claude Code install for problems.',
-  export: 'Save the conversation to a file or the clipboard.',
-  help: 'List the commands.',
-  hooks: 'Manage hooks.',
-  init: 'Write a CLAUDE.md that describes this project.',
-  mcp: 'Manage MCP servers.',
-  memory: 'Edit CLAUDE.md memory files.',
-  model: 'Pick the model.',
-  'output-style': 'Pick how Claude writes its replies.',
-  permissions: 'Manage allow, ask and deny rules.',
-  plugin: 'Manage plugins and marketplaces.',
-  'pr-comments': "Get a pull request's review comments.",
-  'release-notes': 'Show what changed in recent versions.',
-  resume: 'Pick up an earlier conversation.',
-  review: 'Review a pull request.',
-  rewind: 'Go back to an earlier point in the conversation.',
-  'security-review': 'Look over the changes on this branch for security problems.',
-  status: 'Show the version, model, account and connections.',
-  statusline: 'Set up the status line.',
-  todos: 'Show the current to-do list.',
-  usage: 'Show plan usage limits.',
-};
+// Claude Code's own slash commands aren't files, so the CLI only names them:
+// cli-commands.js describes them, and says how Shellby handles each.
+const BUILTIN_COMMANDS = Object.fromEntries(CATALOGUE.map(c => [c.name, c.description]));
 
 const strings = a => (Array.isArray(a) ? a.filter(s => typeof s === 'string' && s) : []);
 const cliTool = (kind, name, description = '') => ({
@@ -301,8 +271,12 @@ function mergeInit(toolbox, init) {
   const tb = toolbox || {};
   const copy = k => (Array.isArray(tb[k]) ? tb[k].map(t => ({ ...t })) : []);
   const out = { skills: copy('skills'), agents: copy('agents'), commands: copy('commands'), mcp: [], mods: copy('mods'), scannedAt: tb.scannedAt || Date.now() };
+  // Claude Code's own, for the menu: the catalogue, less what your own
+  // commands and skills are called (yours win), less what the CLI dropped.
+  const builtins = (live, said) => builtinCommands(live, said).filter(c => !out.commands.some(t => t.name === c.name) && !out.skills.some(t => t.name === c.name));
   if (!init || typeof init !== 'object') {
     out.mcp = copy('mcp');
+    out.builtins = builtins(null, new Map());
     return out;
   }
   const have = { skill: new Set(out.skills.map(t => t.name)), agent: new Set(out.agents.map(t => t.name)), command: new Set(out.commands.map(t => t.name)) };
@@ -317,8 +291,10 @@ function mergeInit(toolbox, init) {
   for (const c of Array.isArray(init.commands) ? init.commands : []) {
     if (c && typeof c.name === 'string' && c.name && !said.has(c.name)) said.set(c.name, typeof c.description === 'string' ? cleanDesc(c.description) : '');
   }
+  out.builtins = builtins(strings(init.slash_commands), said);
+  // What the catalogue doesn't know yet goes through to the CLI as it is.
   for (const n of [...strings(init.slash_commands), ...said.keys()]) {
-    if (!have.skill.has(n)) add(out.commands, 'command', n, said.get(n));
+    if (!have.skill.has(n) && !isBuiltin(n)) add(out.commands, 'command', n, said.get(n));
   }
   const seen = new Set();
   for (const s of Array.isArray(init.mcp_servers) ? init.mcp_servers : []) {
@@ -335,7 +311,8 @@ function mergeInit(toolbox, init) {
 const ALL = tb => [...(tb.skills || []), ...(tb.agents || []), ...(tb.commands || []), ...(tb.mcp || []), ...(tb.mods || [])];
 // A mod is known by its plugin id: two marketplaces can each have one called "tidy".
 const key = t => (t.kind === 'mod' ? `mod:${t.id}` : `${t.kind}:${t.name}`);
-const signature = tb => ALL(tb).map(t => `${key(t)}:${t.description}:${t.path}:${t.status || ''}${t.kind === 'mod' ? `:${t.enabled}:${t.version}:${t.tests}` : ''}`).join('\n');
+const signature = tb => ALL(tb).map(t => `${key(t)}:${t.description}:${t.path}:${t.status || ''}${t.kind === 'mod' ? `:${t.enabled}:${t.version}:${t.tests}` : ''}`).join('\n')
+  + (tb.builtins || []).map(t => `\nbuiltin:${t.name}:${t.description}`).join('');
 
 const MAX_SEEN = 5000;
 const MAX_LAUNCH_NEWS = 3;

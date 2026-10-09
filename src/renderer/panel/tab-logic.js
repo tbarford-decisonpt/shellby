@@ -101,10 +101,12 @@
   // The slash menu for what's typed after "/" (lower case). Shellby's own
   // commands come first, so a skill with the same name can't hide them; then
   // your snippets, which run instead of a skill or command they share a name
-  // with. Pinned ones lead while they still match; at most eight.
-  function slashCandidates(q, { local = [], snippets = [], skills = [], commands = [], pinned = [] } = {}) {
+  // with. Claude Code's own (builtins, from main's cli-commands.js) come last,
+  // so your own command of the same name wins. Pinned ones lead while they
+  // still match; at most eight.
+  function slashCandidates(q, { local = [], snippets = [], skills = [], commands = [], builtins = [], pinned = [] } = {}) {
     const snips = snippets.map(s => ({ name: s.name, kind: 'snippet', description: s.summary, hint: s.hint }));
-    const all = [...local, ...snips, ...skills.map(t => ({ ...t, kind: 'skill' })), ...commands.map(t => ({ ...t, kind: 'command' }))];
+    const all = [...local, ...snips, ...skills.map(t => ({ ...t, kind: 'skill' })), ...commands.map(t => ({ ...t, kind: 'command' })), ...builtins.map(t => ({ ...t, kind: 'command', pill: 'claude code' }))];
     const seen = new Set();
     const pins = new Set(pinned.map(p => `${p.kind}:${p.name}`));
     return all

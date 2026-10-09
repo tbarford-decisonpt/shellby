@@ -141,7 +141,60 @@
         why);
     }
 
+    // ------------------------------------------------------------ Undo to here
+    // A step that changed files and has a checkpoint before it (main's
+    // step-undo.js) gets a button on its row. Hidden until the turn has ended
+    // (its 'checkpoint' item): while it runs, the files are still moving.
+    renderStepPoint(item) {
+      const el = this.tools.get(item.toolId);
+      if (!el) return;
+      const btn = h('button', { class: 'btn ghost slim-btn step-undo', type: 'button', hidden: true, title: 'Puts the files back the way they were just before this step. Later steps of this turn go too; the conversation stays.' }, 'Undo to here');
+      const step = { toolId: item.toolId, btn, el, done: false };
+      let armed = null;
+      const disarm = () => { clearTimeout(armed); armed = null; btn.textContent = 'Undo to here'; btn.classList.remove('deny'); };
+      btn.addEventListener('click', async e => {
+        e.preventDefault(); // a button in the row's summary: no folding open
+        e.stopPropagation();
+        if (step.done) return;
+        if (!armed) { btn.textContent = 'Undo from here on?'; btn.classList.add('deny'); armed = setTimeout(disarm, 4000); return; }
+        disarm();
+        btn.disabled = true;
+        const r = await api.undoToStep({ tabId: this.id, turnId: item.turnId, toolId: item.toolId });
+        if (r?.ok) return; // the 'undone-step' item marks it
+        btn.disabled = false;
+        if (!r?.cancelled) SB.toast(r?.error || "Couldn't undo to there.", { ms: 5000 });
+      });
+      el.querySelector('summary')?.append(btn);
+      this.stepUndos ??= new Map();
+      if (!this.stepUndos.has(item.turnId)) this.stepUndos.set(item.turnId, []);
+      this.stepUndos.get(item.turnId).push(step);
+    }
+
+    showStepUndos(cp) {
+      if (!cp?.turnId) return;
+      this.stepEnds ??= new Map();
+      if (cp.end) this.stepEnds.set(cp.end, cp.turnId);
+      for (const s of this.stepUndos?.get(cp.turnId) || []) if (!s.done) s.btn.hidden = false;
+    }
+
+    // That step and every later one of the turn are undone.
+    markStepUndone(item) {
+      const steps = this.stepUndos?.get(item.turnId) || [];
+      const at = steps.findIndex(s => s.toolId === item.toolId);
+      if (at < 0) return;
+      steps.slice(at).forEach((s, i) => {
+        s.done = true;
+        s.el.classList.add('step-undone');
+        s.btn.disabled = true;
+        s.btn.textContent = 'Undone to here';
+        s.btn.hidden = i > 0;
+      });
+    }
+
     markUndone(item) {
+      // The whole turn went back: its steps have nothing left to undo.
+      const turnId = this.stepEnds?.get(item.after);
+      for (const s of (turnId && this.stepUndos?.get(turnId)) || []) { s.done = true; s.btn.hidden = true; }
       const el = [...this.el.querySelectorAll('details.changes')].find(d => d.dataset.after === item.after);
       if (!el || el.classList.contains('undone')) return;
       el.classList.add('undone');

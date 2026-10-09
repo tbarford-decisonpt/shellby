@@ -19,6 +19,7 @@ const claudeSetup = require('./claude/setup');
 const mcpAdmin = require('./mcpadmin');
 const outputStyles = require('./outputstyles');
 const changes = require('./changes');
+const { effectiveAfter } = require('./step-undo');
 const btw = require('./btw');
 const jobs = require('./jobs');
 const { run: runCli, skipSettings } = require('./claude/cli');
@@ -205,7 +206,7 @@ function register(deps) {
         const ref = deps.changeRef({ tabId: tab.id, root: ch.root, before: ch.before, after: ch.after });
         if (!ref) return { ok: false, error: "Couldn't find one of those turns' changes any more, so nothing more was rewound.", restored };
         if (ref.retired) return { ok: false, error: 'Some of that work has been brought home and its copy tidied away. Undo it there with git.', restored };
-        const r = await changes.undo(ref);
+        const r = await changes.undo(effectiveAfter(items, ref)); // from where an Undo to here left it (step-undo.js)
         if (!r.ok) {
           const more = restored ? ` ${restored} file${restored === 1 ? ' was' : 's were'} already put back from later turns.` : '';
           return { ok: false, error: `${r.error}${more} The conversation was left as it was.`, restored };

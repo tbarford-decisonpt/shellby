@@ -144,4 +144,21 @@ module.exports = {
       '.............DD......',
     ],
   },
+  'idle-isopod': {
+    palette: { H: '#c9d1dc', i: '#8d99ae', I: '#5c677d', D: '#3c4555', k: '#2b2d42', z: '#e0e0e0' },
+    pixels: [
+      '..............zzz.',
+      '................z.',
+      '..........zz...z..',
+      '...........z..zzz.',
+      '..........zz......',
+      '.....HHHHHHH......',
+      '...HHiiIiiIiiI....',
+      '..HiiIiiIiiIiiII..',
+      '.kiiIiiIiiIiiIiII.',
+      'kkiIiiIiiIiiIiiIID',
+      '.iIIIIIIIIIIIIIIDD',
+      '..D.D.D.D.D.D.D.D.',
+    ],
+  },
 };

@@ -481,6 +481,11 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .chg-more { margin: 0; padding: 0 11px 6px; }
 .chg-actions { display: flex; align-items: center; gap: 10px; padding: 6px 11px 9px; border-top: 1px solid var(--line-soft); }
 .chg-actions .btn.deny { border-color: var(--coral); color: var(--coral); }
+/* Undo to here, on a step of a turn (feed-changes.js) */
+.tool > summary .step-undo { margin-left: auto; flex: none; height: 22px; padding: 0 8px; font-size: var(--fs-11-5); }
+.tool > summary .step-undo[hidden] { display: none; }
+.tool > summary .step-undo.deny { border-color: var(--coral); color: var(--coral); }
+.tool.step-undone > summary .t-label { text-decoration: line-through; opacity: .7; }
 /* "Quiz me" on a turn's changes (feed-changes.js) */
 .quiz { padding: 4px 11px 10px; border-top: 1px solid var(--line-soft); }
 .quiz-q { margin: 8px 0 0; padding: 0; border: 0; min-width: 0; }

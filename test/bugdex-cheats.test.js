@@ -73,3 +73,9 @@ test('splitPatch keeps added and removed lines per file', () => {
 test('every reason has words', () => {
   for (const r of ['no-change', 'revert', 'deleted-tests', 'skipped', 'suppressed', 'fewer-tests', 'snapshots-only', 'bigger-number', 'insecure', 'tests-only']) assert.ok(c.REASONS[r], r);
 });
+
+test('a slept-through test is not fixed by a longer timeout, and no fewer tests may run', () => {
+  const bigger = diff('jest.config.js', ['  testTimeout: 30000,'], ['  testTimeout: 5000,']);
+  assert.equal(c.judge({ files: [{ path: 'jest.config.js', status: 'M' }], patch: bigger, species: 'sleepy-seahorse' }).reason, 'bigger-number');
+  assert.equal(c.judge({ files: [{ path: 'a.js', status: 'M' }], species: 'hollow-halibut', counts: { before: 3, after: 1 } }).reason, 'fewer-tests');
+});

@@ -60,6 +60,7 @@ const { wireRemote } = require('./wiring/remote');
 const { wireJournal } = require('./wiring/journal');
 const { wireCrew } = require('./wiring/crew');
 const { wireSurprises } = require('./wiring/surprises');
+const { wireStepUndo } = require('./wiring/step-undo');
 const { wireNative } = require('./wiring/native');
 const { wireEvents } = require('./wiring/events');
 const { wireSocial } = require('./wiring/social');
@@ -343,6 +344,7 @@ const { createComputers } = share(wireRemote(shared)); // Claude Code on your ot
 const { journal } = share({ journal: wireJournal(shared) }); // handoff notes per project, read from Claude Code's own files
 share({ crewRoster: wireCrew(shared) }); // one lasting helper crab per agent type
 share({ surprises: wireSurprises(shared) }); // crit hits and clean landings, now and then
+share(wireStepUndo(shared)); // a checkpoint before each step that changes files: Undo to here
 share({ native: wireNative(shared) }); // the crab noticing Claude's own to-dos, background commands, memories and skills
 const { eventsTick } = share(wireEvents(shared)); // tide events: a week or so with its own bug, finds, goals and medal
 const { startSocial } = share(wireSocial(shared)); // swaps with friends and crab eggs, over calling cards

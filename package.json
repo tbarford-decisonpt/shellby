@@ -29,6 +29,7 @@
     "test": "node --test --test-concurrency=4 --test-timeout=120000 \"test/*.test.js\"",
     "lint": "eslint .",
     "panel:html": "node scripts/panel-html.js",
+    "commands:check": "node scripts/commands-check.js",
     "typecheck": "tsc -p jsconfig.json",
     "e2e:ci": "node scripts/e2e-ci.js",
     "perf": "node scripts/perf-budget.js",
