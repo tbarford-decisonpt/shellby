@@ -214,8 +214,24 @@
     return `${score} of ${total} right. Have a read through the diff before it ships.`;
   }
 
+  // A turn's story (src/main/change-story.js) with each step's file rows and
+  // line counts, or null to show the flat list. Rows the story names but the
+  // diff doesn't carry (past its row limit) are left out; a step left empty goes.
+  function storySteps(item) {
+    if (!Array.isArray(item?.story) || item.story.length < 2 || !Array.isArray(item.files)) return null;
+    const byPath = new Map(item.files.map(f => [f.path, f]));
+    const steps = item.story.map(s => {
+      const rows = (Array.isArray(s?.files) ? s.files : []).map(p => byPath.get(p)).filter(Boolean);
+      return {
+        title: String(s?.title || ''), files: rows,
+        added: rows.reduce((n, f) => n + (Number(f.added) || 0), 0), removed: rows.reduce((n, f) => n + (Number(f.removed) || 0), 0),
+      };
+    }).filter(s => s.files.length);
+    return steps.length > 1 ? steps : null;
+  }
+
   const api = {
-    files, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, suggestionLabel, modeAfterPlan, planNotesMessage,
+    files, storySteps, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, suggestionLabel, modeAfterPlan, planNotesMessage,
     decisionVerdict, questionVerdict, resultLabel, diffRows, laneMeta, laneCostTitle, laneFirstLine,
     cutOffLine, cutOffToast, CARRY_ON, quizWorthy, quizResult, QUIZ_MIN_LINES,
   };

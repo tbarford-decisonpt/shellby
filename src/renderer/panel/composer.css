@@ -51,6 +51,12 @@
 .msg.user:hover .msg-rewind, .msg-rewind:focus-visible { opacity: 1; }
 .msg-rewind:hover { background: var(--reef); color: var(--sand); }
 .rewind-menu { max-width: min(420px, calc(100vw - 24px)); max-height: 60vh; overflow-y: auto; }
+/* the stops as a timeline: a rail down the left, a dot per message, filled where going back undoes code */
+.rewind-timeline { position: relative; }
+.rewind-timeline::before { content: ""; position: absolute; left: 18px; top: 14px; bottom: 14px; width: 2px; background: var(--line-soft); }
+.rewind-stop { position: relative; flex: none; width: 14px; height: 14px; margin: 2px 0 0; border: 2px solid var(--sand-faint); border-radius: 50%; background: var(--reef); }
+.rewind-point.has-code .rewind-stop { border-color: var(--glass); background: var(--glass); }
+.rewind-point:hover .rewind-stop, .rewind-point:focus-visible .rewind-stop { border-color: var(--sand); }
 
 /* ================================================================ branch: try again in a new tab */
 .msg-branch {

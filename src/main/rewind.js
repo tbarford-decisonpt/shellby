@@ -68,4 +68,20 @@ function points(items) {
     .reverse();
 }
 
-module.exports = { plan, points, lastBeginning };
+/**
+ * How much going back undoes, for the timeline: { files, added, removed } over
+ * the 'changes' items a rewind would take back (plan().changes). A file
+ * touched by several turns counts once.
+ */
+function weight(changes) {
+  const files = new Set();
+  let added = 0, removed = 0;
+  for (const c of Array.isArray(changes) ? changes : []) {
+    for (const f of Array.isArray(c?.files) ? c.files : []) if (typeof f?.path === 'string') files.add(f.path);
+    added += Number(c?.added) || 0;
+    removed += Number(c?.removed) || 0;
+  }
+  return { files: files.size, added, removed };
+}
+
+module.exports = { plan, points, weight, lastBeginning };

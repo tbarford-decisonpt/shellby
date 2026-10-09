@@ -174,3 +174,15 @@ test("a helper's lane shows its share of the window once known, and says what it
   assert.equal(F.laneCostTitle({ tokens: 9000, read: 0, shareText: '<1%' }, fmt.compact), 'This helper sent and wrote 9k new tokens.\nUnder 1% of your 5-hour window (an estimate).');
   assert.equal(F.laneCostTitle(null, fmt.compact), '');
 });
+
+test('storySteps: groups the diff rows by step, with each step\'s line counts', () => {
+  const files = [{ path: 'a.js', added: 3, removed: 1 }, { path: 'b.js', added: 2, removed: 0 }, { path: 'c.js', added: 1, removed: 4 }];
+  const steps = F.storySteps({ files, story: [{ title: 'Parser', files: ['a.js', 'b.js'] }, { title: 'Tests', files: ['c.js', 'gone.js'] }] });
+  assert.deepEqual(steps.map(s => [s.title, s.files.map(f => f.path), s.added, s.removed]), [['Parser', ['a.js', 'b.js'], 5, 1], ['Tests', ['c.js'], 1, 4]]);
+});
+
+test('storySteps: no story, or one step left after trimming, shows the flat list', () => {
+  const files = [{ path: 'a.js', added: 1, removed: 0 }];
+  assert.equal(F.storySteps({ files }), null);
+  assert.equal(F.storySteps({ files, story: [{ title: 'x', files: ['a.js'] }, { title: 'y', files: ['past-the-limit.js'] }] }), null);
+});

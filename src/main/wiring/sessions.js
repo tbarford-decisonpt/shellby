@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const changes = require('../changes');
+const changeStory = require('../change-story');
 const checkup = require('../checkup');
 const ctx = require('../context');
 const fileIndex = require('../fileindex');
@@ -291,7 +292,11 @@ function wireSessions(d) {
       // Tagged with its turn: the diff is worked out after the turn ends, by which
       // time the next message may already be in the transcript (rewind.js).
       const turn = start.turnId ? { turnId: start.turnId } : {};
-      if (summary) d.manager.note(tabId, { kind: 'changes', ...summary, ...turn });
+      // Its files in the steps they were written in (change-story.js), when there's more than one.
+      const told = summary && start.turnId ? storyOf(tabId, start.turnId, summary) : null;
+      if (summary) d.manager.note(tabId, { kind: 'changes', ...summary, ...turn, ...(told ? { story: told } : {}) });
+      // Both ends kept from git gc, so rewinding to before this turn still works weeks on.
+      if (end && end.root === start.root && start.turnId) changes.pin(start.root, start.tree, end.tree, start.turnId).catch(() => null);
       if (summary) d.bugdex?.changed(start.root);
       if (end) d.bugdex?.treeSeen(end.root, end.tree);
       // Where the files stood at both ends of the turn, changed or not: a branch
@@ -301,6 +306,16 @@ function wireSessions(d) {
     } catch (err) {
       d.log.info(`changes: ${err.message}`);
       afterChanges(tabId, null);
+    }
+  }
+
+  function storyOf(tabId, turnId, summary) {
+    if (!d.manager.tabs.get(tabId)?.saved) return null; // only a kept conversation has a transcript to read
+    try {
+      return changeStory.story(changeStory.turnItems(d.history?.load?.(tabId), turnId), summary.root, summary.files);
+    } catch (err) {
+      d.log.info(`changes: story: ${err.message}`);
+      return null;
     }
   }
 

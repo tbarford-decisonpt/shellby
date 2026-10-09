@@ -22,7 +22,7 @@
           h('span', { class: 'chg-title', text: `${files} changed` }),
           h('span', { class: 'chg-add', text: `+${item.added}` }),
           h('span', { class: 'chg-del', text: `−${item.removed}` })),
-        h('ul', { class: 'chg-files' }, item.files.map(f => this.changeRow(f, ref))),
+        this.changeList(item, ref),
         item.more ? h('p', { class: 'small muted chg-more', text: `…and ${item.more} more.` }) : null,
         h('div', { class: 'chg-actions' }, undo, note));
       if (F.quizWorthy(item)) this.addQuiz(el, ref);
@@ -50,6 +50,18 @@
       SB.decorateChanges?.(this, el, ref); // Run checks, and room for the verdict and pictures (turn-checks.js)
       SB.markReviewBlock?.(this, el); // comments waiting on this turn (line-comments-ui.js)
       this.append(el);
+    }
+
+    // The files, flat, or in the steps the turn wrote them in (src/main/change-story.js).
+    changeList(item, ref) {
+      const steps = F.storySteps(item);
+      if (!steps) return h('ul', { class: 'chg-files' }, item.files.map(f => this.changeRow(f, ref)));
+      return h('ol', { class: 'chg-story' }, steps.map(s => h('li', { class: 'chg-step' },
+        h('div', { class: 'chg-step-title' },
+          h('span', { text: s.title }),
+          h('span', { class: 'chg-add', text: `+${s.added}` }),
+          h('span', { class: 'chg-del', text: `−${s.removed}` })),
+        h('ul', { class: 'chg-files' }, s.files.map(f => this.changeRow(f, ref))))));
     }
 
     // read: how to fetch one file's diff (a turn's, unless a comparison says otherwise).

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { plan, points } = require('../src/main/rewind');
+const { plan, points, weight } = require('../src/main/rewind');
 
 const user = (turnId, text, extra = {}) => ({ kind: 'user', turnId, text, t: 1000, ...extra });
 const result = anchor => ({ kind: 'result', ok: true, ...(anchor ? { anchor } : {}) });
@@ -105,4 +105,13 @@ test('plan: a diff noted after the next message still belongs to its own turn', 
   assert.deepEqual(p.changes.map(c => c.after), ['a2'], "turn 1's diff is not undone");
   assert.deepEqual(p.tail.map(c => c.after), ['a1'], '...and it stays in the transcript');
   assert.deepEqual(plan(items, 't1').changes.map(c => c.after), ['a2', 'a1']);
+});
+
+test('weight: files counted once across turns, lines added up', () => {
+  const turns = [
+    { kind: 'changes', added: 5, removed: 1, files: [{ path: 'a.js' }, { path: 'b.js' }] },
+    { kind: 'changes', added: 2, removed: 3, files: [{ path: 'a.js' }] },
+  ];
+  assert.deepEqual(weight(turns), { files: 2, added: 7, removed: 4 });
+  assert.deepEqual(weight(null), { files: 0, added: 0, removed: 0 });
 });

@@ -226,4 +226,58 @@ async function undo(ref) {
   return { ok: true, restored: turn.length };
 }
 
-module.exports = { snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, patchFor, undo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
+// ---- checkpoints that git keeps
+//
+// A snapshot is a loose tree nothing points at, so `git gc` may sweep it once
+// it's a couple of weeks old, and with it the way back to before that turn.
+// Each turn's two ends are pinned under a private ref (refs/shellby/turns/...):
+// a commit of the "before" tree, and one of the "after" tree on top of it.
+// Not a branch, not the stash: `git branch`, `git log` and `git stash list`
+// never show them. Only the newest MAX_PINNED stay pinned.
+
+const PIN_PREFIX = 'refs/shellby/turns/';
+const MAX_PINNED = 200;
+const PIN_NAME = /^[A-Za-z0-9_-]{1,80}$/;
+const PIN_ENV = { GIT_AUTHOR_NAME: 'Shellby', GIT_AUTHOR_EMAIL: 'shellby@localhost', GIT_COMMITTER_NAME: 'Shellby', GIT_COMMITTER_EMAIL: 'shellby@localhost' };
+
+/** The ref a turn's checkpoint is pinned under, or null for a name that can't be one. */
+const pinRef = name => (typeof name === 'string' && PIN_NAME.test(name) ? `${PIN_PREFIX}${name}` : null);
+
+/**
+ * Keep a turn's before and after trees from being swept away. name: the turn's
+ * id. -> the ref | null. Never throws.
+ */
+async function pin(root, before, after, name) {
+  const ref = pinRef(name);
+  if (!ref || typeof root !== 'string' || !TREE.test(before || '') || !TREE.test(after || '')) return null;
+  const first = await git(root, ['commit-tree', before, '-m', `Shellby: before turn ${name}`], { env: PIN_ENV, timeout: 5000 });
+  const base = first.ok && first.out.trim();
+  if (!base || !TREE.test(base)) return null;
+  const second = before === after ? { ok: true, out: base } : await git(root, ['commit-tree', after, '-p', base, '-m', `Shellby: after turn ${name}`], { env: PIN_ENV, timeout: 5000 });
+  const tip = second.ok && second.out.trim();
+  if (!tip || !TREE.test(tip)) return null;
+  const set = await git(root, ['update-ref', ref, tip], { timeout: 5000 });
+  if (!set.ok) return null;
+  await prunePins(root);
+  return ref;
+}
+
+/** Every pinned turn, newest first: [{ ref, name, at }]. */
+async function pins(root) {
+  const r = await git(root, ['for-each-ref', '--sort=-committerdate', '--format=%(refname)%09%(committerdate:unix)', PIN_PREFIX], { timeout: 5000 });
+  if (!r.ok) return [];
+  return r.out.split('\n').filter(Boolean).map(l => {
+    const [ref, at] = l.split('\t');
+    return { ref, name: ref.slice(PIN_PREFIX.length), at: Number(at) * 1000 || 0 };
+  });
+}
+
+/** Unpins all but the newest `keep`. -> how many went. */
+async function prunePins(root, keep = MAX_PINNED) {
+  const old = (await pins(root)).slice(Math.max(0, keep));
+  if (!old.length) return 0;
+  const r = await git(root, ['update-ref', '--stdin'], { input: old.map(p => `delete ${p.ref}\n`).join(''), timeout: 10000 });
+  return r.ok ? old.length : 0;
+}
+
+module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, patchFor, undo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };

@@ -413,15 +413,22 @@
     if (!points.length) return SB.toast('Nothing to rewind to yet.');
     const chosen = turnId && points.find(p => p.turnId === turnId);
     if (chosen) return rewindOptions(tab, chosen);
+    // A timeline, newest at the top: each stop is "before turn N", with what going back there undoes.
     openAboveBox(() => [
       h('div', { class: 'menu-label', text: 'Rewind to just before…' }),
-      ...points.slice(0, 30).map(p => h('button', { class: 'menu-item rewind-point', onclick: () => rewindOptions(tab, p) },
-        h('span', { class: 'mi-check', text: '↶' }),
+      h('div', { class: 'rewind-timeline' }, points.slice(0, 30).map((p, i) => h('button', { class: `menu-item rewind-point${p.code ? ' has-code' : ''}`, onclick: () => rewindOptions(tab, p) },
+        h('span', { class: 'rewind-stop', 'aria-hidden': 'true' }),
         h('span', {},
           h('div', { class: 'mi-title rewind-text', text: p.text || '(no text)' }),
-          h('div', { class: 'mi-sub', text: [p.at ? SB.ago?.(p.at) || new Date(p.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null, p.code ? `${plural(p.code, 'turn')} of file changes after it` : 'no file changes after it'].filter(Boolean).join(' · ') })))),
+          h('div', { class: 'mi-sub', text: [`before turn ${points.length - i}`, p.at ? SB.ago?.(p.at) || new Date(p.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null, codeAfter(p)].filter(Boolean).join(' · ') }))))),
     ]);
   };
+
+  // "undoes 3 files, +40 −12" for a stop with code after it (rewind.js weight).
+  function codeAfter(p) {
+    if (!p.code) return 'no file changes after it';
+    return p.files ? `undoes ${plural(p.files, 'file')}, +${p.added || 0} −${p.removed || 0}` : `${plural(p.code, 'turn')} of file changes after it`;
+  }
 
   function rewindOptions(tab, p) {
     const option = (glyph, title, sub, opts, enabled = true) => h('button', { class: 'menu-item', disabled: !enabled, onclick: () => { SB.closeMenus(); doRewind(tab, p, opts); } },

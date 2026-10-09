@@ -158,7 +158,8 @@ function register(deps) {
       busy: tab.session.busy,
       points: rewind.points(items).map(p => {
         const plan = rewind.plan(items, p.turnId);
-        return { ...p, conversation: plan.conversation, code: plan.changes.filter(c => !undone.has(c.after)).length };
+        const live = plan.changes.filter(c => !undone.has(c.after));
+        return { ...p, conversation: plan.conversation, code: live.length, ...rewind.weight(live) };
       }),
     };
   });
