@@ -28,7 +28,9 @@ const RUNS = new Set(['exe', 'com', 'bat', 'cmd', 'ps1', 'psm1', 'psd1', 'ps1xml
   'msi', 'msp', 'mst', 'scr', 'hta', 'lnk', 'url', 'website', 'pif', 'cpl', 'msc', 'jar', 'reg', 'appx', 'appxbundle', 'msix',
   'msixbundle', 'appref-ms', 'application', 'xbap', 'gadget', 'inf', 'scf', 'sct', 'chm', 'diagcab', 'settingcontent-ms',
   'library-ms', 'search-ms', 'iso', 'img', 'vhd', 'vhdx', 'cab', 'py', 'pyw', 'pyc', 'pyz', 'pyzw', 'rb', 'rbw', 'pl', 'sh',
-  'bash', 'ahk', 'au3', 'xll', 'xlam', 'ppam', 'docm', 'dotm', 'xlsm', 'xltm', 'pptm', 'potm']);
+  'bash', 'ahk', 'au3', 'xll', 'xlam', 'ppam', 'docm', 'dotm', 'xlsm', 'xltm', 'pptm', 'potm', 'jnlp', 'wsc', 'ws', 'vb',
+  'shs', 'msh', 'msh1', 'msh2', 'mshxml', 'msh1xml', 'msh2xml', 'ps2', 'ps2xml', 'psc2', 'ins', 'isp', 'mde', 'ade', 'adp',
+  'theme', 'themepack', 'desktopthemepackfile', 'ocx', 'dll', 'sys', 'drv', 'cer', 'crt', 'der', 'p7b', 'pfx', 'ppkg']);
 
 /**
  * Which editor to use: an id from EDITORS, or null for "the default app".
@@ -59,6 +61,9 @@ function parseTarget(raw, cwd) {
   if (typeof raw !== 'string') return null;
   let s = raw.trim().replace(/^[`'"@]+|[`'"]+$/g, '').trim();
   if (!s || s.length > 1000 || /[\u0000-\u001f<>|?*]/.test(s)) return null;
+  // A network path (\\host\share) would make Windows log in to that host with
+  // your account just to look at it, so only local files open.
+  if (/^[\\/]{2}/.test(s)) return null;
   let line = null, col = null;
   const m = s.match(/(?::(\d+))(?::(\d+))?$/) || s.match(/\((\d+)(?:,\s*(\d+))?\)$/);
   if (m && !/^[A-Za-z]:$/.test(s.slice(0, m.index))) {

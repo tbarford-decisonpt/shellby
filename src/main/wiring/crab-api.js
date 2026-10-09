@@ -82,6 +82,12 @@ function wireCrabApi(d) {
       return d.projects.forTerminal(intent);
     }
 
+    // Routines and workflows hold your prompts and can start Claude, so another
+    // account on this PC mustn't list or start them through the open port.
+    if (crabtools.ROUTINE_ACTIONS.includes(intent.action) && (!crabToken || !clipath.tokenMatches(crabToken, token))) {
+      return { ok: false, error: "Shellby only lists or starts routines and workflows for programs running as you, and this one didn't show his token. Update the Shellby plugin, then try again.", status: 401 };
+    }
+
     if (intent.action === 'list_routines' || intent.action === 'add_routine') {
       if (d.config.get('crabOnly')) return { ok: false, error: 'Routines are off: Shellby is in just-the-crab mode.', status: 403 };
       if (intent.action === 'list_routines') return { text: crabtools.routinesReply(d.routinesView()) };

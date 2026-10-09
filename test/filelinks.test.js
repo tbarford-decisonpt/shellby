@@ -5,6 +5,13 @@ const E = require('../src/main/filelinks');
 
 const CWD = 'C:\\work\\shellby';
 
+test('a network path never opens: looking at it would log in to that host', () => {
+  assert.equal(E.parseTarget('\\\\attacker\\share\\notes.txt', CWD), null);
+  assert.equal(E.parseTarget('//attacker/share/notes.txt', CWD), null);
+  assert.equal(E.parseTarget('`\\\\attacker\\share\\a.md:3`', CWD), null);
+  assert.ok(E.parseTarget('C:\\work\\a.md', CWD));
+});
+
 test('auto picks the first editor that is installed; a named one only if it is', () => {
   const only = (...schemes) => s => schemes.includes(s);
   assert.equal(E.pickEditor('auto', only('vscode', 'cursor')), 'vscode');

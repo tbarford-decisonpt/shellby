@@ -797,7 +797,16 @@ test('add_task text must be text, and is measured as it would be kept', () => {
   assert.equal(parseRequest({ action: 'add_task', args: { text: 'a'.repeat(201) } }).ok, false);
 });
 
-test('the server sends the crab token with the project tools and the journal only', () => {
+test('routines and workflows need the token too, and the server has a tool for each', () => {
+  const { ROUTINE_ACTIONS, TOKEN_ACTIONS, ACTIONS } = require('../src/main/crabtools');
+  for (const a of ROUTINE_ACTIONS) {
+    assert.ok(ACTIONS.includes(a), a);
+    assert.ok(!TOKEN_ACTIONS.includes(a), `${a} is answered outside the Projects page`);
+  }
+  assert.ok(fs.readFileSync(SERVER, 'latin1').includes("if (token) headers['X-Shellby-Token'] = token;"), 'the server sends the token whenever it has one');
+});
+
+test('the server must have the crab token for the project tools and the journal', () => {
   const server = require(SERVER);
   assert.deepEqual([...server.PROJECT_TOOLS].sort(), [...require('../src/main/crabtools').TOKEN_ACTIONS].sort());
   assert.ok(server.PROJECT_TOOLS.includes('journal'), 'the journal reads what you asked and which files: it needs the token too');

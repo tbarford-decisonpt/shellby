@@ -22,6 +22,8 @@ const MAX_DETAIL = 2000;            // one entry can't run away with the file
 const SECRETS = [
   [/\b(gh[pousr]_[A-Za-z0-9]{6})[A-Za-z0-9]+/g, '$1…'],
   [/\b(github_pat_[A-Za-z0-9]{6})[A-Za-z0-9_]+/g, '$1…'],
+  [/\b(glpat-[A-Za-z0-9]{4})[A-Za-z0-9_-]+/g, '$1…'],
+  [/(https:\/\/(?:discord(?:app)?\.com\/api\/webhooks|hooks\.slack\.com\/services))\/\S+/gi, '$1/…'],
   [/\b(Bearer|token)\s+\S+/gi, '$1 …'],
 ];
 

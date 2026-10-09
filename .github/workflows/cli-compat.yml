@@ -35,10 +35,10 @@ jobs:
     steps:
       # The token isn't left in .git/config, where the install scripts below
       # could read it; the two badge steps hand it to git themselves.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           cache: npm
@@ -84,7 +84,7 @@ jobs:
         shell: bash
         run: cat cli-compat/summary.md >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
           name: cli-compat
@@ -106,7 +106,7 @@ jobs:
 
       - name: Open, update or close the issue
         if: always() && github.ref == 'refs/heads/main'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const fs = require('fs');

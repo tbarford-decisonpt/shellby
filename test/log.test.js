@@ -33,6 +33,13 @@ test('the home directory is replaced, whichever separator it arrives with', () =
   assert.doesNotMatch(log.recent().join('\n'), /jacob/i);
 });
 
+test('GitLab tokens and Discord or Slack webhook URLs are cut short', () => {
+  const log = new Log(tmp());
+  const line = log.warn('send failed', 'glpat-AbCdXyZ0123456789 https://discord.com/api/webhooks/123/secretpart https://hooks.slack.com/services/T0/B0/secretpart');
+  assert.match(line, /glpat-AbCd…/);
+  assert.doesNotMatch(line, /0123456789|secretpart/);
+});
+
 test('anything shaped like a token is cut short', () => {
   const log = new Log(tmp());
   const line = log.warn('github said no', 'tried with ghu_AbCdEf0123456789abcdef and Bearer sk-abc123');

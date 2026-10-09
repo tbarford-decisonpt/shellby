@@ -409,13 +409,15 @@ function callApp(action, args, timeoutMs = TIMEOUT_MS) {
       'Content-Length': body.length,
       'X-Shellby': '1',
     };
+    // Shellby asks for the token for projects, the journal, routines and
+    // workflows. Sending it every time costs nothing.
+    const token = readCrabToken();
+    if (token) headers['X-Shellby-Token'] = token;
     if (PROJECT_TOOLS.includes(action)) {
-      const token = readCrabToken();
       if (!token) {
         resolve({ ok: false, error: 'This Shellby is too old to answer about projects, or has not finished starting. Update it, start it, and try again.' });
         return;
       }
-      headers['X-Shellby-Token'] = token;
     }
     const req = http.request({
       host: '127.0.0.1',
