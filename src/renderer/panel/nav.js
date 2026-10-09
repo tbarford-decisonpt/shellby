@@ -99,6 +99,7 @@
     SB.setView('settings');
     showTab(tabOf(group));
     if (group.tagName === 'DETAILS') group.open = true;
+    placeInk(); // opening it can bring in a scrollbar and shift the tabs
     requestAnimationFrame(() => { group.scrollIntoView({ block: 'center' }); el.focus(); });
   };
 
@@ -142,6 +143,7 @@
     if (state.view !== 'settings') SB.setView('settings');
     showTab(tabOf(group));
     if (group.tagName === 'DETAILS') group.open = true;
+    placeInk(); // opening it can bring in a scrollbar and shift the tabs
     requestAnimationFrame(() => {
       group.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
       // A brief glow says which section you were sent to.
