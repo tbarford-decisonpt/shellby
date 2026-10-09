@@ -93,6 +93,8 @@
 /* ---------------------------------------------------------------- the plan card */
 .plan-card .ask-head { align-items: flex-start; }
 .plan-card .ask-head > div { flex: 1; min-width: 0; }
+.plan-card .ask-head > .plan-tools { flex: none; display: flex; gap: 4px; }
+.plan-card.expanded .ask-plan { max-height: none; font-size: var(--fs-14); line-height: 1.55; }
 .plan-line { position: relative; border-radius: 4px; }
 .plan-line:hover { background: rgba(255, 255, 255, .035); }
 .plan-line.noted { box-shadow: inset 2px 0 0 #8fb8ff; background: rgba(143, 184, 255, .07); }

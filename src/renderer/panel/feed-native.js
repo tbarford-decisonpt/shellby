@@ -122,6 +122,14 @@
       const keep = h('button', { class: 'btn deny', type: 'button', title: 'Claude keeps planning, and asks what you would like changed',
         onclick: () => decide('deny', 'Keep planning: the user wants to refine the plan before anything changes. Ask them what they would like changed.') }, 'Keep planning');
       const copy = h('button', { class: 'btn ghost slim-btn', type: 'button', onclick: () => { api.copyText(item.plan || ''); SB.toast('Copied the plan.', { ms: 2500 }); } }, 'Copy');
+      // The plan reads in a short box; Expand lets it run its full length (still works once decided).
+      const expand = h('button', { class: 'btn ghost slim-btn plan-expand', type: 'button', 'aria-expanded': 'false', title: 'Show the whole plan without scrolling the box' }, 'Expand');
+      expand.addEventListener('click', () => {
+        const open = card.classList.toggle('expanded');
+        expand.setAttribute('aria-expanded', String(open));
+        expand.textContent = open ? 'Collapse' : 'Expand';
+        if (!open) card.scrollIntoView({ block: 'nearest' });
+      });
 
       card = h('div', { class: 'ask plan-card', role: 'group', 'aria-label': "Claude's plan" },
         h('div', { class: 'ask-head' },
@@ -129,7 +137,7 @@
           h('div', {},
             h('div', { class: 'ask-title', text: "Here's my plan" }),
             h('div', { class: 'ask-sub', text: `${state.settings.plainCards !== false && item.planSummary ? `${item.planSummary}. ` : ''}Nothing changes until you approve. Hover a line and press 💬 to leave a note on it.` })),
-          copy),
+          h('div', { class: 'plan-tools' }, expand, copy)),
         h('div', { class: 'ask-body' }, planEl),
         noteList,
         overall,
@@ -150,7 +158,7 @@
 
     // A decided plan: what happened to it, in words, and nothing left to press.
     markPlanDecision(card, item) {
-      card.querySelectorAll('button:not(.ask-more), textarea').forEach(el => { el.disabled = true; });
+      card.querySelectorAll('button:not(.ask-more):not(.plan-expand), textarea').forEach(el => { el.disabled = true; });
       const n = card.notesSent || 0;
       const text = item.decision === 'cancelled' ? '→ Cancelled'
         : item.decision === 'deny' ? (n ? `→ Sent back with ${n} note${n === 1 ? '' : 's'}` : '→ Kept planning')
