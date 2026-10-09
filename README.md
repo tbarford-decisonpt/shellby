@@ -205,7 +205,7 @@ None of this needs Claude or an account.
 
 <p align="center"><img src="docs/img/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
 
-- **173 accessories, 24 effects and 16 crabs,** head-to-tail sets, and costumes for every season.
+- **173 accessories, 24 effects and 18 crabs,** head-to-tail sets, and costumes for every season.
 - **50+ trophies and 99 levels:** outfits unlock as you use him, and he grows into new shells, from a Snail Shell to the Rainbow Nautilus.
 - **A character sheet:** Shipping, Rigour, Craft and Tidiness stats from the work he does, and a class from the highest: Shipper, Tester, Toolsmith, Curator or a dual class. [See](docs/WARDROBE.md#character-sheet)
 - **A sticker for every project you ship,** drawn from the repo itself, going vinyl, holo and foil as you keep shipping.
@@ -260,8 +260,8 @@ Nobody reads a feature list to find out a crab can be thrown. Have a go.
 <td width="50%" align="center" valign="top"><img src="docs/img/tricks-pals.gif" alt="Shellby is thrown up among his four little pals, who scatter when he lands"><br><sub><b>Pals on the floor</b> keep him company, and scatter when you throw him down among them<br>⚙️ <i>Settings → Shellby → Pals on the floor</i> (off until you pick some)</sub></td>
 </tr>
 <tr>
-<td width="50%" align="center" valign="top"><img src="docs/img/tricks-typing.gif" alt="Text is typed into Notepad while Shellby taps along on a little keyboard, then says new record: 180 wpm"><br><sub><b>Type fast</b> and he taps along on a little keyboard, then tells you how fast that was<br>⚙️ <i>Settings → Typing along</i> (off until you turn it on)</sub></td>
-<td width="50%" align="center" valign="top"><img src="docs/img/tricks-pounce.gif" alt="Shellby creeps up on the mouse cursor, pounces, misses, and says meant to do that"><br><sub><b>Leave your cursor</b> near him and he pounces on it, and misses<br>⚙️ <i>Settings → Personality → How much he talks</i> (Quiet stops his little scenes)</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/img/tricks-typing.gif" alt="Text is typed into Notepad while Shellby taps along on a little keyboard, then says new record: 180 wpm"><br><sub><b>Type fast</b> and he taps along on a little keyboard, then tells you how fast that was<br>⚙️ <i>Settings → Around you → Typing along</i> (off until you turn it on)</sub></td>
+<td width="50%" align="center" valign="top"><img src="docs/img/tricks-pounce.gif" alt="Shellby creeps up on the mouse cursor, pounces, misses, and says meant to do that"><br><sub><b>Leave your cursor</b> near him and he pounces on it, and misses<br>⚙️ <i>Settings → Shellby → How much he talks</i> (Quiet stops his little scenes)</sub></td>
 </tr>
 </table>
 
@@ -286,46 +286,46 @@ Want a quieter crab in one click? **Work mode** switches off the climbing, pals 
 <tr>
 <td width="33%" valign="top">
 
-**🐠 His tank comes alive** · 0.72<br>
-<sub>He hides in the castle, naps in his cave and nibbles the kelp, and the tank quietly shows your PC's temperature and dev servers. Saved layouts, stickers on the glass, and a peek at friends' tanks. [See](docs/TANK.md)</sub>
+**✨ A glow-up** · 0.77<br>
+<sub>Shellby, every skin, shell and outfit reshaded with a fine dark line, so he stands out on any wallpaper. Same crab, crisper. [See](CHANGELOG.md#0770-sign-ins-shared-tools-and-a-glow-up)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**📋 Next up** · 0.71<br>
-<sub>"What now?" for every project in one ranked list: your to-dos, its issues and the TODOs in its code. Plus one inbox across your repos, Releases, and where you left off. [How](docs/PROJECTS.md#next-up)</sub>
+**🧰 Tools in bulk** · 0.77<br>
+<sub>Pick many skills at once, park the ones you don't use instead of deleting them, share a set as one file, and sign in to MCP servers without a terminal. [How](docs/CLAUDE-CODE.md#toolbox)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**🫙 The Bugdex** · 0.70<br>
-<sub>Every kind of bug Claude fixes is a pixel creature in a jar, and only a real fix catches one. Coming next: bug battles, badges and the league. [See](docs/BUGDEX.md)</sub>
+**📜 Helpers report back** · 0.76<br>
+<sub>A helper that finished holds up a little scroll on its way home; one that failed trudges back, slumped and grey. And your newest conversations can follow you between PCs. [How](docs/CONNECTIONS.md#github-sign-in)</sub>
 
 </td>
 </tr>
 <tr>
-<td valign="top">
+<td width="33%" valign="top">
 
-**🧩 Mods** · 0.69<br>
-<sub>Claude Code mods in the Toolbox, each saying in plain words what it can do, and mods that make him react from any conversation. [How](docs/MODS.md)</sub>
-
-</td>
-<td valign="top">
-
-**🔀 Try it N ways** · 0.68<br>
-<sub><code>/tries 3</code> sends the same task to three copies at once, runs each one's tests, and ranks them for you to keep the best. [How](docs/CLAUDE-CODE.md#your-code-safe)</sub>
+**🔀 One-click modes** · 0.75<br>
+<sub>Right-click him and pick Claude Code, Work mode or Just the crab. Plus a real badge case for the Bugdex. [See](docs/DESKTOP.md#work-mode)</sub>
 
 </td>
-<td valign="top">
+<td width="33%" valign="top">
 
-**🔌 Your MCP servers in workflows** · 0.67<br>
-<sub>Tick the servers a step may use and Claude files the issue or posts to Slack without stopping to ask. Or call one tool with no Claude at all. [How](docs/WORKFLOWS.md#mcp-servers)</sub>
+**🔎 Search Settings** · 0.74<br>
+<sub>Find any switch by what it says, see what each helper cost you, and a tour of your project to start with. [See](CHANGELOG.md#0740-search-settings-helper-costs-and-bugdex-portraits)</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**⚔️ Bug battles &amp; other computers** · 0.73<br>
+<sub>Claude's work on a bug plays out as a battle until the real fix jars it, and conversations can run on a server or another PC over ssh. [See](docs/BUGDEX.md#bug-battles)</sub>
 
 </td>
 </tr>
 </table>
 
-<sub>And before that: the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets, time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
+<sub>And before that: his tank, Next up, the Bugdex, mods, <code>/tries</code>, MCP servers in workflows, the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets and time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
 
 ## Install
 

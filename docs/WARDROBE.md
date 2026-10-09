@@ -6,7 +6,7 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 
 ## Outfits
 
-- **173 accessories, 24 effects and 16 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
+- **173 accessories, 24 effects and 18 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
 - **Head-to-tail sets:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each covers every slot.
 - **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick, the Golden Conch at level 20, and on up through a Coconut Half, a Lantern Jar, a Diving Helmet, a Crystal Geode and a Treasure Chest to the Rainbow Nautilus at level 99. Each is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
 - **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep if you're around while the season is on.
