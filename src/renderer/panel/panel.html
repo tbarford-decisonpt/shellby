@@ -1483,15 +1483,15 @@
       <!-- What's waiting on you across every repo (inbox.js) -->
       <section class="pj-panel pj-inbox" id="pjInbox" aria-label="Inbox" hidden></section>
       <div class="pj-tools">
-        <input type="search" id="pjSearch" class="field" placeholder="Search projects…" aria-label="Search projects">
+        <input type="search" id="pjSearch" class="field" placeholder="Search projects…  Ctrl+F" aria-label="Search projects" aria-keyshortcuts="Control+F">
         <div class="pj-tools-row">
           <div class="seg pj-sort" id="pjSort" role="tablist" aria-label="Order" data-roving>
             <button type="button" role="tab" data-sort="recent" aria-selected="true">Recent</button>
-            <button type="button" role="tab" data-sort="attention" aria-selected="false">Needs you</button>
             <button type="button" role="tab" data-sort="name" aria-selected="false">A–Z</button>
           </div>
           <select class="field slim pj-scope" id="pjScope" aria-label="Show which projects">
             <option value="all">All</option>
+            <option value="attention">Needs you</option>
             <option value="local">On this PC</option>
             <option value="running">Running</option>
             <option value="github">GitHub only</option>
@@ -2686,6 +2686,7 @@
 <script src="project-report.js"></script>
 <script src="projects-logic.js"></script>
 <script src="projects.js"></script>
+<script src="project-page.js"></script>
 <script src="projects-servers.js"></script>
 <script src="project-tools.js"></script>
 <script src="projects-add.js"></script>

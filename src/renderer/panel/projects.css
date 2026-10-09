@@ -29,6 +29,7 @@ body[data-view="projects"] .view-projects {
 }
 .pj-sum-need:hover, .pj-sum-need:focus-visible { background: color-mix(in srgb, var(--amber) 22%, transparent); }
 .pj-sum-down { color: #ffb3ad; font-weight: 700; }
+.pj-sum-when { font: var(--fs-11) var(--font-mono); color: var(--sand-faint); }
 
 /* ---------- servers running, and what happens to them when Shellby quits: one quiet line ---------- */
 .pj-quit {
@@ -97,11 +98,14 @@ body[data-view="projects"] .view-projects {
   background: none; color: var(--sand-dim); cursor: pointer;
 }
 .pj-q svg { width: 16px; height: 16px; }
-.pj-q:hover, .pj-q:focus-visible { background: var(--glass-dim); color: var(--glass); }
+.pj-q.empty { cursor: default; }
+.pj-q:hover:not(.empty), .pj-q:focus-visible { background: var(--glass-dim); color: var(--glass); }
 .pj-q:focus-visible { outline: 2px solid var(--glass); outline-offset: -1px; }
 @media (prefers-reduced-motion: reduce) { .pj-quick { transition: none; } }
 .pj-row-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-14); }
 .pj-row-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-pin { flex: none; display: grid; color: var(--glass); }
+.pj-pin svg { width: 13px; height: 13px; }
 .pj-row-where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-11) var(--font-mono); font-stretch: 88%; color: var(--sand-dim); }
 .pj-row-where.off { color: var(--sand-faint); font-style: italic; }
 .pj-tag {
@@ -127,11 +131,58 @@ body[data-view="projects"] .view-projects {
 .pj-hero-acts { gap: 6px; }
 .pj-repo { font: var(--fs-11-5) var(--font-mono); }
 
+/* What needs you, before anything else on the page: each line goes where it's dealt with. */
+.pj-needs { margin-bottom: 12px; }
+.pj-needs > .row-label { margin: 0 0 6px; }
+.pj-needs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pj-need {
+  --t: var(--sand-dim);
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; padding: 7px 10px 7px 12px;
+  border-radius: var(--r-sm); border: 1px solid color-mix(in srgb, var(--t) 35%, transparent);
+  background: color-mix(in srgb, var(--t) 9%, transparent); color: var(--sand); font-size: var(--fs-13); cursor: pointer;
+  transition: background .15s;
+}
+.pj-need.bad { --t: var(--danger); }
+.pj-need.warn { --t: var(--amber); }
+.pj-need:hover, .pj-need:focus-visible { background: color-mix(in srgb, var(--t) 18%, transparent); }
+.pj-need:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.pj-need-text { flex: 1; min-width: 0; }
+.pj-need-go { flex: none; font: 700 var(--fs-11) var(--font-mono); color: var(--sand-dim); }
+.pj-need-go::after { content: ' →'; }
+@media (prefers-reduced-motion: reduce) { .pj-need { transition: none; } }
+
+/* A link to each part of the page, held at the top while you scroll. Its band
+   fills the view's faded top edge, so cards slide under it, not through it. */
+.pj-jump {
+  position: sticky; top: -14px; z-index: 2;
+  display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 -16px 10px; padding: 14px 16px 8px; background: var(--ink);
+  border-bottom: 1px solid var(--line-soft);
+}
+/* the links run on past the edge: fade it, so it reads as "scroll for more" */
+.pj-jump.more {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.pj-jump-link {
+  flex: none; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line-soft); background: none;
+  font: 600 var(--fs-11-5) var(--font-body); color: var(--sand-dim); cursor: pointer; white-space: nowrap;
+}
+.pj-jump-link:hover, .pj-jump-link:focus-visible { color: var(--sand); border-color: var(--line); background: var(--reef-2); }
+.pj-jump-link:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+/* clear of the links' band when jumped to */
+.pj-sec { scroll-margin-top: 64px; }
+.pj-sec:focus { outline: none; }
+
 /* The cards: Pulse, Health, Conversations. */
 .pj-panel { margin-bottom: 10px; padding: 11px 12px 12px; border-radius: var(--r); border: 1px solid var(--line-soft); background: color-mix(in srgb, var(--reef) 70%, transparent); }
 .pj-panel > .row-label { margin: 0 0 8px; }
 .pj-panel > p.muted { margin: 0 0 8px; }
 .pj-calm { margin: 0; line-height: 1.5; }
+/* A card with nothing to say: one line. */
+.pj-panel.pj-quiet { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 12px; }
+.pj-panel.pj-quiet > .row-label { margin: 0; }
+.pj-quiet-text { flex: 1; min-width: 0; }
 .pj-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; }
 .pj-stat { display: grid; gap: 2px; align-content: start; }
 .pj-stat-label { font: 600 var(--fs-9-5) var(--font-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--sand-faint); }

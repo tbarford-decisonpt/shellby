@@ -39,32 +39,75 @@
 
   // ------------------------------------------------------------ the list
 
+  const attentionOf = p => p.insights?.attention || 0;
   const SORTS = {
     recent: () => 0, // main's order: worked on lately, running, on this PC, last push
-    attention: (a, b) => (b.insights?.attention || 0) - (a.insights?.attention || 0),
     name: (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
   };
+  const SCOPES = ['all', 'attention', 'local', 'running', 'github'];
+
+  // A sort and scope read back from storage: anything unknown (an old
+  // "attention" sort, say) falls back to the default.
+  function readView({ sort, scope } = {}) {
+    return { sort: Object.hasOwn(SORTS, sort) ? sort : 'recent', scope: SCOPES.includes(scope) ? scope : 'all' };
+  }
 
   // The rows to show, in order. q: the search, lower case and trimmed; scope:
-  // all, local, running or github; running(p): whether a server of its is live.
-  // Archived repos only show when looked for; "needs you" shows only those that do.
-  function visible(projects, { q, scope, sort, running }) {
-    const inScope = p => (scope === 'local' ? p.local.length > 0 : scope === 'github' ? !p.local.length : scope === 'running' ? running(p) : true);
+  // all, attention, local, running or github; running(p): whether a server of
+  // its is live; pinned: the keys you pinned, which come first whatever the order.
+  // Archived repos only show when looked for. "Needs you" is a scope: only those
+  // that do, most first (unless you asked for A–Z), and anything found by name.
+  function visible(projects, { q, scope, sort, running, pinned = new Set() }) {
+    const inScope = p => (scope === 'local' ? p.local.length > 0 : scope === 'github' ? !p.local.length
+      : scope === 'running' ? running(p) : scope === 'attention' ? q || attentionOf(p) > 0 || running(p) : true);
     const shown = projects.filter(p => {
       if (q && !`${p.name} ${p.github?.repo || ''}`.toLowerCase().includes(q)) return false;
       if (!inScope(p)) return false;
-      if (sort === 'attention' && !q) return (p.insights?.attention || 0) > 0 || running(p);
-      return scope !== 'all' || !p.github?.archived || q;
+      return scope !== 'all' || !p.github?.archived || q || pinned.has(p.key);
     });
-    return shown.map((p, i) => [p, i]).sort(([a, i], [b, j]) => SORTS[sort](a, b) || i - j).map(([p]) => p);
+    const byNeed = scope === 'attention' && sort !== 'name' ? (a, b) => attentionOf(b) - attentionOf(a) : SORTS[sort] || SORTS.recent;
+    const pin = p => (pinned.has(p.key) ? 0 : 1);
+    return shown.map((p, i) => [p, i]).sort(([a, i], [b, j]) => pin(a) - pin(b) || byNeed(a, b) || i - j).map(([p]) => p);
   }
 
+  // Pins kept as a list of keys: toggling one adds it at the end or takes it off.
+  const togglePin = (pins, key) => (pins.includes(key) ? pins.filter(k => k !== key) : [...pins, key]);
+
   // What the list says when it shows nothing. none: there are no projects at all.
-  function emptyText({ none, scope, sort, q }) {
+  function emptyText({ none, scope, q }) {
     if (none) return "No projects yet. Shellby lists the repos he's seen you work in. Scan the folder you keep them in and tick the ones you want, or add one.";
-    if (scope === 'running') return 'Nothing running right now.';
-    if (sort === 'attention' && !q) return 'Nothing needs you. Every project is pushed, passing and up to date as far as Shellby knows. 🐚';
+    if (scope === 'running' && !q) return 'Nothing running right now.';
+    if (scope === 'attention' && !q) return 'Nothing needs you. Every project is pushed, passing and up to date as far as Shellby knows. 🐚';
     return 'Nothing matches.';
+  }
+
+  // ------------------------------------------------------------ a project's page
+
+  // The strip at the top of a project's page: what needs you, worst first,
+  // each with where it's dealt with. go: 'servers' (the crashed card), 'health'
+  // (the Health card) or 'tidy' (a prompt to commit and push). crashed: how many
+  // of its dev servers are down; dirty: uncommitted changes in its main clone.
+  function needsList(p, { crashed = 0, dirty = 0 } = {}) {
+    const reasons = new Map((p.insights?.reasons || []).map(r => [r.id, r]));
+    const out = [];
+    if (crashed) out.push({ id: 'down', tone: 'bad', go: 'servers', text: `${plural(crashed, 'dev server')} down` });
+    const ci = reasons.get('ci');
+    if (ci) out.push({ id: 'ci', tone: 'bad', go: 'health', text: ci.count > 1 ? `${ci.count} pull requests failing checks` : 'A pull request is failing checks' });
+    const vuln = reasons.get('vuln');
+    if (vuln) {
+      const high = vuln.worst === 'critical' || vuln.worst === 'high';
+      out.push({ id: 'vuln', tone: high ? 'bad' : 'warn', go: 'health', text: `${plural(vuln.count, 'vulnerability', 'vulnerabilities')}${vuln.worst && vuln.worst !== 'unrated' ? ` (worst: ${vuln.worst})` : ''}` });
+    }
+    const unpushed = reasons.get('unpushed')?.count || 0;
+    if (unpushed || dirty) {
+      const parts = [unpushed && plural(unpushed, 'unpushed commit'), dirty && plural(dirty, 'uncommitted change')].filter(Boolean);
+      out.push({ id: 'local', tone: 'warn', go: 'tidy', text: `Only on this PC: ${parts.join(', ')}` });
+    }
+    const flaky = reasons.get('flaky');
+    if (flaky) out.push({ id: 'flaky', tone: 'warn', go: 'health', text: `${plural(flaky.count, 'flaky test')} this week` });
+    const outdated = reasons.get('outdated');
+    if (outdated) out.push({ id: 'outdated', tone: 'info', go: 'health', text: `${plural(outdated.count, 'package')} outdated` });
+    return out;
   }
 
   // ------------------------------------------------------------ a clone
@@ -104,7 +147,7 @@
 
   const addedLine = added => (added ? `Added ${repositories(added)}` : 'Nothing added.');
 
-  const api = { isLive, statusText, devChoice, visible, emptyText, cloneFacts, tidyPrompt, copiesSummary, scanLede, addedLine };
+  const api = { isLive, statusText, devChoice, SCOPES, readView, visible, togglePin, emptyText, needsList, cloneFacts, tidyPrompt, copiesSummary, scanLede, addedLine };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyProjectsLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);
