@@ -271,6 +271,16 @@
     else input.focus();
   });
 
+  // "Attach what I just saw" (main's just-saw.js): opt-in in Settings, one press, a new task.
+  SB.syncJustSaw = () => { $('justSawBtn').hidden = state.settings?.attachWhatISaw !== true; };
+  $('justSawBtn').addEventListener('click', async () => {
+    const r = await api.justSawTake();
+    if (!r.ok) return SB.toast(r.error);
+    await SB.newTabIn({ cwd: r.cwd, draft: r.draft });
+    if (r.attachments.length) SB.addAttachments(r.attachments);
+    SB.toast(`Attached ${r.label}. Add what you want done, then send.`);
+  });
+
   // Put text in the box (not sent) with the caret at the end, ready to add to.
   SB.prefill = (text) => {
     SB.setView('chat');

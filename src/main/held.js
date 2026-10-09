@@ -7,7 +7,7 @@
 //   { kind: 'message', tabId, cwd, title, text, attachments }: a message for a
 //     conversation; it goes back there, reopening it from History if needed.
 //   { kind: 'routine', routineId, name }: one run of a routine.
-//   { kind: 'task', prompt, cwd, mode, name, tabId, tries, model? }: heavy work queued
+//   { kind: 'task', prompt, cwd, mode, name, tabId, tries, model?, when? }: heavy work queued
 //     for a fresh window ("refactor X overnight"). Tasks go one after another,
 //     each waiting for the last to finish. Once one starts it keeps its tabId:
 //     if the window runs dry partway, or Shellby restarts, it stays queued and
@@ -66,6 +66,8 @@ function clean(raw, now) {
       tabId: isStr(raw.tabId) && ID_RE.test(raw.tabId) ? raw.tabId : null,
       tries,
       ...(raw.fromPhone === true ? { fromPhone: true } : {}),
+      // Queued for tonight rather than the reset (queue-when.js): only what the list says.
+      ...(raw.when === 'tonight' ? { when: 'tonight' } : {}),
       // Its own model ('' or none: the one Settings picks).
       ...(isStr(raw.model) && isModel(raw.model) ? { model: raw.model } : {}),
     };

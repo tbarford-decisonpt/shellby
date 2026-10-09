@@ -26,6 +26,7 @@
   function when(t, i) {
     if (t.running) return h('span', { class: 'r-pill running' }, 'running now');
     if (t.resuming) return h('span', { class: 'r-pill warn', title: 'It ran out of usage partway (or Shellby closed), and carries on in its conversation.' }, `carries on · ${t.atText}`);
+    if (t.when === 'tonight') return h('span', { class: 'r-pill', title: 'Starts tonight. If you are at your limit then, it waits for the reset.' }, `tonight · ${t.atText}`);
     return h('span', { class: 'r-pill' }, i === 0 ? t.atText : `then · #${i + 1}`);
   }
 
@@ -67,6 +68,7 @@
     text.value = r.item.prompt;
     folder = r.item.cwd || null;
     $('resetQueueMode').value = r.item.mode || 'smart';
+    $('resetQueueStart').value = r.item.when === 'tonight' ? 'tonight' : 'reset';
     SB.fillModels($('resetQueueModel'), r.item.model || '', 'Usual model');
     renderFolder();
     text.focus();
@@ -135,7 +137,7 @@
     adding = true;
     $('resetQueueAdd').disabled = true;
     try {
-      const r = await api.holdForReset({ kind: 'task', prompt, cwd: folderNow(), mode: $('resetQueueMode').value, model: $('resetQueueModel').value });
+      const r = await api.holdForReset({ kind: 'task', prompt, cwd: folderNow(), mode: $('resetQueueMode').value, model: $('resetQueueModel').value, when: $('resetQueueStart').value });
       if (r.cancelled) return note('');
       if (!r.ok) {
         // No window running: there's nothing to wait for, so offer the chat box instead.
@@ -149,6 +151,7 @@
       }
       text.value = '';
       const n = tasks().length + (r.added ? 1 : 0);
+      if ($('resetQueueStart').value === 'tonight') return note(`Queued for tonight. It starts at ${r.atText}, or after the reset if you're at your limit then.`);
       note(n > 1 ? `Queued as #${n}. The queue starts at ${r.atText}.` : `Queued. It starts at ${r.atText}, once your usage resets.`);
     } finally {
       adding = false;

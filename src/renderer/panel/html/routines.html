@@ -108,6 +108,10 @@
             <option value="autonomous">Autonomous</option>
           </select>
           <select class="field rq-mode" id="resetQueueModel" aria-label="Model" title="The model it runs on"></select>
+          <select class="field rq-mode" id="resetQueueStart" aria-label="When it starts" title="When it starts">
+            <option value="reset">When my limit resets</option>
+            <option value="tonight">Tonight</option>
+          </select>
           <button type="submit" class="btn slim-btn" id="resetQueueAdd">Queue it</button>
         </div>
         <p class="rq-note" id="resetQueueNote" aria-live="polite"></p>

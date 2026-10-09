@@ -266,6 +266,7 @@ contextBridge.exposeInMainWorld('shellby', {
   refreshMcp: invoke('mcp:refresh'),
   // What Claude Code does by itself (ipc/native.js): background commands, auto memory, cloud routines, the ultra review.
   jobOutput: (tabId, jobId) => ipcRenderer.invoke('jobs:output', { tabId, jobId }),
+  justSawTake: () => ipcRenderer.invoke('justsaw:take'),
   stopJob: (tabId, jobId) => ipcRenderer.invoke('jobs:stop', { tabId, jobId }),
   listMemory: invoke('memory:list'),
   saveMemory: (tabId, file, body, mtimeMs) => ipcRenderer.invoke('memory:save', { tabId, file, body, mtimeMs }),

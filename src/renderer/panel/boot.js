@@ -185,6 +185,7 @@
     if (!b) return; // its conversation closed on the way; main closes the window
     adopt(b);
     SB.applyMode(state.settings.mode);
+    SB.syncJustSaw?.();
     SB.applyEffort?.();
     SB.renderCrabs();
     const tab = SB.ensureTab(b.tab);
@@ -203,6 +204,7 @@
     SB.loadEditors(); // what file links open in (Settings → Editor, the palette)
     $('settingsFolder').textContent = SB.remotePlace(b.cwd) || b.cwd;
     SB.applyMode(state.settings.mode);
+    SB.syncJustSaw?.();
     SB.applyEffort?.();
     SB.applyCrabOnly();
     SB.applyUsage(state.settings.lastUsage);

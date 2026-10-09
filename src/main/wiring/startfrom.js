@@ -215,10 +215,11 @@ function wireStartFrom(d) {
     return { ok: true, cwd: root, draft: startfrom.todoPrompt({ project, item, around }) };
   }
 
-  // A red build's notification opens its sheet in the panel (startfrom.js there).
-  function showBuildFix(key) {
+  // A red build's notification, or a new review comment's (ci-proposals.js),
+  // opens its sheet in the panel (startfrom.js there): nothing starts until Send.
+  function showBuildFix(key, kind = 'build') {
     d.showPanel({ focusInput: false });
-    d.send(d.panel, 'startfrom:open', { kind: 'build', key });
+    d.send(d.panel, 'startfrom:open', { kind: kind === 'review' ? 'review' : 'build', key });
   }
 
   return { startFromDraft: draft, startFromSend: send, looseEnds, looseEndDraft, showBuildFix };
