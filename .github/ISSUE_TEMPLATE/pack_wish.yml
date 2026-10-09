@@ -1,0 +1,23 @@
+name: Pack wish
+description: An outfit, skin, voice or decor you'd love someone to make
+title: "Pack wish: "
+labels: ["pack wish", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Pack makers browse these for ideas. Packs are data only (pixels, colours, short lines), so they're a great first contribution: see [docs/ADDONS.md](https://github.com/x-salmon/shellby/blob/main/docs/ADDONS.md).
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind?
+      options: [Accessory or outfit, Shell or skin, Voice or lines, Tank decor, Effect, Something else]
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What should it look or sound like? A sketch or reference picture helps.
+    validations:
+      required: true

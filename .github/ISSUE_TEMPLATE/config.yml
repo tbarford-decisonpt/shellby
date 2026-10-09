@@ -3,3 +3,9 @@ contact_links:
   - name: Security
     url: https://github.com/x-salmon/shellby/security/advisories/new
     about: Shellby runs Claude Code with your permissions. Please report anything security-related privately, not as an issue (see SECURITY.md).
+  - name: Questions and show-and-tell
+    url: https://github.com/x-salmon/shellby/discussions
+    about: How do I...? Look what my crab did! Ask and share in Discussions.
+  - name: Share a pack you made
+    url: https://github.com/x-salmon/shellby-packs
+    about: Hats, skins, voices and decor go to the community gallery as a pull request (docs/ADDONS.md has the how-to).

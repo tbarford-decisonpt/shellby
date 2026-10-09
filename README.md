@@ -2,7 +2,7 @@
 
 <img src="docs/img/banner.png" width="100%" alt="Shellby: a pixel hermit crab for your Windows desktop who gets things done with Claude Code. Three crabs stand on the sand: one in a tide-pool outfit, one with headphones and a boombox saying 'good one', and a big one saying 'fingers crossed'.">
 
-[![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE) [![Works with Claude Code](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/x-salmon/shellby/badges/cli-compat.json)](https://github.com/x-salmon/shellby/actions/workflows/cli-compat.yml)
+[![Latest release](https://img.shields.io/github/v/release/x-salmon/shellby?label=release&color=ff7a5c)](https://github.com/x-salmon/shellby/releases/latest) ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-7fd6c2) [![Downloads](https://img.shields.io/github/downloads/x-salmon/shellby/total?color=7fd6c2)](https://github.com/x-salmon/shellby/releases) [![GPL-3.0 license](https://img.shields.io/github/license/x-salmon/shellby?color=b3a892)](LICENSE) [![Works with Claude Code](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/x-salmon/shellby/badges/cli-compat.json)](https://github.com/x-salmon/shellby/actions/workflows/cli-compat.yml) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/x-salmon/shellby/badge)](https://scorecard.dev/viewer/?uri=github.com/x-salmon/shellby)
 
 ## Same Claude Code. Less babysitting.
 
@@ -421,7 +421,14 @@ Everyone in these roles uses two-factor authentication on GitHub and Azure.
 
 ## Contributing
 
-Skins, packs, bug reports and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Skins, packs, bug reports and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), then `npm install`, `npm run setup` and `npm run dev:crab` gets you a dev crab that needs no Claude account.
+
+- **First time?** Pick a [good first issue](https://github.com/x-salmon/shellby/labels/good%20first%20issue) or a [pack wish](https://github.com/x-salmon/shellby/labels/pack%20wish).
+- **Made a pack?** Share it in the [community gallery](https://x-salmon.github.io/shellby-packs/) ([how](docs/ADDONS.md#publishing-to-the-community-gallery)).
+- **Questions or show-and-tell:** [Discussions](https://github.com/x-salmon/shellby/discussions).
+- **Reviewing security?** Start with the [threat model](docs/THREAT-MODEL.md).
+
+Everyone here follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
@@ -429,7 +436,7 @@ Shellby is free software under the [GPL-3.0](LICENSE). Read him, change him, sha
 
 The name **Shellby** and the crab as a mascot aren't part of that licence. Fork the code all you want — just give your crab its own name, so nobody downloads yours thinking it's this one. [TRADEMARK.md](TRADEMARK.md) spells out what's reserved and what's fair game.
 
-Copyright stays with x-salmon, so there may one day be paid extras alongside the free crab. The app in this repository stays GPL-3.0 and free.
+Contributors keep their copyright and grant x-salmon the right to also license their work commercially ([why](CONTRIBUTING.md#licensing-your-contribution)), so there may one day be paid extras alongside the free crab. The app in this repository stays GPL-3.0 and free.
 
 ## Disclaimer
 

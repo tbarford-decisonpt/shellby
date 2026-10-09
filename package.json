@@ -24,6 +24,7 @@
   },
   "scripts": {
     "start": "electron .",
+    "setup": "node scripts/setup.js",
     "dev:crab": "node scripts/dev-crab.js",
     "test": "node --test --test-concurrency=4 --test-timeout=120000 \"test/*.test.js\"",
     "lint": "eslint .",

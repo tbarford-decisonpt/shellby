@@ -6,13 +6,16 @@ Thanks for helping the crab! Skins, fixes, and features are all welcome.
 
 ```powershell
 npm install
-npm start      # run the app
+npm run setup  # fetches Electron if npm skipped it, builds the panel
+npm run dev:crab  # a dev crab on the fake Claude CLI, beside any installed Shellby
 npm test       # must pass before a PR
 npm run lint   # so must this (CI runs both)
 npm run typecheck
 ```
 
-npm 11 may skip install scripts. If `npm start` says Electron failed to install, run `node node_modules/electron/install.js`.
+`npm run dev:crab` needs no Claude account and keeps its own profile. `npm start` runs the app against your real profile and CLI.
+
+**Looking for a first task?** Try an issue labelled [good first issue](https://github.com/x-salmon/shellby/labels/good%20first%20issue), or make a pack: they're data only, and [docs/ADDONS.md](docs/ADDONS.md) walks you through it. Questions go in [Discussions](https://github.com/x-salmon/shellby/discussions). Everyone here follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Every end-to-end and maintenance script, and a map of the code, is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
@@ -21,29 +24,28 @@ Every end-to-end and maintenance script, and a map of the code, is in [docs/DEVE
 - **No frameworks in the renderer.** The UI is plain HTML/CSS/JS on purpose: fast to start, easy to read, nothing to audit.
 - **Keep the parser pure.** `src/main/stream.js` has no Electron or I/O, and new CLI event shapes get a test in `test/stream.test.js`.
 - **Session behaviour gets a fake-CLI test.** Extend `test/fixtures/fake-claude.js` rather than hitting the real CLI in tests.
-- **Security-sensitive areas** (preload bridge, IPC handlers, markdown renderer, permission flow) need a test for any change, and a note in the PR.
+- **Security-sensitive areas** (preload bridge, IPC handlers, markdown renderer, permission flow) need a test for any change, and a note in the PR. [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) maps each trust boundary to its code.
 - **Never commit personal data.** `npm run screenshots` uses fake account details. Check images before committing.
 - **Match the voice.** Shellby's copy is short, friendly and concrete, and he's a crab, not a corporation.
 
 ## Licensing your contribution
 
-Shellby is [GPL-3.0](LICENSE), and the copyright is held in one place so the
-project can be licensed as a whole — today that's GPL-3.0, and one day it may
-also mean a paid add-on or a commercial licence alongside the free crab.
-
-So, by opening a pull request you're saying three things:
+**You keep the copyright to what you write.** Nothing here asks you to hand it
+over. Opening a pull request just means you agree to three things:
 
 1. **It's yours to give.** You wrote it, or you otherwise have the right to
-   contribute it, and it isn't lifted from code under a licence that clashes with
-   GPL-3.0. If your employer owns what you write, check with them first.
+   contribute it, and it isn't copied from code under a licence that clashes
+   with GPL-3.0. If your employer owns what you write, check with them first.
 2. **It ships under GPL-3.0**, like the rest of Shellby.
-3. **x-salmon may also license it under other terms**, including commercially, as
-   part of Shellby. You keep your copyright and can use your own work anywhere
-   else you like — this is permission granted to the project, not a handover.
+3. **x-salmon may also license it under other terms**, including commercially,
+   as part of Shellby.
 
-Point 3 is the one worth reading twice. It's what lets paid extras exist later
-without having to track down every contributor for permission, and it's why the
-app in this repository can stay GPL-3.0 and free.
+Why point 3? It means the project can offer something like a paid add-on or a
+commercial licence later without tracking down every contributor to ask. The
+app in this repository stays GPL-3.0 and free either way, and you can use your
+own work anywhere else you like. If you're not comfortable with point 3, say so
+in your PR and we'll talk it through. Small fixes, docs and skins are still very
+welcome.
 
 Art, skins and packs that land **in this repo** are covered by the same three
 points. Skins you publish yourself to the [packs site](https://x-salmon.github.io/shellby-packs/)
