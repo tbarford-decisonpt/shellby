@@ -114,7 +114,8 @@ async function connect(url) {
     await ev("SB.send('plan')");
     const card = "[...SB.activeTab().el.querySelectorAll('.plan-card')].pop()";
     check(await until(panel, `!!${card}`), 'the plan gets a card of its own');
-    check(await until(critter, "document.body.classList.contains('plan-ready') && document.getElementById('bubbleText').textContent === 'plan?'"), 'the crab says there is a plan to read');
+    const planSaid = await until(critter, "document.body.classList.contains('plan-ready') && document.getElementById('bubbleText').textContent === 'plan?'");
+    check(planSaid, `the crab says there is a plan to read${planSaid ? '' : ` (${JSON.stringify(await critter.ev("({ body: document.body.className, bubble: document.getElementById('bubbleText').textContent })"))})`}`);
     await ev(`[...${card}.querySelectorAll('li.plan-line')].find(l => /cache/.test(l.textContent)).querySelector('.plan-line-note').click()`);
     check(await ev("document.activeElement?.classList.contains('plan-note-box')"), "💬 opens a note on that line, ready to type");
     await ev("(() => { const b = document.activeElement; b.value = 'Skip the cache, it is fast enough.'; b.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()");

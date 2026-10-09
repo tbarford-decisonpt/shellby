@@ -126,7 +126,7 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     let follows = false;
     for (let i = 0; i < 40 && !follows; i++) { follows = await cev("!document.getElementById('buddy').hidden && !!document.querySelector('#buddy svg')"); if (!follows) await wait(250); }
     check(follows, 'his favourite catch follows him on the desk');
-    const size = await cev("(() => { const r = document.querySelector('#buddy svg').getBoundingClientRect(), s = document.querySelector('#self svg').getBoundingClientRect(); return { w: r.width, h: r.height, rows: document.querySelector('#buddy svg').viewBox.baseVal.height, crab: s.height }; })()");
+    const size = await cev("(() => { const r = document.querySelector('#buddy svg').getBoundingClientRect(), s = document.querySelector('#sprite svg').getBoundingClientRect(); return { w: r.width, h: r.height, rows: document.querySelector('#buddy svg').viewBox.baseVal.height, crab: s.height }; })()");
     check(size.rows > 12 && Math.max(size.w, size.h) < size.crab * 1.2, `as its Bugdex portrait, no bigger than him (${JSON.stringify(size)})`);
     if (SHOTS) await savePng(csend, path.join(SHOTS, `${String(++shot).padStart(2, '0')}-buddy.png`));
     // Facing either way, at his smallest and biggest, it stays in his slot: off the helpers' lane and the window's edge.
