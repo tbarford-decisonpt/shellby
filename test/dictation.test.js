@@ -404,7 +404,9 @@ test('Windows really recognises speech with the helper', { skip: process.platfor
     assert.match((await second).text, /typo/i);
     again.stop();
   } finally {
-    // PowerShell lets go of the file a moment after it's killed.
-    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+    // PowerShell lets go of the file a moment after it's killed, so this
+    // retries. fs.promises.rm, because Node 24's rmSync fails on the first
+    // EPERM whatever maxRetries says.
+    await fs.promises.rm(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 });
