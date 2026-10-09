@@ -27,6 +27,9 @@ jobs:
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
       # Same trick for SignPath: set means the release is signed by SignPath.
       SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      # Tells getshellby.com (x-salmon/shellby-site) to rebuild for this release.
+      # A token of its own if there is one, else the owner's PAT above.
+      SITE_DISPATCH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN || secrets.WINGET_TOKEN }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
@@ -281,3 +284,17 @@ jobs:
           done
           echo "::warning title=Scoop not updated::Couldn't push bucket/shellby.json for $v to main. Run node scripts/scoop-manifest.js $v SHA256SUMS.txt and commit it by hand."
           exit 1
+
+      # getshellby.com rebuilds from the latest release: its changelog, version
+      # and wardrobe. Its own workflow also checks every 6 hours, so a missing
+      # token or a hiccup here only means the site catches up a little later.
+      - name: Tell the website
+        if: ${{ env.SITE_DISPATCH_TOKEN != '' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${SITE_DISPATCH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/x-salmon/shellby-site/dispatches \
+            -d "{\"event_type\":\"shellby-release\",\"client_payload\":{\"tag\":\"${GITHUB_REF_NAME}\"}}"
