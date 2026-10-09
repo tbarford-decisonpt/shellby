@@ -94,6 +94,7 @@ test('sound: animations off still plays the effects, his chirp and his feet', t 
   const step = FakeAudioContext.prototype.createBufferSource; // each footstep is a click of noise
   FakeAudioContext.prototype.createBufferSource = function () { steps++; return step.call(this); };
   t.after(() => { FakeAudioContext.prototype.createBufferSource = step; });
+  t.mock.method(Math, 'random', () => 0.5); // he skips the odd step at random; two skips in a row heard nothing
   sound.scuttle(38);
   t.mock.timers.tick(1000);
   sound.scuttle(0);
