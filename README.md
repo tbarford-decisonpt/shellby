@@ -12,7 +12,7 @@ all on **your own Pro or Max plan**, on Windows 10 and 11. No API keys, no per-t
 
 ### [⬇ Download for Windows](https://github.com/x-salmon/shellby/releases/latest)
 
-[What's new](#whats-new) · [Why Shellby, if you have Claude Code?](docs/WHY-SHELLBY.md) · [Community packs](https://x-salmon.github.io/shellby-packs/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[What's new](#whats-new) · [Why Shellby, if you have Claude Code?](docs/WHY-SHELLBY.md) · [Community packs](https://getshellby.com/community/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 <br>
 
@@ -221,7 +221,7 @@ None of this needs Claude or an account.
 </tr>
 </table>
 
-More hats, effects, colours and voices (a pirate, a grump, another language) from other people in the **[community gallery](https://x-salmon.github.io/shellby-packs/)**, installed in one click, and you can make your own in Pack Studio.
+More hats, effects, colours and voices (a pirate, a grump, another language) from other people in the **[community gallery](https://getshellby.com/community/)**, installed in one click, and you can make your own in Pack Studio.
 
 **[Outfits, trophies, XP and stickers →](docs/WARDROBE.md)**
 
@@ -424,7 +424,7 @@ Everyone in these roles uses two-factor authentication on GitHub and Azure.
 Skins, packs, bug reports and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), then `npm install`, `npm run setup` and `npm run dev:crab` gets you a dev crab that needs no Claude account.
 
 - **First time?** Pick a [good first issue](https://github.com/x-salmon/shellby/labels/good%20first%20issue) or a [pack wish](https://github.com/x-salmon/shellby/labels/pack%20wish).
-- **Made a pack?** Share it in the [community gallery](https://x-salmon.github.io/shellby-packs/) ([how](docs/ADDONS.md#publishing-to-the-community-gallery)).
+- **Made a pack?** Share it in the [community gallery](https://getshellby.com/community/) ([how](docs/ADDONS.md#publishing-to-the-community-gallery)).
 - **Questions or show-and-tell:** [Discussions](https://github.com/x-salmon/shellby/discussions).
 - **Reviewing security?** Start with the [threat model](docs/THREAT-MODEL.md).
 
