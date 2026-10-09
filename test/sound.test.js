@@ -87,6 +87,8 @@ test('sound: animations off still plays the effects, his chirp and his feet', t 
   globalThis.ShellbySound = { ...sound, audio: sound.audio, calm: false, tone: (...a) => { tones.push(a); return tone(...a); } };
   globalThis.ShellbyChirp.play('success');
   assert.ok(tones.length > 0, 'the chirp plays');
+  assert.ok(tones.every(([, o]) => o.type !== 'square'), 'his voice is soft waves, not a console beep');
+  assert.ok(tones.some(([, o]) => o.to !== o.freq), 'each note slides into its pitch');
 
   let steps = 0;
   const step = FakeAudioContext.prototype.createBufferSource; // each footstep is a click of noise
