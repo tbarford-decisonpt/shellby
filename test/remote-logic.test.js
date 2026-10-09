@@ -125,3 +125,14 @@ test('first run without Claude Code here starts in a folder on a computer that i
     { alias: 'box', check: signedIn, folders: [folder('a2', '~/app'), folder('a3', '~/other')] },
   ]), 'a2');
 });
+
+test("the usage meter in a folder on a computer that's on another Claude account", () => {
+  const folders = [{ host: 'devbox', dir: '~/app', anchor: 'C:\\anchors\\devbox-app' }, { host: 'mine', dir: '~/x', anchor: 'C:\\anchors\\mine-x' }];
+  const others = [{ host: 'DevBox', email: 'work@corp.com', plan: 'max', fiveHour: { pct: 30 } }];
+  assert.equal(L.accountUsageFor(others, folders, 'c:\\anchors\\devbox-app').email, 'work@corp.com');
+  assert.equal(L.accountUsageFor(others, folders, 'C:\\anchors\\mine-x'), null, 'a computer on your own account');
+  assert.equal(L.accountUsageFor(others, folders, 'C:\\code'), null, 'a folder on this PC');
+  assert.equal(L.accountUsageFor(null, folders, 'C:\\anchors\\devbox-app'), null);
+  assert.equal(L.accountLine(others[0]), 'work@corp.com (max) on DevBox');
+  assert.equal(L.accountLine({ host: 'devbox', email: null }), 'Another Claude account on devbox');
+});

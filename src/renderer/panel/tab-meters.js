@@ -143,11 +143,35 @@
 
   // ------------------------------------------------------------ usage meter
 
+  // Your own plan's, and other computers' signed in to another Claude account
+  // (src/main/usage/accounts.js): in one of their tabs, the meter is theirs.
   let lastUsage = null;
+  const otherHere = () => {
+    const tab = SB.activeTab();
+    return window.ShellbyRemoteLogic?.accountUsageFor(state.settings?.otherUsage, state.settings?.remoteFolders, tab?.cwd || state.cwd) || null;
+  };
+  const hasWindows = u => !!(u && (u.fiveHour || u.sevenDay));
+
   SB.applyUsage = (u) => {
-    if (!u || (!u.fiveHour && !u.sevenDay)) return;
-    lastUsage = u;
-    $('usage').hidden = false;
+    if (hasWindows(u)) lastUsage = u;
+    drawUsage();
+  };
+  // Kept with the settings, which bring it too (src/main/wiring/settings.js).
+  SB.applyOtherUsage = (list) => {
+    if (state.settings) state.settings.otherUsage = Array.isArray(list) ? list : [];
+    drawUsage();
+  };
+
+  function drawUsage() {
+    const other = otherHere();
+    const u = other || lastUsage;
+    const who = other ? window.ShellbyRemoteLogic.accountLine(other) : null;
+    $('usage').hidden = !other && !hasWindows(u);
+    $('usage').classList.toggle('other', !!other);
+    $('usage').setAttribute('aria-label', other ? `Usage limits of ${who}` : 'Usage limits: see what used them');
+    $('usageWho').hidden = !other;
+    // The folder chip already names the computer: a small mark is enough here, and the rest is in its title.
+    if (other) $('usageWho').title = hasWindows(other) ? `Plan usage of ${who}, not your own plan` : `${who}: no reading of its plan yet`;
     const set = (el, win, name, pace = null) => {
       if (!win) { el.hidden = true; return; }
       el.hidden = false;
@@ -157,13 +181,14 @@
       el.classList.toggle('hot', win.pct >= 90);
       const reset = win.resetsAt ? ` · resets ${new Date(win.resetsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '';
       const fills = pace && pace.hitAt < pace.resetsAt ? ` · at this pace, full around ${pace.hitText}` : '';
-      el.title = `${name} usage: ${win.pct}%${reset}${fills}`;
+      el.title = `${name} usage${other ? ` of ${who}` : ''}: ${win.pct}%${reset}${fills}`;
     };
-    set($('meter5h'), u.fiveHour, '5-hour', state.outlook?.pace);
-    set($('meter7d'), u.sevenDay, 'Weekly');
-  };
-  // A new forecast changes what the 5-hour meter says.
-  SB.refreshUsage = () => SB.applyUsage(lastUsage);
+    // The forecast is your own plan's: another account's meter goes without it.
+    set($('meter5h'), u?.fiveHour, '5-hour', other ? null : state.outlook?.pace);
+    set($('meter7d'), u?.sevenDay, 'Weekly');
+  }
+  // A new forecast changes what the 5-hour meter says; another tab or folder may be another account's.
+  SB.refreshUsage = drawUsage;
 
   // Who used it: each window's split by tab and routine, or by project (src/main/spend.js).
   let usageBy = 'task';
@@ -211,10 +236,26 @@
       h('div', { class: 'usage-empty', text: 'Shares of what Shellby ran. Claude used elsewhere fills the meters too.' })];
   }
 
+  // Another account's meter: whose it is, and your own plan beside it.
+  function otherRows(o) {
+    const pct = w => (w ? `${w.pct}%` : '–');
+    const line = u => `5-hour ${pct(u?.fiveHour)} · weekly ${pct(u?.sevenDay)}`;
+    return [
+      h('div', { class: 'menu-label', text: window.ShellbyRemoteLogic.accountLine(o) }),
+      h('div', { class: 'usage-empty', text: hasWindows(o) ? line(o) : 'No reading yet: it shows once Claude answers there, or when the panel next opens.' }),
+      h('div', { class: 'menu-sep' }),
+      h('div', { class: 'menu-label', text: 'Your own plan, on this PC' }),
+      h('div', { class: 'usage-empty', text: hasWindows(lastUsage) ? line(lastUsage) : 'No reading yet.' }),
+      h('div', { class: 'usage-empty', text: 'Conversations on that computer use its Claude account, so they never count against yours.' }),
+    ];
+  }
+
   let usageLoading = false;
   $('usage').addEventListener('click', async () => {
     const menu = $('usageMenu');
     if (!menu.hidden) return SB.closeMenus();
+    const other = otherHere();
+    if (other) return SB.openMenu(menu, $('usage'), () => otherRows(other));
     if (usageLoading) return; // a second click while it loads would open and shut it at once
     usageLoading = true;
     const windows = await api.usageBreakdown().catch(() => []);

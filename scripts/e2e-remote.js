@@ -1,4 +1,4 @@
-// ci: other computers: add one, connect, a passphrase asked in Shellby, a folder there, a conversation over ssh
+// ci: other computers: add one, connect, a passphrase asked in Shellby, a folder there, a conversation over ssh, its account's usage
 // End-to-end check of Settings → Other computers against the dev app over CDP.
 // ssh is the stand-in in test/fixtures/fake-ssh.js (it runs the remote side
 // with sh, in a pretend home whose claude is the fake CLI), and the profile has
@@ -12,7 +12,9 @@
 //   - a folder there is picked by browsing, and Work here names it for where
 //     it really is;
 //   - a conversation in it runs over there: the file it writes lands in the
-//     remote home, not in the stand-in folder on this PC.
+//     remote home, not in the stand-in folder on this PC;
+//   - signed in there to another Claude account, its plan usage shows in its
+//     tab, marked as that account's, and never moves your own meter.
 //   node scripts/e2e-remote.js [screenshot-folder]
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -145,6 +147,19 @@ function otherComputer() {
     const anchor = await ev('SB.activeTab().cwd');
     check(!!anchor && !fs.existsSync(path.join(anchor, 'made-on-homebox.txt')), 'nothing landed in the stand-in folder on this PC');
     await shot('conversation');
+
+    // 6. Its plan usage: homebox is signed in as crab@, this PC as you@ (capture.js
+    // FAKE_STATUS), so the meter in its tab is homebox's, named as such, and the
+    // turn's 25% never lands on your own meter.
+    check(await until("SB.$('usage').classList.contains('other') && !SB.$('usage').hidden && !SB.$('usageWho').hidden"), "the meter in its tab is marked as another account's");
+    check(/crab@example\.com \(max\) on homebox, not your own plan/.test(await ev("SB.$('usageWho').title")), `its mark says whose: ${await ev("SB.$('usageWho').title")}`);
+    check(/crab@example\.com \(max\) on homebox: 25%/.test(await ev("SB.$('meter5h').title")), `and says whose plan it is: ${await ev("SB.$('meter5h').title")}`);
+    await ev("SB.$('usage').click()");
+    check(await until("!SB.$('usageMenu').hidden"), 'its menu opens');
+    const menu = await ev("SB.$('usageMenu').textContent");
+    check(/Your own plan, on this PC/.test(menu) && !/Your own plan, on this PC5-hour 25%/.test(menu), `your own plan is shown apart, without homebox's turn: ${menu}`);
+    await ev('SB.closeMenus()');
+    await shot('other-account-usage');
   } catch (e) {
     check(false, e.stack || e.message);
   } finally {

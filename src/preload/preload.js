@@ -752,6 +752,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onTabFocus: on('tab:focus'),
   onNewTabRequest: on('tab:new-request'),
   onUsage: on('usage'),
+  onOtherUsage: on('usage:other'), // computers on another Claude account (usage/accounts.js)
   onRecap: on('recap'), // back after an hour away: what happened (see recap.js)
   onLimit: on('limit'),
   onOutlook: on('outlook'),

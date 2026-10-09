@@ -69,6 +69,7 @@
   });
   api.onNewTabRequest(() => SB.newTab());
   api.onUsage(SB.applyUsage);
+  api.onOtherUsage(SB.applyOtherUsage);
   api.onRecap(d => SB.showRecap(d));
   api.onToolbox(tb => { state.toolbox = tb; if (state.view === 'toolbox') SB.views.toolbox.render(); });
   api.onLearned(SB.onLearned);

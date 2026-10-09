@@ -186,6 +186,7 @@
   api.onSettings(s => {
     state.settings = s;
     SB.applyMode(s.mode);
+    SB.refreshUsage?.(); // a computer checked again may now be on another account
     if (state.view === 'settings') renderSettings();
   });
   // Where file links open. Editors that aren't installed say so rather than vanish.

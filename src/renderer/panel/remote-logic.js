@@ -127,6 +127,21 @@
     return f ? `${f.host}: ${f.dir}` : null;
   }
 
+  /**
+   * The usage meter while you're in a folder on a computer signed in to another
+   * Claude account: that account's entry (settings.otherUsage), or null for your own.
+   */
+  function accountUsageFor(others, folders, p) {
+    if (!p || !Array.isArray(others) || !others.length) return null;
+    const low = String(p).toLowerCase();
+    const f = (folders || []).find(x => typeof x?.anchor === 'string' && x.anchor.toLowerCase() === low);
+    if (!f) return null;
+    return others.find(o => typeof o?.host === 'string' && o.host.toLowerCase() === String(f.host).toLowerCase()) || null;
+  }
+
+  /** Who an other account's meter is for: "work@example.com on devbox". */
+  const accountLine = o => `${o.email || 'Another Claude account'}${o.plan ? ` (${o.plan})` : ''} on ${o.host}`;
+
   // The folder one step up from a folder there, for the browser's ".." row.
   function parentDir(dir) {
     if (!dir || dir === '~' || dir === '/') return null;
@@ -136,7 +151,7 @@
 
   const joinDir = (dir, name) => (dir === '/' ? `/${name}` : `${dir.replace(/\/+$/, '')}/${name}`);
 
-  const api = { whereLine, lockedKeys, signInFixes, steps, ready, readyFolder, agentLine, askText, formProblem, placeName, parentDir, joinDir };
+  const api = { whereLine, lockedKeys, signInFixes, steps, ready, readyFolder, agentLine, askText, formProblem, placeName, accountUsageFor, accountLine, parentDir, joinDir };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyRemoteLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);
