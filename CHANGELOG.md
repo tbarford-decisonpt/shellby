@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.76.0: Conversations that follow you, and helpers that report back
+
+### New
+- **Helpers come home with how it went.** A helper crab that finished its job holds up a little scroll before it walks back into Shellby; one that failed trudges home, slumped and grey.
+- **He packs it down.** When a conversation is compacted, by `/compact` or by Claude Code itself, Shellby squashes his shell flat, pats it down and says so.
+- **Your conversations follow you between PCs, if you want them to.** Turn on "Sync my newest conversations" in Settings → GitHub and your 50 newest conversations show in History on every PC signed in to the same GitHub account, marked with the PC they came from. They travel through a private gist, trimmed: long tool output is cut short, pictures are left out and anything that looks like a key or token is blanked. Carry one on from another PC and Claude starts afresh with a recap of what was said, in the same folder if that PC has it or the same place in your clone of its repository. Renames, ticks and deletions travel too (a deletion lands in Recently deleted), and a conversation changed on two PCs at once is kept twice rather than losing either side's turns. Routine runs stay on their own PC. Off unless you turn it on, and it asks first.
+- **More of Shellby follows your GitHub login.** With sync on, his finds (sparkly ones included), his bond with you and the moments he remembers, games of hide and seek and fetch, quests, the scenes he's done, your typing best and his personality now travel between PCs, alongside the trophies, XP, Bugdex, stickers, outfit and tank that already did. Finds and bond points dug up or earned on two PCs add up, and a find you swap away stays gone everywhere.
+- **More settings sync**: where file links open, whether Claude knows it's in Shellby and may suggest features (and the ones you muted), staying awake for queued work, and reacting to Claude Code sessions outside Shellby.
+
+### Fixed
+- **The background tray stays small.** When Claude leaves a lot running, the strip above the box no longer takes over the panel: past three finished commands they fold into one line you can open, each finished one keeps to a single line, and a long list scrolls.
+- **The Bugdex buddy no longer hides his task count.** The little number by his side stays in front of whichever catch is tagging along behind him.
+- **His favourite catch looks like it does in the Bugdex.** The bug that follows him round the desk was still the old 8×8 sprite. It now wears its Bugdex portrait, drawn in finer pixels so it stays small beside him.
+- **He no longer pops out from behind your windows.** Hidden behind an app, he used to hop up onto its title bar (or your browser's tabs) out of nowhere, then vanish again on the way home. Now he only climbs onto a window on his own when you can see him go.
+- **Conversations on another computer send again when this PC has no Claude Code.** Typing in a folder from Other computers said "Shellby can't find Claude Code on this PC" and sent nothing, though Claude Code runs on the other end over ssh. Now only that computer needs it.
+
 ## 0.75.0: Mode switch and badge case
 
 ### New
