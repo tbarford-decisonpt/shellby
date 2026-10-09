@@ -72,7 +72,7 @@
       if (Number.isFinite(msg.px)) px = msg.px;
       if (msg.outfit) outfit = msg.outfit;
       document.documentElement.style.setProperty('--px', `${px}px`);
-      document.documentElement.style.setProperty('--self-w', `${22 * px + 72}px`);
+      document.documentElement.style.setProperty('--self-w', `${22 * px + 120}px`);
       draw();
       if (!fx && window.ShellbyFx) fx = window.ShellbyFx.mount(document.getElementById('fx'), null, { px: Math.max(2, Math.round(px * 0.75)) });
       fx?.set(outfit.effect);

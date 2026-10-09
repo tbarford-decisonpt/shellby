@@ -29,9 +29,11 @@ function wireWindows(d) {
   const visitorWidth = () => Math.round(px() * 22 * VISITOR_SCALE) + 16;
   const crewExtra = (slots = d.crewShown, guest = d.guestShown) => (slots || guest ? slots * helperWidth() + (guest ? visitorWidth() : 0) + CREW_PAD : 0);
 
+  // 120: room either side for a held tool swung out level from his claw (a
+  // narrower window cut it off). Keep in step with --self-w in critter.js.
   function critterBaseSize() {
     const p = px();
-    return { width: 22 * p + 72, height: 13 * p + 84 };
+    return { width: 22 * p + 120, height: 13 * p + 84 };
   }
 
   function workAreas() { return screen.getAllDisplays().map(d => d.workArea); }

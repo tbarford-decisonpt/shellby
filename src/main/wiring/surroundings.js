@@ -252,7 +252,7 @@ function wireSurroundings(d) {
       eyePoint: () => {
         if (!d.critter || d.critter.isDestroyed()) return null;
         const b = d.critter.getBounds();
-        const self = 22 * d.px() + 72;
+        const self = 22 * d.px() + 120;
         return { x: b.x + b.width - self / 2 + 4 * d.px(), y: b.y + b.height - 18 - 12 * d.px() };
       },
       cursor: () => screen.getCursorScreenPoint(),

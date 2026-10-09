@@ -159,7 +159,7 @@ function createPlaytime(d) {
   // Just in front of him, on his floor.
   function besideHim() {
     const b = d.bounds();
-    const self = 22 * d.px() + 72;
+    const self = 22 * d.px() + 120;
     const x = b.x + b.width - self / 2 - 11 * d.px() - play.FETCH.size - 6;
     return { x: Math.round(Math.max(toyFloor().minX, x)), y: toyFloor().floorY };
   }
