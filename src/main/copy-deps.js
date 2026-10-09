@@ -52,18 +52,29 @@ function registryOnly(lockText) {
   });
 }
 
+/** Does an `os` or `cpu` list from a lockfile allow `value`? npm's rule: `!x` excludes x. Pure. */
+function allows(list, value) {
+  if (!Array.isArray(list) || !list.length) return true;
+  if (list.includes(`!${value}`)) return false;
+  if (list.includes(value)) return true;
+  return list.every(x => typeof x === 'string' && x.startsWith('!'));
+}
+
 /**
  * Is every package in this lockfile already installed, the very same tarball,
  * per the record npm keeps in node_modules (`installed`)? Then installing it
- * gets nothing new onto this PC. Pure.
+ * gets nothing new onto this PC. An optional package built for another
+ * platform (a native binary per OS, say) is one npm never installs here, so
+ * it isn't missing. Pure.
  */
-function installedAlready(lockText, installedText) {
+function installedAlready(lockText, installedText, { platform = process.platform, arch = process.arch } = {}) {
   let lock;
   let have;
   try { lock = JSON.parse(lockText); have = JSON.parse(installedText); } catch { return false; }
   if (!lock?.packages || typeof lock.packages !== 'object' || !have?.packages || typeof have.packages !== 'object') return false;
   return Object.entries(lock.packages).every(([key, p]) => {
     if (key === '') return true;
+    if (p?.optional === true && !(allows(p.os, platform) && allows(p.cpu, arch))) return true;
     const h = have.packages[key];
     if (!p || !h) return false;
     return p.link === true ? h.link === true && h.resolved === p.resolved : !!p.integrity && h.integrity === p.integrity && h.resolved === p.resolved;

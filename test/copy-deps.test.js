@@ -91,6 +91,17 @@ test('installedAlready: every package the very same tarball as one installed, or
   assert.equal(installedAlready(lock({}), '{}'), false);
 });
 
+test('installedAlready: optional packages for another platform are never installed, so they are not missing', () => {
+  const a = { resolved: 'https://registry.npmjs.org/a/-/a-1.0.0.tgz', integrity: 'sha512-a' };
+  const linux = { resolved: 'https://registry.npmjs.org/k/-/k-linux-1.0.0.tgz', integrity: 'sha512-k', optional: true, os: ['linux'], cpu: ['x64'] };
+  const have = lock({ 'node_modules/a': a });
+  const win = { platform: 'win32', arch: 'x64' };
+  assert.equal(installedAlready(lock({ 'node_modules/a': a, 'node_modules/k-linux': linux }), have, win), true);
+  assert.equal(installedAlready(lock({ 'node_modules/a': a, 'node_modules/k-linux': { ...linux, os: ['!darwin'] } }), have, win), false, 'one npm would install here');
+  assert.equal(installedAlready(lock({ 'node_modules/a': a, 'node_modules/k-linux': { ...linux, os: ['win32'], cpu: ['arm64'] } }), have, win), true, 'another cpu');
+  assert.equal(installedAlready(lock({ 'node_modules/a': a, 'node_modules/k-linux': { ...linux, optional: false } }), have, win), false, 'not optional: npm would refuse to install, so ask');
+});
+
 test('the copy gets packages only when they are exactly the ones installed in your checkout', () => {
   const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-copydeps-')));
   try {
