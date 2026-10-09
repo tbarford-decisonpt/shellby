@@ -4,6 +4,15 @@ const { toMarkdown, fileName } = require('../src/main/exporter');
 
 const entry = { title: 'Fix the login bug', cwd: 'C:\\code\\app', createdAt: Date.UTC(2026, 9, 2, 9, 30) };
 
+test('toMarkdown: a /clear keeps what came before it, with a line where it happened', () => {
+  const md = toMarkdown(entry, [
+    { kind: 'user', text: 'before' }, { kind: 'text', text: 'old reply' },
+    { kind: 'cleared' },
+    { kind: 'user', text: 'after' },
+  ]);
+  assert.match(md, /old reply[\s\S]*cleared: a new conversation starts here[\s\S]*> after/);
+});
+
 test('toMarkdown: you, Claude, the tools it used and the marks along the way', () => {
   const md = toMarkdown(entry, [
     { kind: 'user', text: 'why does login fail?\nit says 500', t: Date.UTC(2026, 9, 2, 9, 31), attachments: ['C:\\shot.png'] },

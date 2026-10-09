@@ -12,6 +12,11 @@
 // plan() is pure: it reads a transcript and says what a rewind would do.
 // See test/rewind.test.js.
 
+// Where a new Claude conversation began in the same tab: a fresh start from a
+// summary, or /clear. Nothing before one can be resumed into.
+const BEGINNINGS = new Set(['fresh', 'cleared']);
+const lastBeginning = items => items.findLastIndex(i => BEGINNINGS.has(i?.kind));
+
 /**
  * items: a tab's transcript (history.load). turnId: the user message to go back to.
  * -> { ok: false, error } |
@@ -30,12 +35,10 @@ function plan(items, turnId) {
   if (index < 0) return { ok: false, error: "That message isn't in this conversation any more." };
   const before = list.slice(0, index);
   const fresh = !before.some(i => i.kind === 'user');
-  // A fresh start ('fresh') began a new Claude conversation: nothing before it
-  // can be resumed into, so it counts as a beginning too.
-  const lastFresh = before.map(i => i.kind).lastIndexOf('fresh');
-  const sinceFresh = lastFresh >= 0 ? before.slice(lastFresh + 1) : before;
-  const restart = fresh || !sinceFresh.some(i => i.kind === 'user');
-  const anchor = restart ? null : [...sinceFresh].reverse().find(i => i.kind === 'result' && typeof i.anchor === 'string')?.anchor || null;
+  // A fresh start or a /clear began a new Claude conversation: it counts as a beginning too.
+  const since = before.slice(lastBeginning(before) + 1);
+  const restart = fresh || !since.some(i => i.kind === 'user');
+  const anchor = restart ? null : [...since].reverse().find(i => i.kind === 'result' && typeof i.anchor === 'string')?.anchor || null;
   // A turn's diff is noted when it has been worked out, which can be after the
   // next message went in. Ones tagged with their turn go by that tag.
   const later = new Set(list.slice(index).filter(i => i.kind === 'user' && i.turnId).map(i => i.turnId));
@@ -52,12 +55,17 @@ function plan(items, turnId) {
   };
 }
 
-/** Your messages that can be rewound to, newest first: [{ turnId, text, at }]. */
+/**
+ * Your messages that can be rewound to, newest first: [{ turnId, text, at }].
+ * Only since the last /clear, as in the terminal: what came before it is off screen.
+ */
 function points(items) {
-  return (Array.isArray(items) ? items : [])
+  const list = Array.isArray(items) ? items : [];
+  const cleared = list.findLastIndex(i => i?.kind === 'cleared');
+  return list.slice(cleared + 1)
     .filter(i => i && i.kind === 'user' && typeof i.turnId === 'string')
     .map(i => ({ turnId: i.turnId, text: String(i.text || (i.attachments?.length ? `${i.attachments.length} attached file${i.attachments.length === 1 ? '' : 's'}` : '')).slice(0, 300), at: i.t || null }))
     .reverse();
 }
 
-module.exports = { plan, points };
+module.exports = { plan, points, lastBeginning };

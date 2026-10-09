@@ -215,6 +215,7 @@
   SB.EFFORTS = EFFORTS; // the palette's Effort entries (nav.js)
 
   SB.LOCAL_COMMANDS = [
+    { name: 'clear', kind: 'shellby', description: 'Start a new conversation in this tab: Claude forgets everything so far. /export still has it' },
     { name: 'rewind', kind: 'shellby', description: 'Go back to an earlier message: the conversation, the code, or both (Esc Esc)' },
     { name: 'branch', kind: 'shellby', description: 'Try again from an earlier message in a new tab, with its own copy of the files. This one stays as it is' },
     { name: 'tries', kind: 'shellby', description: 'Try a message 2, 3 or 4 ways at once, each in its own copy, then pick the best: /tries 3 fix the login. Asks first, with the cost' },
@@ -229,6 +230,7 @@
   ];
 
   const LOCAL = {
+    clear: (tab) => clearConversation(tab),
     rewind: (tab) => SB.openRewind(tab),
     branch: (tab) => SB.openBranch(tab),
     // Try it N ways (tries.js): main asks first, with what it usually costs.
@@ -280,6 +282,19 @@
     }
     SB.startTries?.(tab, { arg, attachments: [...(tab.attachments || [])] });
   }
+
+  // /clear, as in the terminal: main ends Claude's conversation and notes
+  // 'cleared', which empties the feed as it arrives (feed.js). The next message
+  // starts a new one here, in the same folder and copy.
+  async function clearConversation(tab) {
+    if (!tab) return;
+    if (tab.busy) return SB.toast('Let him finish first (or press Stop), then clear.');
+    const r = await api.clearTab(tab.id);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't clear it.");
+    // Nothing sent yet: only ! output on screen, which main has let go of too.
+    if (r.empty) { if (tab.isEmpty) SB.toast('Nothing to clear yet.'); else tab.wipe(); }
+  }
+  SB.clearConversation = clearConversation; // the palette's Clear (nav.js)
 
   // /btw what was that file called?: answered in a card of its own (feed-notes.js),
   // from a fork of the conversation that Claude never sees (btw.js).

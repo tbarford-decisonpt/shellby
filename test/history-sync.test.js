@@ -126,6 +126,13 @@ test('the recap keeps the newest messages and says where it came from', () => {
   assert.ok(r.length <= 12100);
 });
 
+test('the recap leaves out what came before a /clear', () => {
+  const items = [{ kind: 'user', text: 'forget me' }, { kind: 'text', text: 'old reply' }, { kind: 'cleared' }, { kind: 'user', text: 'after the clear' }];
+  const r = hs.recap(items, { from: 'LAPTOP' });
+  assert.match(r, /You: after the clear/);
+  assert.ok(!/forget me|old reply/.test(r), 'Claude is never told what was cleared');
+});
+
 test('a remote index of junk cleans to nothing harmful', () => {
   const c = hs.cleanIndex({ entries: [{ id: '../x' }, { id: 'ok', cwd: '\\\\host\\share', repo: 'a/b/c', rel: '../up' }, 'str'], gone: { 'bad id': 1 } });
   assert.equal(c.entries.length, 1);

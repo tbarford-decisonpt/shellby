@@ -112,6 +112,15 @@ test('a fresh start counts as a beginning', () => {
   assert.equal(p.anchor, 'u2');
 });
 
+test('a /clear counts as a beginning, and the branch keeps the mark', () => {
+  const items = [user('t1', 'a'), result('u1'), { kind: 'cleared' }, user('t2', 'b'), result('u2'), user('t3', 'c'), result('u3')];
+  const p2 = plan(items, { turnId: 't2', at: 'before' });
+  assert.equal(p2.fresh, true);
+  assert.equal(p2.sessionId, null, 'never resumes the conversation from before the clear');
+  assert.equal(plan(items, { turnId: 't3', at: 'before' }).anchor, 'u2');
+  assert.ok(plan(items, { turnId: 't3', at: 'before' }).items.some(i => i.kind === 'cleared'), 'so its feed also starts at the clear');
+});
+
 test('a turn from before anchors existed can only branch the files', () => {
   const old = [user('t1', 'a'), result(null), user('t2', 'b'), result('u2')];
   const p = plan(old, { turnId: 't2', at: 'before' });

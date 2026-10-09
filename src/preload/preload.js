@@ -107,6 +107,7 @@ contextBridge.exposeInMainWorld('shellby', {
   askBtw: (tabId, question) => ipcRenderer.invoke('btw:ask', { tabId, question }),
   rewindPoints: invoke('rewind:points'),
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
+  clearTab: invoke('tab:clear'), // /clear: a new conversation in this tab (not clearSessions, which empties History)
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
   // trying again from any turn, in a new tab (branching.js)
   branch: (tabId, turnId, opts) => ipcRenderer.invoke('branch:run', { tabId, turnId, ...opts }),

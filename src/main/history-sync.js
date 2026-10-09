@@ -290,7 +290,9 @@ function unpack(b64) {
  */
 function recap(items, { from, cwd, moved }) {
   const lines = [];
-  for (const i of items || []) {
+  // Only since the last /clear: what came before it, Claude was told to forget.
+  const list = Array.isArray(items) ? items : [];
+  for (const i of list.slice(list.findLastIndex(x => x?.kind === 'cleared') + 1)) {
     const said = typeof i.text === 'string' ? i.text.trim() : '';
     if (!said) continue;
     if (i.kind === 'user') lines.push(`You: ${said}`);
