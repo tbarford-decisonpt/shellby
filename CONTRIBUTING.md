@@ -48,7 +48,7 @@ in your PR and we'll talk it through. Small fixes, docs and skins are still very
 welcome.
 
 Art, skins and packs that land **in this repo** are covered by the same three
-points. Skins you publish yourself to the [community gallery](https://getshellby.com/community/)
+points. Skins you publish yourself to the [packs site](https://getshellby.com/community/)
 stay entirely yours — see [docs/SKINS.md](docs/SKINS.md).
 
 The name and the crab are reserved, which matters if you're forking rather than
