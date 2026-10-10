@@ -2358,6 +2358,13 @@
       <section class="setting-group onboarding-modes">
         <h3>How much can I do without asking?</h3>
         <div class="mode-cards compact" id="onboardModeCards"></div>
+        <div class="danger-confirm" id="onboardAutonomousConfirm" hidden>
+          <p><b>Autonomous mode skips every permission check.</b> Shellby and its helper agents can edit, run or delete anything your Windows account can, without asking. That includes running scripts it writes for itself. Use it only for tasks you'd trust to an unsupervised script.</p>
+          <div class="row">
+            <button type="button" class="btn danger" id="onboardAutonomousYes">I understand, enable it</button>
+            <button type="button" class="btn ghost" id="onboardAutonomousNo">Cancel</button>
+          </div>
+        </div>
       </section>
       <div class="row end">
         <button type="button" class="btn ghost" id="crabInsteadBtn">Just the crab for now</button>

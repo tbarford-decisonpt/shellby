@@ -153,7 +153,7 @@
 .am-text { display: block; width: 100%; min-height: 90px; font-size: var(--fs-12-5); }
 .am-actions { gap: 6px; margin-top: 6px; align-items: center; }
 .am-actions .muted { margin-right: auto; }
-.btn.danger { color: var(--danger); border-color: rgba(255, 90, 74, .45); }
+.btn.ghost.danger { background: transparent; color: var(--danger); border-color: rgba(255, 90, 74, .45); }
 
 /* ---------------------------------------------------------------- Toolbox: a skill Claude never reaches for */
 .tool-hint { margin: 6px 0 2px; padding: 6px 9px; border-radius: var(--r-sm); border-left: 2px solid var(--amber); background: rgba(255, 193, 94, .07); font-size: var(--fs-12); color: var(--sand-dim); }
