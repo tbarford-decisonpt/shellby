@@ -556,16 +556,51 @@ async function remoteStatus(root, { fetch = false } = {}) {
   return { ok: true, branch, ...up, ...await aheadBehind(root, branch, up.upstream), fetched };
 }
 
+const SHA = /^[0-9a-f]{40,64}$/;
+const SHOWN_OTHERS = 5;
+
+/** The commit a ref is at, or null. Taken before a copy comes home, for pushBase's before. */
+async function tipOf(root, ref) {
+  if (!REF.test(ref)) return null;
+  const r = await git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { timeout: 5000 });
+  const sha = r.ok ? r.out.trim() : '';
+  return SHA.test(sha) ? sha : null;
+}
+
+/** Commits reachable from before that no branch of remote has. -> { count, subjects: [up to SHOWN_OTHERS] } */
+async function unpublished(root, before, remote) {
+  const range = [before, '--not', `--remotes=${remote}`];
+  const [n, log] = await Promise.all([
+    git(root, ['rev-list', '--count', ...range], { timeout: 15000 }),
+    git(root, ['log', '--no-merges', '--format=%s', '-n', String(SHOWN_OTHERS), ...range], { timeout: 15000 }),
+  ]);
+  return { count: n.ok ? Number(n.out.trim()) || 0 : 0, subjects: log.ok ? log.out.split(/\r?\n/).filter(Boolean) : [] };
+}
+
 /**
  * Push your checkout's branch. base: refuse unless the checkout is on it (a
  * copy brought home lands on its base, and that's what should go out).
- *   -> { ok: true, branch, remote, pushed, pulled } | { ok: false, error, conflict?, detail? }
+ * before: where the branch was before a copy came home. Commits it already
+ * had that the remote doesn't (copies brought home without a push, your own
+ * work) aren't sent along unasked: they come back as others, unless others
+ * is true.
+ *   -> { ok: true, branch, remote, pushed, pulled }
+ *    | { ok: false, error, conflict?, detail?, others?: { count, subjects } }
  */
-async function pushBase(root, { base } = {}) {
+async function pushBase(root, { base, before = null, others = false } = {}) {
   const s = await remoteStatus(root, { fetch: true });
   if (!s.ok) return s;
   if (base && s.branch !== base) return { ok: false, error: `Your checkout is on ${s.branch} now. Switch back to ${base} to push it.` };
   if (!s.remote) return { ok: false, error: `${s.branch} has nowhere to go: this repository has no remote.` };
+  if (before && SHA.test(before) && !others) {
+    const extra = await unpublished(root, before, s.remote);
+    if (extra.count) {
+      return {
+        ok: false, others: extra, branch: s.branch, remote: s.remote,
+        error: `Nothing went to ${s.remote}: ${s.branch} also has ${extra.count} commit${extra.count === 1 ? '' : 's'} from before that ${extra.count === 1 ? "isn't" : "aren't"} on ${s.remote} yet.`,
+      };
+    }
+  }
 
   let pulled = 0;
   if (s.behind) {
@@ -648,6 +683,6 @@ async function caughtUp(w) {
 
 module.exports = {
   git, create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, workMessage, checkWorktree, BRANCH,
-  remoteStatus, pushBase, bringAllHome, caughtUp, upstreamOf, copyRefusal,
+  remoteStatus, pushBase, tipOf, bringAllHome, caughtUp, upstreamOf, copyRefusal,
   startsWork, onlyLooks, suggestedName, projectDirName, carryTranscript, copySession, findSession,
 };

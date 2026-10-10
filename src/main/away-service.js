@@ -184,7 +184,7 @@ function createAway(d) {
       const secrets = found.length
         ? ` Shellby found what look like secrets in work that hasn't gone out yet: ${found.join('; ')}. Don't commit or push those: tell me about them first.`
         : '';
-      d.send(d.panel, 'tab:new-in', { cwd: fixable.root, draft: `I'm about to leave my PC. In ${fixable.name}: commit any uncommitted work with clear messages, push every branch that has commits the remote doesn't, and tell me what's in any stashes. Never commit or push a .env file, a key file or anything that looks like a password or API key.${secrets} Ask me before anything destructive.` });
+      d.send(d.panel, 'tab:new-in', { cwd: fixable.root, draft: `I'm about to leave my PC. In ${fixable.name}: commit any uncommitted work with clear messages, but ask me first if that means committing straight to the default branch. Push only branches the remote already has; list any branch that has never been pushed, with what's on it, and ask me before pushing it. Tell me what's in any stashes. Never commit or push a .env file, a key file or anything that looks like a password or API key.${secrets} Ask me before anything destructive.` });
     }
   }
 

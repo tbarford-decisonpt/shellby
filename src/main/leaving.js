@@ -13,7 +13,7 @@
 //                lines }.
 //
 // Work that's still to go out is also looked over for secrets (secretscan.js),
-// since "Tidy up" asks Claude to commit and push all of it.
+// since "Tidy up" asks Claude to commit it and push what the remote already has.
 //
 // Projects are the repos you've worked in lately (main.js passes the folders).
 // A Shellby copy (git worktree) is checked as part of the repo it was made

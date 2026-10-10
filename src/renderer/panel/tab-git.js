@@ -123,6 +123,7 @@
       if (s.fixable && !stuck) bits.push('Open it from History to sort it out.');
       return SB.toast(bits.join(' '), { ms: 14000, ...(lineUp ? { action: lineUp.label, onAction: lineUp.onAction } : {}) });
     }
+    if (r.push?.others) return SB.toast(`${bits.join(' ')} ${r.push.error}`, { ms: 12000 });
     if (r.push && !r.push.ok) { SB.toast(bits.join(' '), { ms: 5000 }); return pushTrouble(tab, r.push); }
     if (r.push) bits.push(pushNews(r.push));
     SB.toast(bits.join(' '), { ms: lineUp ? 14000 : 8000, ...(lineUp ? { action: lineUp.label, onAction: lineUp.onAction } : {}) });
@@ -154,6 +155,7 @@
     }
     if (e.status === 'home') {
       const merged = e.merged ? `${name} is sorted out and home: ${plural(e.commits, 'commit')} merged into ${e.base}.` : `${name} is sorted out; ${e.base} already had all of it.`;
+      if (e.push?.others) return SB.toast(`${merged} ${e.push.error}`, { ms: 10000 });
       if (e.push && !e.push.ok) { SB.toast(`${merged} The push didn't go through.`, { ms: 5000 }); return pushTrouble(state.tabs.get(e.tabId), e.push); }
       return SB.toast(`${merged}${e.push ? ` ${pushNews(e.push)}` : ''}`, { ms: 8000 });
     }
@@ -289,6 +291,8 @@
     const merged = `Merged ${r?.commits} commit${r?.commits === 1 ? '' : 's'} into ${r?.base}.${r?.green ? ' Tests green on this branch.' : ''}`;
     if (r?.ok && r.push) {
       if (r.push.ok) return SB.toast(`${r.merged ? `${merged} ` : ''}${pushNews(r.push)}`, { ms: 7000 });
+      // You said "Not now" to sending older commits along: nothing failed.
+      if (r.push.others) return SB.toast(`${r.merged ? `${merged} ` : ''}${r.push.error}`, { ms: 10000 });
       if (r.merged) SB.toast(`${merged} The push didn't go through, so it's only on this computer for now.`, { ms: 5000 });
       return pushTrouble(tab, r.push);
     }

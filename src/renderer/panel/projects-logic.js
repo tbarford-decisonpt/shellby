@@ -126,7 +126,9 @@
   }
 
   // The same ask as "Is it safe to leave?" → Tidy up, put in the box for you to read and send.
-  const tidyPrompt = name => `In ${name}: commit any uncommitted work with clear messages, push every branch that has commits the remote doesn't, and tell me what's in any stashes. Never commit or push a .env file, a key file or anything that looks like a password or API key. Ask me before anything destructive.`;
+  // Only branches the remote already has are pushed unasked: pushing one that
+  // never left this PC publishes it, and committing to main skips review.
+  const tidyPrompt = name => `In ${name}: commit any uncommitted work with clear messages, but ask me first if that means committing straight to the default branch. Push only branches the remote already has; list any branch that has never been pushed, with what's on it, and ask me before pushing it. Tell me what's in any stashes. Never commit or push a .env file, a key file or anything that looks like a password or API key. Ask me before anything destructive.`;
 
   // The fold over Shellby's copies of a repo (worktrees.js).
   function copiesSummary(list) {

@@ -1,0 +1,3 @@
+### Changed
+- **Bring it home and push sends that copy's work, and asks about the rest.** If your branch already had commits that aren't on GitHub yet, like copies you brought home without pushing or your own local work, Shellby lists them and asks before they go along with it. Say "Not now" and everything stays on your PC.
+- **Tidy up no longer publishes your private branches.** It still pushes branches the remote already has, but a branch that has only ever lived on this PC gets listed with what's on it, and Claude asks before pushing it. It also asks before committing straight to your main branch.
