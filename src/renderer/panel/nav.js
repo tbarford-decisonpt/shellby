@@ -30,10 +30,11 @@
   }
 
   document.addEventListener('keydown', e => {
-    if (SB.solo || state.view === 'onboarding' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+    if (state.view === 'onboarding' || e.metaKey) return;
     // A dialog (share card, upsell, outfit code) owns the keyboard until it closes.
     if (document.querySelector('.card-sheet:not([hidden])')) return;
-    if (e.key.toLowerCase() === 'k') { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
+    if (K.matches(e, 'palette')) { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
+    if (SB.solo || !e.ctrlKey || e.altKey || e.shiftKey) return;
     const n = Number(e.key);
     const b = dockButtons()[n - 1] || null;
     if (!b || getComputedStyle(b).display === 'none') return;
@@ -206,6 +207,9 @@
       idle && act('compact', '⇣', 'Compact', 'Claude sums up the conversation so far and carries on in the room it frees', () => SB.compactTab(tab), null, 'context full crowded summarise summarize'),
       idle && act('fresh', '↻', 'Start fresh with a summary', 'Claude writes a handoff note, then a new conversation picks it up in this tab', () => SB.startFresh(tab), null, 'context handoff new summary compact'),
       idle && act('clear', '⌫', 'Clear', 'A new conversation in this tab, with nothing carried over (/clear)', () => SB.clearConversation(tab), null, 'clear reset new context forget wipe'),
+      act('outline', '☰', 'Outline', 'Every message you sent, and the files each turn touched. Pick one to go there', () => SB.openOutline(tab), 'outline', 'go to jump turns messages files symbol navigate'),
+      act('problems', '⚠', 'Problems', 'The errors its checks found, file by file, each with Fix it', () => SB.openProblems(tab), 'problems', 'errors lint typecheck tsc diagnostics warnings failing'),
+      SB.hasClosed?.() && act('reopen', '↺', 'Reopen the conversation you closed', 'Picked up from History, where you left it', () => SB.reopenClosed(), 'reopenTab', 'undo close restore bring back tab'),
       (tab.saved || !tab.isEmpty) && act('close', '×', 'Close this conversation', tab.saved ? 'It stays in History' : 'Nothing’s been sent yet', () => SB.closeTabSafely(tab.id), 'closeTab', 'tab'),
     ].filter(Boolean);
   }
@@ -390,7 +394,7 @@
     const here = tab.title;
     return [...handoff, ...[[-1, 'left', 'PageUp'], [1, 'right', 'PageDown']].map(([step, where, key]) => ({
       group: 'Conversations', icon: step < 0 ? '⬅️' : '➡️',
-      title: `Move this conversation ${where}`, sub: `${here} · Ctrl+Shift+${key}`,
+      title: `Move this conversation ${where}`, sub: `${here} · Ctrl+Shift+${key === 'PageUp' ? 'PgUp' : 'PgDn'}`,
       keys: 'tab strip reorder order move drag position',
       run: () => { SB.setView('chat'); SB.nudgeTab(state.activeTab, step); },
     }))];
@@ -541,7 +545,8 @@
     }
     if (e.key === 'Enter') { e.preventDefault(); return runAt(selected); }
     if (e.key === 'Tab') e.preventDefault(); // the input is the only stop in the dialog
-    if (!(e.ctrlKey && /^[k1-8/]$/i.test(e.key))) e.stopPropagation();
+    // The palette's own keys, the shortcut list and the screens go on through to their handlers.
+    if (!(K.matches(e, 'palette') || K.matches(e, 'shortcuts') || (e.ctrlKey && /^[1-8]$/.test(e.key)))) e.stopPropagation();
   });
   sheet.addEventListener('mousedown', e => { if (e.target === sheet) closePalette(); });
   $('paletteBtn').addEventListener('click', openPalette);
@@ -553,18 +558,93 @@
   // back to whatever had it when it closes.
   const keysSheet = $('shortcutsSheet');
   const keysList = $('shortcutsList');
+  const keysStatus = $('shortcutsStatus');
+
+  // Change keys: the list as it always reads, until you ask to change one.
+  let editing = false;
+  const editBtn = $('shortcutsEdit');
 
   function renderShortcuts() {
+    const anyChanged = Object.keys(state.settings.keybindings || {}).length > 0;
+    keysList.classList.toggle('editing', editing);
+    editBtn.textContent = editing ? 'Done' : 'Change keys';
+    editBtn.setAttribute('aria-pressed', String(editing));
     keysList.replaceChildren(...K.grouped().map(({ group, items }) => h('section', { class: 'keys-group' },
       h('h3', { text: group }),
       h('dl', {}, ...items.flatMap(s => [
-        h('dt', {}, ...s.keys.flatMap((k, i) => [i ? h('span', { class: 'keys-or', text: s.keys.length > 2 ? ' ' : ' or ' }) : null, h('kbd', { text: k })]).filter(Boolean)),
-        h('dd', { text: s.what }),
-      ])))));
+        h('dt', { class: s.changed ? 'changed' : null }, ...s.keys.flatMap((k, i) => [i ? h('span', { class: 'keys-or', text: s.keys.length > 2 ? ' ' : ' or ' }) : null, h('kbd', { text: k })]).filter(Boolean)),
+        h('dd', {}, h('span', { text: s.what }), editing && s.changeable ? keyActions(s) : null),
+      ]))),
+    ), editing && anyChanged ? h('p', { class: 'keys-reset-all' }, h('button', { class: 'keys-edit', type: 'button', onclick: () => saveKeys({}, 'Every shortcut is back to how it came.') }, 'Put every shortcut back')) : null);
   }
 
+  // ---- your own keys (shortcuts.js checks them; main keeps them in Settings, and Sync carries them)
+
+  let recording = null; // { id, btn, onKey }
+  const yours = () => ({ ...(state.settings.keybindings || {}) });
+
+  function keyActions(s) {
+    const change = h('button', { class: 'keys-edit', type: 'button', dataset: { id: s.id }, 'aria-label': `Change the keys for: ${s.what}` }, 'Change');
+    change.addEventListener('click', () => record(s, change));
+    const reset = s.changed ? h('button', {
+      class: 'keys-edit', type: 'button', 'aria-label': `Put back the keys for: ${s.what}`,
+      onclick: () => { const map = yours(); delete map[s.id]; saveKeys(map, `Back to ${K.SHORTCUTS.find(x => x.id === s.id).keys.join(' or ')}.`, s.id); },
+    }, 'Reset') : null;
+    return h('span', { class: 'keys-actions' }, change, reset);
+  }
+
+  function stopRecording() {
+    if (!recording) return;
+    document.removeEventListener('keydown', recording.onKey, true);
+    recording.btn.classList.remove('recording');
+    recording.btn.textContent = 'Change';
+    recording = null;
+  }
+
+  // The next keys pressed become this shortcut's, if shortcuts.js says they can.
+  function record(s, btn) {
+    const again = recording?.id === s.id;
+    stopRecording();
+    if (again) { keysStatus.textContent = ''; return; }
+    btn.classList.add('recording');
+    btn.textContent = 'Press the keys…';
+    keysStatus.textContent = `Press the new keys for “${s.what}”. Esc to cancel.`;
+    const onKey = (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // nothing else acts on what you're pressing to record
+      if (e.key === 'Escape') { stopRecording(); keysStatus.textContent = 'Left as it was.'; btn.focus(); return; }
+      const combo = K.comboOf(e);
+      if (!combo) return; // a modifier on its own: wait for the rest
+      const why = K.checkBinding(s.id, combo);
+      if (why) { keysStatus.textContent = why; return; }
+      stopRecording();
+      saveKeys({ ...yours(), [s.id]: [combo] }, `${combo} now does that.`, s.id);
+    };
+    recording = { id: s.id, btn, onKey };
+    document.addEventListener('keydown', onKey, true);
+  }
+
+  async function saveKeys(map, said, id = null) {
+    const r = await api.setSettings({ keybindings: map });
+    if (r?.settings) state.settings = r.settings;
+    renderShortcuts();
+    keysStatus.textContent = said;
+    (id && keysList.querySelector(`.keys-edit[data-id="${id}"]`) || keysList).focus({ preventScroll: true });
+    SB.renderTabStrip?.(); // its × says how to close
+  }
+
+  editBtn.addEventListener('click', () => {
+    stopRecording();
+    editing = !editing;
+    keysStatus.textContent = editing ? 'Press Change beside a shortcut, then the keys you want for it.' : '';
+    renderShortcuts();
+    (editing ? keysList.querySelector('.keys-edit') : editBtn)?.focus({ preventScroll: true });
+  });
+
   let keysBack = null; // what had the keyboard before, unless that was the palette
-  SB.openShortcuts = () => {
+  // edit: straight into changing keys (Settings → Shortcut).
+  SB.openShortcuts = ({ edit = false } = {}) => {
+    editing = !!edit;
     if (state.view === 'onboarding') return;
     const from = sheet.hidden ? document.activeElement : returnFocus;
     keysBack = from && from !== document.body && !from.closest('.palette-sheet, .card-sheet') ? from : null;
@@ -577,6 +657,8 @@
   };
   function closeShortcuts() {
     if (keysSheet.hidden) return;
+    stopRecording();
+    keysStatus.textContent = '';
     keysSheet.hidden = true;
     if (keysBack?.isConnected && keysBack.getClientRects().length) keysBack.focus({ preventScroll: true });
     else { document.activeElement?.blur(); landFocus(); }
@@ -588,11 +670,10 @@
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeShortcuts(); }
   });
 
-  // The keys a VS Code hand reaches for: Ctrl+Shift+P for the palette (Ctrl+K's
-  // own handler is at the top), and Ctrl+= / Ctrl+- / Ctrl+0 for the text size.
+  // The keys a VS Code hand reaches for: Ctrl+= / Ctrl+- / Ctrl+0 for the text
+  // size (the palette's Ctrl+K and Ctrl+Shift+P are at the top).
   document.addEventListener('keydown', e => {
     if (state.view === 'onboarding' || document.querySelector('.card-sheet:not([hidden])')) return;
-    if (K.matches(e, 'palette') && e.shiftKey) { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
     const zoom = K.matches(e, 'zoomIn') ? 1 : K.matches(e, 'zoomOut') ? -1 : K.matches(e, 'zoomReset') ? 0 : null;
     if (zoom !== null) { e.preventDefault(); SB.zoom(zoom); }
   });

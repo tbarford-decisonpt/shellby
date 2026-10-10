@@ -387,4 +387,84 @@ async function restoreTo({ root: dir, to, from, paths } = {}, { force = false } 
   return putBack(root, to, files);
 }
 
-module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, scope, newTouch, noteTool, patchFor, undo, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
+// ---- one hunk at a time
+//
+// A file's diff split at its @@ lines: { head: the lines before the first
+// hunk, hunks: [text of each hunk, header line first] }.
+function splitHunks(patch) {
+  const lines = String(patch || '').split('\n');
+  if (lines[lines.length - 1] === '') lines.pop();
+  const first = lines.findIndex(l => l.startsWith('@@'));
+  if (first < 0) return { head: lines, hunks: [] };
+  const hunks = [];
+  for (const l of lines.slice(first)) {
+    if (l.startsWith('@@')) hunks.push([l]);
+    else hunks[hunks.length - 1].push(l);
+  }
+  return { head: lines.slice(0, first), hunks: hunks.map(h => h.join('\n')) };
+}
+
+/**
+ * Take back one hunk of one file a turn changed. `ref.after` is where the
+ * turn's work stands now (step-undo.js effectiveAfter), `hunk` the hunk's
+ * index in that diff and `header` its @@ line as the panel showed it, so a
+ * diff that moved on since can't take back the wrong lines. Refuses when the
+ * file changed again since, like undo(). Only modified files: a new file is
+ * one hunk, and taking it back is the whole turn's Undo.
+ *   -> { ok: true, to: the turn's new "after" tree } | { ok: false, error, changedSince? }
+ */
+async function undoHunk(ref, { hunk, header } = {}) {
+  const bad = checkRef(ref);
+  if (bad) return { ok: false, error: bad };
+  if (!ref.file) return { ok: false, error: 'Not a file in this change.' };
+  if (!Number.isInteger(hunk) || hunk < 0 || typeof header !== 'string' || !header.startsWith('@@')) return { ok: false, error: 'Not a part of this diff.' };
+  const root = await rootOf(ref.root);
+  if (!sameRoot(root, ref.root)) return { ok: false, error: 'That project has moved.' };
+
+  const r = await git(root, ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color', '-U3', ref.before, ref.after, '--', ref.file], { maxBuffer: 16 * 1024 * 1024 });
+  if (!r.ok) return { ok: false, error: /bad object|not a tree|unknown revision/i.test(r.error) ? 'Those changes have been tidied away by git since.' : r.error || "Couldn't read the diff." };
+  if (/^(new file|deleted file) mode/m.test(r.out) || /^Binary files /m.test(r.out)) return { ok: false, error: 'Only a changed file can be taken back a part at a time.' };
+  const { head, hunks } = splitHunks(r.out);
+  if (!hunks[hunk] || hunks[hunk].split('\n')[0] !== header) return { ok: false, error: 'That diff has changed since. Open it again.' };
+
+  // Anything that touched this file after the turn would be overwritten.
+  const now = await snapshot(root);
+  if (!now) return { ok: false, error: "Couldn't take a look at the folder as it is now." };
+  const since = await changedFiles(root, ref.after, now.tree);
+  if (!since) return { ok: false, error: "Couldn't compare with the folder as it is now." };
+  if (since.some(f => f.path === ref.file)) return { ok: false, changedSince: [ref.file], error: `${ref.file} has changed since this turn. Undo the later changes first.` };
+
+  // git apply puts it back through the repo's own filters (line endings and
+  // the like), and refuses rather than half-applies if anything doesn't fit.
+  const one = `${[...head, hunks[hunk]].join('\n')}\n`;
+  const applied = await git(root, ['apply', '-R', '--whitespace=nowarn', '-'], { input: one });
+  if (!applied.ok) return { ok: false, error: applied.error || "git couldn't take that part back." };
+
+  // The turn now stands at its old "after" with this one file as it is on disk.
+  const to = await treeWith(root, ref.after, ref.file);
+  if (!to) return { ok: false, error: "Took it back, but couldn't note where the turn stands now." };
+  return { ok: true, to };
+}
+
+// `tree` with `file` replaced by what's on disk now. -> tree sha | null
+async function treeWith(root, tree, file) {
+  const mode = await git(root, ['ls-tree', '-z', tree, '--', file], { timeout: 5000 });
+  const m = mode.ok && /^(\d{6}) blob /.exec(mode.out);
+  if (!m) return null;
+  const blob = await git(root, ['hash-object', '-w', '--', file], { timeout: 10000 });
+  const sha = blob.ok && blob.out.trim();
+  if (!sha || !TREE.test(sha)) return null;
+  const tmp = path.join(os.tmpdir(), `shellby-index-${crypto.randomBytes(6).toString('hex')}`);
+  try {
+    const env = { GIT_INDEX_FILE: tmp };
+    if (!(await git(root, ['read-tree', tree], { env })).ok) return null;
+    if (!(await git(root, ['update-index', '-z', '--index-info'], { env, input: `${m[1]} ${sha}\t${file}\0` })).ok) return null;
+    const out = await git(root, ['write-tree'], { env });
+    const t = out.ok && out.out.trim();
+    return t && TREE.test(t) ? t : null;
+  } finally {
+    await fs.promises.rm(tmp, { force: true }).catch(() => { /* temp file */ });
+  }
+}
+
+module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, scope, newTouch, noteTool, patchFor, undo, undoHunk, splitHunks, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };

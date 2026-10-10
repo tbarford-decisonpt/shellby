@@ -34,6 +34,7 @@
 <link rel="stylesheet" href="native.css">
 <link rel="stylesheet" href="composer.css">
 <link rel="stylesheet" href="line-comments.css">
+<link rel="stylesheet" href="code.css">
 <link rel="stylesheet" href="turn-checks.css">
 <link rel="stylesheet" href="review.css">
 <link rel="stylesheet" href="lessons.css">
@@ -2266,6 +2267,10 @@
         </div>
         <p class="muted small" id="hotkeyMsg"></p>
         <label class="toggle"><input type="checkbox" id="pushToTalkToggle"><span class="switch"></span>Hold it to dictate a task</label>
+        <div class="row">
+          <span class="inline-label">Shortcuts in the panel</span>
+          <button type="button" class="btn ghost slim-btn" id="panelKeysBtn">Change them…</button>
+        </div>
         <p class="small muted" id="pushToTalkMsg">Tap the shortcut to open Shellby; hold it and say what you need. Windows' own speech recognition does the listening, on this PC. What you said waits in the box for you to send.</p>
       </section>
 
@@ -2421,6 +2426,40 @@
     </div>
   </div>
 
+  <!-- ====================== OUTLINE (Ctrl+Shift+O) ====================== -->
+  <div class="card-sheet" id="outlineSheet" role="dialog" aria-modal="true" aria-labelledby="outlineTitle" hidden>
+    <div class="card-box qp-box">
+      <div class="card-head">
+        <h2 id="outlineTitle">Outline</h2>
+        <button type="button" class="icon-btn" id="outlineClose" aria-label="Close" title="Close (Esc)">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <input type="text" class="qp-input" id="outlineInput" placeholder="Type to find a message or a file…" autocomplete="off" spellcheck="false"
+        role="combobox" aria-expanded="true" aria-controls="outlineList" aria-autocomplete="list" aria-label="Find a message or a file">
+      <ul class="qp-list" id="outlineList" role="listbox" aria-label="Messages and the files they touched"></ul>
+      <p class="qp-foot muted small"><span><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span><kbd>Enter</kbd> go there</span><span><kbd>Esc</kbd> close</span></p>
+    </div>
+  </div>
+
+  <!-- ====================== PROBLEMS (Ctrl+Shift+M) ====================== -->
+  <div class="card-sheet" id="problemsSheet" role="dialog" aria-modal="true" aria-labelledby="problemsTitle" hidden>
+    <div class="card-box qp-box">
+      <div class="card-head">
+        <h2 id="problemsTitle">Problems</h2>
+        <button type="button" class="icon-btn" id="problemsClose" aria-label="Close" title="Close (Esc)">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="small muted pb-sub" id="problemsSub" role="status"></p>
+      <div class="pb-actions">
+        <button type="button" class="btn ghost slim-btn" id="problemsRun" title="Runs the project's lint and typecheck (or its tests), like Run checks">Look for problems</button>
+        <button type="button" class="btn primary slim-btn" id="problemsFixAll" hidden>Fix all</button>
+      </div>
+      <div class="qp-list pb-list" id="problemsList"></div>
+    </div>
+  </div>
+
   <!-- ====================== EVERY SHORTCUT (Ctrl+/ or ?) ====================== -->
   <div class="card-sheet" id="shortcutsSheet" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle" hidden>
     <div class="card-box keys-box">
@@ -2431,7 +2470,8 @@
         </button>
       </div>
       <div class="keys-list" id="shortcutsList" tabindex="0" role="region" aria-label="Every shortcut"></div>
-      <p class="keys-foot muted small">Or press <kbd>Ctrl+K</kbd> and type what you want to do.</p>
+      <p class="keys-status small" id="shortcutsStatus" role="status" aria-live="polite"></p>
+      <p class="keys-foot muted small"><button type="button" class="btn ghost slim-btn" id="shortcutsEdit" aria-pressed="false">Change keys</button> Or press <kbd>Ctrl+K</kbd> and type what you want to do.</p>
     </div>
   </div>
 
@@ -2553,6 +2593,9 @@
 <script src="../shared/minishell.js"></script>
 <script src="../shared/markdown.js"></script>
 <script src="../shared/diff.js"></script>
+<script src="../shared/syntax.js"></script>
+<script src="../shared/mermaid.js"></script>
+<script src="../shared/mermaid-draw.js"></script>
 <script src="../shared/todos.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
@@ -2564,6 +2607,9 @@
 <script src="core.js"></script>
 <script src="a11y.js"></script>
 <script src="files.js"></script>
+<script src="code.js"></script>
+<script src="outline.js"></script>
+<script src="problems-view.js"></script>
 <script src="find.js"></script>
 <script src="textmenu.js"></script>
 <script src="feed-logic.js"></script>

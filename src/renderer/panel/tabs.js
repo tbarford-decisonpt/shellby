@@ -167,8 +167,30 @@
     SB.forgetTab(tabId); // and its pane; the next one shown takes the focus (tab-panes.js)
     await api.closeTab(tabId);
     SB.renderTabStrip();
-    if (tab.saved && !quiet) SB.toast('Closed. It is still in History.');
+    if (tab.saved) noteClosed(tabId);
+    if (tab.saved && !quiet) SB.toast(`Closed. It is still in History${SB.solo ? '' : `, and ${SB.shortcuts.primary('reopenTab')} brings it back`}.`);
   };
+
+  // Ctrl+Shift+T: the conversations you closed, newest first, as a browser
+  // keeps them. Only ids: each comes back from History (history.js), so one
+  // deleted since, or already open again, is skipped. Kept across a restart.
+  const CLOSED_KEY = 'shellby.tabs.closed';
+  const MAX_CLOSED = 20;
+  const closedList = () => { try { const l = JSON.parse(SB.pref(CLOSED_KEY, '[]')); return Array.isArray(l) ? l.filter(x => typeof x === 'string') : []; } catch { return []; } };
+  function noteClosed(id) { SB.pref.set(CLOSED_KEY, JSON.stringify([id, ...closedList().filter(x => x !== id)].slice(0, MAX_CLOSED))); }
+
+  SB.reopenClosed = async () => {
+    const list = closedList();
+    const known = new Set((state.sessions || []).map(s => s.id));
+    while (list.length) {
+      const id = list.shift();
+      SB.pref.set(CLOSED_KEY, JSON.stringify(list));
+      if (state.tabs.has(id) || (state.sessions?.length && !known.has(id))) continue;
+      return SB.inChat(() => SB.openHistory(id));
+    }
+    SB.toast('Nothing closed to bring back. Older conversations are in History.');
+  };
+  SB.hasClosed = () => closedList().some(id => !state.tabs.has(id));
 
   // Ctrl+W (and the palette) on a conversation that's still working asks first:
   // a second press within a few seconds stops it and closes it. The × and a
@@ -200,12 +222,15 @@
     tryAgain: tab => SB.tryAgain(tab),
     showChanges: tab => SB.showChanges(tab),
     bringHome: tab => (tab.worktree ? SB.bringHome(tab) : SB.toast('This conversation works in your own checkout, so there’s nothing to bring home.')),
+    outline: tab => SB.openOutline?.(tab),     // outline.js
+    problems: tab => SB.openProblems?.(tab),   // problems.js
   };
 
   document.addEventListener('keydown', e => {
     const tab = SB.activeTab();
     const K = SB.shortcuts;
-    if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
+    if (K.matches(e, 'closeTab')) { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
+    if (K.matches(e, 'reopenTab')) { e.preventDefault(); if (!SB.solo) SB.reopenClosed(); return; }
     // A popped-out window has its one conversation: no strip to add to, split or walk along.
     if (SB.solo && ['newTab', 'splitPane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
     if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }

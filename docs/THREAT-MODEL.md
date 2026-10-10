@@ -59,7 +59,8 @@ and Autonomous mode, which skips prompts by design.
 
 | Boundary | Threat | Mitigation | Code |
 |---|---|---|---|
-| Model output → screen | Markup or script injection | Escape everything, emit a fixed tag set, links are inert until clicked, `https:` only | `src/renderer/shared/markdown.js`, `src/main/filelinks.js` |
+| Model output → screen | Markup or script injection | Escape everything, emit a fixed tag set, links are inert until clicked, `https:` only. Code colours and Mermaid diagrams are built after that from the escaped text: spans and SVG made with `textContent` and `createElementNS`, attributes only numbers and fixed words, no inline style, so the CSP stays `style-src 'self'` | `src/renderer/shared/markdown.js`, `src/renderer/shared/syntax.js`, `src/renderer/shared/mermaid.js`, `src/renderer/shared/mermaid-draw.js`, `src/renderer/panel/code.js`, `src/main/filelinks.js` |
+| Check output → prompt | A project's tool output steering Claude when Problems' **Fix it** quotes it | Main writes the message from the problems it noted, never from panel text; each problem is fenced in `<problems>` with `<`/`>` and invisible characters neutralised, and labelled as output, not instructions | `src/main/problems.js`, `src/main/ipc/tabs.js` |
 | Renderer → main | A window calling what it shouldn't | Each window's preload exposes a fixed list, and every handler checks the sender | `src/preload/`, `src/main/ipc-guard.js`, `src/main/ipc/` |
 | Panel → riskier settings | A compromised panel lowering protections | Isolated confirmation window, Cancel by default, one at a time | `src/main/confirm.js` |
 | Claude → your machine | Acting without an Allow | Claude Code enforces permissions, and Shellby only relays answers and denies pending prompts on stop | `src/main/session.js`, `src/main/stream.js` |

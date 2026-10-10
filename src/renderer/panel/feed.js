@@ -322,7 +322,7 @@
         : turnOf ? h('button', { class: 'msg-rewind', type: 'button', title: steerTip, 'aria-label': steerTip, onclick: () => SB.openRewind(this, turnOf) }) : null;
       const fork = item.turnId ? h('button', { class: 'msg-branch', type: 'button', title: 'Try again from here, in a new tab', 'aria-label': 'Try again from here, in a new tab', onclick: () => SB.openBranch(this, item.turnId, 'before') }, SB.forkIcon()) : null;
       const steered = item.steerId ? h('div', { class: 'routine-tag', title: 'Claude read this between two steps of the turn before it' }, '↪ sent mid-turn') : null;
-      this.append(h('div', { class: 'msg user' }, back, fork, routine || steered, item.text || '',
+      this.append(h('div', { class: 'msg user', dataset: item.turnId ? { turn: item.turnId } : {} }, back, fork, routine || steered, item.text || '',
         item.attachments?.length ? h('div', { class: 'att-list' }, SB.attachmentChips(item.attachments)) : null));
     }
 
@@ -347,7 +347,7 @@
         // then Ctrl+F looks in its text here, and builds it on a match (find.js).
         const build = () => {
           unbuiltDiffs.delete(el);
-          if (!el.querySelector('.ediff')) el.querySelector('summary').after(SB.diffView(edits, { line: item.line }));
+          if (!el.querySelector('.ediff')) el.querySelector('summary').after(SB.diffView(edits, { line: item.line, file: item.filePath }));
         };
         unbuiltDiffs.set(el, { text: edits.map(e => `${e.old || ''}\n${e.new || ''}`).join('\n').toLowerCase(), build });
         el.addEventListener('toggle', () => { if (el.open) build(); });

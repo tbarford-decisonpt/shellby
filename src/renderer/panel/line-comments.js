@@ -118,7 +118,35 @@
     return list.filter(ok).slice(-MAX_COMMENTS).map(c => ({ ...c, body: c.body.slice(0, MAX_BODY) }));
   }
 
-  const api = { numberLines, commentable, anchor, rowsFor, where, compose, sanitize, MAX_BODY, MAX_COMMENTS };
+  /**
+   * numberLines' rows side by side: a run of removed lines faces the run of
+   * added lines after it, one to one, and an unchanged line sits on both sides.
+   *   -> [{ full: i } (a hunk or meta row across both) | { left: i|null, right: i|null }]
+   */
+  function pairRows(rows) {
+    const out = [];
+    let i = 0;
+    while (i < rows.length) {
+      const r = rows[i];
+      if (r.kind === 'ctx') { out.push({ left: i, right: i }); i++; continue; }
+      if (r.kind !== 'del' && r.kind !== 'add') { out.push({ full: i }); i++; continue; }
+      const dels = [];
+      const adds = [];
+      while (i < rows.length && rows[i].kind === 'del') dels.push(i++);
+      while (i < rows.length && rows[i].kind === 'add') adds.push(i++);
+      for (let k = 0; k < Math.max(dels.length, adds.length); k++) out.push({ left: dels[k] ?? null, right: adds[k] ?? null });
+    }
+    return out;
+  }
+
+  /** Which hunk row i is in (0 for the first @@), or -1 before any. */
+  function hunkOf(rows, i) {
+    let n = -1;
+    for (let k = 0; k <= i && k < rows.length; k++) if (rows[k].kind === 'hunk') n++;
+    return n;
+  }
+
+  const api = { numberLines, commentable, anchor, rowsFor, where, compose, sanitize, pairRows, hunkOf, MAX_BODY, MAX_COMMENTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyLineComments = api;
 })(typeof window !== 'undefined' ? window : globalThis);

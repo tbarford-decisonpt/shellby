@@ -68,6 +68,7 @@ Crash reports go to Sentry only from builds with a DSN: `DSN` in `src/main/crash
 | `python scripts/preview-wardrobe.py` | Contact sheet of every accessory worn by the crab, for pixel-art work |
 | `node scripts/e2e-plugin.js` | A **real** `claude -p` session with `--plugin-dir ./claude-plugin` drives a dev Shellby: the crab works, then celebrates. Also checks the hook is instant when Shellby is closed (uses one tiny prompt) |
 | `node scripts/e2e-outfit-code.js` | Outfit codes: read your code, undress, paste it back for the same look; locked items, a community item traced to its pack in the live gallery, a typo, the code on the crab card |
+| `node scripts/e2e-vscode.js` | The editor touches, against the fake CLI: a turn's diff in colour, Side by side (remembered), Undo this part on one of two hunks and the whole Undo after it, a reply's code block coloured with Copy and a Mermaid block drawn, Ctrl+Shift+T bringing back a closed tab, a shortcut given new keys in the Ctrl+/ list (and a taken key refused), the outline opening on those keys and going to a file's diff, and Problems listing a typecheck's tsc error and sending Fix it. `E2E_SHOTS=<dir>` saves screenshots |
 | `node scripts/e2e-editor.js [folder]` | An edit's permission card shows its diff with line numbers, the tool row folds open to it, a path in a reply becomes a link (checked, never clicked), Ctrl+F counts and steps through matches, Ctrl+= zooms, Ctrl+Shift+P opens the palette, and Settings → Editor says what Automatic means. Screenshots go in `[folder]` |
 | `node scripts/e2e-panes.js [--shots <dir>]` | Conversations side by side and in their own windows: Split puts one beside another, dragging a tab into the chat splits a pane and fills a 2x2 grid, a click picks which pane the box talks to, a tab dragged out gets a window of its own with its conversation and what was typed, and its × hands it back |
 | `node scripts/e2e-notes.js` | Notes: a list per project plus a General one; adding, editing, ticking off, moving between lists and deleting, and Plan / Build / Ask each opening a task in the right folder, in the right mode, with the right prompt |
@@ -330,6 +331,8 @@ src/main/        Electron main process
   checks.js        turn checks: which test commands a folder has, running them (cmd, fixed lines only), the verdict and the bring-home gate
   shots.js         before/after pictures of a dev server either side of a turn, in a hidden locked-down window
   editor.js        "Open in VS Code": a turn's file in VS Code's diff, both sides read out of git
+  problems.js      Problems: the file:line errors in check output (tsc, ESLint, gcc, rustc, mypy…), and the fenced Fix prompt (pure)
+  outline.js       the Ctrl+Shift+O outline: each message and the files its turn touched (pure)
   filelinks.js     file links in a conversation: which editor, its vscode://-style link, and what's never opened (pure); ipc/files.js opens them
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
   clash.js         copies that changed the same files (pure); clash-scan.js asks git which files each changed
