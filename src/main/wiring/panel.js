@@ -9,6 +9,7 @@ const { sendToBottom } = require('../desktop-layer');
 const native = require('../native-windows');
 const { panelPosition } = require('../placement');
 const { kindOfApp } = require('../surroundings');
+const { ignoresRealMouse } = require('../test-desktop');
 
 const PANEL_DEFAULT = { width: 460, height: 700 };
 // "Make room" on a workflow map: the panel grows toward the middle of its screen,
@@ -59,6 +60,7 @@ function wirePanel(d) {
       show: false, frame: false, backgroundColor: '#0c1719', title: 'Shellby', icon: d.ICON, webPreferences: d.webPreferences,
     });
     d.secureWindow(panel);
+    if (ignoresRealMouse(process.env, app.isPackaged)) panel.setIgnoreMouseEvents(true); // an e2e run drives it over CDP alone (test-desktop.js)
     attachContextMenu(panel, ipcMain); // checks the sender itself: only the panel picks from its menu
     panel.loadFile(path.join(d.RENDERER, 'panel', 'panel.html'));
     panel.webContents.on('did-finish-load', () => panel.webContents.setZoomFactor(d.config.get('panelZoom') || 1)); // Ctrl+= / Ctrl+- (ipc/files.js)

@@ -8,6 +8,12 @@
 //     in, covers him (wiring/windows.js checkCovered), and he hushes when something
 //     holds the microphone (life.js). A check that expects him to
 //     speak or be seen then fails for want of an empty corner (watchesDesktop).
+//  3. A check that maximizes the panel covers the screen you're using, and your
+//     mouse moving anywhere on it reaches the page in the middle of a scripted
+//     drag: the dragged tab or pane line follows your pointer instead
+//     (e2e-panes). The scripts press and move over CDP, which Windows'
+//     hit-testing never sees, so in an e2e run the panel and a conversation's
+//     own window let the real mouse through (ignoresRealMouse).
 //
 // Only for the fake-CLI, motion-test, fake-health and SHELLBY_E2E=1 runs (e2e-ci.js sets
 // the last for every check), never a packaged app or a dev run
@@ -37,4 +43,12 @@ function watchesDesktop(env = process.env, isPackaged = false) {
   return !isTestRun(env, isPackaged) || env.SHELLBY_COVER_POLL === '1';
 }
 
-module.exports = { keepPainting, watchesDesktop, isTestRun, SWITCHES };
+/**
+ * Should the panel and a conversation's own window let the real mouse through?
+ * Only in an e2e run (SHELLBY_E2E=1): a dev run with the fake CLI is one you click in.
+ */
+function ignoresRealMouse(env = process.env, isPackaged = false) {
+  return isTestRun(env, isPackaged) && env.SHELLBY_E2E === '1';
+}
+
+module.exports = { keepPainting, watchesDesktop, ignoresRealMouse, isTestRun, SWITCHES };
