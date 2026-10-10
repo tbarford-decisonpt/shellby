@@ -20,13 +20,13 @@
 
     { id: 'newTab', group: 'Conversations', keys: ['Ctrl+T'], what: 'New conversation' },
     { id: 'closeTab', group: 'Conversations', keys: ['Ctrl+W'], what: 'Close this conversation (press twice if he’s still working)' },
-    { id: 'nextTab', group: 'Conversations', keys: ['Ctrl+Tab', 'Ctrl+PgDn'], what: 'Next conversation' },
-    { id: 'prevTab', group: 'Conversations', keys: ['Ctrl+Shift+Tab', 'Ctrl+PgUp'], what: 'Previous conversation' },
-    { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right' },
+    { id: 'nextTab', group: 'Conversations', keys: ['Ctrl+Tab', 'Ctrl+PgDn'], what: 'Next conversation (in this pane, when they’re side by side)' },
+    { id: 'prevTab', group: 'Conversations', keys: ['Ctrl+Shift+Tab', 'Ctrl+PgUp'], what: 'Previous conversation (in this pane, when they’re side by side)' },
+    { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right along its strip' },
     { id: 'tabList', group: 'Conversations', keys: ['Ctrl+Shift+A'], what: 'Every open conversation, grouped by what it needs from you' },
     { id: 'renameTab', fixed: true, group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
     { id: 'focusPane', group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
-    { id: 'movePane', group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation to the pane beside it, swapping them (at the left or right edge, to a column of its own)' },
+    { id: 'movePane', group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation into the pane beside it, with its tabs (at the left or right edge, into a column of its own)' },
     { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'This conversation into a pane of its own, or a new one alongside if it’s alone in its pane (or drag a tab into the chat, or out of the window)' },
     { id: 'reopenTab', group: 'Conversations', keys: ['Ctrl+Shift+T'], what: 'Bring back the conversation you closed last (again for the one before)' },
 

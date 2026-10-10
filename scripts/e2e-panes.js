@@ -539,6 +539,26 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await until(`!SB.state.tabs.get('${C}').busy && !SB.state.tabs.get('${C}').queue.length`, 20000);
     await until(`!SB.state.tabs.get('${C}').busy`, 10000);
 
+    // ---- Ctrl+Tab and Ctrl+PgUp/PgDn go through the focused pane's tabs; Ctrl+Shift+PgUp/PgDn move one along its strip.
+    check(await ev(`SB.placeTab('${C}', ${PID(A)}, 'center')`), 'C joins A\'s pane');
+    await wait(200);
+    const keyPress = async (key, code, vk, modifiers) => {
+      for (const type of ['rawKeyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key, code, windowsVirtualKeyCode: vk, modifiers });
+      await wait(150);
+    };
+    const CTRL = 2, CTRL_SHIFT = 10; // CDP: Ctrl = 2, Shift = 8
+    await keyPress('Tab', 'Tab', 9, CTRL);
+    check(await until(`SB.state.activeTab === '${A}'`), 'Ctrl+Tab goes round the focused pane\'s tabs');
+    await keyPress('PageDown', 'PageDown', 34, CTRL);
+    check(await until(`SB.state.activeTab === '${C}'`), 'and Ctrl+PgDn too, never into another pane');
+    await keyPress('PageUp', 'PageUp', 33, CTRL_SHIFT);
+    check(await until(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${C}').tabs) === JSON.stringify(['${C}', '${A}'])`), 'Ctrl+Shift+PgUp moves C to the front of its pane\'s strip');
+    check(await ev(`[...document.querySelector('.pane[data-tab="${C}"]').querySelectorAll('.pane-head .tab')].map(t => t.dataset.tabId).join() === ['${C}', '${A}'].join()`), 'and the strip shows it there');
+    check(await ev(`SB.placeTab('${C}', ${PID(C)}, 'bottom')`), 'C splits back off under A');
+    await wait(200);
+    check(await isShape([[A, C], [D, B]]), 'the 2x2 again');
+    await ev(`SB.activate('${D}')`);
+
     // ---- A button at the bottom of a pane out of focus takes the click that
     // focuses it: the box moving in for the stand-in doesn't shift it away.
     await ev(`SB.activate('${B}')`);

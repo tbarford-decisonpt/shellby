@@ -107,8 +107,17 @@
     return true;
   };
 
-  // One place left or right, for the keyboard and the palette.
+  // One place left or right, for the keyboard and the palette: along its
+  // pane's strip while split (the layout keeps it, and main's order with it).
   SB.nudgeTab = (tabId, step) => {
+    if (SB.panes.count(state.grid) > 1) {
+      const next = SB.panes.nudge(state.grid, tabId, step);
+      if (next === state.grid) return false;
+      state.grid = next;
+      SB.renderTabStrip();
+      SB.savePanes();
+      return true;
+    }
     const before = L.nudgeBefore([...state.tabs.keys()], tabId, step);
     return before === undefined ? false : SB.moveTab(tabId, before);
   };
@@ -232,9 +241,9 @@
     SB.closeTab(tabId);
   };
 
-  // One step along the strip, wrapping round at the ends.
+  // One step along the strip, wrapping round at the ends: the focused pane's, while split.
   function stepTab(step) {
-    const to = L.stepTarget([...state.tabs.keys()], state.activeTab, step);
+    const to = L.stepTarget(SB.stripIds(), state.activeTab, step);
     if (to !== undefined) SB.activate(to);
   }
 
