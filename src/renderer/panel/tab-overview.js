@@ -18,7 +18,7 @@
 
   // ------------------------------------------------------------ edge markers
 
-  const watched = new Map();   // a strip -> its [left, right] markers
+  const watched = new Map();   // a strip -> its [left, right] markers and size observer
 
   function paintEdges(onStrip, left, right) {
     const items = [...onStrip.querySelectorAll('[data-tab-id]')].map(el => {
@@ -32,8 +32,8 @@
 
   // Every strip with markers; a pane's goes when its pane closes.
   function paintAllEdges() {
-    for (const [s, [left, right]] of watched) {
-      if (!s.isConnected) { watched.delete(s); continue; }
+    for (const [s, [left, right, observer]] of watched) {
+      if (!s.isConnected) { observer.disconnect(); watched.delete(s); continue; }
       paintEdges(s, left, right);
     }
   }
@@ -64,11 +64,12 @@
   // A strip's markers follow its scrolling and its size.
   function watchEdges(onStrip, left, right) {
     if (watched.has(onStrip)) return; // once per strip, or its listeners stack
-    watched.set(onStrip, [left, right]);
     let frame = 0;
     const queue = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; paintEdges(onStrip, left, right); }); };
+    const observer = new ResizeObserver(queue);
+    watched.set(onStrip, [left, right, observer]);
     onStrip.addEventListener('scroll', queue, { passive: true });
-    new ResizeObserver(queue).observe(onStrip);
+    observer.observe(onStrip);
     for (const el of [left, right]) el.addEventListener('click', edgeClick);
   }
   watchEdges(strip, $('tabEdgeLeft'), $('tabEdgeRight'));

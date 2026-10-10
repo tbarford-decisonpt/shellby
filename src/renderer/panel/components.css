@@ -68,7 +68,6 @@ body.reordering .tab-x { opacity: 0; pointer-events: none; }
 body.reordering .tip { display: none; }
 .tab.dragging { background: var(--reef-2); color: var(--sand); opacity: .6; }
 /* On screen in another pane: lit, but not the one you're typing to. */
-.tab.shown { background: var(--reef); color: var(--sand); }
 
 /* ================================================================ panes
    Conversations side by side: up to four columns of up to three panes. Each

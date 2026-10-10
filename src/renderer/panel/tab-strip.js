@@ -51,10 +51,10 @@
 
   // One tab. .tab draws it; inside it the role=tab part and its × sit side by
   // side (a button can't live inside a tab).
-  function tabEl(t, active, shown) {
+  function tabEl(t, active) {
     const clash = SB.clashLine?.(t.id) || '';
     return h('div', {
-      class: L.tabClass(t, { active, shown, clash, dragging: !!drag?.moved && t.id === drag.id }),
+      class: L.tabClass(t, { active, clash, dragging: !!drag?.moved && t.id === drag.id }),
       role: 'presentation',
       'data-tab-id': t.id,
       onclick: () => SB.activate(t.id),
@@ -79,13 +79,12 @@
     t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
   }
 
-  // One strip: `ids` in order, `activeId` the tab it shows. shown(id): on
-  // screen in another pane (lit, see tab-logic.js tabClass).
-  function drawTabs(strip, ids, activeId, shown = () => false) {
+  // One strip: `ids` in order, `activeId` the tab it shows.
+  function drawTabs(strip, ids, activeId) {
     // A busy tab redraws the strip as it streams; keep the keyboard on the tab (or ×) it was on.
     const focused = strip.contains(document.activeElement) ? document.activeElement : null;
     const keep = focused && { id: focused.closest('[data-tab-id]')?.dataset.tabId, x: focused.classList.contains('tab-x') };
-    strip.replaceChildren(...ids.map(id => state.tabs.get(id)).filter(Boolean).map(t => tabEl(t, t.id === activeId, shown(t.id))));
+    strip.replaceChildren(...ids.map(id => state.tabs.get(id)).filter(Boolean).map(t => tabEl(t, t.id === activeId)));
     if (keep?.id) {
       const tab = [...strip.querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === keep.id);
       tab?.querySelector(keep.x ? '.tab-x' : '[role="tab"]')?.focus({ preventScroll: true });

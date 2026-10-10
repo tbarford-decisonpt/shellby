@@ -70,9 +70,8 @@
   }
 
   // The classes on a tab in the strip.
-  // shown: on screen in another pane (tab-panes.js), so not unread either.
-  function tabClass(t, { active, shown = false, clash, dragging }) {
-    return `tab${active ? ' active' : ''}${shown && !active ? ' shown' : ''}${t.unread && !active && !shown ? ' unread' : ''}${t.pending ? ' asking' : ''}${clash ? ' clashing' : ''}${dragging ? ' dragging' : ''}`;
+  function tabClass(t, { active, clash, dragging }) {
+    return `tab${active ? ' active' : ''}${t.unread && !active ? ' unread' : ''}${t.pending ? ' asking' : ''}${clash ? ' clashing' : ''}${dragging ? ' dragging' : ''}`;
   }
 
   // What's queued behind a running turn and can go to Claude at his next step:
