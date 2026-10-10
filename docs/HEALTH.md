@@ -119,7 +119,7 @@ Measuring is read-only, and each cache walk stops after 2 seconds, so the sizes 
 
 | Trophy | How | Reward |
 |---|---|---|
-| 🩺 Check-Up | Open the Health view | Stethoscope + Scanner Visor |
+| 🩺 Check-Up | Open the Health view | Stethoscope + Scanner Visor + Glass Thermometer (for [his tank](TANK.md#gauges-in-disguise), where it reads your GPU or CPU temperature) |
 | 🧊 Keep Your Cool (secret) | Shellby cools down after a heat warning | Sweatband + Handheld Fan + Fire Extinguisher |
 | 🧹 Spring Cleaning | Free up space after a low-disk warning | Broom + Toadstool |
 

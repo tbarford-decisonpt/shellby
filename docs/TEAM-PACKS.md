@@ -2,7 +2,7 @@
 
 A team pack is your Shellby setup for one repository, saved as a file **in the repo**: `.shellby/team.json`. Commit it, and everyone who works on the repo gets the same snippets, workflows, hooks, rules and MCP servers when they open it in Shellby, without copying anything across by hand. A new starter takes the lot with **Set it all up** and one confirmation.
 
-[Community packs](https://x-salmon.github.io/shellby-packs/) are public and dress Shellby up. A team pack is about work, and it's only as public as your repo.
+[Community packs](https://getshellby.com/community/) are public and dress Shellby up. A team pack is about work, and it's only as public as your repo.
 
 ## Making one
 

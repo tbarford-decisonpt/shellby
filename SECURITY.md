@@ -167,6 +167,16 @@ Nothing installs without that confirmation. The gallery's PR check always runs t
 
 When a conversation works in its own copy (a git worktree), **Bring home** commits and merges Claude's work with git hooks turned off. That's because Claude can edit a tracked hook (`.husky/pre-commit`, say) without a prompt in Auto-edit. **Push** is yours and runs your hooks as a terminal would.
 
+**Line them up** (in the <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> list) rebases finished copies onto each other with hooks off too. It rewrites branches, so it asks first. It never touches a copy with uncommitted work (stashing would use the stash every worktree shares), aborts a rebase that conflicts so the copy is back where it was, and stops at the first red check.
+
+### Attach what I just saw
+
+Off until you turn it on. It reads the clipboard and the last failed background command only when you press it, takes out anything that looks like a secret (the same redaction as dev server logs, then any line the push secret scan still flags is dropped whole), and puts it in a new task's box, fenced and marked as data, not instructions. Nothing is sent until you send it.
+
+### The Council
+
+Each advisor and the chair is a one-off `claude -p` call with no tools (`--tools ''`), no MCP servers (`--strict-mcp-config`) and no saved session, so a sitting can only answer, never act. **Include this project** hands it a few KB read by Shellby (the start of the README, `CLAUDE.md`'s headings, the last eight commit subjects, which files are uncommitted), not access to the folder.
+
 ### Continue in a terminal
 
 **Continue in a terminal** opens a window of your own. Windows Terminal or PowerShell runs a script passed with `-EncodedCommand`, in which the folder and Claude Code's path are single-quoted PowerShell literals (every kind of single quote doubled), and the session id must be a UUID. The cmd fallback is only offered when Claude Code's path has none of cmd's special characters, and gets the folder as its working directory, never on its command line. The billing variables are removed inside the window when **Always use my Claude plan** is on (`src/main/handoff.js`).
@@ -212,7 +222,7 @@ Browsers always send `Origin` on cross-site requests and can't add custom header
 | Route | Used by | What it can do |
 |---|---|---|
 | `/v1/hook` | The plugin's hooks | Events change the crab's mood, count finished turns and XP, note the project for streaks and stickers, and can send "he needs you" and "done" to your phone if you set that up. They **can't** start tasks, answer permissions or change files. The only git Shellby runs for them reads, with `core.fsmonitor` off, so a repository's own config can't name a program to run. |
-| `/v1/crab` | The plugin's MCP tools | Claude can make the crab say something, put on something you own, propose a routine or a workflow, list your routines and workflows, and start a workflow you gave the **When Claude Code asks** trigger. With the token Shellby keeps in its own profile folder, it can also read your Projects page (your projects, what's next, a dev server's log) and a project's journal, add to or tick off a project's to-do list, and pin a note to its journal. A proposal is only saved after you confirm it in the confirmation window, and Autonomous is never accepted from it. |
+| `/v1/crab` | The plugin's MCP tools | Claude can make the crab say something or put on something you own. With the token Shellby keeps in its own profile folder, it can also propose a routine or a workflow, list your routines and workflows, start a workflow you gave the **When Claude Code asks** trigger, read your Projects page (your projects, what's next, a dev server's log) and a project's journal, add to or tick off a project's to-do list, and pin a note to its journal. A proposal is only saved after you confirm it in the confirmation window, and Autonomous is never accepted from it. |
 | `/v1/cli` | The `shellby` command, if you install it | `shellby do` starts a task in any mode except Autonomous, and `shellby flow run` starts a workflow you gave the **When Claude Code asks** trigger. `shellby take` opens an outside session Shellby has already heard from (by its id, or the newest in the folder named) in a tab, and sends nothing to it. It needs a token Shellby keeps in its own profile folder. |
 | `/v1/flow` | Workflow web hooks | Starts the one workflow whose **Web hook** trigger holds the 48-character token in the body, compared in constant time. No token, no run. The posted `data` is treated like any other [outside data in a run](#workflows). |
 
