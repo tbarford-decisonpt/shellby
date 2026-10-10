@@ -103,6 +103,7 @@ function wireGithub(d) {
       const eventsMoved = 'events' in patch && JSON.stringify(events.normalize(patch.events)) !== JSON.stringify(events.normalize(prev.events));
       if (changed || syncLife.moved(patch, prev) || stickersMoved || tankMoved || friendsMoved || eventsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
     };
+    d.github.restore();
     d.github.schedule();
     if (d.github.can('sync')) setTimeout(() => d.github.sync().catch(() => {}), 30 * 1000);
     d.profileCard = new ProfileCard({ config: d.config, github: d.github });

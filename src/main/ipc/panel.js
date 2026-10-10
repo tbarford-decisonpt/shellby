@@ -6,7 +6,7 @@ const { execFile } = require('child_process');
 const os = require('os');
 const path = require('path');
 const attach = require('../attachments');
-const { checkStatus, run: runCli, verifyClaude } = require('../claude/cli');
+const { checkStatus, signInLapsed, run: runCli, verifyClaude } = require('../claude/cli');
 const { MODELS } = require('../models');
 const processJob = require('../process-job');
 const snippets = require('../snippets');
@@ -127,6 +127,14 @@ function registerPanelIpc(ipcMain, d) {
     d.send(d.panel, 'claude:status', d.claudeStatus);
     return d.claudeStatus;
   }
+  // A turn here failed as signed out (wiring/sessions.js): the sign-in is dead
+  // even though Claude Code still keeps it, so Settings stops saying "Signed in".
+  d.claudeLapsed = () => {
+    if (d.CAPTURE || d.FAKE_CLI || !d.claudeStatus?.loggedIn) return;
+    d.claudeStatus = signInLapsed(d.claudeStatus);
+    d.refreshStatusLine();
+    d.send(d.panel, 'claude:status', d.claudeStatus);
+  };
   // The CLI walks the user through the browser sign-in. When it ends (signed in,
   // or given up), check again. One at a time, and never left waiting: each press
   // used to start another, and every sign-in not finished in the browser waited

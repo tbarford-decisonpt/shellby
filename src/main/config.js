@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const workmode = require('./workmode');
+const { writeFileDurable } = require('./durable');
 
 const MODES = ['ask', 'smart', 'acceptEdits', 'plan', 'autonomous'];
 
@@ -192,19 +193,40 @@ const DEFAULTS = {
   crashReportDecisions: [],   // [{ until, send }]: each Send / Don't send answer and what it covered
 };
 
+// A second copy of the settings, from the last boot that read them fine (and
+// refreshed now and then while he runs), for when settings.json itself is lost.
+const BACKUP_EVERY_MS = 60 * 60 * 1000;
+
 class Config {
-  constructor(dir) {
+  constructor(dir, { now = Date.now } = {}) {
     this.file = path.join(dir, 'settings.json');
+    this.backup = path.join(dir, 'settings.backup.json');
+    this.now = now;
     fs.mkdirSync(dir, { recursive: true });
-    const { data, recoveredFrom, unreadable } = loadSettings(this.file);
+    const { data, recoveredFrom, restoredFrom, unreadable } = loadSettings(this.file, this.backup);
     // Where a damaged settings.json was moved to (main.js logs it), or null.
     this.recoveredFrom = recoveredFrom;
+    // The backup the settings came back from when settings.json was damaged or
+    // missing, or null.
+    this.restoredFrom = restoredFrom;
+    // settings.json was damaged and there was no backup to bring back: this is
+    // someone who was already here, starting over from the defaults.
+    this.lost = !!recoveredFrom && !restoredFrom;
     // Why settings.json couldn't be read at all (still locked after retries), or
     // null. Then this session runs on defaults and never saves: writing would
     // replace the real settings, which are fine, just out of reach.
     this.unreadable = unreadable;
     this.data = { ...DEFAULTS, ...data };
     if (!MODES.includes(this.data.mode)) this.data.mode = DEFAULTS.mode;
+    this.backedUpAt = 0;
+    if (restoredFrom) writeSettings(this.file, JSON.stringify(this.data, null, 2));
+    if (!unreadable && !this.lost && Object.keys(data).length) this.backUp();
+  }
+
+  // Never throws: the backup is a spare, and a save must not fail over it.
+  backUp() {
+    this.backedUpAt = this.now();
+    try { writeFileDurable(this.backup, JSON.stringify(this.data, null, 2)); } catch { /* the next one may land */ }
   }
 
   // What applies right now: Work mode's settings lay over your own (workmode.js).
@@ -217,7 +239,10 @@ class Config {
     if (patch && 'wander' in patch && !('wanderChosen' in patch)) patch = { ...patch, wanderChosen: true };
     const prev = this.data;
     this.data = { ...this.data, ...patch };
-    if (!this.unreadable) writeSettings(this.file, JSON.stringify(this.data, null, 2));
+    if (!this.unreadable) {
+      writeSettings(this.file, JSON.stringify(this.data, null, 2));
+      if (this.now() - this.backedUpAt >= BACKUP_EVERY_MS) this.backUp();
+    }
     this.onSet?.(patch, prev);
     return this.data;
   }
@@ -249,39 +274,53 @@ function retryBusy(fn) {
   return fn();
 }
 
-// settings.json -> { data, recoveredFrom, unreadable }. A missing file is a
-// fresh profile. One that can't be read as an object is moved aside rather than
-// treated as empty: the next save would otherwise replace routines, snippets and
-// XP with the defaults, with nothing left to rescue. One that can't be read or
-// moved at all is left exactly where it is (unreadable: why).
-function loadSettings(file) {
-  let text;
-  try { text = retryBusy(() => fs.readFileSync(file, 'utf8')); } catch (err) {
-    if (err.code === 'ENOENT') return { data: {}, recoveredFrom: null, unreadable: null };
-    return { data: {}, recoveredFrom: null, unreadable: err.message };
-  }
+/** The settings object in `text`, or null when it isn't one. */
+function parseSettings(text) {
   try {
     const data = JSON.parse(text);
-    if (data && typeof data === 'object' && !Array.isArray(data)) return { data, recoveredFrom: null, unreadable: null };
-  } catch { /* damaged: set aside below */ }
-  const aside = file.replace(/\.json$/, `.corrupt-${Date.now()}.json`);
-  try { retryBusy(() => fs.renameSync(file, aside)); } catch (err) {
-    return { data: {}, recoveredFrom: null, unreadable: `damaged, and couldn't be set aside: ${err.message}` };
-  }
-  return { data: {}, recoveredFrom: aside, unreadable: null };
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+  } catch { return null; }
 }
 
-// Via a temp file, so a crash mid-write can't leave half a settings.json. A
-// rename that stays blocked falls back to writing in place: better than losing
-// the change.
+/** The backup's settings, or null when there's none or it's damaged too. */
+function readBackup(backup) {
+  try { return parseSettings(retryBusy(() => fs.readFileSync(backup, 'utf8'))); } catch { return null; }
+}
+
+// settings.json -> { data, recoveredFrom, restoredFrom, unreadable }. A missing
+// file is a fresh profile, unless a backup says otherwise. One that can't be
+// read as an object (half a write, or all zero bytes after a power cut) is moved
+// aside rather than treated as empty: the next save would otherwise replace
+// routines, snippets and XP with the defaults, with nothing left to rescue. Then
+// the backup, when there is one, is what he starts from. One that can't be read
+// or moved at all is left exactly where it is (unreadable: why).
+function loadSettings(file, backup) {
+  const none = { data: {}, recoveredFrom: null, restoredFrom: null, unreadable: null };
+  let text;
+  try { text = retryBusy(() => fs.readFileSync(file, 'utf8')); } catch (err) {
+    if (err.code !== 'ENOENT') return { ...none, unreadable: err.message };
+    const saved = readBackup(backup);
+    return saved ? { ...none, data: saved, restoredFrom: backup } : none;
+  }
+  const data = parseSettings(text);
+  if (data) return { ...none, data };
+  const aside = file.replace(/\.json$/, `.corrupt-${Date.now()}.json`);
+  try { retryBusy(() => fs.renameSync(file, aside)); } catch (err) {
+    return { ...none, unreadable: `damaged, and couldn't be set aside: ${err.message}` };
+  }
+  const saved = readBackup(backup);
+  return { ...none, data: saved || {}, recoveredFrom: aside, restoredFrom: saved ? backup : null };
+}
+
+// Via a temp file flushed to disk (durable.js), so neither a crash mid-write nor
+// a power cut can leave half a settings.json, or one of zeros. A rename that
+// stays blocked falls back to writing in place: better than losing the change.
 function writeSettings(file, text) {
-  const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, text);
-  try { retryBusy(() => fs.renameSync(tmp, file)); return; } catch (err) {
+  try { writeFileDurable(file, text, { rename: (from, to) => retryBusy(() => fs.renameSync(from, to)) }); return; } catch (err) {
     if (!BUSY.has(err.code)) throw err;
   }
   fs.writeFileSync(file, text);
-  fs.rmSync(tmp, { force: true });
+  fs.rmSync(file + '.tmp', { force: true });
 }
 
 module.exports = { Config, MODES, CLI_MODE, DEFAULTS, readJson };

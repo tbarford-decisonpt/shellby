@@ -17,8 +17,12 @@ function wireProfile(d) {
     const { log } = d;
     const userData = app.getPath('userData');
     const config = d.config = new Config(userData);
-    if (config.recoveredFrom) log.error('settings.json could not be read; started from defaults', `the old copy is at ${config.recoveredFrom}`);
+    if (config.restoredFrom) log.warn(`settings.json ${config.recoveredFrom ? 'could not be read' : 'was missing'}; brought back from the backup`, config.recoveredFrom ? `the damaged copy is at ${config.recoveredFrom}` : '');
+    else if (config.recoveredFrom) log.error('settings.json could not be read and there was no backup; started from defaults', `the old copy is at ${config.recoveredFrom}`);
     if (config.unreadable) log.error('settings.json is locked; running on defaults and not saving this session', config.unreadable);
+    // Settings lost with no backup: still someone who was here, so no first-run
+    // welcome, and every screen they had stays open.
+    if (config.lost) config.set({ onboarded: true });
     // Rooms are decided once: everything for someone who was already here, one
     // door at a time for someone new (rooms.js).
     if (config.get('rooms') == null) config.set({ rooms: rooms.initialRooms(!!config.get('onboarded')) });

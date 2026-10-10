@@ -86,7 +86,37 @@ class GitHubService extends EventEmitter {
   }
 
   get state() { return normalizeState(this.config.get('github')); }
-  save(patch) { this.config.set({ github: { ...this.state, ...patch } }); this.emit('change', this.view()); }
+  save(patch) {
+    this.config.set({ github: { ...this.state, ...patch } });
+    if (patch.features && this.signedIn) this.keepFeatures();
+    this.emit('change', this.view());
+  }
+
+  // The features you turned on go beside the token too (TokenStore), so a
+  // settings.json lost to a power cut doesn't send you through every approval
+  // again. Only when they changed: each save re-encrypts the file.
+  keepFeatures() {
+    const on = Object.fromEntries(FEATURES.filter(f => f !== 'profile' && this.state.features[f]).map(f => [f, true]));
+    if (JSON.stringify(on) === JSON.stringify(this.auth.features || {})) return;
+    try { this.store.save({ ...this.auth, features: on }); this.auth = { ...this.auth, features: on }; } catch { /* settings.json still has them */ }
+  }
+
+  /**
+   * At boot. The sign-in lives in its own file and outlives settings.json: when
+   * the settings were lost (no `github` in them at all), the features come back
+   * from beside the token. A sign-in with no account (the settings lost, or the
+   * profile fetch failed) fetches who you are again, so Settings never says
+   * "signed in" with nobody in it.
+   */
+  restore() {
+    if (!this.signedIn) return;
+    if (this.config.get('github') == null && this.auth.features) {
+      const features = { ...this.state.features };
+      for (const f of FEATURES) if (f !== 'profile' && this.auth.features[f] === true) features[f] = true;
+      this.save({ features });
+    }
+    if (!this.state.login) this.refreshProfile().catch(() => { /* offline: the next boot tries again */ });
+  }
   get signedIn() { return !!this.auth?.token; }
   gh() { return new GitHubApi({ token: this.auth.token, api: this.api, fetchImpl: this.fetchImpl, onUnauthorized: () => this.lostAuth() }); }
 

@@ -320,3 +320,51 @@ test('GitHubApi keeps what a 422 was about, not just "Validation Failed"', async
   const fetchImpl = async () => new Response(JSON.stringify({ message: 'Validation Failed', errors: [{ resource: 'PullRequest', code: 'custom', message: 'A pull request already exists for me:x.' }] }), { status: 422 });
   await assert.rejects(new GitHubApi({ token: 't', fetchImpl }).post('/repos/me/crab/pulls', {}), e => e.status === 422 && e.message === 'Validation Failed' && e.detail === 'A pull request already exists for me:x.');
 });
+
+// settings.json lost to a power cut, with the sign-in safe in its own file:
+// Settings said "signed in" with no account, and every feature had to be
+// approved again.
+test('service: the features you turned on are kept beside the token, and come back when the settings are lost', async () => {
+  const mock = await startMockGitHub();
+  try {
+    const dir = tmp();
+    const store = new TokenStore(path.join(dir, 'gh.bin'), fakeCrypto);
+    store.save({ token: 'gho_mocktoken123', scopes: ['gist', 'read:user', 'repo'] });
+    const config = new MemConfig({ github: { login: 'crabfan', features: {} } });
+    const svc = new GitHubService({ config, store, web: mock.base, api: mock.base });
+    await svc.setFeature('sync', true);
+    await svc.setFeature('claude', true);
+    assert.deepEqual(store.load().features, { sync: true, claude: true });
+    await svc.setFeature('claude', false);
+    assert.deepEqual(store.load().features, { sync: true }, 'turning one off is kept too');
+    svc.stop();
+
+    const lost = new MemConfig({}); // no `github` at all
+    const again = new GitHubService({ config: lost, store, web: mock.base, api: mock.base });
+    again.restore();
+    assert.equal(again.view().features.sync.on, true);
+    assert.equal(again.view().features.claude.on, false);
+    assert.ok(await until(() => again.view().login === 'crabfan'), 'and who you are is fetched again');
+    again.stop();
+  } finally { await mock.close(); }
+});
+
+test('service: signed in with nobody in Settings fetches the account again; features you set are left alone', async () => {
+  const mock = await startMockGitHub();
+  try {
+    const store = new TokenStore(path.join(tmp(), 'gh.bin'), fakeCrypto);
+    store.save({ token: 'gho_mocktoken123', scopes: ['gist', 'read:user'], features: { sync: true } });
+    const config = new MemConfig({ github: { features: { sync: false } } });
+    const svc = new GitHubService({ config, store, web: mock.base, api: mock.base });
+    svc.restore();
+    assert.equal(svc.view().features.sync.on, false, 'settings that are there win');
+    assert.ok(await until(() => svc.view().login === 'crabfan'));
+    svc.stop();
+  } finally { await mock.close(); }
+});
+
+test('the token file written earlier, without features, still loads', () => {
+  const file = path.join(tmp(), 'github.bin');
+  fs.writeFileSync(file, fakeCrypto.encryptString(JSON.stringify({ token: 'gho_old', scopes: ['gist'] })));
+  assert.deepEqual(new TokenStore(file, fakeCrypto).load(), { token: 'gho_old', scopes: ['gist'] });
+});

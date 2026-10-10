@@ -189,6 +189,7 @@ const shared = {
   workflows: null,                 // the Automate page's engine (workflows/service.js)
   depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
   claudeUpdates: null,             // the daily look at Claude Code's own version (claude/update.js)
+  claudeLapsed: null,              // a turn failed as signed out: Settings says so (set by ipc/panel.js)
   projects: null,                  // the Projects page (projects/service.js)
   remoteService: null,             // other computers Claude Code runs on, over ssh (remote/service.js)
   devServers: null,                // the dev servers in them (devservers/service.js)

@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { writeFileDurable } = require('./durable');
 
 // Items worth replaying later. Transient ones (thinking, usage, raw logs) are skipped.
 const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'phone', 'checks', 'shots', 'tries', 'compacted', 'fresh', 'cleared', 'rewound', 'shell', 'checkpoint', 'branched', 'branched-off', 'handoff', 'modlog', 'surprise', 'suggest', 'cutoff', 'step-point', 'undone-step']);
@@ -449,12 +450,12 @@ function readIndex(file) {
   }
 }
 
-// A temp file and a rename, never half a file. True if it landed.
+// A temp file flushed to disk and a rename (durable.js): never half a file, nor
+// one of zeros after a power cut. True if it landed.
 function writeJson(file, value, onError) {
   const tmp = `${file}.tmp`;
   try {
-    fs.writeFileSync(tmp, JSON.stringify(value, null, 2));
-    fs.renameSync(tmp, file);
+    writeFileDurable(file, JSON.stringify(value, null, 2));
     return true;
   } catch (e) {
     onError(e);

@@ -29,7 +29,7 @@
     const st = state.status || {};
     $('claudeAccount').hidden = !st.installed || SB.isCrabOnly?.();
     const signedIn = !!st.loggedIn;
-    $('claudeWho').textContent = signedIn ? st.email || 'Signed in' : 'Not signed in';
+    $('claudeWho').textContent = signedIn ? st.email || 'Signed in' : st.lapsed ? 'Sign-in expired' : 'Not signed in';
     $('claudePlan').textContent = T.planLabel(st);
     $('claudeSwitch').hidden = !signedIn;
     $('claudeSignOut').hidden = !signedIn;
