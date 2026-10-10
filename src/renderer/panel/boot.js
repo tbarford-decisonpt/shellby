@@ -75,7 +75,10 @@
   api.onMcpNeedsAuth(({ tabId, names } = {}) => {
     if (!Array.isArray(names) || !names.length) return;
     const one = names.length === 1 ? names[0] : null;
-    SB.toast(one ? `${one} needs you to sign in before Claude can use it.` : `${names.join(', ')} need you to sign in before Claude can use them.`, {
+    // Plugins can bring dozens of these: name two, count the rest (the Toolbox lists them all).
+    const rest = names.length - 2;
+    const who = rest > 0 ? `${names.slice(0, 2).join(', ')} and ${rest} more` : names.join(' and ');
+    SB.toast(one ? `${one} needs you to sign in before Claude can use it.` : `${who} need you to sign in before Claude can use them.`, {
       ms: 15000,
       action: one ? 'Sign in' : 'Show me',
       onAction: async () => {
