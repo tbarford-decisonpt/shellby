@@ -27,7 +27,7 @@
     { id: 'renameTab', fixed: true, group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
     { id: 'focusPane', group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
     { id: 'movePane', group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation to the pane beside it, swapping them (at the left or right edge, to a column of its own)' },
-    { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'Another conversation alongside this one (or drag a tab into the chat, or out of the window)' },
+    { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'This conversation into a pane of its own, or a new one alongside if it’s alone in its pane (or drag a tab into the chat, or out of the window)' },
     { id: 'reopenTab', group: 'Conversations', keys: ['Ctrl+Shift+T'], what: 'Bring back the conversation you closed last (again for the one before)' },
 
     { id: 'stop', fixed: true, group: 'This conversation', keys: ['Esc'], what: 'Stop, while he’s working' },

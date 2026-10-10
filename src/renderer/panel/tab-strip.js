@@ -1,8 +1,9 @@
 /* Shellby panel — the tab strips: each conversation's tab, its icon and name,
    renaming it, its right-click menu, and dragging it: along a strip, into a
    pane of the chat, or out of the window (where it lands: tab-panes.js).
-   drawTabs draws any strip: the top one, which holds every conversation, and
-   (while split) each pane's own. tabs.js owns the tabs themselves. */
+   drawTabs draws any strip: with one pane, the top one, holding every
+   conversation; split, the top one hides and each pane's header (made in
+   tab-panes.js) is a strip of its own tabs. tabs.js owns the tabs themselves. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -101,8 +102,21 @@
   SB.renderTabStrip = () => {
     // Redrawing would throw away the name being typed; finishing the edit redraws.
     if (renaming && document.querySelector('.tabs .title-edit')) return;
-    const split = SB.panes.ids(state.grid).length > 1;
-    drawTabs($('tabs'), [...state.tabs.keys()], state.activeTab, id => split && SB.isShown(id));
+    // A tab that came or went may have changed the panes (tab-panes.js).
+    if (SB.settlePanes()) SB.renderPanes();
+    // Split, the top strip hides empty and each pane's header is a strip of its
+    // own tabs. One pane: its hidden header's strip is emptied, so no stale tab
+    // is left for a document-wide lookup (tabElOf, lift, the edge markers) to find.
+    if (SB.panes.count(state.grid) > 1) {
+      $('tabs').replaceChildren();
+      for (const p of state.grid.flat()) {
+        const strip = SB.paneStripOf(p.id);
+        if (strip) drawTabs(strip, p.tabs, p.active);
+      }
+    } else {
+      for (const p of state.grid.flat()) SB.paneStripOf(p.id)?.replaceChildren();
+      drawTabs($('tabs'), [...state.tabs.keys()], state.activeTab);
+    }
     // Title bar shows total running count at a glance.
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
@@ -120,7 +134,10 @@
   // redraws the strip, and the second click lands on a different element.
   const DOUBLE_MS = 400;
   let lastClick = null;
+  const wired = new WeakSet();  // once per strip: twice, one click would count as a double-click
   function wireStrip(strip) {
+    if (wired.has(strip)) return;
+    wired.add(strip);
     strip.addEventListener('click', e => {
       const el = e.target.closest('.tab');
       if (!el || e.target.closest('.tab-x, .title-edit')) return;

@@ -23,8 +23,12 @@
 
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
-  // The tabs of the strip a tab is in, in order (tab-strip.js walks it with the arrow keys).
-  SB.stripIds = () => [...state.tabs.keys()];
+  // The tabs of the strip a tab is in, in order: its pane's while split, every
+  // conversation with one pane (tab-strip.js walks it with the arrow keys).
+  SB.stripIds = (tabId = state.activeTab) => {
+    const pane = SB.panes.count(state.grid) > 1 && SB.panes.paneWith(state.grid, tabId);
+    return pane ? pane.tabs : [...state.tabs.keys()];
+  };
 
   SB.ensureTab = (summary) => {
     let tab = state.tabs.get(summary.id);
@@ -124,7 +128,7 @@
     // mid-drag can't snap the strip back from under the pointer.
     if (!SB.isDraggingTab()) orderTabs([...summaries.map(s => s.id).filter(id => state.tabs.has(id)), ...[...state.tabs.keys()].filter(id => !ids.has(id))]);
     if (!state.tabs.has(state.activeTab)) {
-      const next = [...state.tabs.keys()].pop();
+      const next = SB.nextShown(); // the last tab; split, one its pane would show (tab-panes.js)
       if (next) SB.activate(next); else if (!SB.solo) SB.newTab();
     }
     syncBusyUi();
@@ -258,11 +262,11 @@
       // otherwise the keys stay the textarea's and the page's.
       // Nor while a tab's name is being typed: the arrows are the caret's then.
       // Nor when something the key was pressed in took it already (defaultPrevented).
-      if (e.defaultPrevented || e.target.closest?.('.title-edit') || !dir || !state.activeTab || state.view !== 'chat' || SB.panes.ids(state.grid).length < 2 || SB.overlayOpen()) return;
+      if (e.defaultPrevented || e.target.closest?.('.title-edit') || !dir || !state.activeTab || state.view !== 'chat' || SB.panes.count(state.grid) < 2 || SB.overlayOpen()) return;
       e.preventDefault();
       if (K.matches(e, 'movePane')) { SB.movePane(state.activeTab, dir); return; }
-      const to = SB.panes.neighbor(state.grid, state.activeTab, dir);
-      if (to) SB.activate(to);
+      const to = SB.panes.neighbor(state.grid, SB.focusedPane(), dir);
+      if (to) SB.activate(SB.panes.byId(state.grid, to).active);
       return;
     }
     // Reordering from the keyboard, where a browser puts it too — and the only way

@@ -1,10 +1,13 @@
 /* Shellby panel — conversations side by side, and in windows of their own.
-   The chat view shows the tabs in state.grid (shared/panes.js decides the
-   shapes: up to four columns of up to three), each pane with a slim
-   header that hides while there's only one. The box belongs to the focused
-   pane. A tab dragged out of the window (tab-strip.js) or sent out with its
-   button gets a window of its own (main's wiring/popouts.js). tabs.js owns
-   the tabs themselves. */
+   The chat view shows the panes in state.grid (shared/panes.js decides the
+   shapes: up to four columns of up to three). Each pane is a group of tabs:
+   a header that is its own tab strip (tab-strip.js draws the tabs), the feed
+   of the tab it shows, and a slot for the box. With one pane the header
+   hides and the top strip holds every conversation, as it always has. The
+   box belongs to the focused pane: the one holding state.activeTab. Room for
+   the panes, and growing the panel to make it, is pane-room.js. A tab
+   dragged out of the window (tab-strip.js) or sent out with its button gets
+   a window of its own (main's wiring/popouts.js). tabs.js owns the tabs. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -12,27 +15,49 @@
   const input = $('input');
   const PLACEHOLDER = input.placeholder;
   const POP_ICON = 'M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .4-.4.8-.8.8H3.3c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8h3.2';
+  const PLUS_ICON = 'M8 3.5v9M3.5 8h9';
+  const CLOSE_ICON = 'M4.5 4.5l7 7M11.5 4.5l-7 7';
+  const EDGES = new Set(['left', 'right', 'top', 'bottom']);
 
-  SB.isShown = tabId => P.has(state.grid, tabId);
+  // On screen: the tab a pane shows.
+  SB.isShown = tabId => P.shownTabs(state.grid).includes(tabId);
+  // The pane holding the conversation the box talks to.
+  const focusedPane = () => P.paneWith(state.grid, state.activeTab)?.id ?? null;
+  SB.focusedPane = focusedPane;
+  // Where a tab that turns up goes: the focused pane, or, with the focused tab
+  // just taken away under the panes (a folder change, tab-chips.js; a History
+  // delete, history.js), the pane that held it, so its replacement opens there.
+  // A redraw can come before the replacement does (main's tab list, a busy
+  // tab), and take the tab that went out of that pane, so it's remembered.
+  let lastFocused = null;
+  const homePane = () => focusedPane() ?? (P.byId(state.grid, lastFocused) ? lastFocused : null);
+  const activeOf = paneId => P.byId(state.grid, paneId)?.active ?? null;
 
   // ------------------------------------------------------------ panes
 
-  const panes = new Map();   // tabId -> { el, head, slot }, for the tabs on screen
-  let shape = '';            // the grid the pane elements were last put together for
+  const panes = new Map();   // paneId -> { el, head, strip, slot }, for the panes on screen
+  let shape = '';            // P.layoutKey of the grid the pane elements were last put together for
   const box = $('composer');
   const home = $('chatView');
 
   const paneRow = () => $('feeds').querySelector(':scope > .pane-row') || $('feeds').appendChild(h('div', { class: 'pane-row' }));
+  SB.paneStripOf = id => panes.get(id)?.strip || null;
 
-  // A tab's pane: its header, its feed and the slot under it for the box.
-  function paneOf(t) {
-    let p = panes.get(t.id);
+  // A pane's element: its header (its strip), the feed of the tab it shows,
+  // and the slot under it for the box. Another tab's feed left in it goes
+  // back to waiting, hidden, in #feeds.
+  function paneOf(pane) {
+    let p = panes.get(pane.id);
     if (!p) {
-      const head = paneHead(t);
+      const { head, strip } = paneHead(pane.id);
       const slot = h('div', { class: 'pane-slot' });
-      p = { el: h('div', { class: 'pane', dataset: { tab: t.id } }, head, t.el, slot), head, slot };
-      panes.set(t.id, p);
-    } else if (t.el.parentElement !== p.el) p.el.insertBefore(t.el, p.slot);
+      p = { el: h('div', { class: 'pane', dataset: { pane: pane.id, tab: pane.active } }, head, slot), head, strip, slot };
+      panes.set(pane.id, p);
+    }
+    const t = state.tabs.get(pane.active);
+    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot && el !== t?.el) { el.hidden = true; $('feeds').append(el); }
+    if (t && t.el.parentElement !== p.el) p.el.insertBefore(t.el, p.slot);
+    p.el.dataset.tab = pane.active;
     return p;
   }
 
@@ -41,29 +66,45 @@
     const p = panes.get(id);
     if (!p) return;
     if (p.slot.contains(box)) home.append(box);
-    const t = state.tabs.get(id);
-    if (t && t.el.parentElement === p.el) { t.el.hidden = true; $('feeds').append(t.el); }
+    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot) { el.hidden = true; $('feeds').append(el); }
     p.el.remove();
     panes.delete(id);
   }
 
-  // `tabId` takes the focused pane, unless it's on screen already: then its
-  // pane takes the focus. With the focused tab just gone, it takes that one's
-  // place. tabs.js calls this as it activates a tab.
-  SB.showInPane = (tabId) => {
-    const into = state.activeTab ?? P.ids(state.grid).find(id => !state.tabs.has(id));
-    state.grid = P.keep(P.replace(state.grid, into, tabId), id => state.tabs.has(id));
+  // Every open conversation in exactly one pane: one closed leaves its pane,
+  // and one that turned up (a new tab, one back from its own window, one main
+  // opened) joins the focused pane. One pane holds them in the strip's own
+  // order, as main keeps it. -> whether the panes, or a pane's shown tab, changed.
+  SB.settlePanes = () => {
+    const open = [...state.tabs.keys()];
+    const next = P.follow(P.settle(state.grid, open, homePane()), open);
+    const changed = P.layoutKey(next) !== P.layoutKey(state.grid);
+    state.grid = next;
+    return changed;
   };
 
+  // `tabId` shows in its pane, which takes the focus; one in no pane yet joins
+  // the focused pane (homePane), after the tab it shows. tabs.js calls this as
+  // it activates a tab, before state.activeTab changes.
+  SB.showInPane = (tabId) => {
+    state.grid = P.show(state.grid, tabId, homePane());
+  };
+
+  // Lays out the panes. Their strips are drawn by tab-strip.js (renderTabStrip
+  // follows every call to this that changes them).
   SB.renderPanes = () => {
+    SB.settlePanes();
+    lastFocused = focusedPane() ?? lastFocused;
     state.paneSizes = P.fitSizes(state.grid, state.paneSizes);
-    const shown = new Set(P.ids(state.grid));
-    $('feeds').dataset.panes = shown.size;
-    for (const id of [...panes.keys()]) if (!shown.has(id) || !state.tabs.has(id)) dropPane(id);
+    const live = new Set(P.paneIds(state.grid));
+    const shown = new Set(P.shownTabs(state.grid));
+    $('feeds').dataset.panes = live.size;
+    document.body.classList.toggle('panes-split', live.size > 1);
+    for (const id of [...panes.keys()]) if (!live.has(id)) dropPane(id);
     for (const t of state.tabs.values()) if (!shown.has(t.id)) t.el.hidden = true;
-    const next = JSON.stringify(state.grid);
+    const next = P.layoutKey(state.grid);
     // A tab made anew under an id already on screen (the screenshot demo) has a feed no pane holds yet.
-    const loose = [...shown].some(id => state.tabs.get(id)?.el.parentElement !== panes.get(id)?.el);
+    const loose = state.grid.flat().some(p => state.tabs.get(p.active)?.el.parentElement !== panes.get(p.id)?.el);
     if (next !== shape || loose) {
       shape = next;
       // Moving a feed in the page loses its scroll; put each back after.
@@ -77,14 +118,14 @@
       state.grid.forEach((col, c) => {
         if (c) nodes.push(divider('w', c - 1));
         const colEl = h('div', { class: 'pane-col', dataset: { col: c } });
-        col.forEach((id, r) => {
+        col.forEach((pane, r) => {
           if (r) colEl.append(divider('h', c, r - 1));
-          colEl.append(paneOf(state.tabs.get(id)).el);
+          colEl.append(paneOf(pane).el);
         });
         nodes.push(colEl);
       });
       paneRow().replaceChildren(...nodes);
-      for (const id of shown) state.tabs.get(id).el.hidden = false;
+      for (const id of shown) { const t = state.tabs.get(id); if (t) t.el.hidden = false; }
       requestAnimationFrame(() => {
         for (const id of shown) {
           const t = state.tabs.get(id);
@@ -99,7 +140,7 @@
     applySizes();
     placeBox();
     SB.refreshPaneHeads();
-    SB.savePanes?.();
+    SB.savePanes();
   };
 
   // Shares, not raw weights: a flex-grow sum under 1 leaves part of the row empty.
@@ -108,9 +149,10 @@
     for (const col of paneRow().querySelectorAll(':scope > .pane-col')) {
       const c = +col.dataset.col;
       col.style.flexGrow = cols[c] ?? 1;
-      (state.grid[c] || []).forEach((id, r) => { const p = panes.get(id); if (p) p.el.style.flexGrow = rows[c]?.[r] ?? 1; });
+      (state.grid[c] || []).forEach((pane, r) => { const p = panes.get(pane.id); if (p) p.el.style.flexGrow = rows[c]?.[r] ?? 1; });
     }
   }
+  SB.applyPaneSizes = applySizes;
 
   // The layout, for the next start: a moment after it settles, only while
   // split, never from a popped-out window. Back to one pane, it's cleared once,
@@ -118,7 +160,7 @@
   let saveTimer = null;
   SB.savePanes = () => {
     if (SB.solo) return;
-    const split = P.ids(state.grid).length > 1;
+    const split = P.count(state.grid) > 1;
     if (!split && !state.panesSaved) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -127,38 +169,12 @@
     }, 500);
   };
 
-  // A split brought back at boot (boot.js) that needs more room than the panel
-  // has grows it, as a split would. Measured with the chat on screen only: from
-  // another view (first run, a deep link) it waits until the chat shows.
-  let growWanted = false;
-  SB.growForPanes = () => { growWanted = true; if (state.view === 'chat') growNow(); };
-  SB.views.chat = { render: () => { if (growWanted) growNow(); } };
-  // Room for the panes at the sizes they were left at; on a screen too small
-  // for that, room for them evened out, and the sizes evened as far as they
-  // have to be, so no pane comes back under P.MIN.
-  async function growNow() {
-    growWanted = false;
-    await null; // the map's observer of the view change runs before this goes on
-    await SB.roomSettled?.();
-    await new Promise(requestAnimationFrame);
-    if (state.view !== 'chat') { growWanted = true; return; }
-    if (P.ids(state.grid).length < 2) return;
-    const asLeft = SB.roomFor(state.grid, state.paneSizes);
-    const room = asLeft.ok ? asLeft : SB.roomFor(state.grid);
-    if (!room.ok) return; // not even evened out on this screen: as it is, then
-    if (room.want) await api.fitPanel(room.want);
-    if (asLeft.ok) return;
-    state.paneSizes = atLeastMin(state.grid, state.paneSizes, room.space);
-    applySizes();
-    SB.savePanes();
-  }
-
   // While there's more than one pane the box lives in the focused one, and the
   // others show their own draft in its place: a stand-in that hands the box
   // over on a click or a key. With one pane it sits where it always has.
   function placeBox() {
     const split = panes.size > 1;
-    const into = split ? panes.get(state.activeTab)?.slot : null;
+    const into = split ? panes.get(focusedPane())?.slot : null;
     if (box.parentElement !== (into || home)) {
       const hadFocus = document.activeElement === input;
       SB.hideSlash?.(); // slash-menu.js and composer.js load after this file
@@ -174,10 +190,10 @@
   }
 
   // Its name for a screen reader is what it shows: the draft, the mark and the
-  // queue. The title says what it's for.
-  function standIn(id) {
+  // queue. The title says what it's for. It speaks for whichever tab its pane shows.
+  function standIn(paneId) {
     return h('button', {
-      class: 'pane-standin', type: 'button', dataset: { tab: id },
+      class: 'pane-standin', type: 'button', dataset: { pane: paneId },
       title: 'Type here to give this conversation a task',
       // The #feeds pointerdown below hands this pane the box and focuses it;
       // the press that follows would land on whatever is under the pointer once
@@ -186,10 +202,12 @@
       // open menu (core.js), so that's done here.
       onpointerdown: e => { SB.closeMenus(); e.preventDefault(); },
       // Enter or Space on it. After a pointer press the box has already moved in.
-      onclick: () => SB.activate(id),
+      onclick: () => { const id = activeOf(paneId); if (id) SB.activate(id); },
       onkeydown: e => {
         // AltGr comes as Ctrl+Alt, and types @, { or \ on many keyboards.
         if (e.key.length !== 1 || e.metaKey || ((e.ctrlKey || e.altKey) && !e.getModifierState('AltGraph'))) return;
+        const id = activeOf(paneId);
+        if (!id) return;
         e.preventDefault();
         SB.activate(id);
         input.setRangeText(e.key, input.selectionStart, input.selectionEnd, 'end');
@@ -199,74 +217,6 @@
     }, h('span', { class: 'standin-text' }), h('span', { class: 'standin-meta' }));
   }
 
-  // ------------------------------------------------------------ room
-
-  // What the panes take beyond P.MIN, measured from components.css with the
-  // panes split: #feeds has 6 px of padding left, right and top; each column
-  // after the first has a 6 px line before it, and each pane a 6 px margin
-  // under it (the line between two in a column sits in that margin). So N
-  // columns of M panes take N x 286 + 6 by M x 206 + 6 px. A pane's header
-  // (28 px), border and stand-in or box are inside its MIN.
-  const PANE_CHROME = { width: 6, height: 6 };
-  const FEEDS_PAD = 6;
-  // Main keeps a grown panel this far inside the screen's work area (wiring/panel.js ROOMY.gap).
-  const SCREEN_GAP = 8 * 2;
-
-  // CSS px `grid` takes with its smallest pane at P.MIN, at `sizes`: the
-  // forward of atLeastMin below. Even sizes come to P.needs plus the padding.
-  function needAt(grid, sizes) {
-    const { cols, rows } = P.shares(grid, sizes);
-    return {
-      width: Math.ceil(FEEDS_PAD + grid.length * PANE_CHROME.width + P.MIN.width / Math.min(...cols)),
-      height: Math.ceil(FEEDS_PAD + Math.max(...grid.map((col, c) => col.length * PANE_CHROME.height + P.MIN.height / Math.min(...rows[c])))),
-    };
-  }
-
-  // Room for `grid` in this window: { ok: true } as it is, { ok: true, want }
-  // once the window grows to `want` ({ width, height } in DIP, what main's
-  // fitPanel takes), or { ok: false }: not on this screen. `space`: the CSS px
-  // the panes get then. The DOM measures in CSS px, which the page's zoom
-  // scales; the window and screen are in DIP. With `sizes`, room for the
-  // panes at those sizes; without, evened out.
-  SB.roomFor = (grid, sizes = null) => {
-    const f = $('feeds').getBoundingClientRect();
-    const n = P.needs(grid, PANE_CHROME);
-    const need = sizes ? needAt(grid, sizes) : { width: n.width + FEEDS_PAD, height: n.height + FEEDS_PAD };
-    // Split, the box moves into a pane and the feeds take its place.
-    // Shown again from another view, the chat can have a scrollbar for a frame
-    // or two (10 px of the feeds' width); the panes never scroll it, so count it in.
-    const bar = Math.max(0, home.offsetWidth - home.clientWidth);
-    const avail = { width: f.width + bar, height: f.height + (box.parentElement === home ? box.offsetHeight : 0) };
-    const space = { width: Math.max(avail.width, need.width), height: Math.max(avail.height, need.height) };
-    if (need.width <= avail.width && need.height <= avail.height) return { ok: true, space };
-    const zoom = api.zoomFactor?.() || 1;
-    // innerWidth x zoom is the window's own size (outerWidth adds Windows' invisible resize frame).
-    const want = {
-      width: Math.round(window.innerWidth * zoom) + Math.ceil(Math.max(0, need.width - avail.width) * zoom),
-      height: Math.round(window.innerHeight * zoom) + Math.ceil(Math.max(0, need.height - avail.height) * zoom),
-    };
-    if (want.width > window.screen.availWidth - SCREEN_GAP || want.height > window.screen.availHeight - SCREEN_GAP) return { ok: false };
-    return { ok: true, want, space };
-  };
-
-  // `sizes` for `grid`, with any axis that would leave a pane under P.MIN in
-  // `space` px evened out. A split halves what it splits, so in a window only
-  // just big enough the halves can come out under the minimum though the
-  // panes fit side by side evenly (roomFor's sum).
-  function atLeastMin(grid, sizes, space) {
-    const { cols, rows } = P.shares(grid, sizes);
-    const across = space.width - FEEDS_PAD - grid.length * PANE_CHROME.width;
-    let s = sizes;
-    if (cols.some(f => f * across < P.MIN.width - 0.5)) s = P.even(grid, s, 'w');
-    grid.forEach((col, c) => {
-      const down = space.height - FEEDS_PAD - col.length * PANE_CHROME.height;
-      if (rows[c].some(f => f * down < P.MIN.height - 0.5)) s = P.even(grid, s, 'h', c);
-    });
-    return s;
-  }
-
-  const NO_ROOM = 'No room for another pane on this screen. Close one, or make the window bigger.';
-
   // The line between two columns (axis 'w', after column c) or two panes in
   // column c (axis 'h', after pane r). Drag it; double-click to even them out.
   function divider(axis, c, r = null) {
@@ -275,7 +225,7 @@
       'aria-orientation': axis === 'w' ? 'vertical' : 'horizontal',
       title: 'Drag to resize · double-click to even out',
       onpointerdown: e => dragDivider(e, axis, c, r),
-      ondblclick: () => { state.paneSizes = P.even(state.grid, state.paneSizes, axis, c); applySizes(); SB.savePanes?.(); },
+      ondblclick: () => { state.paneSizes = P.even(state.grid, state.paneSizes, axis, c); applySizes(); SB.savePanes(); },
     });
   }
 
@@ -284,7 +234,7 @@
     e.preventDefault();
     e.stopPropagation();
     const across = axis === 'w';
-    const ids = across ? [state.grid[c][0], state.grid[c + 1][0]] : [state.grid[c][r], state.grid[c][r + 1]];
+    const ids = across ? [state.grid[c][0].id, state.grid[c + 1][0].id] : [state.grid[c][r].id, state.grid[c][r + 1].id];
     const els = across ? [...paneRow().querySelectorAll(':scope > .pane-col')].slice(c, c + 2) : ids.map(id => panes.get(id).el);
     const [aPx, bPx] = els.map(el => el.getBoundingClientRect()[across ? 'width' : 'height']);
     const s0 = P.fitSizes(state.grid, state.paneSizes);
@@ -311,40 +261,53 @@
       for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) line.removeEventListener(type, up);
       document.removeEventListener('lostpointercapture', up, true);
       document.body.classList.remove('resizing-panes');
-      SB.savePanes?.();
+      SB.savePanes();
     };
     line.addEventListener('pointermove', move);
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) line.addEventListener(type, up);
     document.addEventListener('lostpointercapture', up, true);
   }
 
-  function paneHead(t) {
-    return h('div', { class: 'pane-head', dataset: { tab: t.id }, onpointerdown: e => SB.dragTab(e, t.id) },
-      h('span', { class: 'pane-state' }),
-      h('span', { class: 'pane-title' }),
-      h('button', { class: 'pane-btn', type: 'button', title: 'Open in its own window', 'aria-label': 'Open in its own window', onclick: () => SB.popOut(t.id) },
+  // A pane's header is its tab strip, with its own edge markers (tab-overview.js),
+  // then a new conversation in this pane, pop out the tab it shows, and close the pane.
+  function paneHead(paneId) {
+    const strip = h('div', { class: 'tabs pane-tabs', role: 'tablist', 'aria-label': 'Conversations in this pane' });
+    const left = h('button', { type: 'button', class: 'tab-edge left', hidden: true });
+    const right = h('button', { type: 'button', class: 'tab-edge right', hidden: true });
+    const head = h('div', { class: 'pane-head', dataset: { pane: paneId } },
+      h('div', { class: 'tabs-wrap' }, strip, left, right),
+      h('button', { class: 'pane-btn', type: 'button', title: 'New conversation in this pane (Ctrl+T)', 'aria-label': 'New conversation in this pane', onclick: () => newTabIn(paneId) },
+        SB.icon(PLUS_ICON, { width: 1.6 })),
+      h('button', { class: 'pane-btn', type: 'button', title: 'Open in its own window', 'aria-label': 'Open in its own window', onclick: () => { const id = activeOf(paneId); if (id) SB.popOut(id); } },
         SB.icon(POP_ICON)),
-      h('button', { class: 'pane-btn', type: 'button', title: 'Close this pane (the conversation keeps its tab)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(t.id) },
-        SB.icon('M4.5 4.5l7 7M11.5 4.5l-7 7', { width: 1.5 })));
+      h('button', { class: 'pane-btn', type: 'button', title: 'Close this pane (its conversations move to the one beside it)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(paneId) },
+        SB.icon(CLOSE_ICON, { width: 1.5 })));
+    SB.wireStrip(strip);
+    SB.watchEdges(strip, left, right);
+    return { head, strip };
   }
 
-  // Names and working/asking marks change all the time; the headers are updated
-  // in place, so a button being pressed is never swapped out from under you.
+  // A strip's "+": a new conversation in that pane, after the tab it shows.
+  function newTabIn(paneId) {
+    const id = activeOf(paneId);
+    if (id && id !== state.activeTab) SB.activate(id);
+    SB.newTab();
+  }
+
+  // Working and asking marks change all the time; the panes are updated in
+  // place, so a button being pressed is never swapped out from under you.
   // tab-strip.js calls this whenever it redraws.
   SB.refreshPaneHeads = () => {
     const split = panes.size > 1;
+    const here = focusedPane();
     for (const [id, p] of panes) {
-      const head = p.head;
-      const t = state.tabs.get(id);
+      const t = state.tabs.get(activeOf(id));
       if (!t) continue;
-      const focused = split && id === state.activeTab;
-      head.classList.toggle('focused', focused);
+      const focused = split && id === here;
+      p.head.classList.toggle('focused', focused);
       t.el.classList.toggle('focused', focused);
       p.el.classList.toggle('focused', focused);
-      head.querySelector('.pane-state').replaceChildren(...[SB.tabIcon(t)].filter(Boolean));
-      const title = head.querySelector('.pane-title');
-      title.textContent = SB.shownTitle(t);
-      title.title = t.title;
+      p.el.dataset.tab = t.id;
       const stand = p.slot.querySelector('.pane-standin');
       if (stand) {
         const text = String(t.draft || '').trim().split('\n')[0];
@@ -366,9 +329,12 @@
   // the box is there to type in by the time it's let go. Not for a button or
   // link in a feed (Allow on a permission card, an answer): the box moving in
   // can scroll a feed kept at its end up under the pointer before it's let go,
-  // and the click would miss. Those focus their pane as they're clicked.
+  // and the click would miss. Those focus their pane as they're clicked. Not
+  // for a pane's header either: its tabs and buttons do their own thing on the
+  // click, which a redraw on the press would lose.
   const FEED_CONTROL = '.feed :is(button, a[href], input, select, textarea, summary, label, [role="button"], [role="menuitem"], [role="option"])';
   const paneTo = e => {
+    if (e.target.closest?.('.pane-head')) return null;
     const id = e.target.closest?.('[data-tab]')?.dataset.tab;
     return id && id !== state.activeTab && state.tabs.has(id) ? id : null;
   };
@@ -386,80 +352,86 @@
     if (field !== document.activeElement && field?.isConnected && field.closest('.feed') && field.matches('input, textarea, select, [contenteditable]')) field.focus({ preventScroll: true });
   }, true);
 
-  // Drop `tabId` on `target`'s pane (`zone`: see panes.place) and focus it
-  // there, growing the window first if the panes need it. -> placed?
-  SB.placeTab = async (tabId, target, zone) => {
-    const before = state.grid;
-    let next = P.place(before, tabId, target, zone);
-    if (next === before) return false;
-    let room = SB.roomFor(next);
-    if (!room.ok) { SB.toast(NO_ROOM); return false; }
-    if (room.want) {
-      await api.fitPanel(room.want);
-      // The grid may have changed while the window grew (a tab closed, say): place it on that one.
-      if (state.grid !== before) {
-        if ((next = P.place(state.grid, tabId, target, zone)) === state.grid) return false;
-        if (!(room = SB.roomFor(next)).ok) { SB.toast(NO_ROOM); return false; }
+  // Drop `tabId` on pane `target` (`zone`: see panes.place; 'strip' with
+  // `before`, the tab to land in front of) and focus it there, growing the
+  // window first if a new pane needs it. -> placed?
+  SB.placeTab = async (tabId, target, zone, before = null) => {
+    const was = state.grid;
+    let next = P.place(was, tabId, target, zone, before);
+    if (next === was) return false;
+    let room = { ok: true, space: null };
+    if (EDGES.has(zone)) {
+      room = SB.roomFor(next);
+      if (!room.ok) { SB.toast(SB.NO_ROOM); return false; }
+      if (room.want) {
+        await api.fitPanel(room.want);
+        // The grid may have changed while the window grew (a tab closed, say): place it on that one.
+        if (state.grid !== was) {
+          if ((next = P.place(state.grid, tabId, target, zone, before)) === state.grid) return false;
+          if (!(room = SB.roomFor(next)).ok) { SB.toast(SB.NO_ROOM); return false; }
+        }
       }
     }
-    state.paneSizes = atLeastMin(next, P.placeSizes(state.grid, state.paneSizes, tabId, target, zone), room.space);
+    const sizes = P.placeSizes(state.grid, state.paneSizes, tabId, target, zone);
+    state.paneSizes = room.space ? SB.atLeastMin(next, sizes, room.space) : sizes;
     state.grid = next;
     SB.activate(tabId);
     return true;
   };
 
-  // Off screen, but still a tab.
-  SB.closePane = (tabId) => {
-    if (!SB.isShown(tabId) || P.ids(state.grid).length < 2) return;
-    state.grid = P.remove(state.grid, tabId);
-    if (state.activeTab === tabId) SB.activate(P.ids(state.grid)[0]);
+  // A pane's ×: the pane goes and its tabs move into the pane beside it
+  // (panes.merge), so no conversation closes by accident. That pane keeps the
+  // tab it shows, and takes the focus if the closed one had it.
+  SB.closePane = (paneId) => {
+    const { grid, into } = P.merge(state.grid, paneId);
+    if (!into) return;
+    const hadFocus = focusedPane() === paneId;
+    state.grid = grid;
+    if (hadFocus) SB.activate(P.byId(grid, into).active);
     else { SB.renderPanes(); SB.renderTabStrip(); }
   };
 
-  // The chat on screen at the size it will stay, for measuring the room in it.
-  // From another view (the split shortcut, the palette) it's shown first, and a
-  // map's Make room (wf-kit.js) is let go before anything's measured. -> shows?
-  async function chatShowing() {
-    if (state.view !== 'chat') SB.setView('chat');
-    await null; // the map's observer of the view change runs before this goes on
-    await SB.roomSettled?.();
-    return state.view === 'chat'; // just the crab has no chat
-  }
-
-  // The split shortcut and button: the newest conversation that isn't on screen
-  // (or a fresh one) goes beside the focused pane while there's room for
-  // another column, then below one. ('new' stands in for it: an id never in
-  // the grid, so place treats it as a tab coming from off screen.)
+  // The split shortcut and button. The focused pane's tab goes into a pane of
+  // its own when its pane holds others; otherwise a new conversation does.
+  // Beside the focused pane while there's room for another column, then below
+  // one. ('new' stands in for a new conversation while the room is measured:
+  // an id in no pane, so place treats it as a tab coming from off screen.)
   SB.splitPane = async () => {
-    if (SB.solo || !state.activeTab || !(await chatShowing())) return;
-    const spots = [state.activeTab, ...P.ids(state.grid)];
-    const fits = zone => id => P.zones(state.grid, id).includes(zone) && SB.roomFor(P.place(state.grid, 'new', id, zone)).ok;
+    if (SB.solo || !state.activeTab || !(await SB.chatShowing())) return;
+    const here = P.paneWith(state.grid, state.activeTab);
+    const take = here && here.tabs.length > 1 ? state.activeTab : null;
+    const moving = take || 'new';
+    const spots = [...new Set([here?.id, ...P.paneIds(state.grid)].filter(Boolean))];
+    const fits = zone => id => P.zones(state.grid, id, moving).includes(zone) && SB.roomFor(P.place(state.grid, moving, id, zone)).ok;
     const side = spots.find(fits('right'));
     const below = !side && spots.find(fits('bottom'));
     if (!side && !below) {
-      return SB.toast(P.ids(state.grid).length >= P.MAX_COLS * P.MAX_ROWS ? 'Twelve is as many as there are. Close a pane first.' : NO_ROOM);
+      return SB.toast(P.count(state.grid) >= P.MAX_COLS * P.MAX_ROWS ? 'Twelve is as many as there are. Close a pane first.' : SB.NO_ROOM);
     }
-    let next = [...state.tabs.keys()].reverse().find(id => !SB.isShown(id));
-    const fresh = !next;
-    if (fresh) next = (await SB.newTab({ focus: false, reuse: false }))?.id;
-    // Refused after all (the room went while the window grew): a tab made for it goes again.
-    if (next && !(await SB.placeTab(next, side || below, side ? 'right' : 'bottom')) && fresh) SB.closeTab(next);
+    const target = side || below;
+    const zone = side ? 'right' : 'bottom';
+    if (take) return SB.placeTab(take, target, zone);
+    const fresh = (await SB.newTab({ focus: false, reuse: false }))?.id;
+    // Refused after all (the room went while the window grew): the tab made for it goes again.
+    if (fresh && !(await SB.placeTab(fresh, target, zone))) SB.closeTab(fresh);
   };
 
-  // Ctrl+Alt+arrow: this conversation swaps with the pane that way, or at the
-  // left or right edge takes a column of its own (panes.moveToward decides; placeTab
-  // checks the room). From another view the chat is shown and settled first, as
-  // for Split, so the room isn't measured on a hidden view. -> moved?
+  // Ctrl+Alt+arrow: this conversation moves into the pane that way, where it
+  // joins that pane's tabs, or at the left or right edge takes a column of its
+  // own (panes.moveToward decides; placeTab checks the room). From another view
+  // the chat is shown and settled first, as for Split. -> moved?
   const DIRS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
   SB.paneDir = key => DIRS[key] || null;
   SB.movePane = async (tabId, dir) => {
-    if (SB.solo || !(await chatShowing())) return false;
+    if (SB.solo || !(await SB.chatShowing())) return false;
     const to = P.moveToward(state.grid, tabId, dir);
     if (to) return SB.placeTab(tabId, to.target, to.zone); // which toasts when the room's not there
-    // At the left or right edge with a column to itself to take, but no fifth column or no room: say so.
-    const at = P.find(state.grid, tabId);
-    if ((dir === 'left' || dir === 'right') && at && state.grid[at.c].length > 1 && !P.neighbor(state.grid, tabId, dir)) {
-      SB.toast(state.grid.length >= P.MAX_COLS ? 'Four columns is as many as there are. Close a pane first.' : NO_ROOM);
+    // At the left or right edge with something to leave behind (other tabs in
+    // its pane, or a pane it shares a column with), but no fifth column: say so.
+    const own = P.paneWith(state.grid, tabId);
+    const at = own && P.find(state.grid, own.id);
+    if ((dir === 'left' || dir === 'right') && at && !P.neighbor(state.grid, own.id, dir) && (own.tabs.length > 1 || state.grid[at.c].length > 1)) {
+      SB.toast(state.grid.length >= P.MAX_COLS ? 'Four columns is as many as there are. Close a pane first.' : SB.NO_ROOM);
     }
     return false;
   };
@@ -474,31 +446,29 @@
 
   const OUT = 24;   // px past the window's edge before letting go pops the tab out
 
-  // What letting go here would do: reorder the strip, split or swap a pane, pop
-  // the tab out (well outside the window), or nothing. For tab-strip.js's drag.
+  // What letting go here would do: reorder the top strip, join or split a
+  // pane, pop the tab out (well outside the window), or nothing. For tab-strip.js's drag.
   SB.dropAt = (x, y, dragId) => {
     const w = window.innerWidth, ht = window.innerHeight;
     if (x < -OUT || y < -OUT || x > w + OUT || y > ht + OUT) return SB.solo ? null : { kind: 'out' };
     x = Math.min(Math.max(x, 0), w - 1);
     y = Math.min(Math.max(y, 0), ht - 1);
-    if (y < $('tabstrip').getBoundingClientRect().bottom) return { kind: 'strip' };
+    if (y < $('tabstrip').getBoundingClientRect().bottom) return { kind: 'strip' }; // hidden while split: a zero rect
     if (state.view !== 'chat') return null;
-    for (const id of P.ids(state.grid)) {
-      if (!panes.has(id)) continue;
-      const pane = paneRect(id);
-      if (x < pane.left || x >= pane.left + pane.width || y < pane.top || y >= pane.top + pane.height) continue;
-      if (id === dragId) return null;
+    const inside = r => x >= r.left && x < r.left + r.width && y >= r.top && y < r.top + r.height;
+    for (const pane of state.grid.flat()) {
+      const p = panes.get(pane.id);
+      if (!p) continue;
+      const r = p.el.getBoundingClientRect();
+      if (!inside(r)) continue;
       // Only where the panes would still fit on this screen.
-      const allowed = P.zones(state.grid, id, dragId).filter(z => z === 'center' || SB.roomFor(P.place(state.grid, dragId, id, z)).ok);
-      const zone = P.zoneAt(pane, x, y, allowed);
-      const colRect = panes.get(id).el.parentElement.getBoundingClientRect();
-      return { kind: 'pane', target: id, zone, rect: P.previewRect(zone, pane, colRect) };
+      const allowed = P.zones(state.grid, pane.id, dragId).filter(z => z === 'center' || SB.roomFor(P.place(state.grid, dragId, pane.id, z)).ok);
+      const zone = P.zoneAt(r, x, y, allowed);
+      if (!allowed.includes(zone)) return null; // the middle of the pane already showing it
+      return { kind: 'pane', target: pane.id, zone, rect: P.previewRect(zone, r, p.el.parentElement.getBoundingClientRect()) };
     }
     return null;
   };
-
-  // A pane: its header (when it shows), its feed and its box slot.
-  const paneRect = id => panes.get(id).el.getBoundingClientRect();
 
   // The preview of where it will land, or none.
   SB.showDrop = (drop) => {
@@ -536,22 +506,36 @@
     SB.renderTabStrip();
   };
 
-  // A tab leaves this window: closed, popped out, or gone from main.
+  // The tab to show once the focused one has gone. Split: the one pane `was`
+  // (the pane it was in) shows now, else the first pane's. With one pane, the
+  // last tab in the strip, as it always was.
+  function nextShown(was) {
+    const split = P.count(state.grid) > 1;
+    return (split && (activeOf(was) || P.shownTabs(state.grid)[0])) || [...state.tabs.keys()].pop();
+  }
+  // For main's tab list (tabs.js syncTabs) arriving with no tab focused: the
+  // focused one taken away under the panes, its replacement not here yet.
+  SB.nextShown = () => { SB.settlePanes(); return nextShown(homePane()); };
+
+  // A tab leaves this window: closed, popped out, or gone from main. Split,
+  // its pane shows its neighbour (a pane left with none closes) and, if it was
+  // the one the box talked to, that neighbour takes the focus (nextShown).
   SB.forgetTab = (tabId) => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;
-    dropPane(tabId);
+    const was = P.paneWith(state.grid, tabId)?.id;
     tab.destroy();
     state.tabs.delete(tabId);
-    state.grid = P.remove(state.grid, tabId);
+    state.grid = P.leave(state.grid, tabId);
     if (state.activeTab !== tabId) return SB.renderPanes();
     state.activeTab = null;
-    const next = P.ids(state.grid)[0] || [...state.tabs.keys()].pop();
+    const next = nextShown(was);
     if (next) SB.activate(next);
     else if (!SB.solo) SB.newTab();
   };
 
-  // A popped-out conversation's window closed: it's a tab here again.
+  // A popped-out conversation's window closed: it's a tab here again, in the
+  // focused pane (renderTabStrip settles it there).
   api.onTabReturned(({ summary, items, carry }) => {
     if (!summary) return;
     state.popped.delete(summary.id);

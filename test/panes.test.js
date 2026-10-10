@@ -299,18 +299,3 @@ test('the preview shows the half the new pane will take', () => {
   assert.deepEqual(P.previewRect('bottom', pane, view), { left: 0, top: 50, width: 100, height: 50 });
   assert.deepEqual(P.previewRect('center', pane, view), pane);
 });
-
-// Until tab-panes.js moves to panes (Task 4 deletes these and this test).
-test('compatibility shims read a grid of tab ids, as the panel keeps it until it catches up', () => {
-  const old = [['a', 'c'], ['b']];
-  assert.deepEqual(P.ids(old), ['a', 'c', 'b']);
-  assert.deepEqual(P.ids(two()), ['a', 'c'], 'a pane counts as the tab it shows');
-  assert.equal(P.has(old, 'c'), true);
-  assert.deepEqual(P.remove(old, 'c'), [['a'], ['b']]);
-  assert.deepEqual(P.keep(old, id => id !== 'b'), [['a', 'c']]);
-  assert.deepEqual(P.replace([['a'], ['b']], 'b', 'c'), [['a'], ['c']]);
-  assert.deepEqual(P.replace([['a'], ['b']], 'gone', 'c'), [['c'], ['b']]);
-  assert.deepEqual(P.replace([], null, 'c'), [['c']]);
-  assert.deepEqual(P.fitSizes([['a']], null), { w: { a: 1 }, h: { a: 1 } });
-  assert.deepEqual(P.shares([['a']], null), { cols: [1], rows: [[1]] });
-});

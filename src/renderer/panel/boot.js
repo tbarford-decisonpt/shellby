@@ -231,12 +231,12 @@
     // real split: anything that cleans down to one pane starts as it always has.
     state.panesSaved = !!b.paneLayout;
     const kept = SB.panes.clean(b.paneLayout, [...state.tabs.keys()]);
-    const saved = kept && SB.panes.ids(kept.grid).length > 1 ? kept : null;
+    const saved = kept && SB.panes.count(kept.grid) > 1 ? kept : null;
     if (saved) { state.grid = saved.grid; state.paneSizes = saved.sizes; }
     // A conversation the last run cut off mid-turn comes to the front, and the toast says which.
     const cut = (b.cutOff || []).filter(c => state.tabs.has(c.id));
     if (cut.length) SB.activate(cut[0].id);
-    else if (saved) SB.activate(saved.grid[0][0]);
+    else if (saved) SB.activate(saved.grid[0][0].active);
     else if (state.tabs.size) SB.activate([...state.tabs.keys()].pop());
     else await SB.newTab();
 

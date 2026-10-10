@@ -1,4 +1,4 @@
-// ci: split panes: side by side up to twelve, sizes, a box in each, a saved layout, windows of their own
+// ci: split panes: side by side up to twelve, tabs and a box in each, sizes, a saved layout, windows of their own
 // Conversations side by side (tab-panes.js, shared/panes.js) and in windows of
 // their own (main's wiring/popouts.js): Split puts one beside another, dragging
 // a tab into the chat splits a pane and fills a 2x2 grid and a strip of columns,
@@ -82,14 +82,23 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     })()`);
     check(Array.isArray(ids) && ids.length === 4, 'four conversations open');
     const [A, B, C, D] = ids;
+    // The grid as each pane shows it (its active tab), the shape the checks
+    // compare. PID(x): the pane x is in, as an expression for ev. setShape:
+    // back to one pane per conversation laid out as `cols`, after a step that
+    // moved things about (or failed).
+    const shape = async () => JSON.stringify(await ev('SB.state.grid.map(col => col.map(p => p.active))'));
+    const isShape = async want => (await shape()) === JSON.stringify(want);
+    const PID = id => `SB.panes.paneWith(SB.state.grid, '${id}').id`;
+    const setShape = cols => ev(`(() => { let n = 0; SB.state.grid = ${JSON.stringify(cols)}.map(col => col.map(id => ({ id: 'p' + (++n), tabs: [id], active: id }))); SB.renderPanes(); SB.renderTabStrip(); })()`);
     await ev(`SB.send('hello from A')`);
     check(await until(`[...SB.state.tabs.get('${A}').el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('echo: hello from A'))`), 'A has a reply');
     await until(`!SB.state.tabs.get('${A}').busy`);
 
-    // ---- Split: the newest conversation off screen goes beside the focused one.
+    // ---- Split: the one pane holds all four, so the focused tab (D) goes into a pane of its own beside it.
     // Asked for from another view with the shortcut: the chat comes back, and is
     // measured as it shows, not as the hidden 0 x 0 it was.
     const chromeW = startWidth - await ev(`document.getElementById('feeds').getBoundingClientRect().width`);
+    await ev(`SB.activate('${D}')`);
     await ev("SB.setView('settings')");
     await wait(300);
     for (const type of ['keyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key: '\\', code: 'Backslash', windowsVirtualKeyCode: 220, modifiers: 2 });
@@ -99,11 +108,11 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     const split = await ev(`(() => {
       const r = id => SB.state.tabs.get(id).el.getBoundingClientRect();
       const shown = [...SB.state.tabs.values()].filter(t => !t.el.hidden).map(t => t.id);
-      return { grid: SB.state.grid, shown, panes: document.getElementById('feeds').dataset.panes,
-        aLeftOfD: r('${A}').right <= r('${D}').left + 1, heads: [...document.querySelectorAll('.pane-head')].filter(h => h.offsetHeight).length };
+      return { grid: SB.state.grid.map(col => col.map(p => p.active)), shown, panes: document.getElementById('feeds').dataset.panes,
+        cLeftOfD: r('${C}').right <= r('${D}').left + 1, heads: [...document.querySelectorAll('.pane-head')].filter(h => h.offsetHeight).length };
     })()`);
-    check(JSON.stringify(split.grid) === JSON.stringify([[A], [D]]), `Split puts the newest beside it: ${JSON.stringify(split.grid)}`);
-    check(split.shown.length === 2 && split.panes === '2' && split.aLeftOfD, 'both show, side by side');
+    check(JSON.stringify(split.grid) === JSON.stringify([[C], [D]]), `Split takes D into a pane of its own; the other shows the tab next to where it was: ${JSON.stringify(split.grid)}`);
+    check(split.shown.length === 2 && split.panes === '2' && split.cLeftOfD, 'both show, side by side');
     check(split.heads === 2, 'each pane has its header once there are two');
     check(await ev(`SB.state.activeTab === '${D}' && document.getElementById('input').placeholder.includes('"')`), 'the new pane has the focus, and the box says which');
     await panel.shot('split');
@@ -113,6 +122,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(startWidth >= 700 || grownTo > startWidth, `the panel grew to fit two panes (${startWidth} -> ${grownTo})`);
     check(grownTo <= Math.max(startWidth, 2 * 286 + 6 + chromeW + 2), `and no wider than they need (${grownTo})`);
     check(await ev(`[...document.querySelectorAll('.pane')].every(p => p.getBoundingClientRect().width >= ${280 - 1})`), 'no pane narrower than 280 px');
+    await ev(`SB.activate('${A}'); SB.activate('${D}')`); // the left pane shows A from here on; after the widths, as the box moving to another pane puts a scrollbar on the chat for under 100 ms (as it always has)
 
     // ---- Split from a workflow map with Make room on (the palette shows the chat
     // and splits at once): the room goes back first, then the panel grows for the
@@ -135,20 +145,22 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
       check(three.panes.length === 3 && three.panes.every(w => w >= 280 - 1), `three panes, none under 280 px once the room's given back (${JSON.stringify(three)})`);
       check(three.w <= Math.max(grownTo, 3 * 286 + 6 + chromeW + 2), `the panel is as wide as the panes need, not the map (${three.w})`);
       check(await ev(`localStorage.getItem('shellby.wf.roomy') === '1'`), 'and maps still ask for room next time (the grow didn\'t take it as yours)');
-      await ev(`SB.closePane(SB.state.grid[2][0])`);
+      await ev('SB.closeTab(SB.state.grid[2][0].active)'); // the new conversation, and with it its pane
       await wait(300);
     }
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A], [D]]), 'back to A beside D');
+    check(await isShape([[A], [D]]), 'back to A beside D');
     await ev(`SB.activate('${D}')`);
     await ev('shellby.maximize()'); // room for the 2x2 grid the drags below make
     await wait(800);
 
     // ---- Drag a tab from the strip onto the bottom of a pane: that column splits.
-    const tabAt = id => ev(`(() => { const r = [...document.querySelectorAll('#tabs [data-tab-id]')].find(e => e.dataset.tabId === '${id}').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    // A tab in whichever strip shows it: the top one with one pane, its pane's
+    // while split. Only one strip ever holds a tab (the rest are emptied), so the first match is it.
+    const tabAt = id => ev(`(() => { const r = [...document.querySelectorAll('.tabs [data-tab-id]')].find(e => e.dataset.tabId === '${id}').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     const paneSpot = (id, fx, fy) => ev(`(() => { const r = SB.state.tabs.get('${id}').el.getBoundingClientRect(); return { x: r.left + r.width * ${fx}, y: r.top + r.height * ${fy} }; })()`);
     await panel.drag(await tabAt(C), await paneSpot(A, 0.5, 0.92));
     await wait(300);
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D]]), 'C dropped low on A goes under it');
+    check(await isShape([[A, C], [D]]), 'C dragged from A\'s strip to the foot of A\'s pane splits off under it');
     check(await ev("document.getElementById('dropHint').hidden"), 'the drop preview goes away on letting go');
 
     // ...and the last one under D: a full 2x2 grid.
@@ -157,11 +169,11 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     const quad = await ev(`(() => {
       const r = id => SB.state.tabs.get(id).el.getBoundingClientRect();
       const [a, b, c, d] = ['${A}', '${B}', '${C}', '${D}'].map(r);
-      return { grid: SB.state.grid, grid2x2: a.right <= d.left + 1 && a.bottom <= c.top + 1 && d.bottom <= b.top + 1 && Math.abs(a.top - d.top) < 2 };
+      return { grid: SB.state.grid.map(col => col.map(p => p.active)), grid2x2: a.right <= d.left + 1 && a.bottom <= c.top + 1 && d.bottom <= b.top + 1 && Math.abs(a.top - d.top) < 2 };
     })()`);
     check(JSON.stringify(quad.grid) === JSON.stringify([[A, C], [D, B]]), `four panes: ${JSON.stringify(quad.grid)}`);
     check(quad.grid2x2, 'laid out two by two');
-    check(await ev(`SB.panes.zones(SB.state.grid, '${A}', 'x').includes('right')`), 'a 2x2 can still take another column');
+    check(await ev(`SB.panes.zones(SB.state.grid, ${PID(A)}, 'x').includes('right')`), 'a 2x2 can still take another column');
     await panel.shot('quad');
 
     // ---- The line between two columns drags; a double-click evens them out.
@@ -173,7 +185,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await wait(200);
     const after = await colRects();
     check(after[0].width > before[0].width + 80, `dragging it widens the left column (${Math.round(before[0].width)} -> ${Math.round(after[0].width)})`);
-    check(await ev(`(() => { const s = SB.state.paneSizes; return s.w['${A}'] > s.w['${D}']; })()`), 'and the sizes say so');
+    check(await ev(`(() => { const s = SB.state.paneSizes; return s.w[${PID(A)}] > s.w[${PID(D)}]; })()`), 'and the sizes say so, by pane');
     await ev(`document.querySelector('.pane-divider.across').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
     await wait(200);
     const evened = await colRects();
@@ -183,14 +195,14 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev(`(() => { const t = SB.state.tabs.get('${A}'); for (let i = 0; i < 80; i++) t.render({ kind: 'text', text: 'filler line ' + i }, { replay: true }); })()`);
     await ev(`(() => { const el = SB.state.tabs.get('${A}').el; el.scrollTop = 40; el.dispatchEvent(new Event('scroll')); })()`);
     await wait(150);
-    await ev(`SB.closePane('${B}')`);
+    await ev(`SB.closePane(${PID(B)})`);
     await wait(300);
     check(await ev(`SB.state.tabs.get('${A}').el.scrollTop`) === 40, 'a scrolled-up feed keeps its place when a pane closes');
     // D was half its column; alone now, it takes the whole column (sizes are normalized).
     check(await ev(`(() => { const p = document.querySelector('.pane[data-tab="${D}"]').getBoundingClientRect(); const c = document.querySelector('.pane[data-tab="${D}"]').parentElement.getBoundingClientRect(); return p.height > c.height - 20; })()`), 'D fills its column once B\'s pane closes');
     await panel.drag(await tabAt(B), await paneSpot(D, 0.5, 0.92));
     await wait(300);
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'B back under D');
+    check(await isShape([[A, C], [D, B]]), 'B back under D');
 
     // ---- The box sits in the focused pane; the others show their own draft.
     await ev(`SB.activate('${C}'); document.getElementById('input').value = 'draft for C'`);
@@ -242,7 +254,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     // pane's box, and is cut down to it rather than off by the chat's edge.
     await panel.send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 760, deviceScaleFactor: 0, mobile: false });
     await wait(300);
-    check(await ev(`SB.placeTab('${B}', '${A}', 'bottom')`), 'three panes fit in a column 760 px tall');
+    check(await ev(`SB.placeTab('${B}', ${PID(A)}, 'bottom')`), 'three panes fit in a column 760 px tall');
     await wait(300);
     await ev(`SB.activate('${A}')`);
     await slashOnScreen('the top of three panes');
@@ -272,7 +284,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev(`SB.send('todos done')`);
     await until(`!SB.state.tabs.get('${A}').busy && document.getElementById('todos').hidden`);
     await panel.send('Emulation.clearDeviceMetricsOverride');
-    await ev(`SB.placeTab('${B}', '${D}', 'bottom')`);
+    await ev(`SB.placeTab('${B}', ${PID(D)}, 'bottom')`);
     await wait(300);
 
     // ---- A stand-in follows its conversation: a draft handed back while it's out of focus shows.
@@ -281,30 +293,30 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
 
     // ---- Closing the focused pane keeps the box.
     await ev(`SB.activate('${B}')`);
-    await ev(`SB.closePane('${B}')`);
+    await ev(`SB.closePane(${PID(B)})`);
     await wait(200);
     check(await ev(`document.getElementById('composer').isConnected && !!document.getElementById('composer').closest('.pane')`), 'closing the focused pane keeps the box, in the pane that took the focus');
     await panel.drag(await tabAt(B), await paneSpot(D, 0.5, 0.92));
     await wait(300);
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'B under D again');
+    check(await isShape([[A, C], [D, B]]), 'B under D again');
 
     // ---- A pane closing mid-drag (its line redrawn away) still ends the drag.
     const line2 = await ev(`(() => { const r = document.querySelector('.pane-divider.across').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: line2.x, y: line2.y, button: 'left', buttons: 1, clickCount: 1 });
     await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: line2.x + 20, y: line2.y, button: 'left', buttons: 1 });
     check(await ev(`document.body.classList.contains('resizing-panes')`), 'pressing a line starts a drag');
-    await ev(`SB.closePane('${B}')`);
+    await ev(`SB.closePane(${PID(B)})`);
     await wait(200);
     check(!(await ev(`document.body.classList.contains('resizing-panes')`)), 'a pane closing mid-drag ends it, so the feeds take clicks again');
     await panel.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: line2.x + 20, y: line2.y, button: 'left', buttons: 0, clickCount: 1 });
-    await ev(`SB.placeTab('${B}', '${D}', 'bottom')`);
+    await ev(`SB.placeTab('${B}', ${PID(D)}, 'bottom')`);
     await wait(300);
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]), 'and B goes back under D');
+    check(await isShape([[A, C], [D, B]]), 'and B goes back under D');
 
     // ---- Split adds columns while they fit, as many as this screen holds (up to four).
-    const E = await ev(`(async () => (await SB.newTab({ focus: false, reuse: false })).id)()`);
-    const F = await ev(`(async () => (await SB.newTab({ focus: false, reuse: false })).id)()`);
-    // A pane is 280 px wide at least, with 6 px between and 6 px each side (tab-panes.js PANE_CHROME).
+    // D's pane holds only D, so each Split starts a new conversation in a pane of its own.
+    const had = await ev('JSON.stringify([...SB.state.tabs.keys()])');
+    // A pane is 280 px wide at least, with 6 px between and 6 px each side (pane-room.js PANE_CHROME).
     const fitCols = Math.min(4, Math.floor((await ev(`document.getElementById('feeds').getBoundingClientRect().width`) - 6) / 286));
     await ev(`SB.activate('${D}')`);
     for (let i = 0; i < 2; i++) await ev('SB.splitPane()');
@@ -316,18 +328,79 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     // ...and on a screen too small for another, it says so instead.
     await panel.send('Emulation.setDeviceMetricsOverride', { width: 640, height: 600, screenWidth: 640, screenHeight: 600, deviceScaleFactor: 0, mobile: false });
     await wait(300);
-    check(await ev(`SB.roomFor(SB.panes.place(SB.state.grid, 'new', '${D}', 'right')).ok`) === false, "another column doesn't fit a 640 px screen");
+    check(await ev(`SB.roomFor(SB.panes.place(SB.state.grid, 'new', ${PID(D)}, 'right')).ok`) === false, "another column doesn't fit a 640 px screen");
     await ev('SB.splitPane()');
     check(await until(`/No room/.test(document.getElementById('toast').textContent)`), 'and Split is refused with a toast');
     check(await ev('SB.state.grid.length') === nCols, 'leaving the panes as they were');
     await panel.send('Emulation.clearDeviceMetricsOverride');
     await wait(300);
-    for (const id of [E, F]) { await ev(`SB.closePane('${id}')`); await ev(`SB.closeTab('${id}')`); }
+    for (const id of await ev(`[...SB.state.tabs.keys()].filter(id => !${had}.includes(id))`)) await ev(`SB.closeTab('${id}')`);
     await wait(300);
-    const quadAgain = JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, C], [D, B]]);
+    const quadAgain = await isShape([[A, C], [D, B]]);
     check(quadAgain, 'the 2x2 again once they close');
     // Only to keep going after that failure: the steps below start from the 2x2.
-    if (!quadAgain) await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.renderPanes()`);
+    if (!quadAgain) await setShape([[A, C], [D, B]]);
+    await ev(`SB.activate('${D}')`);
+    await wait(300);
+
+    // ---- Tabs in a pane: each pane has a strip of its own tabs, and the top strip hides.
+    const strips = await ev(`({ top: getComputedStyle(document.getElementById('tabstrip')).display, topTabs: document.querySelectorAll('#tabs .tab').length,
+      perPane: [...document.querySelectorAll('.pane')].map(p => [...p.querySelectorAll('.pane-head .tab')].map(t => t.dataset.tabId)) })`);
+    check(strips.top === 'none' && strips.topTabs === 0, 'split, the top strip hides');
+    check(strips.perPane.length === 4 && strips.perPane.every(s => s.length === 1), `each pane has a strip of its own tabs (${JSON.stringify(strips.perPane)})`);
+    check(await ev(`(() => { const b = document.getElementById('tabAllBtn'); return b.parentElement.id === 'subbar' && !b.hidden; })()`), 'Every conversation sits at the end of the bar under it');
+
+    // A new conversation opens in the focused pane, after the tab it shows.
+    await ev(`SB.activate('${D}')`);
+    const G1 = await ev(`(async () => (await SB.newTab({ reuse: false })).id)()`);
+    check(await ev(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${G1}').tabs) === JSON.stringify(['${D}', '${G1}']) && SB.state.activeTab === '${G1}'`), 'a new conversation opens in the focused pane, after its tab');
+    check(await ev(`[...document.querySelector('.pane[data-tab="${G1}"]').querySelectorAll('.pane-head .tab')].map(t => t.dataset.tabId).join() === ['${D}', '${G1}'].join()`), 'and that pane\'s strip shows both');
+
+    // A tab clicked in an unfocused pane shows there and focuses it.
+    // Its strip wired a second time first (as a rebuild that made it again would): still one click, not a rename.
+    await ev(`(() => { const s = SB.paneStripOf(${PID(D)}); SB.wireStrip(s); SB.watchEdges(s, s.parentElement.querySelector('.tab-edge.left'), s.parentElement.querySelector('.tab-edge.right')); })()`);
+    await ev(`SB.activate('${A}')`);
+    await panel.click(await tabAt(D));
+    check(await until(`SB.state.activeTab === '${D}'`), 'a tab clicked in an unfocused pane focuses that pane');
+    check(await ev(`!!document.querySelector('.pane[data-tab="${D}"]')?.contains(document.getElementById('composer'))`), 'and shows there, with the box');
+    check(await ev('!document.querySelector(\'.title-edit\')'), 'and opens no rename: a strip is wired once, however often it\'s asked');
+
+    // One that turns up without being opened here (main's, a pop-out back) joins the focused pane.
+    const H1 = await ev(`(async () => (await SB.newTab({ focus: false, reuse: false })).id)()`);
+    await ev('SB.renderTabStrip()');
+    check(await ev(`SB.panes.paneWith(SB.state.grid, '${H1}')?.id === SB.focusedPane()`), 'a conversation that turns up without being opened here joins the focused pane');
+
+    // Closing the tab an unfocused pane shows: its neighbour shows there, and the focus stays put.
+    await ev(`SB.activate('${H1}'); SB.activate('${A}')`);
+    await ev(`SB.closeTab('${H1}')`);
+    await wait(200);
+    check(await ev(`SB.state.activeTab === '${A}' && SB.panes.paneWith(SB.state.grid, '${G1}').active === '${G1}'`), 'closing the tab an unfocused pane shows: its neighbour shows there, the focus stays');
+
+    // Picking a tab in Every conversation focuses its pane.
+    await ev('SB.openTabList()');
+    await ev(`document.getElementById('tl-${B}').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))`);
+    check(await until(`SB.state.activeTab === '${B}' && !!document.querySelector('.pane[data-tab="${B}"]')?.contains(document.getElementById('composer'))`), 'picking a tab in Every conversation focuses its pane');
+
+    // A pane's x moves its tabs into the pane beside it: D's pane (top right) into B's, below it.
+    await ev(`SB.closePane(${PID(D)})`);
+    await wait(200);
+    check(await ev(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${B}').tabs) === JSON.stringify(['${D}', '${G1}', '${B}']) && SB.state.tabs.has('${G1}')`), 'a pane\'s × moves its tabs into the pane beside it, closing none');
+
+    // Split takes the focused tab into a pane of its own when its pane holds others.
+    await ev(`SB.activate('${D}')`);
+    await ev('SB.splitPane()');
+    check(await until(`SB.panes.paneWith(SB.state.grid, '${D}')?.tabs.length === 1 && SB.panes.count(SB.state.grid) === 4`), 'Split takes the focused tab into a new pane when its pane holds others');
+
+    // A focused tab taken away under the panes, the way a folder change does it
+    // (tab-chips.js; a History delete does the same): its replacement opens in that pane.
+    const K1 = await ev(`(async () => (await SB.newTab({ reuse: false })).id)()`);
+    const kPane = await ev(PID(K1));
+    const K2 = await ev(`(async () => { const tab = SB.activeTab(); await SB.api.closeTab(tab.id); tab.destroy(); SB.state.tabs.delete(tab.id); SB.state.activeTab = null; return (await SB.newTab()).id; })()`);
+    await ev('SB.renderTabStrip()');
+    check(await ev(`SB.panes.paneWith(SB.state.grid, '${K2}')?.id === '${kPane}' && SB.state.activeTab === '${K2}' && SB.panes.count(SB.state.grid) === 4`), 'a focused tab taken away under the panes: its replacement opens in the same pane, which stays');
+    await ev(`SB.closeTab('${K2}')`);
+    await ev(`SB.closeTab('${G1}')`);
+    await setShape([[A, C], [D, B]]);
     await ev(`SB.activate('${D}')`);
     await wait(300);
 
@@ -343,20 +416,22 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await press('ArrowDown', ALT);
     check(await until(`SB.state.activeTab === '${B}'`), 'Alt+↓ goes to the one below');
     await press('ArrowLeft', CTRL_ALT);
-    check(await until(`JSON.stringify(SB.state.grid) === JSON.stringify([['${A}', '${B}'], ['${D}', '${C}']])`), 'Ctrl+Alt+← swaps it with the pane on the left');
-    check(await ev(`SB.state.activeTab === '${B}'`), 'and it keeps the focus');
-    await press('ArrowRight', ALT); // B is bottom left now; C is beside it
-    check(await until(`SB.state.activeTab === '${C}'`), 'Alt+→ from the swapped pane reaches C, beside it');
-    await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.activate('${D}')`);
+    check(await until(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${B}').tabs) === JSON.stringify(['${C}', '${B}'])`), 'Ctrl+Alt+← moves it into the pane on the left, after its tabs');
+    check(await isShape([[A, B], [D]]) && await ev(`SB.state.activeTab === '${B}'`), 'its own pane closes; it shows where it went and keeps the focus');
+    await press('ArrowRight', ALT); // B is bottom left now; D has the whole right column
+    check(await until(`SB.state.activeTab === '${D}'`), 'Alt+→ from there reaches D, beside it');
+    await setShape([[A, C], [D, B]]);
+    await ev(`SB.activate('${D}')`);
     await wait(200);
 
     // Up and down swap inside a column and stop at its ends.
     await ev(`SB.activate('${A}')`);
     await press('ArrowDown', CTRL_ALT);
-    check(await until(`JSON.stringify(SB.state.grid) === JSON.stringify([['${C}', '${A}'], ['${D}', '${B}']])`), 'Ctrl+Alt+↓ swaps it with the pane below');
+    check(await until(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${A}').tabs) === JSON.stringify(['${C}', '${A}'])`), 'Ctrl+Alt+↓ moves it into the pane below');
     await press('ArrowDown', CTRL_ALT);
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[C, A], [D, B]]), 'Ctrl+Alt+↓ from the bottom pane is a no-op: it is already the last in its column');
-    await ev(`SB.state.grid = [['${A}', '${C}'], ['${D}', '${B}']]; SB.activate('${A}')`);
+    check(await isShape([[A], [D, B]]), 'Ctrl+Alt+↓ again does nothing: its pane is the last in its column');
+    await setShape([[A, C], [D, B]]);
+    await ev(`SB.activate('${A}')`);
     await wait(200);
 
     // ...but not behind the palette or the shortcut list.
@@ -366,7 +441,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await ev(`SB.state.activeTab === '${A}'`), 'Alt+→ does nothing with the palette open');
     await ev(`document.getElementById('paletteSheet').hidden = true; document.getElementById('shortcutsSheet').hidden = false`);
     await press('ArrowRight', CTRL_ALT);
-    check(await ev(`JSON.stringify(SB.state.grid) === JSON.stringify([['${A}', '${C}'], ['${D}', '${B}']])`), 'Ctrl+Alt+→ moves nothing with the shortcut list open');
+    check(await isShape([[A, C], [D, B]]), 'Ctrl+Alt+→ moves nothing with the shortcut list open');
     await ev(`document.getElementById('shortcutsSheet').hidden = true`);
     // And Alt+arrows in the box still do their pane job without typing anything.
     await ev(`document.getElementById('input').focus()`);
@@ -463,7 +538,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
       await ev(`SB.activate('${id}'); document.getElementById('input').value = ''; SB.send('hello from ' + '${id}'.slice(0, 4))`);
       await until(`!SB.state.tabs.get('${id}').busy && SB.state.tabs.get('${id}').el.querySelector('.msg.assistant')`, 15000);
     }
-    await ev(`(() => { const s = SB.state.paneSizes; for (const id of SB.state.grid[0]) s.w[id] = 3; SB.renderPanes(); })()`);
+    await ev(`(() => { const s = SB.state.paneSizes; for (const p of SB.state.grid[0]) s.w[p.id] = 3; SB.renderPanes(); })()`);
     const layout = await ev('JSON.stringify({ grid: SB.state.grid, w: SB.state.paneSizes.w })');
     // A screen with room for the left column at three times the right one, both
     // at least 280 px, gets them back as they were; a smaller one evens them out.
@@ -493,16 +568,15 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until(`SB.state.activeTab === '${C}'`), 'clicking into C focuses it');
     check(await ev(`SB.state.tabs.get('${C}').el.classList.contains('focused')`), 'and outlines it');
 
-    // ---- Dragging a pane onto another swaps them.
-    const headOf = id => ev(`(() => { const r = [...document.querySelectorAll('.pane-head')].find(h => h.dataset.tab === '${id}').getBoundingClientRect(); return { x: r.left + 40, y: r.top + r.height / 2 }; })()`);
-    await panel.drag(await headOf(C), await paneSpot(B, 0.5, 0.5));
+    // ---- A tab dragged onto the middle of another pane joins it, at the end.
+    await panel.drag(await tabAt(C), await paneSpot(B, 0.5, 0.5));
     await wait(300);
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A, B], [D, C]]), 'dragging C\'s header onto B swaps them');
+    check(await isShape([[A], [D, C]]) && await ev(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${B}').tabs) === JSON.stringify(['${B}', '${C}'])`), 'C dropped on the middle of B\'s pane joins it, and its own pane closes');
 
-    // ---- Close a pane: the conversation keeps its tab.
-    await ev(`SB.closePane('${B}')`);
+    // ---- Close a pane: its conversations move into the pane beside it.
+    await ev(`SB.closePane(${PID(B)})`);
     await wait(200);
-    check(JSON.stringify(await ev('SB.state.grid')) === JSON.stringify([[A], [D, C]]) && await ev(`SB.state.tabs.has('${B}')`), 'closing B\'s pane leaves its tab');
+    check(await isShape([[A], [D]]) && await ev(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${D}').tabs) === JSON.stringify(['${D}', '${B}', '${C}'])`), 'closing B\'s pane moves B and C into D\'s, closing neither');
 
     // ---- Out of the window: A with a half-typed message, dragged well past the edge.
     await ev(`SB.activate('${A}'); document.getElementById('input').value = 'half a thought'`);
@@ -539,16 +613,29 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
       pop.ws.close();
       check(await until(`SB.state.tabs.has('${A}')`), '× hands it back to the panel');
       check(await until(`SB.state.activeTab === '${A}'`), 'focused there');
+      check(await ev(`!!SB.panes.paneWith(SB.state.grid, '${A}')`), 'in a pane again');
       check(await ev(`document.getElementById('input').value === 'typed in the window'`), 'with what was typed in the window');
       check(await ev(`[...SB.state.tabs.get('${A}').el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('echo: hello from its own window'))`), 'and the whole conversation');
       check(!(await targets()).some(t => t.url.includes('popout=')), 'its window is gone');
     }
 
     // ---- Back to one pane: the box goes home, no stand-ins.
-    for (const id of await ev('SB.panes.ids(SB.state.grid)')) if ((await ev('SB.panes.ids(SB.state.grid).length')) > 1) await ev(`SB.closePane('${id}')`);
+    for (const id of await ev('SB.panes.paneIds(SB.state.grid)')) if ((await ev('SB.panes.count(SB.state.grid)')) > 1) await ev(`SB.closePane('${id}')`);
     await wait(200);
     check(await ev(`document.getElementById('composer').parentElement.id === 'chatView' && !document.querySelector('.pane-standin')`), 'one pane: the box is back where it always was');
     check(await ev(`(() => { const f = document.getElementById('feeds').getBoundingClientRect(); const p = document.querySelector('.pane').getBoundingClientRect(); return Math.abs(p.width - f.width) < 2 && Math.abs(p.height - f.height) < 2; })()`), 'and the lone pane fills the whole chat');
+    check(await ev(`getComputedStyle(document.getElementById('tabstrip')).display !== 'none' && document.querySelectorAll('#tabs .tab').length === SB.state.tabs.size && document.getElementById('tabAllBtn').parentElement.id === 'tabstrip'`), 'one pane: the top strip is back, with every conversation');
+    check(await ev(`!document.querySelector('.pane-tabs .tab')`), 'and no pane\'s hidden strip keeps a stale tab');
+
+    // ---- One pane: closing the open tab opens the last one in the strip, as it always has (not its neighbour).
+    const made3 = [];
+    for (let i = 0; i < 3; i++) made3.push(await ev(`(async () => (await SB.newTab({ reuse: false })).id)()`));
+    await ev(`SB.activate('${made3[0]}')`);
+    await ev(`SB.closeTab('${made3[0]}')`);
+    await wait(200);
+    check(await ev(`SB.state.activeTab === [...SB.state.tabs.keys()].pop() && SB.state.activeTab === '${made3[2]}'`), 'one pane: closing the open tab opens the last tab, not the one beside it');
+    for (const id of made3.slice(1)) await ev(`SB.closeTab('${id}')`);
+    await wait(200);
   } catch (err) {
     check(false, `crashed: ${err.stack || err}`);
   } finally {

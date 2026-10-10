@@ -63,6 +63,7 @@
 
   // A strip's markers follow its scrolling and its size.
   function watchEdges(onStrip, left, right) {
+    if (watched.has(onStrip)) return; // once per strip, or its listeners stack
     watched.set(onStrip, [left, right]);
     let frame = 0;
     const queue = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; paintEdges(onStrip, left, right); }); };
@@ -239,6 +240,10 @@
   const drawStrip = SB.renderTabStrip;
   SB.renderTabStrip = () => {
     drawStrip();
+    // Split, the top strip hides: the list's button, and the review inbox's,
+    // move to the end of the bar under it (review-view.js anchors to them).
+    const where = SB.panes.count(state.grid) > 1 ? $('subbar') : $('tabstrip');
+    if (allBtn.parentElement !== where) where.append($('reviewBtn'), allBtn);
     const tabs = [...state.tabs.values()];
     allBtn.hidden = tabs.length < SHOW_LIST_AT;
     $('tabAllCount').textContent = String(tabs.length);

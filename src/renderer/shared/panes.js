@@ -228,8 +228,6 @@
   // ------------------------------------------------------------ sizes
 
   const weight = x => (Number.isFinite(x) && x > 0 && x < 1e6 ? x : null);
-  // A pane's id; a tab id where a pane goes, until the panel catches up (see the end).
-  const idOf = p => (typeof p === 'string' ? p : p.id);
   const mean = xs => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 1);
 
   // Sizes for every pane in `grid`, from `sizes` as far as they go: a column
@@ -237,13 +235,13 @@
   // column's. Ids no longer in the grid, and junk, are dropped.
   function fitSizes(grid, sizes) {
     const w0 = sizes?.w || {}, h0 = sizes?.h || {};
-    const colW = grid.map(col => col.map(p => weight(w0[idOf(p)])).find(Boolean) ?? null);
+    const colW = grid.map(col => col.map(p => weight(w0[p.id])).find(Boolean) ?? null);
     const avgW = mean(colW.filter(Boolean));
     const out = { w: {}, h: {} };
     grid.forEach((col, c) => {
-      const hs = col.map(p => weight(h0[idOf(p)]));
+      const hs = col.map(p => weight(h0[p.id]));
       const avgH = mean(hs.filter(Boolean));
-      col.forEach((p, r) => { out.w[idOf(p)] = colW[c] ?? avgW; out.h[idOf(p)] = hs[r] ?? avgH; });
+      col.forEach((p, r) => { out.w[p.id] = colW[c] ?? avgW; out.h[p.id] = hs[r] ?? avgH; });
     });
     return out;
   }
@@ -300,7 +298,7 @@
   function shares(grid, sizes) {
     const s = fitSizes(grid, sizes);
     const norm = xs => { const t = xs.reduce((a, b) => a + b, 0); return xs.map(x => x / t); };
-    return { cols: norm(grid.map(col => s.w[idOf(col[0])])), rows: grid.map(col => norm(col.map(p => s.h[idOf(p)]))) };
+    return { cols: norm(grid.map(col => s.w[col[0].id])), rows: grid.map(col => norm(col.map(p => s.h[p.id]))) };
   }
 
   // px `grid` takes with every pane at MIN, plus `chrome` px per pane each way
@@ -389,23 +387,6 @@
     return { grid, sizes: fitSizes(grid, src) };
   }
 
-  // ------------------------------------------------------------ until the panel catches up
-  // tab-panes.js keeps a grid of tab ids until it moves to panes; these read
-  // either shape (a pane counts as the tab it shows), so one pane runs as it
-  // always has in between. Deleted with the callers.
-  const shownIn = x => (typeof x === 'string' ? x : x.active);
-  const ids = grid => grid.flat().map(shownIn);
-  const has = (grid, id) => ids(grid).includes(id);
-  const keep = (grid, ok) => grid.map(col => col.map(shownIn).filter(ok)).filter(col => col.length);
-  const remove = (grid, id) => keep(grid, x => x !== id);
-  function replace(grid, oldId, id) {
-    if (has(grid, id)) return grid;
-    if (!grid.length) return [[id]];
-    let at = { c: 0, r: 0 };
-    grid.forEach((col, c) => col.forEach((x, r) => { if (shownIn(x) === oldId) at = { c, r }; }));
-    return grid.map((col, c) => col.map((x, r) => (c === at.c && r === at.r ? id : shownIn(x))));
-  }
-
   const api = {
     MAX_COLS, MAX_ROWS, MIN,
     paneIds, count, tabIds, shownTabs, byId, paneWith, find, nextId, layoutKey,
@@ -413,7 +394,6 @@
     zones, place, zoneAt, previewRect,
     fitSizes, placeSizes, setWeight, splitPair, even, shares, needs,
     neighbor, moveToward, clean,
-    ids, has, keep, remove, replace, // until the panel catches up
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyPanes = api;

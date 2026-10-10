@@ -426,13 +426,14 @@
   function paneEntries() {
     const tab = state.tabs.get(state.activeTab);
     if (!claude() || !tab) return [];
-    const shown = SB.panes.ids(state.grid);
+    const shown = SB.panes.shownTabs(state.grid);
+    const here = SB.focusedPane();
     const keys = 'pane split side by side grid quad window layout';
     const chat = run => () => { SB.setView('chat'); run(); };
     return [
-      { icon: '◫', title: 'Split: another conversation alongside', sub: 'Side by side, up to twelve', keys, shortcut: 'splitPane', run: chat(SB.splitPane) },
+      { icon: '◫', title: 'Split: this conversation into a pane of its own', sub: 'Or a new one alongside, if it\'s alone in its pane. Up to twelve', keys, shortcut: 'splitPane', run: chat(SB.splitPane) },
       { icon: '↗', title: 'Open this conversation in its own window', sub: tab.title, keys: `${keys} pop out tear off`, run: () => SB.popOut(tab.id) },
-      shown.length > 1 && { icon: '×', title: 'Close this pane', sub: `${tab.title} keeps its tab`, keys, run: chat(() => SB.closePane(tab.id)) },
+      shown.length > 1 && { icon: '×', title: 'Close this pane', sub: 'Its conversations move to the pane beside it', keys, run: chat(() => SB.closePane(here)) },
       ...shown.filter(id => id !== tab.id && state.tabs.has(id)).map(id => ({
         icon: '◧', title: `Go to the pane with ${state.tabs.get(id).title}`, sub: 'Focus it, so the box talks to it', keys: `${keys} focus`,
         run: chat(() => SB.activate(id)),

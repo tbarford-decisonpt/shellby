@@ -105,7 +105,8 @@ it, and supporting it would mean a different model.
   sideways with the wheel, keeps its active tab in view, and has its own edge
   pills for tabs out of view.
 - **Every conversation** (Ctrl+Shift+A) stays one list. While split its
-  button sits at the end of the subbar; it lists every pane's tabs, and
+  button, with the review inbox's beside it (the top strip both live in
+  hides), sits at the end of the subbar; it lists every pane's tabs, and
   picking one focuses its pane.
 - **New tab** (Ctrl+T, or a strip's "+") opens in that pane, after its active
   tab.
