@@ -67,6 +67,47 @@ test('a tag waits for CI on its own commit to finish green', () => {
   assert.equal(g.checkCiRuns([run(SHA, 'completed', 'cancelled')], SHA).state, 'failed', 'cancelled is not green');
 });
 
+// 0.78.0: a shard went red at 5 minutes, and the wait sat out the other three.
+test('a run still going is red as soon as one of its jobs fails', () => {
+  const job = (name, status, conclusion) => ({ name, status, conclusion });
+  const going = [run(SHA, 'in_progress', null)];
+  const red = g.checkCiRuns(going, SHA, [job('e2e (4/6)', 'completed', 'failure'), job('e2e (1/6)', 'in_progress', null)]);
+  assert.equal(red.state, 'failed');
+  assert.equal(red.conclusion, 'failure');
+  assert.match(red.problem, /e2e \(4\/6\) failed on aaaaaaa/);
+  assert.equal(g.checkCiRuns(going, SHA, [job('test', 'completed', 'success'), job('e2e (1/6)', 'in_progress', null)]).state, 'running');
+  assert.equal(g.checkCiRuns(going, SHA, [job('e2e (2/6)', 'completed', 'cancelled')]).state, 'running', 'a cancelled job alone proves nothing yet');
+});
+
+// The release commit (version, CHANGELOG, change notes) is tested by its parent's CI.
+test('a commit that only cuts a release counts its parent CI', () => {
+  const f = (filename, status = 'modified', extra = {}) => ({ filename, status, ...extra });
+  assert.equal(g.releaseOnly([f('package.json'), f('package-lock.json'), f('CHANGELOG.md'), f('changes/feat-x.md', 'removed')]), true);
+  assert.equal(g.releaseOnly([f('CHANGELOG.md', 'added')]), true, 'the first release starts the CHANGELOG');
+  assert.equal(g.releaseOnly([f('package.json'), f('src/main/main.js')]), false);
+  assert.equal(g.releaseOnly([f('changes/README.md')]), false, 'the notes README is not a note');
+  assert.equal(g.releaseOnly([f('changes/foo.md', 'renamed', { previous_filename: 'src/foo.js' })]), false, 'a rename hides what went');
+  assert.equal(g.releaseOnly([f('changes/new.md', 'added')]), false, 'a cut removes notes, never adds them');
+  assert.equal(g.releaseOnly([]), false, 'an empty commit vouches for nothing');
+  assert.equal(g.releaseOnly(undefined), false);
+  assert.equal(g.releaseOnly(Array.from({ length: 300 }, (_, i) => f(`changes/n${i}.md`, 'removed'))), false, 'GitHub lists 300 files at most: there may be more');
+});
+
+// A dependency bump touches package.json and the lock too: only a new version number counts.
+test('package files may only change their version', () => {
+  const pkg = v => JSON.stringify({ name: 'shellby', version: v, dependencies: { a: '1.0.0' } });
+  const lock = (v, a = '1.0.0') => JSON.stringify({ name: 'shellby', version: v, packages: { '': { name: 'shellby', version: v }, 'node_modules/a': { version: a } } });
+  assert.equal(g.onlyVersionChanged(pkg('0.1.0'), pkg('0.2.0')), true);
+  assert.equal(g.onlyVersionChanged(lock('0.1.0'), lock('0.2.0')), true);
+  assert.equal(g.onlyVersionChanged(lock('0.1.0'), lock('0.2.0', '1.0.1')), false, 'a dependency moved');
+  assert.equal(g.onlyVersionChanged(pkg('0.1.0'), JSON.stringify({ name: 'shellby', version: '0.2.0', dependencies: { a: '2.0.0' } })), false);
+  assert.equal(g.onlyVersionChanged('{', pkg('0.2.0')), false, 'unreadable vouches for nothing');
+});
+
+test('a cancelled run on the commit still lets a release-only commit go by its parent', () => {
+  assert.equal(g.checkCiRuns([run(SHA, 'completed', 'cancelled')], SHA).conclusion, 'cancelled');
+});
+
 test("another commit's green CI doesn't count", () => {
   assert.equal(g.checkCiRuns([run(OTHER, 'completed', 'success')], SHA).state, 'missing');
 });

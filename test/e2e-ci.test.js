@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const os = require('os');
-const { SUITE, discover, pick, reap, reapScript } = require('../scripts/e2e-ci');
+const { SUITE, discover, pick, balance, reap, reapScript } = require('../scripts/e2e-ci');
 
 test('a script is a check when its first line is a "// ci:" mark, and only then', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-e2e-ci-'));
@@ -29,15 +29,30 @@ test('every check is in exactly one shard, whatever the number of shards', () =>
   for (const n of [1, 2, 3, 4, 7]) {
     const shards = Array.from({ length: n }, (_, i) => pick(SUITE, [`--shard=${i + 1}/${n}`]).suite);
     assert.deepEqual(shards.flat().sort(), [...SUITE].sort(), `${n} shards`);
-    const sizes = shards.map(s => s.length);
-    assert.ok(Math.max(...sizes) - Math.min(...sizes) <= 1, `${n} shards are even: ${sizes}`);
   }
+});
+
+// By name, one shard ran 7.2 minutes while another was done in 3.6.
+test('shards are split by how long their checks take, slowest first', () => {
+  const times = { a: 90, b: 40, c: 30, d: 20, e: 10 };
+  assert.deepEqual(balance(Object.keys(times), 2, times), [['a', 'e'], ['b', 'c', 'd']], '100s and 90s');
+  assert.deepEqual(balance(['x', 'y', 'z'], 3, {}), [['x'], ['y'], ['z']], 'no times: one each, by name');
+  assert.deepEqual(balance(['a', 'new'], 2, { a: 5 }), [['a'], ['new']], 'a check with no time yet counts as a typical one');
+  assert.deepEqual(balance(['b', 'a'], 1, {}), [['a', 'b']], 'a shard runs its checks by name');
+});
+
+test("the real suite's six shards come out close in time", () => {
+  const times = require('../scripts/e2e-times.json');
+  const secs = SUITE.map(c => times[c]).filter(Number.isFinite);
+  const loads = balance(SUITE, 6).map(s => s.reduce((n, c) => n + (times[c] || 0), 0));
+  assert.ok(Math.max(...loads) - Math.min(...loads) <= Math.max(...secs), `within one check: ${loads.map(Math.round)}`);
 });
 
 test('names narrow the run first, then the shard splits what is left', () => {
   assert.deepEqual(pick(SUITE, ['queue']).suite, ['e2e-queue']);
   const stickers = pick(SUITE, ['stickers']).suite;
-  assert.deepEqual(pick(SUITE, ['stickers', '--shard=1/2']).suite, [stickers[0]]);
+  const halves = [1, 2].map(i => pick(SUITE, ['stickers', `--shard=${i}/2`]).suite);
+  assert.deepEqual(halves.flat().sort(), [...stickers].sort());
 });
 
 test('a shard that makes no sense, or a name that matches nothing, is refused', () => {

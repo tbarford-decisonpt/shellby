@@ -39,6 +39,7 @@ jobs:
       # one is signed by the same publisher, or those installs stop updating.
       # See scripts/release-guard.js.
       - name: Check the tag before building
+        id: guard
         env:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_SIGN_ENDPOINT: ${{ vars.AZURE_SIGN_ENDPOINT }}
@@ -51,13 +52,18 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      # The release is the one build real people install: the UI checks run here
-      # too, not just on pull requests.
+      # The release is the one build real people install, so the UI checks have to
+      # have passed on this code. When CI did that already (on this commit, or on
+      # the one before it for a commit that only cuts the release), the guard says
+      # ci_green and they aren't run a second time: that was 20 minutes, one check
+      # after another. Otherwise (CI unreachable, still running) they run here.
       # npm ci on a clean runner doesn't always leave Electron's binary behind
       # (it's a postinstall download, not a package file), and these checks launch
       # the real app. Idempotent: it exits immediately when the binary is there.
-      - run: node node_modules/electron/install.js
-      - run: npm run e2e:ci
+      - if: steps.guard.outputs.ci_green != 'true'
+        run: node node_modules/electron/install.js
+      - if: steps.guard.outputs.ci_green != 'true'
+        run: npm run e2e:ci
 
       # Create the draft release first. electron-builder uploads installer,
       # portable, blockmap and latest.yml in parallel, and if none exists yet

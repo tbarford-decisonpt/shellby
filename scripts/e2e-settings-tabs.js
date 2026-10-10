@@ -149,9 +149,13 @@ const TABS = {
     check(await panel.ev("[...document.querySelectorAll('#settingsView [data-jump-setting]')].every(a => document.getElementById(a.dataset.jumpSetting))"),
       'every link between settings points at one that exists');
     await panel.ev("document.getElementById('setTab-general').click(); document.querySelector('#notifyGroup [data-jump-setting]').click()");
-    await wait(600);
-    check(await selected(panel) === 'connect' && await panel.ev('document.activeElement.id') === 'chEnabled',
-      "Notifications' phone link opens Tell me when I'm away on Connections");
+    // It focuses the setting on the next frame, which a busy desktop can hold back past a fixed wait.
+    let landed = false;
+    for (let i = 0; i < 30 && !landed; i++) {
+      await wait(100);
+      landed = await selected(panel) === 'connect' && await panel.ev('document.activeElement.id') === 'chEnabled';
+    }
+    check(landed, "Notifications' phone link opens Tell me when I'm away on Connections");
 
     // the autonomous-mode warning lives on the Claude tab
     await panel.ev("document.getElementById('setTab-general').click(); SB.chooseMode('autonomous')");

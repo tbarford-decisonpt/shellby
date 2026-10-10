@@ -92,16 +92,22 @@ function checkLatestYml(text, version) {
  * commit decides: a re-run that went green counts, an older green run under a
  * newer red one doesn't.
  *   runs: the API's workflow_runs ({ head_sha, status, conclusion, created_at, html_url })
+ *   jobs: the newest run's jobs ({ name, status, conclusion }), when it's still
+ *   going: one red job already decides it, without waiting out the rest.
  *   -> { state: 'green' | 'running' | 'missing' | 'failed', problem: string | null }
  */
-function checkCiRuns(runs, sha) {
+function checkCiRuns(runs, sha, jobs = []) {
   const short = String(sha).slice(0, 7);
-  const newest = (runs || [])
-    .filter(r => r && r.head_sha === sha)
-    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+  const newest = newestRun(runs, sha);
   if (!newest) return { state: 'missing', problem: `CI hasn't run on ${short}. Push it to main, and tag it once CI is green.` };
   const where = newest.html_url ? ` (${newest.html_url})` : '';
-  if (newest.status !== 'completed') return { state: 'running', problem: `CI is still running on ${short}${where}. Tag it once it's green, or run with --wait.` };
+  if (newest.status !== 'completed') {
+    const red = (jobs || []).filter(j => j?.status === 'completed' && RED.has(j.conclusion));
+    if (red.length) {
+      return { state: 'failed', conclusion: red[0].conclusion, problem: `${red.map(j => j.name).join(', ')} failed on ${short}${where}, so the release would fail the same way. Fix main first; the fix ships as the next version.` };
+    }
+    return { state: 'running', problem: `CI is still running on ${short}${where}. Tag it once it's green, or run with --wait.` };
+  }
   if (newest.conclusion !== 'success') {
     const why = RED.has(newest.conclusion)
       ? 'so the release would fail the same way. Fix main first; the fix ships as the next version.'
@@ -114,6 +120,46 @@ function checkCiRuns(runs, sha) {
 // The conclusions that mean the tests themselves failed, not that the run was
 // cut short (cancelled, skipped): only these stop a tag that's already pushed.
 const RED = new Set(['failure', 'timed_out']);
+
+// What `release:cut` writes in a release commit: the version, the CHANGELOG, and
+// the change notes it gathered (and removed). Nothing CI tests differently.
+const PACKAGE_FILES = new Set(['package.json', 'package-lock.json']);
+const NOTE = /^changes\/(?!README\.md$)[^/]+\.md$/;
+// The commits API lists this many files at most: a list that long may hide more.
+const API_FILES_MAX = 300;
+
+/** One file of a commit, as the commits API lists it, could be part of a release cut. */
+function releaseFile({ filename, status } = {}) {
+  if (PACKAGE_FILES.has(filename)) return status === 'modified'; // and only its version (onlyVersionChanged)
+  if (filename === 'CHANGELOG.md') return status === 'modified' || status === 'added';
+  return NOTE.test(String(filename)) && (status === 'removed' || status === 'modified');
+}
+
+/**
+ * A commit that only cuts a release: its parent's green CI vouches for it, so
+ * the tag needn't wait for a second run (or the release rerun every check) for
+ * a change to a version number. Renames and new files never count (a rename
+ * hides what went), and the package files' contents are checked separately.
+ *   files: the commits API's files ({ filename, status })
+ */
+function releaseOnly(files) {
+  return Array.isArray(files) && files.length > 0 && files.length < API_FILES_MAX && files.every(releaseFile);
+}
+
+/**
+ * package.json or package-lock.json before and after, as text: the same once
+ * the project's own version is left out. A dependency bump touches these files
+ * too, and that is not something a parent's CI has tested. Pure.
+ */
+function onlyVersionChanged(before, after) {
+  const strip = text => {
+    const j = JSON.parse(text);
+    delete j.version;
+    if (j.packages?.['']) delete j.packages[''].version;
+    return JSON.stringify(j);
+  };
+  try { return strip(before) === strip(after); } catch { return false; }
+}
 
 /** The CHANGELOG at the release commit has a "## X.Y.Z" heading for it. */
 function checkChangelog(text, version) {
@@ -215,14 +261,49 @@ function repoSlug() {
 }
 
 /** ci.yml's runs for one commit, through the public API (no `gh` needed). */
-async function ciRuns(sha) {
+async function api(route, sha, { raw = false } = {}) {
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-  const res = await fetch(`https://api.github.com/repos/${repoSlug()}/actions/workflows/ci.yml/runs?head_sha=${sha}&per_page=20`, {
-    headers: { accept: 'application/vnd.github+json', 'user-agent': 'shellby-release-guard', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+  const res = await fetch(`https://api.github.com/repos/${repoSlug()}/${route}`, {
+    headers: { accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json', 'user-agent': 'shellby-release-guard', ...(token ? { authorization: `Bearer ${token}` } : {}) },
     signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(`GitHub answered ${res.status} when asked about CI on ${sha.slice(0, 7)}.`);
-  return (await res.json()).workflow_runs || [];
+  return raw ? res.text() : res.json();
+}
+
+/** The newest of a commit's runs. */
+const newestRun = (runs, sha) => (runs || []).filter(r => r && r.head_sha === sha)
+  .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+
+/** CI on one commit, with the jobs of a run still going (so a red one counts at once). */
+async function ciOnCommit(sha) {
+  const runs = (await api(`actions/workflows/ci.yml/runs?head_sha=${sha}&per_page=20`, sha)).workflow_runs || [];
+  const ci = checkCiRuns(runs, sha);
+  if (ci.state !== 'running') return ci;
+  return checkCiRuns(runs, sha, (await api(`actions/runs/${newestRun(runs, sha).id}/jobs?per_page=100`, sha)).jobs);
+}
+
+/**
+ * CI on the commit being released. A commit that only cuts the release
+ * (releaseOnly, and its package files only change the version) goes by its
+ * parent's run while its own hasn't finished or was cancelled: the tag needn't
+ * wait for CI to test a version number. Its own run carries on, and a red job
+ * there after the tag is pushed is too late to stop the build; that's the
+ * trade for a commit that can't change what the tests see.
+ */
+async function ciOn(sha) {
+  const own = await ciOnCommit(sha);
+  if (own.state === 'green' || (own.state === 'failed' && RED.has(own.conclusion))) return own;
+  const commit = await api(`commits/${sha}`, sha);
+  const parent = commit.parents?.length === 1 ? commit.parents[0].sha : null;
+  if (!parent || !releaseOnly(commit.files)) return own;
+  for (const { filename } of commit.files.filter(f => PACKAGE_FILES.has(f.filename))) {
+    const [before, after] = await Promise.all([parent, sha].map(ref => api(`contents/${filename}?ref=${ref}`, sha, { raw: true })));
+    if (!onlyVersionChanged(before, after)) return own;
+  }
+  const before = await ciOnCommit(parent);
+  if (before.state === 'green') return { ...before, vouchedBy: parent };
+  return before.state === 'failed' ? before : own;
 }
 
 const WAIT_EVERY_MS = 30_000;
@@ -247,13 +328,23 @@ async function ready(args) {
   ].filter(Boolean);
   if (problems.length) return { ok: false, problems };
 
+  const ci = await waitForCi(sha, { wait });
+  if (ci.state !== 'green') return { ok: false, problems: [ci.problem] };
+  const on = ci.vouchedBy ? `CI is green on ${ci.vouchedBy.slice(0, 7)} before it (this commit only cuts the release)` : 'CI is green on it';
+  return { ok: true, problems: [], note: `${tag} is ${tagVersion} at ${sha.slice(0, 7)}, and ${on}. Ready to tag and push.` };
+}
+
+/**
+ * CI on a commit, waited for (wait) while it's running or hasn't started, until
+ * it's green or anything in it fails. -> ciOn's answer.
+ */
+async function waitForCi(sha, { wait = false, log = console.log } = {}) {
   const started = Date.now();
   for (;;) {
-    const ci = checkCiRuns(await ciRuns(sha), sha);
-    if (ci.state === 'green') return { ok: true, problems: [], note: `${tag} is ${tagVersion} at ${sha.slice(0, 7)}, and CI is green on it. Ready to tag and push.` };
+    const ci = await ciOn(sha);
     const pending = ci.state === 'running' || ci.state === 'missing';
-    if (!wait || !pending || Date.now() - started > WAIT_UP_TO_MS) return { ok: false, problems: [ci.problem] };
-    console.log(`Waiting: ${ci.problem}`);
+    if (!wait || !pending || Date.now() - started > WAIT_UP_TO_MS) return ci;
+    log(`Waiting: ${ci.problem}`);
     await sleep(WAIT_EVERY_MS);
   }
 }
@@ -279,9 +370,13 @@ async function main(step, args) {
     // stop now, not after ten minutes of building. Anything less certain (a
     // cancelled run, GitHub not answering) lets the release's own tests decide:
     // a tag that fails here can't be moved, so it must only fail for a reason.
+    // Green (on this commit, or its parent for a release-only commit) has
+    // already run every check on this code: the release skips its own e2e
+    // (ci_green, release.yml) instead of spending 20 minutes repeating them.
     try {
-      const ci = checkCiRuns(await ciRuns(sha), sha);
+      const ci = await ciOn(sha);
       if (ci.state === 'failed' && RED.has(ci.conclusion)) problems.push(ci.problem);
+      if (ci.state === 'green' && process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'ci_green=true\n');
     } catch (e) {
       console.log(`::warning::Couldn't check CI on ${sha.slice(0, 7)} (${e.message}); the release's own tests decide.`);
     }
@@ -320,5 +415,5 @@ if (require.main === module) {
 
 module.exports = {
   checkTagMatchesVersion, commitFromLsRemote, checkTagStillHere, checkExistingRelease, requiredAssets, checkAssets, checkLatestYml,
-  checkCiRuns, checkChangelog, checkTagFree, expectedPublisher, checkPublisherContinuity,
+  checkCiRuns, releaseOnly, onlyVersionChanged, checkChangelog, checkTagFree, expectedPublisher, checkPublisherContinuity, ciOn, waitForCi, repoSlug,
 };

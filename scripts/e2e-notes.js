@@ -114,8 +114,16 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check((await texts()).join() === 'export to STL,add a dark mode', 'and unpinning puts it back');
 
     // ---- 7. Ask: read-only, in the project's folder, asking for a verdict
-    const run = async (n, kind) => { await open(); await ev(`${row(n)}.querySelector('.note-${kind}').click()`); await wait(300); await idle(); };
     const last = () => ev('shellby.listSessions().then(l => l[0])');
+    // Plan and Build first make a copy of the repo, which can take seconds on CI:
+    // wait for their conversation to be the newest, or the last one is read instead.
+    const run = async (n, kind) => {
+      const before = (await last())?.id;
+      await open();
+      await ev(`${row(n)}.querySelector('.note-${kind}').click()`);
+      for (let i = 0; i < 100 && (await last())?.id === before; i++) await wait(150);
+      await idle();
+    };
     await run(0, 'ask');
     check(await ev('SB.state.view') === 'chat', 'Ask opens the conversation');
     let entry = await last();

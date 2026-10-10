@@ -52,7 +52,7 @@
       summary(r),
       outcome(ctx, r),
       r.unpushedTag && unpushed(ctx, r),
-      ...(r.total ? [groups(ctx, r), ciLine(r)] : [h('p', { class: 'muted small pj-calm', text: r.last ? `Nothing since ${r.last.tag}. 🐚` : 'No commits to release yet.' })]),
+      ...(r.total ? [groups(ctx, r), ciLine(ctx, r)] : [h('p', { class: 'muted small pj-calm', text: r.last ? `Nothing since ${r.last.tag}. 🐚` : 'No commits to release yet.' })]),
       drafts.has(root) ? draftForm(ctx, r) : actions(ctx, r),
     ].filter(Boolean)));
   }
@@ -120,10 +120,17 @@
   }
 
   // CI on the commit about to be released, when GitHub (or GitLab, through glab) has it.
-  function ciLine(r) {
+  // Commits only on this PC get "Push them first": CI checks them before a release ships them.
+  function ciLine(ctx, r) {
+    if (!r.upstream && r.forge && r.branch) {
+      return h('p', { class: 'muted small rl-ci' }, h('span', { class: 'pj-dot off', 'aria-hidden': 'true' }),
+        `${r.branch} has never been pushed, so CI hasn't seen it. `,
+        act('Push it first', e => pushFirst(ctx, r, e.currentTarget), 'link-btn small'));
+    }
     if (r.upstream?.ahead) {
       return h('p', { class: 'muted small rl-ci' }, h('span', { class: 'pj-dot off', 'aria-hidden': 'true' }),
-        `${plural(r.upstream.ahead, 'commit')} not pushed yet, so CI hasn't seen ${r.upstream.ahead === 1 ? 'it' : 'them'}.`);
+        `${plural(r.upstream.ahead, 'commit')} not pushed yet, so CI hasn't seen ${r.upstream.ahead === 1 ? 'it' : 'them'}. `,
+        r.forge && act('Push them first', e => pushFirst(ctx, r, e.currentTarget), 'link-btn small'));
     }
     if (!r.ci) return null;
     const words = {
@@ -170,7 +177,8 @@
     const cut = act('', () => doCut(ctx, r, cut), 'btn primary');
     const err = h('p', { class: 'small rl-err', role: 'alert', hidden: true });
 
-    const ciRisk = r.ci && (r.ci.state === 'failing' || r.ci.state === 'pending');
+    const unchecked = !!((!r.upstream || r.upstream.ahead) && r.forge); // merged here or never pushed: never through CI
+    const ciRisk = unchecked || (r.ci && (r.ci.state === 'failing' || r.ci.state === 'pending'));
     const valid = v => /^\d{1,6}\.\d{1,6}\.\d{1,6}(-[0-9A-Za-z.-]{1,40})?$/.test(v);
     const hasEntry = () => r.changelog.hasEntry && d.version === r.next.suggested;
 
@@ -224,7 +232,9 @@
       notesIn, entryNote,
       h('p', { class: 'row-label rl-steps-label', text: 'Cut release will' }), steps,
       r.remote && h('label', { class: 'pj-check' }, pushIn, h('span', { text: `Push it to ${r.remote} too` })),
-      ciRisk && h('label', { class: 'pj-check rl-ack' }, ackIn, h('span', { text: r.ci.state === 'failing' ? 'CI failed on this commit. Release it anyway.' : 'CI hasn\'t finished on this commit. Release it anyway.' })),
+      ciRisk && h('label', { class: 'pj-check rl-ack' }, ackIn, h('span', { text: unchecked
+        ? (r.upstream ? `CI hasn't checked ${plural(r.upstream.ahead, 'commit')} that ${r.upstream.ahead === 1 ? 'isn\'t' : 'aren\'t'} pushed. Release anyway.` : 'This branch has never been pushed, so CI hasn\'t checked it. Release anyway.')
+        : r.ci.state === 'failing' ? 'CI failed on this commit. Release it anyway.' : 'CI hasn\'t finished on this commit. Release it anyway.' })),
       err, why,
       h('div', { class: 'row wrap end rl-draft-acts' },
         r.total > 0 && act('Write it with Claude', e => polish(ctx, r, e.currentTarget)),
@@ -266,6 +276,19 @@
     }
     done.set(ctx.root, { ok: true, pushed: true, tag, remote: res.remote });
     SB.toast(`${tag} is out. 🏷️`);
+    ctx.load(true);
+  }
+
+  async function pushFirst(ctx, r, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Pushing…';
+    const res = await api.pushReleaseBranch({ root: ctx.root }).catch(e => ({ ok: false, error: e.message }));
+    if (!res?.ok) {
+      btn.disabled = false;
+      btn.textContent = r.upstream ? 'Push them first' : 'Push it first';
+      return SB.toast(res?.error || 'The push didn\'t go through.');
+    }
+    SB.toast(`Pushed ${r.branch || 'the branch'}. Cut the release once CI is green.`);
     ctx.load(true);
   }
 
