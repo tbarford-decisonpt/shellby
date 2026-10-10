@@ -217,6 +217,7 @@
         case 'checks': return SB.renderChecks?.(this, item);   // turn-checks.js
         case 'shots': return SB.renderShots?.(this, item);     // turn-checks.js
         case 'tries': return SB.renderTries?.(this, item, replay); // tries.js
+        case 'debug': return SB.renderDebug?.(this, item, replay); // debug-mode.js
         // Shellby's own one-line notes: cleared, moved into a copy, from the phone,
         // brought home, pushed, compacted, started fresh, rewound. /clear empties
         // the screen first, as in the terminal: live or replayed, so a
@@ -481,9 +482,11 @@
     return strip;
   };
 
-  SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: `att${isPicture(f) ? ' pic' : ''}`, title: f },
+  // An @ pick's snapshot (src/main/wiring/mention-context.js) opens to exactly what goes to Claude.
+  const isContext = f => /[\\/]context[\\/][0-9a-f]{8}[\\/][a-z0-9-]+\.txt$/.test(f);
+  SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: `att${isPicture(f) ? ' pic' : ''}${isContext(f) ? ' ctx' : ''}`, title: isContext(f) ? 'From Shellby: open it to read exactly what Claude gets' : f },
     isPicture(f) ? thumbImg(f) : null,
-    h('span', { text: SB.basename(f) }),
+    isContext(f) ? SB.fileLink(f, { text: SB.basename(f) }) : h('span', { text: SB.basename(f) }),
     onRemove ? h('button', { type: 'button', 'aria-label': `Remove ${SB.basename(f)}`, onclick: () => onRemove(i) }, '×') : null));
 
   // The next step after something went wrong, by trouble.js's action id. `tab`
