@@ -554,6 +554,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await keyPress('PageUp', 'PageUp', 33, CTRL_SHIFT);
     check(await until(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${C}').tabs) === JSON.stringify(['${C}', '${A}'])`), 'Ctrl+Shift+PgUp moves C to the front of its pane\'s strip');
     check(await ev(`[...document.querySelector('.pane[data-tab="${C}"]').querySelectorAll('.pane-head .tab')].map(t => t.dataset.tabId).join() === ['${C}', '${A}'].join()`), 'and the strip shows it there');
+    // Nothing here reorders state.tabs while split: only main's next update does (syncTabs).
+    check(await until(`(() => { const k = [...SB.state.tabs.keys()]; return k.join() === SB.panes.tabIds(SB.state.grid).join(); })()`, 5000), 'and main takes the order too, as each pane\'s tabs in turn');
     check(await ev(`SB.placeTab('${C}', ${PID(C)}, 'bottom')`), 'C splits back off under A');
     await wait(200);
     check(await isShape([[A, C], [D, B]]), 'the 2x2 again');
@@ -634,6 +636,9 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
       await ev(`SB.activate('${id}'); document.getElementById('input').value = ''; SB.send('hello from ' + '${id}'.slice(0, 4))`);
       await until(`!SB.state.tabs.get('${id}').busy && SB.state.tabs.get('${id}').el.querySelector('.msg.assistant')`, 15000);
     }
+    // A pane holding two tabs, showing the second: it comes back with both, showing the same one.
+    check(await ev(`SB.placeTab('${C}', ${PID(A)}, 'center')`), 'C joins A\'s pane before the restart');
+    await wait(300);
     await ev(`(() => { const s = SB.state.paneSizes; for (const p of SB.state.grid[0]) s.w[p.id] = 3; SB.renderPanes(); })()`);
     const layout = await ev('JSON.stringify({ grid: SB.state.grid, w: SB.state.paneSizes.w })');
     // A screen with room for the left column at three times the right one, both
@@ -658,6 +663,10 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until(`[...document.querySelectorAll('.pane')].every(p => p.getBoundingClientRect().width >= 279)`, 5000), 'and the panel grew to fit them');
     await ev('shellby.maximize()'); // the drags that follow want the room
     await wait(800);
+    check(await ev(`(() => { const p = SB.panes.paneWith(SB.state.grid, '${A}'); return !!p && JSON.stringify(p.tabs) === JSON.stringify(['${A}', '${C}']) && p.active === '${C}'; })()`), 'every pane\'s tabs come back, each showing the tab it showed');
+    check(await ev(`SB.placeTab('${C}', ${PID(C)}, 'bottom')`), 'C splits back off under A'); // the steps below start from the 2x2
+    await wait(300);
+    await ev(`SB.activate('${A}')`);
 
     // ---- A click into a pane gives it the box.
     await panel.click(await paneSpot(C, 0.5, 0.5));
@@ -732,6 +741,20 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await ev(`SB.state.activeTab === [...SB.state.tabs.keys()].pop() && SB.state.activeTab === '${made3[2]}'`), 'one pane: closing the open tab opens the last tab, not the one beside it');
     for (const id of made3.slice(1)) await ev(`SB.closeTab('${id}')`);
     await wait(200);
+
+    // ---- A split closing down to one pane by a drop keeps the order it was left in, and main keeps it too.
+    await ev(`SB.activate('${D}')`);
+    check(await ev(`SB.placeTab('${D}', ${PID(D)}, 'right')`), 'D split off to the right');
+    await wait(300);
+    const firstLeft = await ev('SB.state.grid[0][0].tabs[0]');
+    await panel.drag(await tabAt(D), await ev(`(() => { const t = [...document.querySelectorAll('.pane-tabs [data-tab-id]')].find(e => e.dataset.tabId === '${firstLeft}').getBoundingClientRect(); return { x: t.left + 4, y: t.top + t.height / 2 }; })()`));
+    await wait(300);
+    const topOrder = () => ev(`[...document.querySelectorAll('#tabs .tab')].map(t => t.dataset.tabId)`);
+    check(await ev('SB.panes.count(SB.state.grid)') === 1 && (await topOrder())[0] === D, 'D dropped at the front of the other pane\'s strip: one pane again, D first in the top strip');
+    await ev(`document.getElementById('input').value = ''; SB.send('hello after the split')`);
+    await until(`!SB.state.tabs.get('${D}').busy && [...SB.state.tabs.get('${D}').el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('hello after the split'))`, 15000);
+    await wait(300);
+    check((await topOrder())[0] === D, 'and still first after main\'s next update: main took the order');
   } catch (err) {
     check(false, `crashed: ${err.stack || err}`);
   } finally {

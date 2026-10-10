@@ -94,6 +94,9 @@
     state.tabs.clear();
     for (const [id, tab] of order) state.tabs.set(id, tab);
   }
+  // The whole order at once (tab-panes.js, a split closing down to one pane):
+  // `ids` first, any tab they leave out after, so none is ever dropped.
+  SB.orderTabs = ids => orderTabs([...new Set([...ids.filter(id => state.tabs.has(id)), ...state.tabs.keys()])]);
 
   // Move a tab in front of `beforeId` (null = the end of the strip). Main keeps
   // the same order and writes it to disk, so a reorder outlives the session.

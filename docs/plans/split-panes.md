@@ -238,9 +238,11 @@ Details:
   pane goes) reads as panes of one tab each.
 - The renderer sends it only while split, 500 ms after the grid or sizes
   settle, over a new `panes:layout` IPC (panel only; the guard refuses
-  pop-outs). Back to one pane it sends `null` once, so one pane writes
-  nothing and starts as it always has. Main runs it through `clean` and
-  writes it only when it changed, as `openTabs` does.
+  pop-outs). A split closing down to one pane sends its lone pane once, at
+  once, so main takes that pane's order. Main runs it through `clean`
+  against its open tabs, stores it only with two or more panes (so one pane
+  writes nothing and starts as it always has), and writes it only when it
+  changed, as `openTabs` does.
 - Main keeps its tab order (the order `openTabs` is saved in) as each
   pane's tabs in turn, so a start with no usable layout opens every
   conversation in one pane in a sensible order.

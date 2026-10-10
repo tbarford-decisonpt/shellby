@@ -74,12 +74,21 @@
   // Every open conversation in exactly one pane: one closed leaves its pane,
   // and one that turned up (a new tab, one back from its own window, one main
   // opened) joins the focused pane. One pane holds them in the strip's own
-  // order, as main keeps it. -> whether the panes, or a pane's shown tab, changed.
+  // order, as main keeps it; a split closing down to one keeps the order its
+  // pane was left in, and main is told it at once. -> whether the panes, or a
+  // pane's shown tab, changed.
+  let paneCount = 1;   // panes at the last settle, to see a split close down to one
   SB.settlePanes = () => {
     const open = [...state.tabs.keys()];
-    const next = P.follow(P.settle(state.grid, open, homePane()), open);
+    let next = P.settle(state.grid, open, homePane());
+    const n = P.count(next);
+    const closedDown = paneCount > 1 && n === 1;
+    paneCount = n;
+    if (closedDown) SB.orderTabs(next[0][0].tabs);
+    else next = P.follow(next, open);
     const changed = P.layoutKey(next) !== P.layoutKey(state.grid);
     state.grid = next;
+    if (closedDown) SB.savePanes({ now: true });
     return changed;
   };
 
@@ -155,18 +164,21 @@
   SB.applyPaneSizes = applySizes;
 
   // The layout, for the next start: a moment after it settles, only while
-  // split, never from a popped-out window. Back to one pane, it's cleared once,
-  // so one pane writes nothing and starts as it always has.
+  // split, never from a popped-out window. Back to one pane it goes once more,
+  // at once (now) when a split closes down: main stores no layout for one
+  // pane, so one pane writes nothing and starts as it always has, but takes
+  // that pane's order (ipc/tabs.js panes:layout).
   let saveTimer = null;
-  SB.savePanes = () => {
+  SB.savePanes = ({ now = false } = {}) => {
     if (SB.solo) return;
     const split = P.count(state.grid) > 1;
-    if (!split && !state.panesSaved) return;
+    if (!split && !state.panesSaved && !now) return;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
+    const send = () => {
       state.panesSaved = split;
-      api.savePaneLayout(split ? { grid: state.grid, sizes: state.paneSizes } : null);
-    }, 500);
+      api.savePaneLayout({ grid: state.grid, sizes: state.paneSizes });
+    };
+    if (now) send(); else saveTimer = setTimeout(send, 500);
   };
 
   // While there's more than one pane the box lives in the focused one, and the

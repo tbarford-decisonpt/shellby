@@ -275,6 +275,15 @@ test('clean: ids every object already has are junk, as tabs and as panes, so the
   assert.deepEqual(P.shares(out.grid, out.sizes).cols, [0.5, 0.5]);
 });
 
+test('clean: a tab in a pane over the caps doesn\'t keep it out of a later pane within them', () => {
+  const rows = { grid: [[{ id: 'p1', tabs: ['a'] }, { id: 'p2', tabs: ['b'] }, { id: 'p3', tabs: ['c'] }, { id: 'p4', tabs: ['x'] }], [{ id: 'p5', tabs: ['x'] }]] };
+  assert.deepEqual(P.tabIds(P.clean(rows).grid), ['a', 'b', 'c', 'x'], 'the fourth pane down was dropped, so x stays in the next column');
+  const cols = { grid: [['a'], ['b'], ['c'], ['d'], ['e', 'f']] };
+  assert.deepEqual(P.tabIds(P.clean(cols).grid), ['a', 'b', 'c', 'd'], 'a fifth column is dropped whole');
+  const junkFirst = { grid: [[{ id: 'p1', tabs: ['gone'] }, { id: 'p2', tabs: ['a'] }, { id: 'p3', tabs: ['b'] }, { id: 'p4', tabs: ['c'] }]] };
+  assert.deepEqual(P.tabIds(P.clean(junkFirst, ['a', 'b', 'c']).grid), ['a', 'b', 'c'], 'a pane cleaned to nothing doesn\'t count toward the cap');
+});
+
 test('clean: a layout saved with one tab per pane reads as panes of one tab each, its sizes kept', () => {
   const old = { grid: [['a', 'c'], ['b']], sizes: { w: { a: 2, c: 2, b: 1 }, h: { a: 3, c: 1, b: 1 } } };
   const out = P.clean(old, ['a', 'b', 'c']);

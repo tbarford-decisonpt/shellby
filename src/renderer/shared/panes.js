@@ -367,10 +367,19 @@
       keyOf.set(pane, old ? entry : raw.id);
       return pane;
     };
-    const grid = saved.grid
-      .map(col => (Array.isArray(col) ? col : []).map(toPane).filter(Boolean).slice(0, MAX_ROWS))
-      .filter(col => col.length)
-      .slice(0, MAX_COLS);
+    // Within the caps as it goes, so a tab in a pane past them is never seen
+    // and a later pane within them can still hold it.
+    const grid = [];
+    for (const entry of saved.grid) {
+      if (grid.length === MAX_COLS) break;
+      const col = [];
+      for (const p of Array.isArray(entry) ? entry : []) {
+        if (col.length === MAX_ROWS) break;
+        const pane = toPane(p);
+        if (pane) col.push(pane);
+      }
+      if (col.length) grid.push(col);
+    }
     if (!grid.length) return null;
     const ids = new Set();
     for (const p of grid.flat()) {

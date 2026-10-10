@@ -421,6 +421,24 @@ class SessionManager extends EventEmitter {
     return true;
   }
 
+  // The split view's order (ipc/tabs.js panes:layout): the tabs `ids` names
+  // (each pane's tabs in turn) take each other's places in that order, and
+  // every tab it doesn't name (one popped out, say) keeps its own. Unknown and
+  // repeated ids are skipped. -> whether anything moved (no update is pushed otherwise).
+  setOrder(ids) {
+    const was = [...this.tabs.keys()];
+    const want = [...new Set(ids)].filter(id => this.tabs.has(id));
+    const named = new Set(want);
+    let i = 0;
+    const next = was.map(id => (named.has(id) ? want[i++] : id));
+    if (next.every((id, i) => id === was[i])) return false;
+    const order = next.map(id => [id, this.tabs.get(id)]);
+    this.tabs.clear();
+    for (const [id, tab] of order) this.tabs.set(id, tab);
+    this.changed();
+    return true;
+  }
+
   // kill: end the process tree now instead of letting it wind down (quitting).
   close(tabId, { kill = false } = {}) {
     const tab = this.tabs.get(tabId);

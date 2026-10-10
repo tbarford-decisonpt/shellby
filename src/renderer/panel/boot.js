@@ -229,9 +229,12 @@
     }
     // The split view as it was left, with the conversations still open. Only a
     // real split: anything that cleans down to one pane starts as it always has.
+    // Open tabs the layout doesn't mention (one popped out last time, say) join its first pane.
     state.panesSaved = !!b.paneLayout;
-    const kept = SB.panes.clean(b.paneLayout, [...state.tabs.keys()]);
-    const saved = kept && SB.panes.count(kept.grid) > 1 ? kept : null;
+    const open = [...state.tabs.keys()];
+    const kept = SB.panes.clean(b.paneLayout, open);
+    const grid = kept && SB.panes.settle(kept.grid, open, kept.grid[0][0].id);
+    const saved = grid && SB.panes.count(grid) > 1 ? { grid, sizes: kept.sizes } : null;
     if (saved) { state.grid = saved.grid; state.paneSizes = saved.sizes; }
     // A conversation the last run cut off mid-turn comes to the front, and the toast says which.
     const cut = (b.cutOff || []).filter(c => state.tabs.has(c.id));
