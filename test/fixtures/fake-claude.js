@@ -17,6 +17,9 @@
 //   "mcp <tool> <json>" -> calls a tool on the in-app MCP server (see crabmcp.js)
 //                   and replies with its result; "mcp tools" lists them
 //   "effort"     -> replies with the effort level it was last told (flag or apply_flag_settings)
+//   "stream <words>" -> the reply written word by word, then a prompt suggestion
+//   "/goal <condition>|clear" -> Claude Code's own note that a goal was set or cleared
+//   "helper says <words>" -> a helper whose words are forwarded (--forward-subagent-text)
 //   (one-shot) a /btw side question: see SIDE below
 //   "... FAKE_JSON:{...}" -> replies with that object in a ```json block
 //   "steps <n> <ms> [late <ms>]" -> n tool calls in a row; see below for messages sent meanwhile
@@ -276,7 +279,8 @@ function onLine(line) {
     try { fs.mkdirSync(dir, { recursive: true }); fs.appendFileSync(path.join(dir, `${sessionId}.jsonl`), `${JSON.stringify({ sessionId, text: content })}\n`); } catch { /* best effort */ }
   }
   out({ type: 'system', subtype: 'hook_started' });
-  out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: process.cwd(), permissionMode: mode, args });
+  // SHELLBY_FAKE_AGENTS=a,b: the agents it says it has (Toolbox → Chat as checks the name against them).
+  out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: process.cwd(), permissionMode: mode, args, ...(process.env.SHELLBY_FAKE_AGENTS ? { agents: process.env.SHELLBY_FAKE_AGENTS.split(',') } : {}) });
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
 
   if (note) text(`noted: ${note}`);
@@ -437,6 +441,51 @@ function onLine(line) {
     return;
   }
   if (content === 'effort') { text(`effort:${effort || 'default'}`); result(true); return; }
+  // "stream <words>" -> the reply word by word first (--include-partial-messages), then whole;
+  // "stream" also ends with a prompt suggestion, as the real CLI does when they're on.
+  if (content.startsWith('stream ')) {
+    const words = content.slice(7);
+    const ms = 40;
+    if (args.includes('--include-partial-messages')) {
+      out({ type: 'stream_event', event: { type: 'message_start', message: { id: 'msg_stream' } }, parent_tool_use_id: null, session_id: sessionId });
+      out({ type: 'stream_event', event: { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }, parent_tool_use_id: null, session_id: sessionId });
+    }
+    const parts = words.split(/(?<= )/);
+    let i = 0;
+    const next = () => {
+      if (i < parts.length && args.includes('--include-partial-messages')) {
+        out({ type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: parts[i++] } }, parent_tool_use_id: null, session_id: sessionId });
+        return setTimeout(next, ms);
+      }
+      text(words);
+      result(true);
+      out({ type: 'prompt_suggestion', suggestion: 'Now add a test for it', uuid: 'sugg-1', session_id: sessionId });
+    };
+    next();
+    return;
+  }
+  // "/goal <condition>" -> Claude Code's own "Goal set" note; "/goal clear" its "Goal cleared".
+  if (content.startsWith('/goal')) {
+    const cond = content.slice(5).trim();
+    const note = cond === 'clear' ? 'Goal cleared: the earlier one' : `Goal set: ${cond}`;
+    out({ type: 'assistant', message: { id: `synthetic-${turn}`, model: '<synthetic>', content: [{ type: 'text', text: note }] }, parent_tool_use_id: null, session_id: sessionId });
+    result(true);
+    return;
+  }
+  // "helper says <words>" -> a helper that writes something (--forward-subagent-text), then finishes.
+  if (content.startsWith('helper says ')) {
+    const said = content.slice(12);
+    out({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 'tu_say', name: 'Agent', input: { subagent_type: 'general-purpose', description: 'Say something', prompt: 'say it' } }] } });
+    out({ type: 'system', subtype: 'task_started', task_id: 'say-1', tool_use_id: 'tu_say', description: 'Say something', subagent_type: 'general-purpose', is_backgrounded: false, spawn_depth: 1, task_type: 'local_agent' });
+    if (args.includes('--forward-subagent-text')) out({ type: 'assistant', parent_tool_use_id: 'tu_say', message: { content: [{ type: 'text', text: said }] } });
+    setTimeout(() => {
+      out({ type: 'system', subtype: 'task_notification', task_id: 'say-1', tool_use_id: 'tu_say', status: 'completed', summary: said });
+      out({ type: 'user', parent_tool_use_id: null, message: { content: [{ type: 'tool_result', tool_use_id: 'tu_say', content: said }] } });
+      text('the helper is done');
+      result(true);
+    }, Number(process.env.SHELLBY_FAKE_SAY_MS) || 300);
+    return;
+  }
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }
   // "wait <ms> ..." -> replies after a delay (a turn you can queue messages behind)
   if (content.startsWith('wait ')) {

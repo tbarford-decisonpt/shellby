@@ -68,6 +68,9 @@
       this.jobs = [];             // what it left running in the background, from main's summary (jobs.js)
       this.trimmed = 0;           // blocks dropped off the top (see trim())
       this.trimmedNotice = null;
+      this.live = null;           // Claude's reply while it's being written, until the whole of it arrives
+      this.nextPrompt = null;     // what Claude Code guessed you'll ask next (native-cli.js)
+      this.goal = null;           // the goal Claude checks before it stops (/goal), while it's set
       // Not a live region: every tool step would be read out. The turn's end
       // and permission asks are announced instead (SB.announce).
       this.el = h('section', { class: 'feed', role: 'tabpanel', dataset: { tab: id } });
@@ -185,11 +188,47 @@
     render(item, { replay = false } = {}) {
       // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it).
       if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item) && this.isActive) SB.renderTodos?.(this);
+      // The reply as it was being written gives way to whatever comes next on
+      // the main thread: the finished words themselves, usually.
+      if (this.live && item.kind !== 'partial' && !item.sub) this.endLive();
       switch (item.kind) {
         case 'user':
           // Something you just sent always comes into view, even if you'd scrolled up.
           if (!replay) { this.stuck = true; this.dropCutOff(); }
+          // What Claude guessed you'd ask next is spent once you've asked something.
+          if (!replay && this.nextPrompt) { this.nextPrompt = null; if (this.isActive) SB.renderNextPrompt?.(this); }
           return this.renderUser(item);
+        // Claude's reply as it's written (--include-partial-messages), plain until it's done.
+        case 'partial':
+          if (replay) return;
+          if (!this.live) {
+            this.live = this.append(h('div', { class: 'msg assistant live', 'aria-busy': 'true' }));
+            this.setStatus('Writing…');
+          }
+          this.live.append(item.text);
+          if (this.stuck && this.isShown) this.scrollToEnd();
+          return;
+        // What Claude Code thinks you'll ask next (native-cli.js shows it by the box).
+        case 'next':
+          if (replay) return;
+          this.nextPrompt = item.text;
+          if (this.isActive) SB.renderNextPrompt?.(this);
+          return;
+        // A goal Claude checks before it stops (/goal), pinned by the box until it's met or cleared.
+        case 'goal':
+          this.goal = item.text || null;
+          if (this.isActive) SB.renderGoal?.(this);
+          if (item.met && !replay) this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '🎯' }), 'Goal met.'));
+          return;
+        // One of your agents runs this conversation (claude --agent; tabs.js newTabAs).
+        case 'agent':
+          return this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '🤖' }),
+            h('span', {}, 'Your ', h('b', { text: item.name }), " agent runs this conversation: its own instructions, tools and model, from the first message.")));
+        // Safe mode turned on or off for this conversation (sessions.js setSafeMode).
+        case 'safe':
+          return this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: item.on ? '🛟' : '🧩' }),
+            item.on ? 'Safe mode: from the next message, Claude starts without your CLAUDE.md, skills, plugins, hooks, MCP servers or custom agents. Turn it off from the tab menu.'
+              : 'Safe mode off: your CLAUDE.md, skills, plugins, hooks and MCP servers are back from the next message.'));
         case 'text': {
           const el = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text));
           return this.append(el, item.parent);
@@ -263,8 +302,15 @@
       }
     }
 
+    // The words written so far go: the finished reply (or the turn's end) takes their place.
+    endLive() {
+      this.live?.remove();
+      this.live = null;
+    }
+
     // Everything drawn so far goes, and the empty state is back.
     wipe() {
+      this.live = null;
       for (const el of [...this.el.children]) if (el !== this.empty) el.remove();
       this.tools.clear();
       this.asks.clear();

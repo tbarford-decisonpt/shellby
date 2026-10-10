@@ -17,6 +17,7 @@
 
     <footer class="composer" id="composer">
       <!-- Claude's own to-do list, and what it left running in the background (native-strip.js) -->
+      <div class="goal-pin" id="goalPin" role="status" aria-label="The goal Claude checks before it stops" hidden></div>
       <div class="todos" id="todos" role="region" aria-label="Claude's to-do list" hidden></div>
       <div class="jobs" id="jobs" role="region" aria-label="Running in the background" hidden></div>
       <div class="status" id="status" hidden>
@@ -30,6 +31,7 @@
       <div class="outlook" id="outlook" role="status" hidden></div>
       <div class="review-bar" id="review" role="region" aria-label="Review comments waiting to be sent" hidden></div>
       <div class="queued" id="queued" hidden></div>
+      <div class="next-prompt" id="nextPrompt" hidden></div>
       <div class="attachments" id="attachments" hidden></div>
       <form class="input-row" id="form">
         <button type="button" class="attach-btn" id="attachBtn" aria-label="Attach files" title="Attach files · or paste a screenshot (Ctrl+V)">
