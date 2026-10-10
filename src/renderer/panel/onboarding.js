@@ -76,17 +76,28 @@
           : 'Shellby uses your Claude Pro or Max plan through Claude Code. There are no API keys and nothing is billed per token.',
         installed ? [h('button', { class: 'btn primary', type: 'button', onclick: async () => { await api.claudeLogin(); SB.toast('Finish signing in in the window that opened. Shellby notices when you’re done.', { ms: 6000 }); } }, 'Sign in'), recheck()] : null),
     );
-    const pick = async mode => {
-      if (mode === 'autonomous') return SB.toast('You can turn on Autonomous later in Settings.');
-      const r = await api.setSettings({ mode });
-      state.settings = r.settings;
-      SB.applyMode(mode);
-      SB.renderModeCards($('onboardModeCards'), pick);
-    };
-    SB.renderModeCards($('onboardModeCards'), pick);
+    SB.renderModeCards($('onboardModeCards'), pickMode);
     if (remote) renderRemote();
     else $('letsGoBtn').disabled = !(installed && signedIn);
   }
+  // Autonomous asks once, right here, as it does in Settings.
+  async function pickMode(mode) {
+    const confirm = mode === 'autonomous' && !state.settings.autonomousAcknowledged;
+    $('onboardAutonomousConfirm').hidden = !confirm;
+    if (confirm) return $('onboardAutonomousConfirm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const r = await api.setSettings({ mode });
+    state.settings = r.settings;
+    SB.applyMode(state.settings.mode);
+    SB.renderModeCards($('onboardModeCards'), pickMode);
+  }
+  $('onboardAutonomousYes').addEventListener('click', async () => {
+    const r = await api.setSettings({ autonomousAcknowledged: true, mode: 'autonomous' });
+    state.settings = r.settings;
+    SB.applyMode(state.settings.mode);
+    $('onboardAutonomousConfirm').hidden = true;
+    SB.renderModeCards($('onboardModeCards'), pickMode);
+  });
+  $('onboardAutonomousNo').addEventListener('click', () => { $('onboardAutonomousConfirm').hidden = true; });
   async function recheckStatus() {
     state.status = await api.claudeStatus();
     renderOnboarding();
