@@ -124,6 +124,19 @@ function createPerching(d) {
     native.float(self());
   }
 
+  /**
+   * Hopping onto or off `hwnd`: in the air, but in that window's band rather
+   * than over every app, so whatever covers the window covers him too and he
+   * never flashes across it. False when he's kept on top of your apps (float
+   * instead) or Windows won't let the window own him.
+   */
+  function hopBy(hwnd) {
+    if (d.onTop?.() || !native.ownBy(self(), hwnd)) return false;
+    floating = true;
+    native.raiseAbove(self(), hwnd);
+    return true;
+  }
+
   /** Back on the desktop layer (letting go of any window he was on). */
   function home() {
     detach();
@@ -197,7 +210,14 @@ function createPerching(d) {
         return;
       }
       const at = d.getPos();
-      floatUp();
+      if (d.onTop?.()) floatUp();
+      else if (!hopBy(seg.hwnd)) {
+        // Elevated windows, mostly: he'd only fall off again when he landed.
+        refused.set(seg.hwnd, Date.now() + REFUSED_MS);
+        home();
+        d.toRenderer(null, {});
+        return;
+      }
       const going = motion.hop(target, {
         path: perch.hopPoint, ms: perch.hopDuration(at, to), flip: perch.hopFlips(at, to),
         onLand: () => attach(seg.hwnd, { how: 'hop' }),
@@ -376,8 +396,8 @@ function createPerching(d) {
     const near = onScreen && Math.abs(homeAt.x - from.x) <= HOP_HOME_MAX;
     const dir = onScreen ? Math.sign(homeAt.x - from.x) || 1 : 1;
     const to = near ? { x: homeAt.x, y: homeAt.y } : { x: Math.min(Math.max(from.x + dir * 140, b.minX), b.maxX), y: b.floorY };
-    detach();
-    floatUp();
+    const was = detach();
+    if (!hopBy(was.hwnd)) floatUp();
     clearTimeout(afterLand);
     const going = d.motion().hop(() => to, {
       path: perch.hopPoint, ms: perch.hopDuration(from, to), flip: perch.hopFlips(from, to), crouchMs: 220,
@@ -398,11 +418,11 @@ function createPerching(d) {
     const to = d.homePos();
     if (!to || motion.busy || d.dragging() || attached) return;
     // Home is somewhere else on the floor: walk. Anywhere else (another
-    // screen, or up on the desktop where you left him): hop.
+    // screen, or up on the desktop where you left him): hop, staying on the
+    // desktop layer, under your apps, so he doesn't flash across them.
     if (Math.abs(to.y - at.y) <= 6) {
       if (motion.walkTo(to.x, WALK_HOME_SPEED, { kind: 'walk-home' })) return;
     } else {
-      floatUp();
       const going = motion.hop(() => to, { path: perch.hopPoint, ms: perch.hopDuration(at, to), flip: perch.hopFlips(at, to), onLand: () => { home(); d.refresh(); } });
       if (!going) home();
     }

@@ -304,8 +304,8 @@ function raiseAbove(self, owner) {
 const ownByDesktop = self => ownBy(self, desktopHost());
 
 /**
- * In the air: nobody's owned window, on top of the ordinary (not topmost)
- * windows, so a hop or a fall is seen crossing the apps rather than happening
+ * Falling or thrown: nobody's owned window, on top of the ordinary (not topmost)
+ * windows, so a fall is seen crossing the apps rather than happening
  * behind them. Without activating him. He's put back down when he lands.
  */
 function float(self) {
