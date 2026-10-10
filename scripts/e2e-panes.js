@@ -58,6 +58,10 @@ async function connect(target) {
   return { ws, send, ev, until, drag, click, shot };
 }
 
+// The panel has booted (boot.js marks it): its tabs are back and one is showing. Before
+// that, the first steps' tabs are made beside boot's own, which then shows another.
+const BOOTED = "performance.getEntriesByName('shellby:panel-ready').length > 0";
+
 const targets = async () => { try { return await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json(); } catch { return []; } };
 
 (async () => {
@@ -82,7 +86,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     for (let i = 0; i < 40 && !list.some(t => t.url.endsWith('panel.html')); i++) { list = await targets(); await wait(500); }
     const panel = await connect(list.find(t => t.url.endsWith('panel.html')));
     let { ev, until } = panel; // rebound when the app restarts
-    await wait(3000);
+    check(await until(BOOTED, 30000), 'the panel boots');
     await ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
     // Not maximized yet: Split has to make room for itself.
     const startWidth = await ev('window.innerWidth');
@@ -625,7 +629,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     for (let i = 0; i < 40 && !again.some(t => t.url.endsWith('panel.html')); i++) { again = await targets(); await wait(500); }
     Object.assign(panel, await connect(again.find(t => t.url.endsWith('panel.html'))));
     ({ ev, until } = panel);
-    await wait(3000);
+    check(await until(BOOTED, 30000), 'and boots again');
     await ev("SB.setView('chat')");
     check(await until(`SB.state.grid.length > 1`), 'the panel comes back split');
     const back = await ev('JSON.stringify({ grid: SB.state.grid, w: SB.state.paneSizes.w })');
