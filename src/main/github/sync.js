@@ -9,7 +9,8 @@
 // follows the latest add or remove on any PC (friends.js mergeSync), and each of
 // your settings whichever PC changed it last, snippets and pins item by item
 // (sync-prefs.js). His life (finds, the bond, games, quests, scenes and his
-// personality) is in sync-life.js. The gist is yours but is still treated as
+// personality) is in sync-life.js. Your routines and workflows go one by one,
+// each arriving switched off (sync-plans.js). The gist is yours but is still treated as
 // untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
 const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
@@ -21,6 +22,7 @@ const friends = require('../friends');
 const events = require('../events');
 const prefs = require('../sync-prefs');
 const life = require('../sync-life');
+const plans = require('../sync-plans');
 const { findGist } = require('./gists');
 
 const FILE = 'shellby-sync.json';
@@ -58,6 +60,7 @@ function snapshot(get, data = {}, now = Date.now()) {
     events: events.normalize(get('events')),
     prefs: prefs.snapshot(data, stamps.prefs),
     life: life.snapshot(get, xp.device, stamps.life, now),
+    plans: plans.snapshot(data, stamps.plans),
   });
 }
 
@@ -98,6 +101,8 @@ function clean(raw) {
     prefs: prefs.clean(r.prefs),
     // Finds, the bond, games, quests and scenes: each PC's share of the counts.
     life: life.clean(r.life),
+    // Routines and workflows, checked as if you'd saved them; none in Autonomous.
+    plans: plans.clean(r.plans),
   };
 }
 
@@ -132,6 +137,7 @@ function merge(aIn, bIn) {
     events: events.merge(a.events, b.events),
     prefs: prefs.merge(a.prefs, b.prefs),
     life: life.merge(a.life, b.life),
+    plans: plans.merge(a.plans, b.plans),
   });
 }
 
@@ -167,6 +173,10 @@ function patchFor(merged, get, data = {}) {
   const p = prefs.apply(prefs.snapshot(data, (get('syncStamps') || {}).prefs), merged.prefs, prefs.heldBack(data));
   Object.assign(patch, p.values);
   patch.syncStamps.prefs = p.stamps;
+  // Each keeps whether it's on here; a new one arrives off.
+  const pl = plans.apply(data, merged.plans);
+  Object.assign(patch, pl.values);
+  patch.syncStamps.plans = pl.stamps;
   return patch;
 }
 
@@ -181,7 +191,7 @@ async function readGist(gh, id) {
 
 // What's in the gist is settled: nobody else's legacy is pending.
 const settled = snap => { const c = clean(snap); return { ...c, xp: { ...c.xp, legacyPending: false } }; };
-const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days, shell stickers, the Bugdex, finds, his bond, his tank and its saved layouts, your friends list and settings. Safe to delete; Shellby makes a new one.' }, null, 1);
+const content = snap => JSON.stringify({ ...settled(snap), note: 'Shellby sync: trophies, XP, outfit, streak days, shell stickers, the Bugdex, finds, his bond, his tank and its saved layouts, your friends list, settings, routines and workflows. Safe to delete; Shellby makes a new one.' }, null, 1);
 
 /**
  * One sync: merge local with the gist, apply what changed locally, push what
