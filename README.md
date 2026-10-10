@@ -12,7 +12,7 @@ all on **your own Pro or Max plan**, on Windows 10 and 11. No API keys, no per-t
 
 ### [⬇ Download for Windows](https://github.com/x-salmon/shellby/releases/latest)
 
-[What's new](#whats-new) · [Why Shellby, if you have Claude Code?](docs/WHY-SHELLBY.md) · [Community packs](https://getshellby.com/community/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[Website](https://getshellby.com/) · [What's new](#whats-new) · [Why Shellby, if you have Claude Code?](docs/WHY-SHELLBY.md) · [Community packs](https://getshellby.com/community/) · [How it works](#how-it-works) · [Skins](docs/SKINS.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 <br>
 
@@ -84,8 +84,13 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 - **Crit hits and small surprises:** now and then, for a real win, a short fanfare. **Critical hit!** when one turn takes a red test suite all the way to green; **Clean landing** when a copy comes home with its checks green on the first try. Rare and never predictable, tied to quality and never to speed, and never for skipping or deleting tests. Each kind has a hidden trophy.
 - **Comment on the diff:** click a line number in any turn's diff (Shift+click for several) and say what should change: "no, keep this function pure". Comments collect across files and turns, then go back as one follow-up that quotes the code each one is about.
 - **What did that cost me:** each turn ends with its tokens, roughly how much of your 5-hour window it took, and how full the context is. The context chip adds up the whole conversation and its costliest turns, and he offers to make room a turn or two before it gets crowded.
-- **Learns from your corrections:** make the same review comment twice, Deny the same command twice, or undo changes in the same folder twice, and a card offers to add it as a rule to that project's `CLAUDE.md`, in your own words. It shows exactly what goes in before anything is written, and **Not this one** means he won't suggest it again.
+- **Learns from your corrections:** make the same review comment twice, Deny the same command twice, or undo changes in the same folder twice, and a card offers to add it as a rule to that project's `CLAUDE.md`, in your own words. Say no to the same command five times and he offers a permission deny rule instead. Each card shows exactly what goes in before anything is written, and **Not this one** means he won't suggest it again.
+- **Search inside past conversations:** History's search finds every message that says it, across projects and your other PCs, and opens the conversation right at that line.
 - **Try it another way:** branch from any turn into a new tab, run two approaches side by side, and keep the one you like.
+- **Undo to here:** each step of a turn that changed files has a checkpoint. Press **Undo to here** on one and your files go back to just before it, later steps included, while the conversation stays put. <kbd>Esc</kbd> <kbd>Esc</kbd> shows your messages as a timeline to rewind to.
+- **Every slash command:** type `/` for all of Claude Code's own commands, each with what it does. The ones Shellby has a screen for open it (`/resume` opens History, `/doctor` Health, `/usage` your meters), and `/clear` starts the conversation over in the same tab.
+- **Every conversation at a glance:** <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> lists each one's lane: tests red or ready to merge, what its copy changed, and which others touched the same files. Several waiting on the same command get one **Allow all**, and finished copies get a merge order with **Line them up**.
+- **Put it to the Council:** a table of advisor crabs (Skeptic, Builder, Guard, Player and Elder) argue a decision from their own angles and vote, and Shellby, in the chair, unrolls a verdict: where they agree, where they split, and what to do next. **Quick** costs about one reply.
 - **A Toolbox for all of it:** every skill, agent, MCP server, mod, hook, rule and `CLAUDE.md`, with an editor for each, a Skill Shop, and **prompt snippets** you can call with `/review`.
 - **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
 - **Keyboard first:** <kbd>Ctrl</kbd>+<kbd>K</kbd> runs what the mouse can, by name: stop, undo the last turn, try it another way, bring it home, compact, change mode or effort, start the project's dev server, run a routine (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> opens it too, for VS Code hands). <kbd>Ctrl</kbd>+<kbd>F</kbd> finds text in a conversation, <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> size the panel's text, and <kbd>Ctrl</kbd>+<kbd>/</kbd> lists every shortcut.
@@ -110,7 +115,8 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 
 - **Projects:** the repos you work in, here and on GitHub, with their branches and unpushed work. **Start** a dev server and a `:5173` pill sits by the crab.
 - **When a server crashes** he holds up a red sign. The card marks the error lines and shows exactly what would go to Claude, and nothing is sent until you say so.
-- **Start from where the work is:** **Fix this build** on a red pull request sends Claude the failing step's log, **Address the review** quotes the comments still open, and **Next up** ranks what to work on in each project (your tasks, its GitHub issues and milestones, the TODOs in its code), each with **Do this**: a conversation in a copy on its own branch, the prompt waiting for you to send.
+- **Start from where the work is:** **Fix this build** on a red pull request sends Claude the failing step's log, **Address the review** quotes the comments still open (a new review comment offers it on its notification), and **Next up** ranks what to work on in each project (your tasks, your notes, its GitHub issues and milestones, the TODOs in its code), each with **Do this**: a conversation in a copy on its own branch, the prompt waiting for you to send.
+- **Notes for later:** jot an idea on a project's Notes, or ask Claude to note it from the chat. **Plan**, **Build** or **Ask** turns one into a conversation, Plan and Build in a copy of their own.
 - **Time on each project:** hours worked out from what he already sees, clients and rates, a PDF or CSV timesheet, and a day at a time to Toggl, Clockify or Harvest when you send it. Off until you turn it on.
 - **Flaky tests** caught and fixed for real, **dependencies** checked weekly with a pull request to bump them, and **Is it safe to leave?** before you lock up or shut down.
 - **Workflows and routines:** a schedule, a red build, a release or a file landing in a folder starts a list of steps: Claude, commands, web requests, a question for you. [Workflows](docs/WORKFLOWS.md).
@@ -174,7 +180,7 @@ That's the work. The rest is what makes him good company.
 - **Work mode, for a quiet crab:** your tools lead the bar, he only speaks up about the work, and the pals, pranks, climbing and confetti take the day off. His needs rest, his progress keeps counting, and turning it off puts every setting back as it was. [More →](docs/DESKTOP.md#work-mode)
 - **He guards your focus** in a little helmet, **listens along** in headphones when music plays, **types along** on a little keyboard while you type, **dresses for the weather** outside (a sou'wester in the rain), and hushes when you're on a call.
 - **He knows your limits:** when you'll hit your 5-hour window, and a message held for after the reset goes by itself.
-- **Run it when my limit resets:** queue heavy tasks ("refactor X", "write tests for Y") on the Routines page. They start when the window resets, overnight too, one after another, with the PC kept awake. Each result goes to your phone, and a task that runs out of usage partway carries on after the next reset.
+- **Run it when my limit resets:** queue heavy tasks ("refactor X", "write tests for Y") on the Routines page, for when the window resets or for tonight. They start by themselves, overnight too, one after another, with the PC kept awake. Each result goes to your phone, and a task that runs out of usage partway carries on after the next reset.
 
 **[Everything he does on his own →](docs/DESKTOP.md)**
 
@@ -193,7 +199,7 @@ None of this needs Claude or an account.
 - **Gifts from digging:** sea glass, a lost key, a pearl, once in a long while a gold doubloon. 102 finds in thirteen sets, on a shelf of their own.
 - **He remembers you:** from *New friends* to *Inseparable*, with the story of your moments together (*"You shook him off Excel"*), your birthday, and his.
 - **Hide and seek, fetch,** and friends' crabs who drop by and chat.
-- **A tank to decorate:** a sandcastle, a rock cave, kelp, a treasure chest and the finds he's dug up, arranged where you want them, with him wandering about among it all. Pieces come from the start, from trophies, from the seasons and from his digging, never from a shop. Decorate with the mouse or the keyboard alone. [More about his tank](docs/TANK.md).
+- **A tank to decorate:** a sandcastle, a rock cave, kelp, a treasure chest and the finds he's dug up, arranged where you want them, with him wandering about among it all. Some pieces are gauges in disguise: a tide gauge for your 5-hour window, a thermometer reading your GPU, a chest that glints when a pull request merges. Pieces come from the start, from trophies, from the seasons and from his digging, never from a shop. Decorate with the mouse or the keyboard alone. [More about his tank](docs/TANK.md).
 - **Snacks and naps:** he gets peckish, sandy, sleepy, and a little mopey if you ignore him. Feed him plankton you earn by getting things done. Gentle by design: it never goes below a floor, never drops while you're away, and never costs you anything.
 - **Your beach,** a scene that only grows: a sandcastle for every project you ship (a tower house at 5 ships, a keep at 15, a citadel at 40), the tide coming in with your streak, a line of seaweed where your best one reached, and his finds washed up along it. New castles rise out of the sand while you watch. Drag along it, then share a snapshot of the whole thing.
 
@@ -206,10 +212,10 @@ None of this needs Claude or an account.
 <p align="center"><img src="docs/img/lineup-sets.png" width="860" alt="Five Shellbys dressed head to tail: a dev desk set with a keycap and rubber duck, a tide pool set with a starfish and kelp, an on-call set with a beacon and fire extinguisher, one listening along with headphones and a boombox, and one in the Golden Conch shell"></p>
 
 - **173 accessories, 24 effects and 18 crabs,** head-to-tail sets, and costumes for every season.
-- **50+ trophies and 99 levels:** outfits unlock as you use him, and he grows into new shells, from a Snail Shell to the Rainbow Nautilus.
+- **100+ trophies and 99 levels:** outfits unlock as you use him, and he grows into new shells, from a Snail Shell to the Rainbow Nautilus.
 - **A character sheet:** Shipping, Rigour, Craft and Tidiness stats from the work he does, and a class from the highest: Shipper, Tester, Toolsmith, Curator or a dual class. [See](docs/WARDROBE.md#character-sheet)
 - **A sticker for every project you ship,** drawn from the repo itself, going vinyl, holo and foil as you keep shipping.
-- **The Bugdex:** every kind of bug Claude fixes for you is a pixel creature he scoops into a jar. A TypeError is a Shapeshifter Shrimp, ENOENT a hermit crab that lost its shell, a merge conflict a crab with two heads, a flaky test a ghost. 66 to catch in twelve habitats, and seeing one isn't enough: it only counts once it's fixed, and a skipped test or an `@ts-ignore` doesn't fool him. Catch one often enough and it evolves. While one is loose, Claude's work on it plays out as a **bug battle**: its HP drops as failing tests clear, helpers join in, and the fix knocks it out into the jar. Beat each habitat's boss for its badge, then the Deep Four and the champion for the Hall of Fame. [More about the Bugdex and bug battles](docs/BUGDEX.md).
+- **The Bugdex:** every kind of bug Claude fixes for you is a pixel creature he scoops into a jar. A TypeError is a Shapeshifter Shrimp, ENOENT a hermit crab that lost its shell, a merge conflict a crab with two heads, a flaky test a ghost. 83 to catch in twelve habitats, and seeing one isn't enough: it only counts once it's fixed, and a skipped test or an `@ts-ignore` doesn't fool him. Catch one often enough and it evolves. While one is loose, Claude's work on it plays out as a **bug battle**: its HP drops as failing tests clear, helpers join in, and the fix knocks it out into the jar. Beat each habitat's boss for its badge, then the Deep Four and the champion for the Hall of Fame. [More about the Bugdex and bug battles](docs/BUGDEX.md).
 - **Cards to share:** a crab card of him as he's dressed, and a weekly one every Friday.
 
 <p align="center"><img src="docs/img/week-card.png" width="700" alt="A weekly crab card: Shipped 3 projects, 22 tasks done, a 5-day streak, XP for each day, the top project and three new trophies"></p>
@@ -286,6 +292,32 @@ Want a quieter crab in one click? **Work mode** switches off the climbing, pals 
 <tr>
 <td width="33%" valign="top">
 
+**🏛️ The Council** · 0.78<br>
+<sub>Put a decision to a table of advisor crabs. Each argues their own angle and votes, and Shellby unrolls a verdict. Quick costs about one reply. [See](CHANGELOG.md#0780-the-council-every-slash-command-and-undo-to-here)</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**⏪ Undo to here** · 0.78<br>
+<sub>Every step that changed your files gets a checkpoint, so you can put them back to just before it. Plus every Claude Code slash command in the box, and <code>/clear</code>. [How](docs/CLAUDE-CODE.md#conversations)</sub>
+
+</td>
+<td width="33%" valign="top">
+
+**🗂️ Every conversation at a glance** · 0.78<br>
+<sub><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> shows each one's tests, changes and overlaps, answers many at once, and lines finished copies up to merge. [See](CHANGELOG.md#0780-the-council-every-slash-command-and-undo-to-here)</sub>
+
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top">
+
+**🐛 Seventeen new bugs** · 0.78<br>
+<sub>The Bugdex has 83 to catch now, from React render loops to sulking Docker daemons, and bug battles act up between moves. [See](docs/BUGDEX.md)</sub>
+
+</td>
+<td width="33%" valign="top">
+
 **✨ A glow-up** · 0.77<br>
 <sub>Shellby, every skin, shell and outfit reshaded with a fine dark line, so he stands out on any wallpaper. Same crab, crisper. [See](CHANGELOG.md#0770-sign-ins-shared-tools-and-a-glow-up)</sub>
 
@@ -296,36 +328,10 @@ Want a quieter crab in one click? **Work mode** switches off the climbing, pals 
 <sub>Pick many skills at once, park the ones you don't use instead of deleting them, share a set as one file, and sign in to MCP servers without a terminal. [How](docs/CLAUDE-CODE.md#toolbox)</sub>
 
 </td>
-<td width="33%" valign="top">
-
-**📜 Helpers report back** · 0.76<br>
-<sub>A helper that finished holds up a little scroll on its way home; one that failed trudges back, slumped and grey. And your newest conversations can follow you between PCs. [How](docs/CONNECTIONS.md#github-sign-in)</sub>
-
-</td>
-</tr>
-<tr>
-<td width="33%" valign="top">
-
-**🔀 One-click modes** · 0.75<br>
-<sub>Right-click him and pick Claude Code, Work mode or Just the crab. Plus a real badge case for the Bugdex. [See](docs/DESKTOP.md#work-mode)</sub>
-
-</td>
-<td width="33%" valign="top">
-
-**🔎 Search Settings** · 0.74<br>
-<sub>Find any switch by what it says, see what each helper cost you, and a tour of your project to start with. [See](CHANGELOG.md#0740-search-settings-helper-costs-and-bugdex-portraits)</sub>
-
-</td>
-<td width="33%" valign="top">
-
-**⚔️ Bug battles &amp; other computers** · 0.73<br>
-<sub>Claude's work on a bug plays out as a battle until the real fix jars it, and conversations can run on a server or another PC over ssh. [See](docs/BUGDEX.md#bug-battles)</sub>
-
-</td>
 </tr>
 </table>
 
-<sub>And before that: his tank, Next up, the Bugdex, mods, <code>/tries</code>, MCP servers in workflows, the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets and time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
+<sub>And before that: helpers that report back, one-click modes, Search Settings, bug battles, other computers over ssh, his tank, Next up, the Bugdex, mods, <code>/tries</code>, MCP servers in workflows, the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets and time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
 
 ## Install
 
@@ -390,7 +396,7 @@ Your own Claude Code allow/deny rules in `~/.claude/settings.json` still apply i
 
 ## Build from source
 
-`git clone`, `npm install`, `npm start`. The full setup, every test and maintenance script, and a map of the code are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every image in this README is rendered from the real app: `npm run screenshots`, `npm run reel` and `python scripts/make-banners.py`.
+`git clone`, `npm install`, `npm start`. The full setup, every test and maintenance script, and a map of the code are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every image in this README is rendered from the real app: `npm run screenshots`, `npm run reel`, `npm run tricks` and `python scripts/make-banners.py`.
 
 ## Privacy
 

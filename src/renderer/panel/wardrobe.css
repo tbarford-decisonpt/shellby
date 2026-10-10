@@ -51,7 +51,7 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
 .stage-crab { position: relative; z-index: 2; margin-top: 26px; }
 .stage-crab svg { width: 176px; height: auto; display: block; overflow: visible; }
 .stage-floor { position: absolute; left: 50%; bottom: 30px; width: 150px; height: 12px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, .45), transparent); z-index: 1; }
-.stage-fx { position: absolute; left: 50%; top: 0; bottom: 0; width: 240px; transform: translateX(-50%); z-index: 3; --fall-h: 200px; --orbit-r: 104px; }
+.stage-fx { position: absolute; left: 50%; top: 0; bottom: 0; width: 240px; transform: translateX(-50%); z-index: 3; --orbit-r: 104px; }
 .stage-caption { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font: 600 var(--fs-11) var(--font-mono); color: var(--sand-faint); z-index: 4; padding: 0 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* preview moods (mirrors the desktop critter's animations) */
@@ -116,7 +116,11 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
   content: ''; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
   border: 4px solid transparent; border-top-color: var(--sand); border-bottom: 0;
 }
-.wd-tile .wd-art:has(.wd-bubble) { width: 100%; overflow: visible; }
+/* A long line wraps to three or four lines in the mono face, past the 44px art
+   box and over the name: the bubble's art grows to fit (plus its tail), and the
+   name sits at the tile's foot so names in a row still line up. */
+.wd-tile .wd-art:has(.wd-bubble) { width: 100%; height: auto; min-height: 44px; padding-bottom: 4px; box-sizing: border-box; }
+.wd-tile:has(.wd-bubble) { grid-template-rows: 1fr auto; align-content: stretch; }
 .wd-hint { margin: 6px 2px 0; }
 .wd-name { font-size: var(--fs-11-5); font-weight: 700; line-height: 1.2; text-align: center; }
 .wd-tile .new-pill { position: absolute; top: 5px; right: 5px; transition: opacity .3s ease, transform .3s ease; }

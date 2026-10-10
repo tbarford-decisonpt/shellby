@@ -37,7 +37,7 @@ function wirePacks(d) {
       detail: p.description || '',
       items: [
         ...p.accessories.map(a => ({ kind: a.slot, label: SLOT_LABEL[a.slot] || a.slot, name: a.name, pixels: a.pixels, palette: { ...a.palette } })),
-        ...p.effects.map(e => ({ kind: 'effect', label: 'Effect', name: e.name, sprites: e.sprites.map(sp => ({ pixels: sp.pixels, palette: { ...sp.palette } })) })),
+        ...p.effects.map(e => ({ kind: 'effect', label: 'Effect', name: e.name, ink: e.ink, sprites: e.sprites.map(sp => ({ pixels: sp.pixels, palette: { ...sp.palette }, ...(sp.frames ? { frames: sp.frames } : {}) })) })),
         ...p.skins.map(k => ({ kind: 'skin', label: 'Colors', name: k.name, pixels: k.pixels, palette: { ...k.palette }, parts: { ...k.parts } })),
         ...p.voices.map(v => ({ kind: 'voice', label: v.lang ? `Voice · ${v.lang}` : 'Voice', name: v.name, glyph: '💬' })),
         ...p.scenes.map(sc => ({ kind: 'scene', label: 'Scene', name: sc.name, glyph: '🎬' })),

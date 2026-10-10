@@ -113,7 +113,8 @@
       "additionalProperties": false,
       "properties": {
         "palette": { "$ref": "#/$defs/palette" },
-        "pixels": { "$ref": "#/$defs/pixels8" }
+        "pixels": { "$ref": "#/$defs/pixels8" },
+        "frames": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "$ref": "#/$defs/pixels8" } }
       }
     },
     "effect": {
@@ -127,6 +128,8 @@
         "motion": { "enum": ["fall", "rise", "float", "orbit", "twinkle", "burst"] },
         "count": { "type": "integer", "minimum": 1, "maximum": 24, "default": 10 },
         "speed": { "type": "number", "minimum": 0.25, "maximum": 3, "default": 1 },
+        "ink": { "type": "boolean", "default": false },
+        "fps": { "type": "integer", "minimum": 1, "maximum": 12, "description": "Pictures a second for sprites with frames; only allowed when one has them. Rounds to 12, 6, 4, 3, 2 or 1." },
         "sprites": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "#/$defs/sprite" } },
         "rarity": { "$ref": "#/$defs/rarity" },
         "unlock": { "$ref": "#/$defs/unlock" }

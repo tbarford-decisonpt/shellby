@@ -189,8 +189,14 @@ Effects are little sprites that animate around Shellby. Shellby shows one effect
   "motion": "orbit",               // see below
   "count": 8,                      // how many at once, 1–24 (default 10)
   "speed": 1,                      // 0.25–3 (default 1)
+  "ink": true,                     // optional: line each sprite like Shellby is lined (default false)
+  "fps": 6,                        // with frames: 1–12 (default 4); plays at 12, 6, 4, 3, 2 or 1
   "sprites": [                     // 1–6 sprites, each up to 8×8; Shellby picks between them
-    { "palette": { "b": "#1a1a22" }, "pixels": ["b...b", "bb.bb", ".bbb."] }
+    {
+      "palette": { "K": "#2b193d", "p": "#7b2cbf" },
+      "pixels": ["p.K.K.p", "ppKKKpp", "..KKK.."],
+      "frames": [["..K.K..", "ppKKKpp", "p.KKK.p"]] // optional: 1–3 more pictures, the same size
+    }
   ],
   "rarity": "epic",
   "unlock": { "season": "halloween" }
@@ -206,7 +212,13 @@ Effects are little sprites that animate around Shellby. Shellby shows one effect
 | `twinkle` | fades in and out in place, like sparkles |
 | `burst` | pops outward from Shellby, then fades, like confetti |
 
-Keep sprites small and simple. At 1–3 pixels wide they read best, and a handful of them look better than a crowd.
+Every effect moves in whole pixels, a step at a time, the way Shellby himself does, and never turns or squashes its sprites. So the life is in the art:
+
+- **`frames`** play in a loop after `pixels`, at `fps`: wings up and down, a leaf flipping, an ember cooling from yellow to red. A `twinkle` plays them there and back each time it shows up (a dot, a cross, a star, a cross, a dot), so put its smallest picture first.
+- **`ink`** draws a one-pixel line round each sprite, in its own darkest colour sunk toward ink, like Shellby and his accessories. Use it for things with a shape (bats, leaves, notes); leave it off for light and weather (sparkles, glows, snow, rain), which read better unlined.
+- **Shade them**: a light colour on the top-left and a darker one on the bottom-right make even a 3×3 sprite look solid.
+
+Keep sprites small. Up to 5×5 reads best, 7×7 for the one big piece in a set, and a handful of them look better than a crowd. A `fall` that isn't fast (`speed` under 2) lands at the bottom and blinks away, and a `rise` pops at the top.
 
 ## Skins
 
@@ -229,7 +241,7 @@ Each anchor value is `[x, y]` with integers from −16 to 48. If your crab has t
 
 ## Voices
 
-A voice changes what Shellby says in his speech bubble. He wears **one voice at a time**: pick it under **Wardrobe → Voice**, and pick **His own** to go back. The built-in [`voices.json`](../src/wardrobe/voices.json) pack has a Pirate, a Grumpy crab, a Robot, a Surfer, a Royal, a Cowboy, Español and Français to copy from.
+A voice changes what Shellby says in his speech bubble. He wears **one voice at a time**: pick it under **Outfits → Voice**, and pick **His own** to go back. The built-in [`voices.json`](../src/wardrobe/voices.json) pack has a Pirate, a Grumpy crab, a Robot, a Surfer, a Royal, a Cowboy, Español and Français to copy from.
 
 ```jsonc
 {
@@ -391,7 +403,7 @@ Use `rarity` to say how special an item is. It changes how the item is shown in 
 
 - **Install:** use **Wardrobe → Install pack…** (**Shellby** in the bar at the bottom of the panel, or tray → Wardrobe), or copy the file into `%APPDATA%\Shellby\wardrobe\` yourself. Installed packs are saved as `<pack id>.json`.
 - **Test:** edit the installed file and hit **Reload**. Warnings show up next to the pack in the Wardrobe.
-- **Check before sharing:** run your file against [`addon.schema.json`](addon.schema.json) with any JSON Schema (draft 2020-12) validator. The community site uses the same schema, which is stricter than the app: it rejects unknown fields and bad items instead of skipping them. A few rules can't be written as a schema, so also install the pack and check that the Wardrobe shows no warnings for it. Those rules are: a scene's beats add up to at most 12 seconds, a scene's `voice` is a voice in the same pack, a scene can't need both `night` and `day`, an item id can't be shared by a voice and an accessory, effect or skin in the same pack, and for decor: `fps` only with `frames`, every frame the same size as `pixels`, each spot's `at` inside the piece, no `layer`, `frames` or `spots` on a substrate or backdrop, and no decor id shared with an accessory, effect, voice or skin.
+- **Check before sharing:** run your file against [`addon.schema.json`](addon.schema.json) with any JSON Schema (draft 2020-12) validator. The community site uses the same schema, which is stricter than the app: it rejects unknown fields and bad items instead of skipping them. A few rules can't be written as a schema, so also install the pack and check that the Wardrobe shows no warnings for it. Those rules are: a scene's beats add up to at most 12 seconds, a scene's `voice` is a voice in the same pack, a scene can't need both `night` and `day`, an item id can't be shared by a voice and an accessory, effect or skin in the same pack, an effect's `fps` only when one of its sprites has `frames`, an effect sprite's frames the same size as its `pixels`, and for decor: `fps` only with `frames`, every frame the same size as `pixels`, each spot's `at` inside the piece, no `layer`, `frames` or `spots` on a substrate or backdrop, and no decor id shared with an accessory, effect, voice or skin.
 - **Remove:** use the pack's **Remove** button in the Wardrobe, or delete the file.
 
 ## Publishing to the community gallery
@@ -400,7 +412,7 @@ Want other people to find your pack? Submit it to the community gallery:
 
 1. Open a pull request to [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs) that adds your pack file. Its [CONTRIBUTING.md](https://github.com/x-salmon/shellby-packs/blob/main/CONTRIBUTING.md) explains where the file goes and what reviewers look for.
 2. Your pack must pass the same validation as the app (and the stricter [`addon.schema.json`](addon.schema.json) check), and follow the [rules for shared packs](#rules-for-shared-packs) below.
-3. Once it's merged, your pack appears at [getshellby.com/community](https://getshellby.com/community/) with an **Add to Shellby** button. Anyone running Shellby 0.4.0 or later can install it in one click (they still see Shellby's confirmation dialog first).
+3. Once it's merged, your pack appears in the gallery at [getshellby.com/community](https://getshellby.com/community/) with an **Add to Shellby** button. (The app itself still takes the list of packs, and each pack's checksum, only from the gallery's index at `https://x-salmon.github.io/shellby-packs/index.json`.) Anyone running Shellby 0.4.0 or later can install it in one click (they still see Shellby's confirmation dialog first).
 
 To ship an update, bump `version` and open another pull request. Keep the same `id` so it replaces the old copy.
 

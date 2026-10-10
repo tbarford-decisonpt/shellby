@@ -165,7 +165,7 @@
         h('p', { class: 'cc-eyebrow', text: `${session.question}` }),
         h('h3', { text: c ? c.verdict : 'No verdict this time' }),
         c ? meter(c.confidence, 'Chair’s confidence') : null),
-      c ? h('div', { class: 'cc-lists' }, list('They agree', c.agree), list('They split', c.split), list('Next steps', c.next)) : null,
+      ...(c ? [h('div', { class: 'cc-lists' }, list('They agree', c.agree), list('They split', c.split), list('Next steps', c.next))] : []),
       h('div', { class: 'cc-actions' },
         c ? h('button', { type: 'button', class: 'btn primary', onclick: sendToChat }, 'Send to chat') : null,
         h('button', { type: 'button', class: 'btn', onclick: copyMinutes }, 'Copy minutes'),

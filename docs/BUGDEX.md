@@ -37,14 +37,14 @@ And a few limits keep it honest: the same bug in the same project counts once in
 
 ## The book
 
-- **66 kinds in twelve habitats:** the Shallows (JavaScript and runtime errors), the Burrows (files), the Currents (network), Tangled Nets (git), the Lighthouse (CI), the Reef Workshop (builds, installs and servers), the Kelp Maze (type checkers), the Sea-Snake Pool (Python), the Deep Trench (Rust, Go and native code), the Proving Pools (tests), the Sunken Vault (security) and the Haunted Wreck (ghosts). And one more that's hidden.
+- **83 kinds in twelve habitats:** the Shallows (JavaScript and runtime errors), the Burrows (files), the Currents (network), Tangled Nets (git), the Lighthouse (CI), the Reef Workshop (builds, installs and servers), the Kelp Maze (type checkers), the Sea-Snake Pool (Python), the Deep Trench (Rust, Go and native code), the Proving Pools (tests), the Sunken Vault (security) and the Haunted Wreck (ghosts). And one more that's hidden. Each one has its own portrait and field notes. Among them: broken JSON, React render loops, hydration mismatches, duplicate keys, missing database tables, rate limits, git without a repo, overwritten local changes, branches that aren't there, a sulking Docker daemon, garbled text encodings, unused Go variables, tests that time out or never run, 401s and 403s, missing env vars, and SSH keys git won't accept.
 - **Rarity is how hard the fix is.** Common ones turn up weekly and one edit fixes them. Rare ones need a real diagnosis. Legendary ones need proof over days.
 - **Unknown, seen, caught.** A kind you've never met is `???` with a hint about where it lives. A seen one is a silhouette with its name. A caught one is in colour.
 - **They evolve.** Catch one kind 5 times and it reaches stage II, 15 times stage III (the starters take new names as they grow), and 40 times a master's crown.
 - **Field notes and tips.** At 5 catches its entry gets a field note on where it lurks. At 15 you get a tip on how it's usually beaten.
 - **Every bug has a cry,** a little chiptune call of its own as it goes in the jar. Press **♪ Its cry** on its card to hear it.
 - **Special catches:** *first try* (the first fix worked), *swift* (within 5 minutes of the failure), *golden* (both), *nocturnal* (after midnight), *spectral* (a ghost at Halloween), and once in a long while (1 in 64) a sparkly one, which stops the panel for a look and a picture to share ([Sparklies](TIDES.md#sparklies)).
-- **Tide event bugs:** six more, one for each [tide event](TIDES.md#tide-events), that only come along with a real fix while their event is on. They're under **🧭 Tide events**, in no habitat, and never in the "of 66".
+- **Tide event bugs:** six more, one for each [tide event](TIDES.md#tide-events), that only come along with a real fix while their event is on. They're under **🧭 Tide events**, in no habitat, and never in the "of 83".
 - **The friends' board:** with **Share my Bugdex with friends** on, **This month** ranks you and your friends by bugs caught since the 1st ([more](TIDES.md#the-friends-board)).
 - **Your favourite catch follows him round the desk,** a step behind, and waits on the ground while he climbs a window.
 
@@ -54,7 +54,7 @@ A new kind is worth 40 XP. The trophies: **Gotcha!** for your first catch, **Fie
 
 While a bug is on the loose, Claude's work on it plays out as a battle on the seabed of its own habitat: the bug and Shellby face to face, their HP at the top, and a text box calling each move.
 
-To watch one, click the chip under the tabs in the conversation where it's loose, or **Watch** beside it on the Bugdex page. Open it partway through and it catches up, then replays the latest move. Open it after the catch and it replays the finish. **Esc** closes it, and the fight carries on without you.
+To watch one, click the chip under the tabs in the conversation where it's loose, or **Watch** beside it on the Bugdex page. Open it partway through and it replays its last few moves from the past 10 minutes. While Claude works on its next turn, the bug acts up in its own way (a ghost flickers out, a network bug buffers, a type bug glitches), Shellby fidgets, and the text box tells you when Claude is thinking. Open it after the catch and it replays the finish. **Esc** closes it, and the fight carries on without you.
 
 ### The moves
 
@@ -66,19 +66,19 @@ Each move is something Claude really did in that project:
 - **The failing command, run again:** that command's own move, named for it (*Test Run*, say). This is where the real damage is.
 - **Assist:** a helper Claude sent out finishes its work in that tab, and joins in.
 
-A run of the same move close together is one move done several times over.
+A run of the same move close together is one move done several times over. Reading round, edits and helpers only count while the bug is in play: within 20 minutes of it last showing itself.
 
 ### How the HP goes
 
-The bug's HP follows the failing tests. Run the command again with fewer failures and it drops in proportion:
+The bug's HP follows the failing tests, or the error count of a type check, linter or build. Run the command again with fewer failures and it drops in proportion:
 
 - **A big one:** half the failures cleared in one run.
 - **The right tool for the job:** fewer failures, with the kind of tool that suits that kind of bug. It counts double.
 - **It digs in:** more failures than before heals it.
-- **A miss:** the same number of failures, or still failing with no count to go on.
+- **A miss:** the same number of failures, or still failing with no count to go on. The bug strikes back, with a move of its own for each type.
 - **It resists:** a "fix" the Bugdex won't take, like a skipped test, gives HP back, and the text box says why.
 
-Nothing but the real fix takes it below its last sliver of HP. Only the proven fix knocks it out cold. Then it goes belly-up, a specimen jar comes down on a line, it drifts up in, the cork goes on, and its card shows. If the conversation closes first, it **fled**.
+Nothing but the real fix takes it below its last sliver of HP. Only the proven fix knocks it out cold: it's a finishing blow you watch land. Then it goes belly-up, a specimen jar comes down on a line, it drifts up in, the cork goes on, and its card shows. If the conversation closes first, it **fled**.
 
 Battles are kept only while Shellby runs, so a restart starts each one afresh at full HP. The catch itself never depends on the battle: it's the same proven fix either way.
 
@@ -109,7 +109,7 @@ Every habitat has a **boss**. Beat it for that habitat's badge, twelve in all:
 
 Then come the **Deep Four**, the hardest bugs in the sea (the Segfault Squid, the Leaky Clam, the Flaky Phantom and the Kraken), and **the champion**, the Heisenbug. Bosses and the league fight with more HP and a higher level. Catch every boss and the whole league, in any order, and you're in the **Hall of Fame**.
 
-The badge case, the league and the Hall of Fame are at the top of the Bugdex page.
+The badge case, the league and the Hall of Fame are at the top of the Bugdex page. Each badge is a shaded medal with a shape of its own, so one you haven't earned still tells you which it is. They sit in sockets in a velvet-lined case with their names underneath, a bar fills as you earn them, and the rim turns gold once the case is full.
 
 ## Friends
 

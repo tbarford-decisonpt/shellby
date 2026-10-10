@@ -21,6 +21,10 @@
   <br><sub>Instead of: making a worktree, opening another terminal, remembering to merge and clean up.</sub>
 - **Try two approaches, keep the winner.** **⑂ Branch** from any turn, compare the tries file by file, then click **Keep this one**.
   <br><sub>Instead of: resuming the session twice, tracking which is which, diffing by hand.</sub>
+- **Bring several copies home in order.** <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> shows every conversation's lane, answers the same permission for several at once (**Allow all**), and suggests a merge order. **Line them up** rebases each copy onto the one before and runs the checks in between, stopping at the first conflict or red check.
+  <br><sub>Instead of: rebasing branch after branch by hand and rerunning the tests each time.</sub>
+- **Get a second opinion before you commit to a plan.** **The Council** puts a decision to five advisor crabs (Skeptic, Builder, Guard, Player, Elder) who argue it out with no tools, for about the cost of one reply in **Quick**, and Shellby rules on it.
+  <br><sub>Instead of: asking the same question in three chats and weighing the answers yourself.</sub>
 - **See what your subagents are up to.** Each helper gets its own lane (task, activity, tools, tokens, time) and its own crab on your desktop. Permission cards tell you which helper is asking.
   <br><sub>Instead of: scrolling the transcript.</sub>
 
@@ -39,12 +43,16 @@
 
 - **Undo any turn.** Every turn ends with a list of the files it changed. **Undo** puts them back, including whatever a script or `npm install` did, and refuses if you've edited them since.
   <br><sub>Instead of: <code>git diff</code>, <code>git stash</code>, and hoping nothing else touched the tree.</sub>
+- **Undo part of a turn.** Each step that changes files gets a checkpoint, so **Undo to here** puts the files back to just before that step and keeps the conversation as it is.
+  <br><sub>Instead of: picking hunks out of a diff to revert the second half of what Claude did.</sub>
+- **Find what was said last month.** History searches inside every past conversation, from every project and (if you sync them) your other PCs, and opens the one you want at that message.
+  <br><sub>Instead of: grepping JSONL transcripts in <code>~/.claude/projects</code>.</sub>
 - **Say "not like that" to specific lines.** Click line numbers in the diff, leave comments across files and turns, and send them all as one follow-up that quotes the code.
   <br><sub>Instead of: pasting code into a message and describing where it is.</sub>
 
 ## ⏰ Let it run while you're away
 
-- **Use your limit the moment it resets.** Queue heavy work on **Routines**. It starts at the reset, keeps the PC awake, picks up after the next reset if it runs out, and tells your phone.
+- **Use your limit the moment it resets.** Queue heavy work on **Routines**. It starts at the reset (or tonight, at 1am), keeps the PC awake, picks up after the next reset if it runs out, and tells your phone.
   <br><sub>Instead of: setting an alarm, or a scheduled task wrapping <code>claude -p</code>.</sub>
 - **Put the small jobs on a schedule.** A routine is one instruction on a clock: "every weekday at 8:30, list what changed in my Documents". Each run opens in its own tab, and you get a notification if it needs you.
   <br><sub>Instead of: Task Scheduler, a <code>.bat</code> file, and checking a log the next morning.</sub>

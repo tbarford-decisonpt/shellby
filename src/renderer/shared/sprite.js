@@ -296,9 +296,22 @@
     return svg;
   }
 
+  // An effect's fullest picture: of every sprite and frame, the one with the
+  // most pixels drawn (a twinkle's peak, not the dot it starts as). For thumbnails.
+  function poster(sprites) {
+    let best = null, most = -1;
+    for (const s of sprites || []) {
+      for (const pixels of [s.pixels, ...(s.frames || [])]) {
+        const n = [...pixels.join('')].filter(ch => colourOf(s.palette, ch)).length;
+        if (n > most) { most = n; best = { pixels, palette: s.palette }; }
+      }
+    }
+    return best;
+  }
+
   // Must match DEFAULT_ANCHORS / SLOT_ANCHOR in src/main/wardrobe/catalog.js.
   const DEFAULT_ANCHORS = { head: [15, -1], face: [15, 0], neck: [15, 4], claw: [21, 6], shellTop: [7, 0] };
   const SLOT_ANCHOR = { hat: 'head', face: 'face', neck: 'neck', held: 'claw', shell: 'shellTop' };
 
-  root.ShellbySprite = { build, grid, components, inkRings, INK, INK_DEPTH, DEFAULT_ANCHORS, SLOT_ANCHOR };
+  root.ShellbySprite = { build, grid, poster, components, inkRings, INK, INK_DEPTH, DEFAULT_ANCHORS, SLOT_ANCHOR };
 })(typeof window !== 'undefined' ? window : globalThis);

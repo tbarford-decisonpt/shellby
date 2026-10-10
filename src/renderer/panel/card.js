@@ -189,10 +189,11 @@
     if (fx?.sprites?.length) {
       const spots = [[0.12, 0.14], [0.82, 0.1], [0.9, 0.42], [0.07, 0.5], [0.3, 0.06], [0.62, 0.22], [0.2, 0.32], [0.74, 0.58]];
       for (let i = 0; i < spots.length; i++) {
-        const s = fx.sprites[i % fx.sprites.length];
-        const sw = Math.max(...s.pixels.map(r => r.length)), sh = s.pixels.length;
+        const s = SB.Sprite.poster([fx.sprites[i % fx.sprites.length]]);
+        const pad = fx.ink ? 2 : 0; // the ink line, one pixel all round
+        const sw = Math.max(...s.pixels.map(r => r.length)) + pad, sh = s.pixels.length + pad;
         const k = Math.max(5, Math.round(30 / Math.max(sw, sh)));
-        const img = await svgImage(SB.Sprite.grid(s.pixels, s.palette), sw * k, sh * k);
+        const img = await svgImage(SB.Sprite.grid(s.pixels, s.palette, { ink: !!fx.ink }), sw * k, sh * k);
         ctx.drawImage(img, Math.round(tank.x + spots[i][0] * tank.w), Math.round(tank.y + spots[i][1] * (sandY - tank.y)));
       }
     }

@@ -8,6 +8,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { panelReady } = require('./capture');
 
 const FPS = 15;
 const TAB = 'reel';
@@ -40,7 +41,8 @@ async function run({ app, critter, panel, showPanel, send, setCrewSlots, wardrob
     captureClock.now = new Date(2026, 5, 10, 12);
     wardrobe.collectSeasonals();
     broadcastWardrobe();
-    await wait(2500);
+    await panelReady(panel);
+    await panel.webContents.insertCSS('.quest-card { display: none !important; }');
     for (const w of [critter, panel]) w.webContents.setBackgroundThrottling(false);
     critter.setAlwaysOnTop(true, 'screen-saver');
     showPanel({ focusInput: false });

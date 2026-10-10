@@ -94,7 +94,7 @@ below. A **Repeat for each** wraps the steps it repeats in a loop.
 - **Drag a step** onto any + to move it, into or out of an If or a loop. A +
   where it can't go doesn't light up.
 - **Drag the background** or scroll to look around. <kbd>Ctrl</kbd>+scroll
-  zooms, and **⛶** fits the whole workflow. With the map focused,
+  zooms the workflow (not the rest of the panel), and **⛶** fits the whole workflow. With the map focused,
   <kbd>+</kbd>, <kbd>-</kbd> and <kbd>0</kbd> do the same, and <kbd>Delete</kbd>
   removes the node you're on.
 - **Make room** (the arrows in the map's toolbar) widens the panel while a map

@@ -1267,24 +1267,83 @@
       "motion": "twinkle",
       "count": 6,
       "speed": 1,
+      "fps": 8,
       "rarity": "common",
       "sprites": [
         {
           "palette": {
-            "w": "#fff4e4"
+            "W": "#ffffff",
+            "w": "#fff4e4",
+            "y": "#ffd166",
+            "o": "#f4a259"
           },
           "pixels": [
-            ".w.",
-            "www",
-            ".w."
+            ".......",
+            ".......",
+            ".......",
+            "...y...",
+            ".......",
+            ".......",
+            "......."
+          ],
+          "frames": [
+            [
+              ".......",
+              ".......",
+              "...y...",
+              "..yWy..",
+              "...y...",
+              ".......",
+              "......."
+            ],
+            [
+              ".......",
+              "...o...",
+              "...y...",
+              ".oyWyo.",
+              "...y...",
+              "...o...",
+              "......."
+            ],
+            [
+              "...o...",
+              "...y...",
+              ".w.y.w.",
+              "oyyWyyo",
+              ".w.y.w.",
+              "...y...",
+              "...o..."
+            ]
           ]
         },
         {
           "palette": {
-            "y": "#ffd166"
+            "W": "#ffffff",
+            "y": "#ffe9a8",
+            "b": "#a8d8ff"
           },
           "pixels": [
-            "y"
+            ".....",
+            ".....",
+            "..y..",
+            ".....",
+            "....."
+          ],
+          "frames": [
+            [
+              ".....",
+              "..y..",
+              ".yWy.",
+              "..y..",
+              "....."
+            ],
+            [
+              "b...b",
+              "..y..",
+              ".yWy.",
+              "..y..",
+              "b...b"
+            ]
           ]
         }
       ]
@@ -1296,6 +1355,7 @@
       "motion": "burst",
       "count": 18,
       "speed": 1,
+      "fps": 12,
       "rarity": "common",
       "unlock": {
         "achievement": "first-task"
@@ -1303,35 +1363,118 @@
       "sprites": [
         {
           "palette": {
-            "r": "#ff5ea8"
+            "R": "#ffb3d6",
+            "r": "#ff5ea8",
+            "d": "#c23a7e"
           },
           "pixels": [
-            "r"
+            ".R.",
+            "Rrd",
+            ".d."
+          ],
+          "frames": [
+            [
+              "...",
+              "Rrd",
+              "..."
+            ],
+            [
+              ".R.",
+              "Rrd",
+              ".d."
+            ],
+            [
+              ".R.",
+              ".r.",
+              ".d."
+            ]
           ]
         },
         {
           "palette": {
-            "y": "#ffd166"
+            "R": "#fff0b3",
+            "r": "#ffd166",
+            "d": "#d9a12b"
           },
           "pixels": [
-            "yy"
+            "R..",
+            ".r.",
+            "..d"
+          ],
+          "frames": [
+            [
+              "...",
+              "Rrd",
+              "..."
+            ],
+            [
+              "..R",
+              ".r.",
+              "d.."
+            ],
+            [
+              ".R.",
+              ".r.",
+              ".d."
+            ]
           ]
         },
         {
           "palette": {
-            "b": "#4cc9f0"
+            "R": "#b5ecff",
+            "r": "#4cc9f0",
+            "d": "#2a8fb8"
           },
           "pixels": [
-            "b"
+            ".R.",
+            "Rrd",
+            ".d."
+          ],
+          "frames": [
+            [
+              "...",
+              "Rrd",
+              "..."
+            ],
+            [
+              ".R.",
+              "Rrd",
+              ".d."
+            ],
+            [
+              ".R.",
+              ".r.",
+              ".d."
+            ]
           ]
         },
         {
           "palette": {
-            "g": "#06d6a0"
+            "R": "#9ff5d8",
+            "r": "#06d6a0",
+            "d": "#04946f"
           },
           "pixels": [
-            "g",
-            "g"
+            "R..",
+            ".r.",
+            "..d"
+          ],
+          "frames": [
+            [
+              "...",
+              "Rrd",
+              "..."
+            ],
+            [
+              "..R",
+              ".r.",
+              "d.."
+            ],
+            [
+              ".R.",
+              ".r.",
+              ".d."
+            ]
           ]
         }
       ]
@@ -1343,6 +1486,8 @@
       "motion": "orbit",
       "count": 4,
       "speed": 1,
+      "ink": true,
+      "fps": 8,
       "rarity": "epic",
       "unlock": {
         "season": "halloween"
@@ -1350,13 +1495,40 @@
       "sprites": [
         {
           "palette": {
-            "K": "#2b193d",
-            "p": "#7b2cbf"
+            "K": "#45285e",
+            "p": "#7b2cbf",
+            "P": "#b07ff0",
+            "e": "#ff4d6d"
           },
           "pixels": [
-            "K...K",
-            "KpKpK",
-            ".K.K."
+            "P.K.K.P",
+            "pPeKePp",
+            ".pKKKp.",
+            "..KKK..",
+            "...K..."
+          ],
+          "frames": [
+            [
+              "..K.K..",
+              "PPeKePP",
+              "ppKKKpp",
+              "..KKK..",
+              "...K..."
+            ],
+            [
+              "..K.K..",
+              ".PeKeP.",
+              "PpKKKpP",
+              "p.KKK.p",
+              "...K..."
+            ],
+            [
+              "..K.K..",
+              "PPeKePP",
+              "ppKKKpp",
+              "..KKK..",
+              "...K..."
+            ]
           ]
         }
       ]
@@ -1368,6 +1540,7 @@
       "motion": "fall",
       "count": 14,
       "speed": 0.8,
+      "fps": 3,
       "rarity": "rare",
       "unlock": {
         "season": "winter"
@@ -1375,20 +1548,60 @@
       "sprites": [
         {
           "palette": {
-            "w": "#ffffff"
+            "W": "#ffffff"
           },
           "pixels": [
-            "w"
+            "W"
           ]
         },
         {
           "palette": {
-            "w": "#e8f4ff"
+            "W": "#ffffff",
+            "w": "#cfe6ff"
           },
           "pixels": [
             ".w.",
-            "www",
+            "wWw",
             ".w."
+          ]
+        },
+        {
+          "palette": {
+            "W": "#ffffff",
+            "w": "#e8f4ff",
+            "b": "#9fc6ec"
+          },
+          "pixels": [
+            "b.w.b",
+            ".bWb.",
+            "wWWWw",
+            ".bWb.",
+            "b.w.b"
+          ],
+          "frames": [
+            [
+              "w...w",
+              ".WbW.",
+              ".bWb.",
+              ".WbW.",
+              "w...w"
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "W": "#ffffff",
+            "w": "#e8f4ff",
+            "b": "#9fc6ec"
+          },
+          "pixels": [
+            "...w...",
+            ".b.w.b.",
+            "..bWb..",
+            "wwWWWww",
+            "..bWb..",
+            ".b.w.b.",
+            "...w..."
           ]
         }
       ]
@@ -1400,6 +1613,7 @@
       "motion": "rise",
       "count": 6,
       "speed": 0.9,
+      "ink": true,
       "rarity": "rare",
       "unlock": {
         "season": "valentine"
@@ -1407,23 +1621,41 @@
       "sprites": [
         {
           "palette": {
-            "R": "#ff4d6d"
+            "H": "#ffc2d1",
+            "R": "#ff4d6d",
+            "d": "#c9184a"
           },
           "pixels": [
-            ".R.R.",
-            "RRRRR",
-            ".RRR.",
-            "..R.."
+            ".RR.RR.",
+            "RHHRRRR",
+            "RHRRRRd",
+            ".RRRRd.",
+            "..RRd..",
+            "...d..."
           ]
         },
         {
           "palette": {
-            "p": "#ffafcc"
+            "H": "#fff0f5",
+            "p": "#ffafcc",
+            "d": "#f472a0"
           },
           "pixels": [
-            "p.p",
-            "ppp",
-            ".p."
+            "pp.pp",
+            "pHppp",
+            ".ppd.",
+            "..d.."
+          ]
+        },
+        {
+          "palette": {
+            "R": "#ff758f",
+            "d": "#c9184a"
+          },
+          "pixels": [
+            "R.R",
+            "RRd",
+            ".d."
           ]
         }
       ]
@@ -1435,6 +1667,7 @@
       "motion": "float",
       "count": 8,
       "speed": 0.7,
+      "fps": 4,
       "rarity": "rare",
       "unlock": {
         "season": "summer"
@@ -1442,10 +1675,32 @@
       "sprites": [
         {
           "palette": {
-            "y": "#fff3a3"
+            "d": "#8f8f3c",
+            "Y": "#fff3a3",
+            "h": "#b8c93a",
+            "W": "#ffffff"
           },
           "pixels": [
-            "y"
+            "...",
+            ".d.",
+            "..."
+          ],
+          "frames": [
+            [
+              "...",
+              ".Y.",
+              "..."
+            ],
+            [
+              ".h.",
+              "hYh",
+              ".h."
+            ],
+            [
+              ".h.",
+              "hWh",
+              ".h."
+            ]
           ]
         }
       ]
@@ -1457,6 +1712,8 @@
       "motion": "fall",
       "count": 8,
       "speed": 0.7,
+      "ink": true,
+      "fps": 3,
       "rarity": "rare",
       "unlock": {
         "season": "autumn"
@@ -1464,31 +1721,69 @@
       "sprites": [
         {
           "palette": {
-            "O": "#e76f51",
-            "o": "#bc4b27"
+            "O": "#f4845f",
+            "H": "#ffc09f",
+            "o": "#c4502b",
+            "s": "#7a4a2a"
           },
           "pixels": [
-            ".O",
-            "Oo"
+            "..O..",
+            "O.H.o",
+            "OOHoo",
+            ".OHo.",
+            "..s.."
+          ],
+          "frames": [
+            [
+              "..o..",
+              "O.H.o",
+              "OOHoo",
+              ".OHo.",
+              "..s.."
+            ]
           ]
         },
         {
           "palette": {
-            "Y": "#e9c46a",
-            "y": "#c68b3a"
+            "O": "#f2c14e",
+            "H": "#fff0b3",
+            "o": "#c68b3a",
+            "s": "#7a4a2a"
           },
           "pixels": [
-            "Y.",
-            "yY"
+            "...OO",
+            ".OOHo",
+            "OOHoo",
+            ".Hoo.",
+            "s...."
+          ],
+          "frames": [
+            [
+              "OO...",
+              "oHOO.",
+              "ooHOO",
+              ".ooH.",
+              "....s"
+            ]
           ]
         },
         {
           "palette": {
-            "R": "#c1121f"
+            "R": "#d62828",
+            "H": "#ff7b7b",
+            "s": "#6b3a1e"
           },
           "pixels": [
-            "R",
-            "RR"
+            ".RR",
+            "RHR",
+            "sR."
+          ],
+          "frames": [
+            [
+              "RR.",
+              "RHR",
+              ".Rs"
+            ]
           ]
         }
       ]

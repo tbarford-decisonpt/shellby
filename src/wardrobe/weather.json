@@ -149,20 +149,36 @@
       "sprites": [
         {
           "palette": {
-            "b": "#9ecbff"
+            "a": "#5b8fd1",
+            "b": "#9ecbff",
+            "W": "#e6f3ff"
           },
           "pixels": [
+            "a",
             "b",
-            "b"
+            "W"
           ]
         },
         {
           "palette": {
-            "b": "#7fb2e5"
+            "a": "#5b8fd1",
+            "b": "#9ecbff",
+            "W": "#e6f3ff"
           },
           "pixels": [
+            "a",
+            "a",
             "b",
-            "b",
+            "W"
+          ]
+        },
+        {
+          "palette": {
+            "a": "#5b8fd1",
+            "b": "#9ecbff"
+          },
+          "pixels": [
+            "a",
             "b"
           ]
         }
@@ -178,18 +194,21 @@
       "sprites": [
         {
           "palette": {
-            "b": "#b8d8f5"
+            "b": "#b8d8f5",
+            "W": "#eef7ff"
           },
           "pixels": [
-            "b"
+            "b",
+            "W"
           ]
         },
         {
           "palette": {
-            "b": "#9ecbff"
+            "a": "#8fb8de",
+            "b": "#b8d8f5"
           },
           "pixels": [
-            "b",
+            "a",
             "b"
           ]
         }

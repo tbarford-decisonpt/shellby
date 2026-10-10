@@ -107,24 +107,29 @@
       "speed": 0.9,
       "sprites": [
         {
-          "palette": { "b": "#a8ecd9" },
+          "palette": { "b": "#a8ecd9", "W": "#ffffff", "d": "#3fb8a3" },
           "pixels": [
-            ".b.",
-            "b.b",
-            ".b."
+            ".bbb.",
+            "bW..b",
+            "b...d",
+            "b...d",
+            ".ddd."
           ]
         },
         {
-          "palette": { "b": "#a8ecd9" },
+          "palette": { "b": "#a8ecd9", "W": "#ffffff", "d": "#3fb8a3" },
           "pixels": [
-            "b"
+            ".bb.",
+            "bW.d",
+            "b..d",
+            ".dd."
           ]
         },
         {
-          "palette": { "b": "#3fb8a3" },
+          "palette": { "b": "#a8ecd9", "W": "#ffffff", "d": "#3fb8a3" },
           "pixels": [
-            "bb",
-            "bb"
+            "Wb",
+            "bd"
           ]
         }
       ]
@@ -136,18 +141,36 @@
       "motion": "float",
       "count": 14,
       "speed": 0.5,
+      "fps": 3,
       "sprites": [
         {
-          "palette": { "p": "#b7e4c7" },
+          "palette": { "p": "#5fae8a", "P": "#b7e4c7", "W": "#e9fff2" },
           "pixels": [
             "p"
+          ],
+          "frames": [
+            [
+              "P"
+            ],
+            [
+              "W"
+            ],
+            [
+              "P"
+            ]
           ]
         },
         {
-          "palette": { "p": "#a8ecd9" },
+          "palette": { "p": "#a8ecd9", "P": "#5fae8a" },
           "pixels": [
-            ".p",
-            "p."
+            "p.",
+            ".P"
+          ],
+          "frames": [
+            [
+              ".p",
+              "P."
+            ]
           ]
         }
       ]

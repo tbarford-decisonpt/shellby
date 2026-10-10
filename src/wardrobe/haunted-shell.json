@@ -145,22 +145,47 @@
       "motion": "fall",
       "count": 5,
       "speed": 0.5,
+      "ink": true,
+      "fps": 4,
       "rarity": "rare",
       "unlock": { "season": "halloween" },
       "sprites": [
         {
-          "palette": { "w": "#d8dde3", "k": "#1a1a22" },
+          "palette": { "t": "#d8dde3", "k": "#1a1a22", "K": "#3a2f4a", "H": "#6a5a80", "e": "#ff3b3b" },
           "pixels": [
-            ".w.",
-            "kkk",
-            "k.k"
+            "..t..",
+            "..t..",
+            "k.t.k",
+            ".kKk.",
+            "kKHKk",
+            ".eKe.",
+            "k...k"
+          ],
+          "frames": [
+            [
+              "..t..",
+              "..t..",
+              "..t..",
+              "kkKkk",
+              ".KHK.",
+              "kekek",
+              "....."
+            ]
           ]
         },
         {
-          "palette": { "k": "#1a1a22" },
+          "palette": { "k": "#1a1a22", "K": "#3a2f4a" },
           "pixels": [
             "k.k",
-            ".k."
+            ".K.",
+            "k.k"
+          ],
+          "frames": [
+            [
+              ".k.",
+              "kKk",
+              ".k."
+            ]
           ]
         }
       ]
@@ -172,21 +197,74 @@
       "motion": "float",
       "count": 6,
       "speed": 0.5,
+      "fps": 6,
       "rarity": "epic",
       "unlock": { "season": "halloween" },
       "sprites": [
         {
-          "palette": { "G": "#e0ffd6", "g": "#7ae582" },
+          "palette": { "g": "#3fbf6a", "G": "#9ef0a8", "W": "#f0fff0" },
           "pixels": [
-            ".g.",
-            "gGg",
-            ".g."
+            "..g..",
+            "..g..",
+            ".gGg.",
+            "gGWGg",
+            "gGWGg",
+            ".gGg."
+          ],
+          "frames": [
+            [
+              ".g...",
+              "..g..",
+              ".gGg.",
+              "gGWGg",
+              "gGWGg",
+              ".gGg."
+            ],
+            [
+              "..g..",
+              "..g..",
+              ".gGg.",
+              "gGWGg",
+              "gGWGg",
+              ".gGg."
+            ],
+            [
+              "...g.",
+              "..g..",
+              ".gGg.",
+              "gGWGg",
+              "gGWGg",
+              ".gGg."
+            ]
           ]
         },
         {
-          "palette": { "g": "#7ae582" },
+          "palette": { "g": "#3fbf6a", "G": "#9ef0a8", "W": "#f0fff0" },
           "pixels": [
-            "g"
+            ".g.",
+            "gGg",
+            "GWG",
+            ".G."
+          ],
+          "frames": [
+            [
+              "g..",
+              "gGg",
+              "GWG",
+              ".G."
+            ],
+            [
+              ".g.",
+              "gGg",
+              "GWG",
+              ".G."
+            ],
+            [
+              "..g",
+              "gGg",
+              "GWG",
+              ".G."
+            ]
           ]
         }
       ]
@@ -198,14 +276,41 @@
       "motion": "burst",
       "count": 10,
       "speed": 1,
+      "ink": true,
+      "fps": 12,
       "unlock": { "season": "halloween" },
       "sprites": [
         {
-          "palette": { "w": "#fff4e4", "o": "#f28c28", "y": "#ffd23f" },
+          "palette": { "W": "#fff4e4", "O": "#f28c28", "o": "#d9701a", "Y": "#ffd23f", "y": "#e0a91c" },
           "pixels": [
-            ".w.",
-            "ooo",
-            "yyy"
+            "..W..",
+            ".oOo.",
+            ".oOo.",
+            "yYYYy",
+            "....."
+          ],
+          "frames": [
+            [
+              "y....",
+              "Yoo..",
+              "YOOOW",
+              "Yoo..",
+              "y...."
+            ],
+            [
+              ".....",
+              "yYYYy",
+              ".oOo.",
+              ".oOo.",
+              "..W.."
+            ],
+            [
+              "....y",
+              "..ooY",
+              "WOOOY",
+              "..ooY",
+              "....y"
+            ]
           ]
         }
       ]

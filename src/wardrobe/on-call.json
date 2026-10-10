@@ -96,25 +96,61 @@
       "motion": "rise",
       "count": 12,
       "speed": 1.2,
+      "fps": 8,
       "rarity": "rare",
       "sprites": [
         {
-          "palette": { "e": "#ff6b35" },
+          "palette": { "Y": "#fff3a3", "O": "#ff9f1c", "R": "#e63946" },
           "pixels": [
-            "e"
+            "Y"
+          ],
+          "frames": [
+            [
+              "O"
+            ],
+            [
+              "R"
+            ],
+            [
+              "O"
+            ]
           ]
         },
         {
-          "palette": { "E": "#ffd23f" },
+          "palette": { "Y": "#fff3a3", "O": "#ff9f1c", "R": "#e63946" },
           "pixels": [
-            "E"
+            "YO",
+            "OR"
+          ],
+          "frames": [
+            [
+              "OR",
+              "R."
+            ],
+            [
+              ".Y",
+              "YO"
+            ]
           ]
         },
         {
-          "palette": { "e": "#d00000" },
+          "palette": { "W": "#fffbe6", "Y": "#ffd23f", "O": "#ff6b35", "R": "#d00000" },
           "pixels": [
-            ".e",
-            "e."
+            ".Y.",
+            "YWY",
+            ".O."
+          ],
+          "frames": [
+            [
+              ".O.",
+              "OYO",
+              ".R."
+            ],
+            [
+              "...",
+              ".Y.",
+              ".O."
+            ]
           ]
         }
       ]
@@ -126,13 +162,28 @@
       "motion": "twinkle",
       "count": 5,
       "speed": 1,
+      "ink": true,
+      "fps": 4,
       "sprites": [
         {
-          "palette": { "r": "#ffd23f", "k": "#2b2d42" },
+          "palette": { "Y": "#ffd23f", "H": "#fff0a0", "d": "#e0a000", "k": "#2b2d42", "R": "#ff5a5f", "Q": "#ff9a9d", "D": "#c1121f" },
           "pixels": [
-            ".r.",
-            "rkr",
-            "rrr"
+            "...Y...",
+            "..YkY..",
+            "..HkY..",
+            ".HYkYd.",
+            ".HYYYd.",
+            "HYYkYdd"
+          ],
+          "frames": [
+            [
+              "...R...",
+              "..RkR..",
+              "..QkR..",
+              ".QRkRD.",
+              ".QRRRD.",
+              "QRRkRDD"
+            ]
           ]
         }
       ]

@@ -450,7 +450,8 @@
     const rest = names.slice(MAX_TROPHY_CHIPS);
     $('xpWeekTrophies').replaceChildren(
       ...names.slice(0, MAX_TROPHY_CHIPS).map(text => h('li', { text })),
-      rest.length ? h('li', { class: 'more', text: `+${rest.length} more`, title: rest.join('\n') }) : null,
+      // replaceChildren writes a null as the text "null", so the chip is only spread in when there's one.
+      ...(rest.length ? [h('li', { class: 'more', text: `+${rest.length} more`, title: rest.join('\n') })] : []),
     );
     $('xpWeekTrophiesRow').hidden = !w.trophies.length;
     const shipped = withArt(w).slice(0, 8);

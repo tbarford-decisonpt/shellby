@@ -389,7 +389,12 @@ function publicItem(item) {
   const out = { key, id, packId, name, description, rarity, unlock, source };
   if (item.category) return { ...out, kind: 'decor', category: item.category, layer: item.layer, palette: { ...palette }, pixels: [...pixels], frames: item.frames.map(f => [...f]), fps: item.fps, spots: item.spots.map(s => ({ kind: s.kind, at: [...s.at] })) };
   if (pixels) Object.assign(out, { slot, anchor, follows, pivot, palette: { ...palette }, pixels: [...pixels] });
-  if (sprites) Object.assign(out, { motion, count, speed, sprites: sprites.map(s => ({ palette: { ...s.palette }, pixels: [...s.pixels] })) });
+  if (sprites) {
+    Object.assign(out, {
+      motion, count, speed, ink: !!item.ink, fps: item.fps || 0,
+      sprites: sprites.map(s => ({ palette: { ...s.palette }, pixels: [...s.pixels], ...(s.frames ? { frames: s.frames.map(f => [...f]) } : {}) })),
+    });
+  }
   if (item.lines) Object.assign(out, { lang: item.lang, fallback: item.fallback, sample: voiceSample(item), occasions: Object.keys(item.lines).length });
   return out;
 }
