@@ -33,6 +33,7 @@ const shells = require('../shells');
 const stickers = require('../stickers');
 const syncLife = require('../sync-life');
 const syncPrefs = require('../sync-prefs');
+const syncPlans = require('../sync-plans');
 const tankShare = require('../tank/share');
 const voice = require('../voice');
 const { KNOWN_ACHIEVEMENTS } = require('../wardrobe/achievements');
@@ -63,6 +64,9 @@ function wireGithub(d) {
       onSynced: before => {
         d.broadcastWardrobe(); d.send(d.panel, 'xp', d.xpView()); d.send(d.panel, 'homes', d.homesView()); d.send(d.panel, 'stickers', d.stickersView()); d.refreshStatusLine();
         d.settingsSynced?.(before);
+        // Routines and workflows added, changed or deleted on another PC (sync-plans.js).
+        if (JSON.stringify(d.config.data.routines) !== JSON.stringify(before.routines)) d.send(d.panel, 'routines', d.routinesView());
+        if (JSON.stringify(d.config.data.workflows) !== JSON.stringify(before.workflows)) d.workflows?.reload();
         if (d.life) d.send(d.panel, 'life', d.life.view()); // finds, the bond, games from another PC
         // A friend added on another PC needs their card fetched here.
         if (d.friends && friendsChanged(d.config.data, before)) { d.friends.emit('change', d.friends.view()); d.friends.refresh().catch(() => {}); }
@@ -84,6 +88,9 @@ function wireGithub(d) {
       // Snippets and pins are stamped one by one, with a marker for each one deleted.
       const prefStamps = syncPrefs.restamp(patch, prev, stamps.prefs, Date.now());
       if (prefStamps) { stamps.prefs = prefStamps; changed = true; }
+      // So are routines and workflows; whether one is on, or its last run, isn't shared.
+      const planStamps = syncPlans.restamp(patch, prev, stamps.plans, Date.now());
+      if (planStamps) { stamps.plans = planStamps; changed = true; }
       // A favourite find or your birthday follows the PC that set it last (sync-life.js).
       if ('finds' in patch && (patch.finds?.favourite ?? null) !== (prev.finds?.favourite ?? null)) { stamps.life = { ...stamps.life, favouriteAt: Date.now() }; changed = true; }
       if ('bond' in patch && JSON.stringify(patch.bond?.birthday ?? null) !== JSON.stringify(prev.bond?.birthday ?? null)) { stamps.life = { ...stamps.life, birthdayAt: Date.now() }; changed = true; }
