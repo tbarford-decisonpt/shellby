@@ -73,6 +73,9 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({
     const said = await dlg.ev("({ title: document.getElementById('title').textContent, text: document.body.innerText })");
     await dlg.ev(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(button)}).click()`);
     dlg.close();
+    // Gone before the next one is looked for: a slow CI box still lists this one
+    // as it closes, and a connection to it never answers.
+    for (let i = 0; i < 50 && (await targets()).some(t => t.id === d.id); i++) await wait(200);
     return said;
   }
 
