@@ -56,6 +56,24 @@ const crew = {
     const at = Date.now();
     if (target) this.tasks.set(target.taskId, { ...this.tasks.get(target.taskId), heard: { text: words, from: from ? (from.name || from.subagentType || 'a helper') : null, at } });
     if (from) this.tasks.set(from.taskId, { ...this.tasks.get(from.taskId), said: { text: words, to: target?.name || to, at } });
+    this.talked();
+  },
+
+  // A helper wrote something (Claude Code forwards its words with
+  // --forward-subagent-text): its crab says the first line of it, to nobody in particular.
+  noteSaid(item) {
+    const helper = [...this.tasks.values()].find(t => t.toolUseId === item.parent && t.status === 'running');
+    const words = String(item.text || '').split('\n').map(l => l.replace(/[#*_`>]+/g, ' ').replace(/\s+/g, ' ').trim()).find(Boolean);
+    if (!helper || !words) return;
+    // A message between agents (noteMessage) says more: it keeps the bubble its few seconds.
+    const now = Date.now();
+    if ([helper.heard, helper.said?.to ? helper.said : null].some(m => m && now - m.at < TALK_MS)) return;
+    this.tasks.set(helper.taskId, { ...helper, said: { text: words, to: null, at: now } });
+    this.talked();
+  },
+
+  // Someone's talking: the crab window hears now, and again once it's gone quiet.
+  talked() {
     this.emit('crew', this.crew);
     clearTimeout(this.talkTimer);
     this.talkTimer = setTimeout(() => this.emit('crew', this.crew), TALK_MS + 50);

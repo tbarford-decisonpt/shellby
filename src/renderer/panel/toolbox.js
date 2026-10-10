@@ -376,6 +376,9 @@
     if (t.kind === 'mcp') return mcpActions(t);
     const pinned = isPinned(t);
     return [
+      // An agent can run a whole conversation, not only be handed one task (claude --agent).
+      t.kind === 'agent' ? h('button', { class: 'btn slim-btn', type: 'button', title: `A new conversation run by ${t.name}: its own instructions, tools and model from the start`,
+        'aria-label': `New conversation as ${t.name}`, onclick: () => SB.newTabAs(t.name) }, 'Chat as') : null,
       h('button', { class: 'btn slim-btn', type: 'button', 'aria-label': `Use ${t.name}`, onclick: () => SB.useTool(t) }, 'Use'),
       h('button', {
         class: `icon-btn pin${pinned ? ' on' : ''}`, type: 'button', title: pinned ? 'Unpin from the start screen' : 'Pin to the start screen',

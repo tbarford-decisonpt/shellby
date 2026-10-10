@@ -180,19 +180,26 @@ function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
   });
 }
 
-// { installed, exe, version, loggedIn, authMethod, subscriptionType, email, planOnly, billingEnv, warning, picked }
+/** The flags a `claude --help` lists ('--name', ...), sorted. */
+function helpFlags(text) {
+  return [...new Set(String(text || '').match(/(?<![\w-])--[a-z][\w-]*/g) || [])].sort();
+}
+
+// { installed, exe, version, flags, loggedIn, authMethod, subscriptionType, email, planOnly, billingEnv, warning, picked }
 // configured: the path the user chose in Settings, if any (see candidatePaths).
 /** @param {{ configured?: string | null }} [opts] */
 async function checkStatus({ configured = null } = {}) {
   const exe = findClaude(process.env, configured);
   if (!exe) return { installed: false };
-  const ver = await run(exe, ['--version']);
+  const [ver, help] = await Promise.all([run(exe, ['--version']), run(exe, ['--help'])]);
   const version = (ver.stdout.match(/\d+\.\d+\.\d+/) || [null])[0];
   const auth = await run(exe, ['auth', 'status', '--json']);
   let info = {};
   try { info = JSON.parse(auth.stdout); } catch { /* not logged in or old CLI */ }
   const status = {
     installed: true, exe, version,
+    // What this version takes, for the flags Shellby only passes when it can (session.js OPTIONAL_FLAGS).
+    flags: help.ok ? helpFlags(help.stdout) : null,
     picked: !!configured && exe === configured, // Settings shows where it came from
     loggedIn: !!info.loggedIn,
     authMethod: info.authMethod || null,
@@ -209,4 +216,4 @@ async function checkStatus({ configured = null } = {}) {
   return status;
 }
 
-module.exports = { findClaude, currentClaude, claudeMoved, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, skipSettings, candidatePaths, run, BILLING_ENV };
+module.exports = { findClaude, currentClaude, claudeMoved, verifyClaude, checkStatus, helpFlags, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, skipSettings, candidatePaths, run, BILLING_ENV };

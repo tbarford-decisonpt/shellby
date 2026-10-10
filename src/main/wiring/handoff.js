@@ -187,7 +187,33 @@ function wireHandoff(d) {
     return { ok: true, shell: started.shell, text: `Opened ${handoff.SHELL_NAMES[started.shell] || 'a terminal'} with /code-review ultra. Claude Code asks there before it starts.` };
   }
 
-  return { continueInTerminal, pickUp, bringIn, take, ultraReview };
+  // Claude Code's cloud sessions, in a terminal of their own (handoff.js
+  // cloudArgs): teleport one here, start one on what you wrote, or pick up the
+  // conversation behind a pull request. Claude Code asks and shows its own lists
+  // there. tabId: the conversation whose folder it opens in, else Shellby's own.
+  const CLOUD_SAYS = {
+    teleport: 'with claude --teleport. Pick the cloud session there; Bring it into Shellby works once it runs.',
+    cloud: 'with claude --cloud. Claude Code starts the cloud session there.',
+    pr: 'with claude --from-pr. Pick the pull request there.',
+  };
+  async function openCloud({ kind, value = null, tabId = null } = {}) {
+    const tab = tabId ? d.manager.tabs.get(tabId) : null;
+    const cwd = handoff.terminalCwd({ cwd: tab?.session?.cwd || d.currentCwd(), worktree: tab?.worktree || null }, isDir);
+    if (!cwd) return { ok: false, error: "That conversation's folder isn't there any more." };
+    const flag = { teleport: '--teleport', cloud: '--cloud', pr: '--from-pr' }[kind];
+    if (flag && !d.claudeSupports(flag)) return { ok: false, error: `This Claude Code doesn't have ${flag} yet. Update it, then try again.` };
+    const exe = claudeExe();
+    if (!exe) return { ok: false, error: 'Claude Code is not installed.' };
+    const r = handoff.launchPlans({
+      exe, cwd, cloud: { kind, value }, scrub: billingScrub(), env: terminalEnv(),
+      wt: windowsTerminal(), powershell: POWERSHELL, cmd: CMD,
+    });
+    const started = r.ok ? await handoff.launch(r.plans, spawn) : r;
+    if (!started.ok) return started;
+    return { ok: true, shell: started.shell, text: `Opened ${handoff.SHELL_NAMES[started.shell] || 'a terminal'} ${CLOUD_SAYS[kind]}` };
+  }
+
+  return { continueInTerminal, pickUp, bringIn, take, ultraReview, openCloud };
 }
 
 module.exports = { wireHandoff };

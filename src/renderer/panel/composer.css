@@ -12,6 +12,10 @@
 .pick-item { grid-template-columns: 14px minmax(0, 1fr) auto; }
 .pick-glyph { font: 700 var(--fs-11) var(--font-mono); color: var(--sand-faint); text-align: center; }
 .pick-item .slash-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+/* @ a dev server, a red build, a chat or a note: a label, not a path, so it ends in … */
+.pick-ctx .slash-name { direction: ltr; font-family: inherit; font-weight: 600; }
+.pick-ctx .pick-glyph { color: var(--glass); }
+.pick-ctx .slash-desc { max-width: 22ch; }
 .pick-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-12-5); color: var(--sand); }
 .pick-head, .pick-empty { padding: 5px 9px 6px; font: 600 var(--fs-10-5) var(--font-mono); letter-spacing: .03em; color: var(--sand-faint); }
 .pick-empty { font-weight: 500; }

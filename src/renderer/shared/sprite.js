@@ -183,6 +183,27 @@
     });
     if (home && home !== 'none') paintGrid(home.pixels, home.palette || {}, 0, 0, () => 'shell');
 
+    // Each stalk runs on down behind his body, out of sight, so a pose that
+    // lifts his eyes (and the stalks and hat with them) by a pixel or two, or
+    // bobs his body, never opens a gap between them. Neither lined nor boxed:
+    // only the stalks he shows count for his line and his pivots.
+    if (groups.stalks) {
+      const ROOT = 2;
+      const isBody = (x, y) => parts[(pixels[y] || '')[x]] === 'body';
+      for (const [x, y, colour] of cellsOf.stalks) {
+        if (parts[(pixels[y + 1] || '')[x]] === 'stalks') continue;
+        let depth = 0;
+        while (depth < ROOT && isBody(x, y + 1 + depth)) depth++;
+        if (!depth) continue;
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.setAttribute('x', x); r.setAttribute('y', y + 1);
+        r.setAttribute('width', 1); r.setAttribute('height', depth);
+        r.setAttribute('fill', colour);
+        r.setAttribute('class', 'stalk-root');
+        groups.stalks.appendChild(r);
+      }
+    }
+
     // Stickers for the projects he's shipped (src/main/stickers.js), already
     // placed by main in stacking order. They move with the shell, and there's
     // nowhere to put them while he's between shells.

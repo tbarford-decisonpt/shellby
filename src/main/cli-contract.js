@@ -31,6 +31,15 @@ const REQUIRED_FLAGS = Object.freeze([
   { flag: '--resume' },
   { flag: '--resume-session-at', hidden: true },
   { flag: '--fork-session' },
+  // session.js OPTIONAL_FLAGS: passed only when the installed CLI lists them, but
+  // the newest release must still have them.
+  { flag: '--include-partial-messages' },
+  { flag: '--forward-subagent-text' },
+  { flag: '--fallback-model' },
+  { flag: '--name' },
+  { flag: '--agent' },
+  { flag: '--safe-mode' },
+  { flag: '--chrome' },
 ]);
 
 // The --permission-mode values Shellby's modes map to (config.js).

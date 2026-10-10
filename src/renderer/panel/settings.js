@@ -53,6 +53,13 @@
       known ? null : h('option', { value: current, text: current }),
     );
     $('modelSelect').value = current;
+    // The same list for what it falls back to; Claude Code's default isn't one.
+    const fallback = state.settings.fallbackModel || '';
+    $('fallbackSelect').replaceChildren(
+      h('option', { value: '', text: 'Wait and retry' }),
+      ...groups.map(g => h('optgroup', { label: g }, models.filter(m => m.group === g).map(m => h('option', { value: m.id, text: `Switch to ${m.label}` })))),
+    );
+    $('fallbackSelect').value = models.some(m => m.id === fallback) ? fallback : '';
   }
 
   // Claude Code's own styles plus any in an output-styles folder (src/main/outputstyles.js).
@@ -87,6 +94,7 @@
     $('claudeTricksToggle').checked = state.settings.claudeTricks !== false;
     $('justSawToggle').checked = state.settings.attachWhatISaw === true;
     $('forecastToggle').checked = state.settings.forecast !== false;
+    $('chromeToggle').checked = state.settings.claudeInChrome === true;
     $('spendGuardToggle').checked = state.settings.spendGuard !== false;
     $('spendReserveSelect').value = String(state.settings.spendReserve || 25);
     $('spendMaxSelect').value = String(state.settings.spendMaxMinutes || 60);
@@ -218,6 +226,8 @@
     SB.toast('Output style applies to new conversations.');
   });
   $('modelSelect').addEventListener('change', async e => { const r = await api.setSettings({ model: e.target.value }); state.settings = r.settings; SB.toast('Model applies to new conversations.'); });
+  $('fallbackSelect').addEventListener('change', async e => { const r = await api.setSettings({ fallbackModel: e.target.value }); state.settings = r.settings; SB.toast('Applies to new conversations.'); });
+  $('chromeToggle').addEventListener('change', async e => { const r = await api.setSettings({ claudeInChrome: e.target.checked }); state.settings = r.settings; SB.toast('Applies to new conversations.'); });
   $('wanderToggle').addEventListener('change', async e => { const r = await api.setSettings({ wander: e.target.checked }); state.settings = r.settings; renderPerch(); });
   $('onTopToggle').addEventListener('change', async e => { const r = await api.setSettings({ onTop: e.target.checked }); state.settings = r.settings; });
   $('perchSelect').addEventListener('change', async e => { const r = await api.setSettings({ perch: e.target.value }); state.settings = r.settings; renderPerch(); });

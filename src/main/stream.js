@@ -271,6 +271,34 @@ function modItem(ev) {
   return [{ kind, plugin, text }];
 }
 
+// Claude Code's own notes about a goal (/goal), as the synthetic replies it
+// writes for them: set, cleared, or met. Checked against Claude Code 2.1.296.
+const GOAL_TEXT = 500;
+function goalOf(text) {
+  const t = String(text || '').trim();
+  const set = /^Goal set:\s*(.+)$/s.exec(t);
+  if (set) return { kind: 'goal', text: set[1].replace(/\s+/g, ' ').trim().slice(0, GOAL_TEXT) };
+  if (/^Goal cleared\b/.test(t)) return { kind: 'goal', text: null };
+  if (/^Goal achieved\b/.test(t)) return { kind: 'goal', text: null, met: true };
+  return null;
+}
+
+// A piece of the reply as Claude writes it (--include-partial-messages): only
+// the main thread's words, which the panel shows until the whole block arrives.
+function partialOf(ev) {
+  const e = ev.event;
+  if (ev.parent_tool_use_id || e?.type !== 'content_block_delta' || e.delta?.type !== 'text_delta') return [];
+  if (typeof e.delta.text !== 'string' || !e.delta.text) return [];
+  return [{ kind: 'partial', text: e.delta.text }];
+}
+
+// What Claude Code thinks you'll ask next (prompt suggestions), one line.
+const SUGGESTION_TEXT = 300;
+function nextPromptOf(ev) {
+  const text = typeof ev.suggestion === 'string' ? ev.suggestion.replace(/\s+/g, ' ').trim().slice(0, SUGGESTION_TEXT) : '';
+  return text ? [{ kind: 'next', text }] : [];
+}
+
 // Returns an array of UI items for one parsed stream-json event.
 function toItems(ev) {
   if (!ev || typeof ev !== 'object') return [];
@@ -306,7 +334,11 @@ function toItems(ev) {
       return [];
     case 'assistant': {
       const out = [];
+      // Claude Code's own notes come as replies of its own making, not the model's.
+      const own = ev.message?.model === '<synthetic>' && !ev.parent_tool_use_id;
       for (const b of ev.message?.content || []) {
+        const goal = own && b.type === 'text' ? goalOf(b.text) : null;
+        if (goal) out.push(goal);
         if (b.type === 'text' && b.text?.trim()) out.push({ kind: 'text', text: b.text.trim(), ...sub });
         else if (b.type === 'thinking') out.push({ kind: 'thinking', ...sub });
         else if (b.type === 'tool_use') out.push(toolItem(b, sub));
@@ -359,6 +391,10 @@ function toItems(ev) {
     }
     case 'rate_limit_event':
       return [usageFrom(ev)];
+    case 'stream_event':
+      return partialOf(ev);
+    case 'prompt_suggestion':
+      return nextPromptOf(ev);
     case 'control_request':
       if (ev.request?.subtype === 'can_use_tool') {
         const r = ev.request;
@@ -383,11 +419,14 @@ function toItems(ev) {
 // check (cli-contract.js, scripts/cli-compat.js) flags it before a user meets it.
 const KNOWN = Object.freeze({
   // control_response is read by session.js (answers to Shellby's own requests).
-  types: new Set(['system', 'assistant', 'user', 'result', 'rate_limit_event', 'control_request', 'control_response']),
+  // stream_event: the reply as it's written (only its words become items); prompt_suggestion: what you might ask next.
+  types: new Set(['system', 'assistant', 'user', 'result', 'rate_limit_event', 'control_request', 'control_response', 'stream_event', 'prompt_suggestion']),
   // init, task_*, compact_boundary, a mod's ui_* and commands_changed become items; the rest is progress chatter.
   system: new Set(['init', 'task_started', 'task_progress', 'task_updated', 'task_notification', 'compact_boundary',
     'ui_log', 'ui_toast', 'ui_status', 'commands_changed',
     'hook_started', 'hook_progress', 'hook_response', 'status', 'api_retry', 'thinking_tokens',
+    // The conversation's name (--name) taken: Shellby set it, so there's nothing to show.
+    'session_title_changed',
     // The whole list of what runs in the background: task_* says the same a task at a time.
     'background_tasks_changed']),
   // can_use_tool becomes a permission card; hook_callback is answered by session.js.
@@ -403,4 +442,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { questionsOf, todoOf, todoIdOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };
+module.exports = { questionsOf, todoOf, todoIdOf, goalOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };

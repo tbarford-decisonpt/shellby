@@ -17,6 +17,21 @@ const MAX_STEER_FILES = 20;
 const MAX_DENY_MESSAGE = 4000;
 
 /**
+ * The agent's name as Claude Code takes it (--agent): as listed, or a plugin's
+ * one by its own name when only one plugin has it. Before any conversation has
+ * said what it has (listed null), the name is taken as given. -> name | null
+ * @param {string} name
+ * @param {string[] | null | undefined} listed
+ */
+function agentName(name, listed) {
+  if (!/^[\w][\w:.-]{0,119}$/.test(name)) return null;
+  if (!Array.isArray(listed)) return name;
+  if (listed.includes(name)) return name;
+  const plugin = listed.filter(a => a.endsWith(`:${name}`));
+  return plugin.length === 1 ? plugin[0] : null;
+}
+
+/**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
  * @param d  what main shares with its IPC (main.js ipcDeps)
  */
@@ -25,8 +40,15 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:new', (_e, opts = {}) => {
     // A folder is only accepted if it's a project Shellby already tracks (e.g. a nudge's "pick up where you left off").
     const known = d.isStr(opts?.cwd) && d.knownFolder(opts.cwd) && fs.existsSync(opts.cwd);
-    try { return { ok: true, tabId: d.openTab(known ? { cwd: opts.cwd } : {}).id }; } catch (err) { return { ok: false, error: err.message }; }
+    // One of your agents to run it (Toolbox → Chat as), by the name Claude Code lists
+    // it under ("feature-dev:code-reviewer" for a plugin's "code-reviewer").
+    const agent = d.isStr(opts?.agent) ? agentName(opts.agent, d.lastInit?.agents) : null;
+    if (d.isStr(opts?.agent) && !agent) return { ok: false, error: `Claude Code doesn't list an agent called ${opts.agent.slice(0, 80)}.` };
+    if (agent && !d.claudeSupports('--agent')) return { ok: false, error: "This Claude Code can't hand a conversation to an agent. Update it, then try again." };
+    try { return { ok: true, tabId: d.openTab({ ...(known ? { cwd: opts.cwd } : {}), ...(agent ? { agent } : {}) }).id }; } catch (err) { return { ok: false, error: err.message }; }
   });
+  // Safe mode for one conversation (sessions.js setSafeMode), from the tab menu.
+  ipcMain.handle('tab:safe', (_e, { tabId, on } = {}) => (d.isStr(tabId) ? d.manager.setSafeMode(tabId, on === true) : { ok: false, error: 'Which conversation?' }));
   ipcMain.handle('tab:close', (_e, tabId) => {
     if (!d.isStr(tabId)) return false;
     // Its held messages go with it, the way its queue does.
@@ -45,6 +67,7 @@ function registerTabsIpc(ipcMain, d) {
     d.queueWaits.get(tabId)?.({ ok: false, interrupted: true, closed: true });
     d.queueWaits.delete(tabId);
     d.workflows?.onTabClosed(tabId);
+    d.debugMode?.tabClosed(tabId); // its debug receiver stops listening
     d.remote?.settleTab(tabId);
     return true;
   });

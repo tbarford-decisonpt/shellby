@@ -51,6 +51,8 @@
 /* Another copy changed the same files (clashes.js): a ⚠ by the title, and the
    reason in the tooltip and for screen readers. Still, so it never pulses. */
 .tab-clash { flex: none; color: var(--amber); font-size: 11px; line-height: 1; }
+/* Started without your customizations (tab menu → Try it in safe mode). */
+.tab-safe { flex: none; font-size: 10px; line-height: 1; }
 .tl-clash { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; color: var(--amber); }
 .clash-info .mi-check { color: var(--amber); }
 .clash-info > span:last-child { flex: 1; min-width: 0; }

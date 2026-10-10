@@ -49,6 +49,7 @@ function wireQuit(d) {
     d.remote?.shutdown(); // no task from the phone starts while he's on his way out
     d.presence?.stop();   // Discord clears his activity as the pipe closes
     d.workflows?.shutdown();
+    d.debugMode?.shutdown(); // the debug receiver closes
     d.manager?.closeAll({ kill: true });
     d.cancelAllChecks(); // a test run Shellby started ends with him
     // Quits that didn't come through quit() (Windows shutting down, say):
