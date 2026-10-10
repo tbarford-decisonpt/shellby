@@ -168,6 +168,7 @@
 
     <footer class="composer" id="composer">
       <!-- Claude's own to-do list, and what it left running in the background (native-strip.js) -->
+      <div class="goal-pin" id="goalPin" role="status" aria-label="The goal Claude checks before it stops" hidden></div>
       <div class="todos" id="todos" role="region" aria-label="Claude's to-do list" hidden></div>
       <div class="jobs" id="jobs" role="region" aria-label="Running in the background" hidden></div>
       <div class="status" id="status" hidden>
@@ -181,6 +182,7 @@
       <div class="outlook" id="outlook" role="status" hidden></div>
       <div class="review-bar" id="review" role="region" aria-label="Review comments waiting to be sent" hidden></div>
       <div class="queued" id="queued" hidden></div>
+      <div class="next-prompt" id="nextPrompt" hidden></div>
       <div class="attachments" id="attachments" hidden></div>
       <form class="input-row" id="form">
         <button type="button" class="attach-btn" id="attachBtn" aria-label="Attach files" title="Attach files · or paste a screenshot (Ctrl+V)">
@@ -1863,12 +1865,21 @@
         </div>
         <p class="muted small">Applies to new conversations.</p>
         <div class="row">
+          <label class="inline-label" for="fallbackSelect">When it's busy</label>
+          <select id="fallbackSelect" class="field slim">
+            <option value="">Wait and retry</option>
+          </select>
+        </div>
+        <p class="muted small">When the model is overloaded or unavailable, Claude Code can carry on with another one instead of failing the turn. Applies to new conversations.</p>
+        <div class="row">
           <label class="inline-label" for="styleSelect">Output style</label>
           <select id="styleSelect" class="field slim">
             <option value="">Default</option>
           </select>
         </div>
         <p class="muted small" id="styleNote">How Claude talks while it works. Applies to new conversations.</p>
+        <label class="toggle"><input type="checkbox" id="chromeToggle"><span class="switch"></span>Let Claude use Chrome</label>
+        <p class="muted small">Claude can open pages, click and read them in your own Chrome, signed in as you, through the Claude in Chrome extension, which needs to be installed. Applies to new conversations.</p>
       </section>
 
       <section class="setting-group" id="limitGroup" data-nav="Usage limit">
@@ -2583,6 +2594,7 @@
 <script src="tab-panes.js"></script>
 <script src="tab-send.js"></script>
 <script src="native-strip.js"></script>
+<script src="native-cli.js"></script>
 <script src="tab-queue.js"></script>
 <script src="slash-menu.js"></script>
 <script src="tab-chips.js"></script>

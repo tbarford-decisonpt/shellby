@@ -36,6 +36,9 @@ const MAX_TABS = 32;
 const CREW_ENDED_MS = 4000; // how long a finished helper's outcome rides along to the crab window
 const IN_TERMINAL = 'This conversation is carrying on in a terminal. Close it there (/exit), then choose Pick it up here.';
 const TAB_ID = /^[\w-]{1,64}$/;
+// An agent's name as Claude Code lists it ("reviewer", "plugin:reviewer"), or ''.
+const AGENT_NAME = /^[\w][\w:.-]{0,119}$/;
+const cleanAgent = v => (typeof v === 'string' && AGENT_NAME.test(v) ? v : '');
 
 class SessionManager extends EventEmitter {
   // prepareTurn(tab): an optional promise each turn waits for before Claude
@@ -51,16 +54,19 @@ class SessionManager extends EventEmitter {
   // and getEffortPick() true, each one is sized from its first message instead (effort-pick.js).
   // getRemote(cwd) -> how to start Claude Code on another computer when cwd is
   // one of its folders, or null (remote/service.js launch): read at each start.
-  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getEffortPick = () => false, getOutputStyle = () => '', argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null, getRemote = () => null, savePictures = null }) {
+  // getFallbackModel() and getChrome() are Settings' (session.js has what they do);
+  // supports(flag): whether the installed Claude Code takes one of session.js's OPTIONAL_FLAGS.
+  constructor({ getExe, history, getMode, getModel, getEffort = () => '', getEffortPick = () => false, getOutputStyle = () => '', getFallbackModel = () => '', getChrome = () => false, supports = () => true, argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null, getRemote = () => null, savePictures = null }) {
     super();
-    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getEffortPick, getOutputStyle, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate, getRemote, savePictures });
+    Object.assign(this, { getExe, history, getMode, getModel, getEffort, getEffortPick, getOutputStyle, getFallbackModel, getChrome, supports, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate, getRemote, savePictures });
     this.tabs = new Map();
   }
 
   // Creates (or returns) a tab. `historyEntry` resumes a saved conversation.
   // allowedTools / mcpConfig: a routine's or workflow step's MCP servers (mcpservers.js),
   // fixed for the life of its process.
-  open({ tabId, cwd, historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null, allowedTools = [], mcpConfig = null }) {
+  // agent: one of your agents to run the conversation (--agent), kept in History.
+  open({ tabId, cwd, historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null, allowedTools = [], mcpConfig = null, agent = null }) {
     if (!TAB_ID.test(tabId || '')) throw new Error('bad tab id');
     if (this.tabs.has(tabId)) return this.tabs.get(tabId);
     if (this.tabs.size >= MAX_TABS) throw new Error(`Shellby can run up to ${MAX_TABS} conversations at once. Close one first.`);
@@ -82,6 +88,14 @@ class SessionManager extends EventEmitter {
       model: this.getModel() || null,
       effort: ownEffort ?? (this.getEffort() || ''),
       outputStyle: this.getOutputStyle() || '',
+      fallbackModel: this.getFallbackModel() || '',
+      chrome: !!this.getChrome(),
+      // Safe mode lasts as long as the conversation, restarts and all, until it's turned off.
+      safeMode: historyEntry?.safeMode === true,
+      agent: cleanAgent(historyEntry?.agent ?? agent),
+      // What Claude Code calls it (/resume, claude.ai): its title, once it has one of its own.
+      name: () => (tab && (tab.saved || tab.named) ? tab.title : ''),
+      supports: flag => this.supports(flag),
       resumeId: historyEntry?.claudeSessionId || null,
       resumeAt: historyEntry?.resumeAt || null,
       extraEnv: () => this.getEnv(),
@@ -154,6 +168,13 @@ class SessionManager extends EventEmitter {
   }
 
   onItem(tab, raw) {
+    // The reply as it's written, and what you might ask next, are only for the
+    // panel now: the reply itself is kept when it's done, and a guess goes stale.
+    if (raw.kind === 'partial' || raw.kind === 'next') {
+      tab.activeAt = Date.now();
+      this.emit('item', tab.id, raw, tab);
+      return;
+    }
     // A long tool result's tail is only for main to read (flaky.js): it's
     // neither saved with the tab nor sent to the panel.
     let { tail, images, ...item } = raw;
@@ -237,6 +258,9 @@ class SessionManager extends EventEmitter {
       // A tab that opened in its own copy before its first message (a Next up draft):
       // the copy goes in History with it, or reopening it would lose Bring home.
       if (tab.worktree) this.history.update(tab.id, { worktree: tab.worktree });
+      // ...and so would the agent it was opened with, or safe mode turned on before it.
+      if (tab.session.agent) this.history.update(tab.id, { agent: tab.session.agent });
+      if (tab.session.safeMode) this.history.update(tab.id, { safeMode: true });
       tab.title = this.history.get(tab.id).title;
       tab.saved = true;
       if (tab.effortBy) this.keepEffort(tab); // chosen on the chip before its first message
@@ -330,6 +354,25 @@ class SessionManager extends EventEmitter {
     if (tab.saved) this.history.rename(tab.id, t); else tab.named = true;
     this.changed();
     return true;
+  }
+
+  /**
+   * Safe mode on or off for one conversation (session.js safeMode): its process
+   * is let go of now, so the next message starts it the new way, resumed.
+   * -> { ok } | { ok: false, error }
+   */
+  async setSafeMode(tabId, on) {
+    const tab = this.tabs.get(tabId);
+    if (!tab) return { ok: false, error: 'That conversation is closed.' };
+    if (tab.session.busy) return { ok: false, error: 'Let Claude finish this turn (or stop it) first.' };
+    if (!this.supports('--safe-mode') || tab.session.remote?.()) return { ok: false, error: "This Claude Code can't start in safe mode. Update it, then try again." };
+    if (tab.session.safeMode === !!on) return { ok: true };
+    tab.session.safeMode = !!on;
+    if (tab.saved) this.history.update(tab.id, { safeMode: !!on });
+    await tab.session.stop();
+    this.onItem(tab, { kind: 'safe', on: !!on });
+    this.changed();
+    return { ok: true };
   }
 
   /** Mark a tab as carried on in a terminal (at: a time), or picked back up (null). */
@@ -487,6 +530,7 @@ class SessionManager extends EventEmitter {
       todos: todoGlance(t.session.todos),
       jobs: t.session.jobView(),
       planning: !!t.session.planning,
+      safeMode: !!t.session.safeMode, agent: t.session.agent || null,
     }));
   }
 

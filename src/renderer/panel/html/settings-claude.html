@@ -64,12 +64,21 @@
         </div>
         <p class="muted small">Applies to new conversations.</p>
         <div class="row">
+          <label class="inline-label" for="fallbackSelect">When it's busy</label>
+          <select id="fallbackSelect" class="field slim">
+            <option value="">Wait and retry</option>
+          </select>
+        </div>
+        <p class="muted small">When the model is overloaded or unavailable, Claude Code can carry on with another one instead of failing the turn. Applies to new conversations.</p>
+        <div class="row">
           <label class="inline-label" for="styleSelect">Output style</label>
           <select id="styleSelect" class="field slim">
             <option value="">Default</option>
           </select>
         </div>
         <p class="muted small" id="styleNote">How Claude talks while it works. Applies to new conversations.</p>
+        <label class="toggle"><input type="checkbox" id="chromeToggle"><span class="switch"></span>Let Claude use Chrome</label>
+        <p class="muted small">Claude can open pages, click and read them in your own Chrome, signed in as you, through the Claude in Chrome extension, which needs to be installed. Applies to new conversations.</p>
       </section>
 
       <section class="setting-group" id="limitGroup" data-nav="Usage limit">

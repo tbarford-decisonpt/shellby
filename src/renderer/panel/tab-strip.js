@@ -67,11 +67,13 @@
       },
       h('div', {
         class: 'tab-main', role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
-        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, clash || null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
+        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, t.agent ? `Run by your ${t.agent} agent` : null,
+          t.safeMode ? 'Safe mode: without your CLAUDE.md, skills, plugins, hooks and MCP servers' : null, clash || null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
         onkeydown: e => tabKey(e, t.id),
       },
       tabIcon(t),
       h('span', { class: 'tab-title', text: shownTitle(t) }),
+      t.safeMode ? h('span', { class: 'tab-safe', 'aria-label': ', safe mode', text: '🛟' }) : null,
       // Another copy changed the same files (clashes.js): a shape, not just a colour, and said aloud.
       clash ? h('span', { class: 'tab-clash', 'aria-hidden': 'true', text: '⚠' }) : null,
       clash ? h('span', { class: 'sr-only', text: `. ${clash}` }) : null),
@@ -140,6 +142,7 @@
       h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.renameTab(tabId); } },
         h('span', { class: 'mi-check', text: '✎' }), h('span', { class: 'mi-title', text: 'Rename  (F2)' })),
       handoffItem(tabId),
+      safeItem(tabId),
       h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.closeTab(tabId); } },
         h('span', { class: 'mi-check', text: '×' }), h('span', { class: 'mi-title', text: 'Close  (Ctrl+W)' })),
     ].filter(Boolean));
@@ -155,6 +158,26 @@
     return h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); (back ? SB.pickUpHere : SB.continueInTerminal)(tabId); } },
       h('span', { class: 'mi-check', text: back ? '↩' : '›_' }), h('span', { class: 'mi-title', text: back ? 'Pick it up here' : 'Continue in a terminal' }));
   }
+
+  // ------------------------------------------------------------ safe mode (claude --safe-mode)
+
+  // Is something of yours (a hook, a plugin, CLAUDE.md, an MCP server) the
+  // trouble? The same conversation without any of them says.
+  function safeItem(tabId) {
+    const t = state.tabs.get(tabId);
+    if (!t) return null;
+    return h('button', { class: 'menu-item', role: 'menuitem', title: t.safeMode ? 'Your CLAUDE.md, skills, plugins, hooks and MCP servers come back from the next message'
+      : 'From the next message, without your CLAUDE.md, skills, plugins, hooks, MCP servers or custom agents: to see if one of them is the trouble',
+    onclick: () => { SB.closeMenus(); SB.setSafeMode(tabId, !t.safeMode); } },
+    h('span', { class: 'mi-check', text: '🛟' }), h('span', { class: 'mi-title', text: t.safeMode ? 'Turn safe mode off' : 'Try it in safe mode' }));
+  }
+
+  SB.setSafeMode = async (tabId, on) => {
+    const r = await api.setSafeMode({ tabId, on }).catch(() => null);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't switch safe mode.", { ms: 6000 });
+    const tab = state.tabs.get(tabId);
+    if (tab) { tab.safeMode = on; SB.renderTabStrip(); }
+  };
 
   // id: an open tab, or a History row that may be closed.
   SB.continueInTerminal = async (id) => {

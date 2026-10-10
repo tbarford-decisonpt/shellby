@@ -363,8 +363,8 @@ function wireTimetrack(d) {
     n.show();
   }
 
-  function openTab({ tabId = d.randomUUID(), cwd = d.currentCwd(), historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null, allowedTools = [], mcpConfig = null } = {}) {
-    return d.manager.open({ tabId, cwd, historyEntry, mode, routineId, workflowRunId, title, allowedTools, mcpConfig });
+  function openTab({ tabId = d.randomUUID(), cwd = d.currentCwd(), historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null, allowedTools = [], mcpConfig = null, agent = null } = {}) {
+    return d.manager.open({ tabId, cwd, historyEntry, mode, routineId, workflowRunId, title, allowedTools, mcpConfig, agent });
   }
 
   // A task started by Shellby himself (e.g. "look into why the GPU is hot"): opens

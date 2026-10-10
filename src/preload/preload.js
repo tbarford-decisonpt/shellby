@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onClaudeTricks: on('claude:tricks'), // what a newer Claude Code can do (claude/tricks.js)
 
   // tabs + tasks
-  newTab: invoke('tab:new'),
+  newTab: invoke('tab:new'), setSafeMode: invoke('tab:safe'), // safe mode: { tabId, on } (sessions.js setSafeMode)
   closeTab: invoke('tab:close'),
   moveTab: (tabId, beforeId) => ipcRenderer.invoke('tab:reorder', { tabId, beforeId }),
   // a conversation in a window of its own (x/y: where it was dropped, in screen pixels)
@@ -163,8 +163,8 @@ contextBridge.exposeInMainWorld('shellby', {
   onSessionsSynced: on('sessions:synced'),
 
   // between Shellby and a terminal (src/main/handoff.js)
-  continueInTerminal: invoke('handoff:terminal'),
-  pickUpHere: invoke('handoff:pickup'),
+  continueInTerminal: invoke('handoff:terminal'), pickUpHere: invoke('handoff:pickup'),
+  openCloud: invoke('handoff:cloud'), // a cloud session in a terminal: { kind: teleport | cloud | pr, value?, tabId? }
   bringIntoShellby: (id, force = false) => ipcRenderer.invoke('handoff:bring', { id, force }),
 
   // Settings → Other computers: Claude Code over ssh (src/main/remote/)

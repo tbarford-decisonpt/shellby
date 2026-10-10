@@ -213,7 +213,9 @@ const shared = {
 
   // ---- as he runs
   claudeStatus: null,
-  lastInit: null,                  // the newest init report from a conversation: its MCP list is refreshed from mcp_status
+  // Does the installed Claude Code take this flag? Its --help says (claude/cli.js helpFlags); the fake CLI takes anything.
+  claudeSupports: flag => !!FAKE_CLI || !!shared.claudeStatus?.flags?.includes(flag),
+  lastInit: null,                 // the newest init report from a conversation: its MCP list is refreshed from mcp_status
   nowPlaying: null,                // { title, artist, app, playing } from the Windows media session
   crewShown: 0,                    // helper slots currently allotted in the critter window
   guestShown: false,               // room allotted for a friend's visiting crab

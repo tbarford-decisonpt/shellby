@@ -63,6 +63,16 @@ async function placeEdit(item) {
 
 // Effort levels Claude Code takes (--effort). '' leaves it to Claude Code.
 const { EFFORTS, unknownType } = require('./cli-contract');
+// Flags newer than the rest, passed only when this Claude Code lists them in
+// its --help (claude/cli.js helpFlags): an older one stops at a flag it doesn't
+// know, and every turn would fail. On another computer its version isn't known,
+// so they're left out there.
+const OPTIONAL_FLAGS = Object.freeze(['--include-partial-messages', '--forward-subagent-text', '--fallback-model', '--name', '--agent', '--safe-mode', '--chrome']);
+// A conversation's name as Claude Code shows it (--name): one line, not too long.
+const NAME_MAX = 100;
+const cleanName = v => (typeof v === 'string' ? v.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX) : '');
+// How often the reply's words as they're written reach the panel, at most.
+const PARTIAL_MS = 50;
 // How long Shellby waits for the CLI to answer one of its own control requests.
 const REQUEST_TIMEOUT_MS = 15000;
 
@@ -109,6 +119,14 @@ class ClaudeSession extends EventEmitter {
   // routine's or workflow step's MCP servers). mcpConfig: { mcpServers } to load
   // instead of every configured server, or null for the usual ones.
   //
+  // fallbackModel: the model Claude Code switches to when this one is busy
+  // (--fallback-model), or ''. chrome: Claude in Chrome on (--chrome). safeMode:
+  // without CLAUDE.md, skills, plugins, hooks or MCP servers (--safe-mode), to
+  // see whether one of them is the trouble. agent: one of your agents runs the
+  // conversation (--agent). name: () => what the conversation is called, read at
+  // each start (--name). supports(flag): whether this Claude Code takes one of
+  // OPTIONAL_FLAGS.
+  //
   // systemNote: appended to Claude Code's system prompt (see selfaware.js).
   // mcp: { tools, call(name, args) } -> the crab's tools, hosted here (see crabmcp.js).
   //
@@ -122,9 +140,9 @@ class ClaudeSession extends EventEmitter {
   // then Claude Code may have moved (its installer took the npm copy away and
   // left the native one, say): a path fixed when the tab opened would fail
   // every turn after that until Shellby restarted.
-  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null, systemNote = null, mcp = null, remote = () => null }) {
+  constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', fallbackModel = '', chrome = false, safeMode = false, agent = '', name = () => '', supports = () => true, resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null, systemNote = null, mcp = null, remote = () => null }) {
     super();
-    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig, systemNote, mcp, remote });
+    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, fallbackModel, chrome, safeMode, agent, nameOf: name, supports, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig, systemNote, mcp, remote });
     // Set by rewindTo(): the next start resumes the conversation only up to this
     // transcript entry, as a fork, so the original is left as it was. Kept in
     // History too (sessions.js), so a restart before the next message honours it.
@@ -176,6 +194,7 @@ class ClaudeSession extends EventEmitter {
     this.turn = null;
     this.growths = [];             // how much the last few turns grew the context, for the crowded nudge
     this.plan = null;              // Claude's own to-do list, statuses only (plan-pace.js); the turn keeps its pace
+    this.partial = null;           // { text, timer }: the reply's words written since they last went out
   }
 
   buildArgs() {
@@ -193,6 +212,17 @@ class ClaudeSession extends EventEmitter {
     if (this.model) args.push('--model', this.model);
     if (EFFORTS.includes(this.effort)) args.push('--effort', this.effort);
     if (this.outputStyle) args.push('--settings', JSON.stringify({ outputStyle: this.outputStyle }));
+    // The rest only when this Claude Code takes them (OPTIONAL_FLAGS).
+    const can = flag => !this.remoteHost && !!this.supports?.(flag);
+    // The reply as it's written, and what each helper says, not only its tool calls.
+    if (can('--include-partial-messages')) args.push('--include-partial-messages');
+    if (can('--forward-subagent-text')) args.push('--forward-subagent-text');
+    if (this.fallbackModel && this.fallbackModel !== this.model && can('--fallback-model')) args.push('--fallback-model', this.fallbackModel);
+    if (this.chrome && can('--chrome')) args.push('--chrome');
+    if (this.safeMode && can('--safe-mode')) args.push('--safe-mode');
+    if (this.agent && can('--agent')) args.push('--agent', this.agent);
+    const name = cleanName(this.nameOf?.());
+    if (name && can('--name')) args.push('--name', name);
     // The crab's own tools are allowed outright: they can't run anything or
     // change anything that matters, so a permission card for each would be noise.
     const allowed = [...(this.allowedTools || []), ...(this.mcp ? [`mcp__${crabmcp.SERVER}`] : [])];
@@ -223,7 +253,7 @@ class ClaudeSession extends EventEmitter {
     // process's own rather than on its command line, and the file goes with it.
     // On another computer the config goes over stdin instead (remote/ssh.js MCP_FILE).
     const remote = this.remote?.() || null;
-    this.remoteHost = remote?.host || null;
+    this.remoteHost = remote?.host || null; // before buildArgs(): the newer flags stay here
     const configFile = this.mcpConfig && !remote ? writeConfig(this.fullMcpConfig()) : null;
     this.mcpConfigFile = remote && this.mcpConfig ? remoteSsh.MCP_FILE : configFile;
     // SHELLBY_CRAB_TOOLS: the crab's tools are served from here, so the plugin's
@@ -249,7 +279,7 @@ class ClaudeSession extends EventEmitter {
     let stderr = '';
     // Also names the servers hosted here: Claude Code then connects to them
     // with mcp_message requests before the first turn.
-    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'initialize', hooks: initHooks(!!this.beforeWork), ...(this.mcp ? { sdkMcpServers: [crabmcp.SERVER] } : {}) } });
+    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'initialize', hooks: initHooks(!!this.beforeWork), promptSuggestions: true, ...(this.mcp ? { sdkMcpServers: [crabmcp.SERVER] } : {}) } });
 
     readline.createInterface({ input: proc.stdout }).on('line', line => {
       if (this.proc !== proc) return; // dropped: whatever it still says goes unheard
@@ -308,6 +338,7 @@ class ClaudeSession extends EventEmitter {
     const stopping = this.stopping;
     this.stopping = false;
     this.proc = null;
+    if (this.partial) { clearTimeout(this.partial.timer); this.partial = null; } // half a reply that will never be finished
     this.setupChars = null; // a first prompt that never got its call can't size the next one
     this.waiting = null;
     this.steered = [];
@@ -392,10 +423,35 @@ class ClaudeSession extends EventEmitter {
     this.write({ type: 'control_response', response: { subtype: 'success', request_id: event.request_id, response: { mcp_response: response } } });
   }
 
-  handle(item) { this.inOrder(() => this.handleNow(item)); }
+  // The reply's words as they're written go out together, every PARTIAL_MS at
+  // most, and always before whatever came after them.
+  handle(item) {
+    if (item.kind === 'partial') return this.inOrder(() => this.bufferPartial(item.text));
+    this.inOrder(() => { this.flushPartial(); this.handleNow(item); });
+  }
+
+  bufferPartial(text) {
+    if (!this.partial) {
+      const timer = setTimeout(() => this.inOrder(() => this.flushPartial()), PARTIAL_MS);
+      timer.unref?.();
+      this.partial = { text: '', timer };
+    }
+    this.partial.text += text;
+  }
+
+  flushPartial() {
+    const p = this.partial;
+    if (!p) return;
+    clearTimeout(p.timer);
+    this.partial = null;
+    if (p.text) this.emit('item', { kind: 'partial', text: p.text });
+  }
 
   handleNow(item) {
     switch (item.kind) {
+      case 'text':
+        if (item.sub) this.noteSaid(item); // a helper's words (--forward-subagent-text): its crab says them
+        break;
       case 'init':
         if (item.sessionId) this.sessionId = item.sessionId;
         this.resumeAt = null; // the fork is made: from here on it's an ordinary resume
@@ -734,4 +790,4 @@ class ClaudeSession extends EventEmitter {
 Object.defineProperties(ClaudeSession.prototype, Object.getOwnPropertyDescriptors(accounting));
 Object.defineProperties(ClaudeSession.prototype, Object.getOwnPropertyDescriptors(crew));
 
-module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS, initHooks, setLogger, placeEdit, TALK_MS };
+module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS, OPTIONAL_FLAGS, initHooks, setLogger, placeEdit, TALK_MS };
