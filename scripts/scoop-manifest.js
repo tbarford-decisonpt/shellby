@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 
 const REPO = 'https://github.com/x-salmon/shellby';
+const SITE = 'https://getshellby.com/';
 const setupName = version => `Shellby-Setup-${version}.exe`;
 
 /** The setup exe's SHA-256 from a `sha256sum` listing, lowercase. Throws if it isn't there. */
@@ -38,8 +39,8 @@ function manifest({ version, hash }) {
   return {
     version,
     description: 'A pixel hermit crab that lives on your Windows desktop and runs Claude Code tasks for you.',
-    homepage: REPO,
-    license: 'MIT',
+    homepage: SITE,
+    license: 'GPL-3.0-only',
     notes: 'Shellby runs tasks through Claude Code: npm install -g @anthropic-ai/claude-code, then claude auth login. Scoop keeps him up to date (scoop update shellby).',
     architecture: {
       '64bit': {

@@ -44,7 +44,7 @@
     returnTo = document.activeElement !== document.body ? document.activeElement : null;
     const fixes = items.some(i => i.fix);
     menu.replaceChildren(
-      fixes ? h('div', { class: 'menu-label', text: 'Did you mean' }) : null,
+      ...(fixes ? [h('div', { class: 'menu-label', text: 'Did you mean' })] : []),
       ...items.map(itemEl),
     );
     menu.hidden = false;
