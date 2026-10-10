@@ -446,8 +446,10 @@
 
   const OUT = 24;   // px past the window's edge before letting go pops the tab out
 
-  // What letting go here would do: reorder the top strip, join or split a
-  // pane, pop the tab out (well outside the window), or nothing. For tab-strip.js's drag.
+  // What letting go here would do: reorder the top strip or a pane's own
+  // strip, join a pane (on its strip, where it's dropped; in its middle, at
+  // the end), split one, pop the tab out (well outside the window), or
+  // nothing. For tab-strip.js's drag.
   SB.dropAt = (x, y, dragId) => {
     const w = window.innerWidth, ht = window.innerHeight;
     if (x < -OUT || y < -OUT || x > w + OUT || y > ht + OUT) return SB.solo ? null : { kind: 'out' };
@@ -459,6 +461,13 @@
     for (const pane of state.grid.flat()) {
       const p = panes.get(pane.id);
       if (!p) continue;
+      // Its header is its strip (hidden, a zero rect, with one pane): its own
+      // tab moves along it, any other joins the pane there.
+      if (inside(p.head.getBoundingClientRect())) {
+        const before = stripBefore(p.strip, x, dragId);
+        if (pane.tabs.includes(dragId)) return { kind: 'strip', pane: pane.id, before };
+        return { kind: 'join', target: pane.id, before, rect: barAt(p.strip, before) };
+      }
       const r = p.el.getBoundingClientRect();
       if (!inside(r)) continue;
       // Only where the panes would still fit on this screen.
@@ -470,10 +479,43 @@
     return null;
   };
 
-  // The preview of where it will land, or none.
+  // The tab to land in front of on a pane's strip: the first, other than the
+  // one being dragged, whose midpoint is right of the pointer. null: the end.
+  function stripBefore(strip, x, dragId) {
+    for (const el of strip.children) {
+      if (el.dataset.tabId === dragId) continue;
+      const r = el.getBoundingClientRect();
+      if (x < r.left + r.width / 2) return el.dataset.tabId;
+    }
+    return null;
+  }
+
+  // Where on a strip a tab joining it lands, for the drop preview: a thin bar
+  // in front of `before`, or after the strip's last tab.
+  function barAt(strip, before) {
+    const s = strip.getBoundingClientRect();
+    const tabs = [...strip.children];
+    const at = tabs.find(el => el.dataset.tabId === before);
+    const last = tabs.at(-1)?.getBoundingClientRect();
+    const left = at ? at.getBoundingClientRect().left : last ? last.right : s.left;
+    return { left: Math.max(s.left, left - 2), top: s.top, width: 4, height: s.height };
+  }
+
+  // A tab dragged along its own pane's strip, while split: it moves as the
+  // pointer goes, as on the top strip (tab-strip.js); the layout keeps the order.
+  SB.reorderInPane = (tabId, before) => {
+    const pane = P.paneWith(state.grid, tabId);
+    const next = pane && P.join(state.grid, tabId, pane.id, before);
+    if (!next || next === state.grid) return;
+    state.grid = next;
+    SB.renderTabStrip();
+    SB.savePanes();
+  };
+
+  // The preview of where it will land (a pane's half, or a bar on a strip), or none.
   SB.showDrop = (drop) => {
     const hint = $('dropHint');
-    hint.hidden = drop?.kind !== 'pane';
+    hint.hidden = drop?.kind !== 'pane' && drop?.kind !== 'join';
     if (hint.hidden) return;
     const r = drop.rect;
     Object.assign(hint.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });

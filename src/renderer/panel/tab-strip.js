@@ -267,8 +267,9 @@
   // mid-drag — and pointermove/up are on the window, so replacing the tab's element
   // underneath the pointer doesn't cut the drag short.
   //
-  // Pulled down into the chat, the tab splits a pane (a preview shows where it
-  // will land); let go well outside the window, it opens in a window of its own.
+  // Pulled down into the chat, the tab joins or splits a pane, or joins
+  // another pane's strip (a preview shows where it will land); let go well
+  // outside the window, it opens in a window of its own.
   const EDGE = 26;            // px from a strip edge where dragging starts scrolling it
   const SLOP = 5;             // px of movement before a click becomes a drag
 
@@ -295,7 +296,10 @@
     }
     drag.drop = SB.dropAt(drag.x, drag.y, drag.id);
     SB.showDrop(drag.drop);
-    if (drag.drop?.kind === 'strip') SB.moveTab(drag.id, dropBefore(drag.x));
+    if (drag.drop?.kind === 'strip') {
+      if (drag.drop.pane) SB.reorderInPane(drag.id, drag.drop.before); // along its own pane's strip, split
+      else SB.moveTab(drag.id, dropBefore(drag.x));
+    }
   }
 
   function dragEnd(e) {
@@ -310,6 +314,7 @@
     SB.showDrop(null);
     if (e.type === 'pointercancel') return;
     if (d.drop?.kind === 'pane') SB.placeTab(d.id, d.drop.target, d.drop.zone).catch(() => {}); // a failed grow leaves it where it was
+    if (d.drop?.kind === 'join') SB.placeTab(d.id, d.drop.target, 'strip', d.drop.before).catch(() => {});
     if (d.drop?.kind === 'out') SB.popOut(d.id, { x: e.screenX, y: e.screenY });
     // On the strip, the click that follows this pointerup is left alone on purpose:
     // you grabbed that tab, so ending up in its conversation is what you asked for.
@@ -339,7 +344,7 @@
     if (!drag?.moved) return;
     const strip = $('tabs');
     const r = strip.getBoundingClientRect();
-    const onStrip = drag.drop?.kind === 'strip';
+    const onStrip = drag.drop?.kind === 'strip' && !drag.drop.pane; // the top strip's
     const dx = !onStrip ? 0 : drag.x < r.left + EDGE ? -9 : drag.x > r.right - EDGE ? 9 : 0;
     if (dx) {
       strip.scrollLeft += dx;

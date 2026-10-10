@@ -404,6 +404,53 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev(`SB.activate('${D}')`);
     await wait(300);
 
+    // ---- A tab dragged onto a pane's strip joins that pane where it's dropped.
+    const stripStart = id => ev(`(() => { const t = document.querySelector('.pane[data-tab="${id}"] .pane-tabs .tab').getBoundingClientRect(); return { x: t.left + 4, y: t.top + t.height / 2 }; })()`);
+    await panel.drag(await tabAt(C), await stripStart(D));
+    await wait(300);
+    check(await ev(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${C}').tabs) === JSON.stringify(['${C}', '${D}'])`), 'C dropped at the front of D\'s strip joins D\'s pane there');
+    check(await ev(`SB.panes.count(SB.state.grid) === 3 && SB.state.activeTab === '${C}'`), 'its own pane, left empty, closes, and C shows where it landed');
+    // ...and along its own pane's strip it only moves.
+    await panel.drag(await tabAt(D), await stripStart(C));
+    await wait(300);
+    check(await ev(`JSON.stringify(SB.panes.paneWith(SB.state.grid, '${D}').tabs) === JSON.stringify(['${D}', '${C}'])`), 'a tab dragged along its own pane\'s strip reorders it');
+    check(await ev("!document.body.classList.contains('reordering') && document.getElementById('dropHint').hidden"), 'and leaves no drag behind');
+
+    // ---- Onto the middle of a pane: it joins at the end and shows there. Onto an edge: a pane of its own.
+    await panel.drag(await tabAt(C), await paneSpot(A, 0.5, 0.5));
+    await wait(300);
+    check(await ev(`(() => { const p = SB.panes.paneWith(SB.state.grid, '${A}'); return JSON.stringify(p.tabs) === JSON.stringify(['${A}', '${C}']) && p.active === '${C}'; })()`), 'C dropped on the middle of A\'s pane joins it at the end, and shows there');
+    await panel.drag(await tabAt(C), await paneSpot(C, 0.5, 0.92));
+    await wait(300);
+    check(await isShape([[A, C], [D, B]]) && await ev(`SB.panes.paneWith(SB.state.grid, '${A}').tabs.length === 1`), 'C dragged to the foot of its pane splits off under it: the 2x2 again');
+
+    // ---- Renaming a tab in one pane's strip survives a redraw for another pane's working tab.
+    await ev(`SB.renameTab('${C}')`);
+    check(await ev("!!document.querySelector('.pane-tabs .title-edit')"), 'F2 opens the name in place, in its pane\'s strip');
+    await ev(`(() => { const b = SB.state.tabs.get('${B}'); b.busy = true; SB.renderTabStrip(); b.busy = false; })()`);
+    check(await ev("!!document.activeElement?.classList.contains('title-edit')"), 'a redraw for another pane\'s working tab leaves the name being typed alone');
+    await ev(`document.querySelector('.title-edit').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))`);
+    check(await until("!document.querySelector('.title-edit')"), 'Escape puts the name back');
+
+    // ---- A pane closing while a tab is dragged over it: letting go does nothing, and leaves no drag behind.
+    const from = await tabAt(A);
+    const over = await paneSpot(D, 0.5, 0.5);
+    await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', buttons: 1, clickCount: 1 });
+    for (let i = 1; i <= 6; i++) {
+      await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x + ((over.x - from.x) * i) / 6, y: from.y + ((over.y - from.y) * i) / 6, button: 'left', buttons: 1 });
+      await wait(30);
+    }
+    check(await ev("document.body.classList.contains('reordering') && !document.getElementById('dropHint').hidden"), 'A is being dragged over D\'s pane');
+    await ev(`SB.closePane(${PID(D)})`);
+    await wait(150);
+    await panel.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: over.x, y: over.y, button: 'left', buttons: 0, clickCount: 1 });
+    await wait(300);
+    check(await ev("!document.body.classList.contains('reordering') && document.getElementById('dropHint').hidden && !document.querySelector('.tab.dragging')"), 'letting go after the pane under it closed ends the drag cleanly');
+    check(await ev(`SB.state.tabs.has('${A}') && JSON.stringify(SB.panes.paneWith(SB.state.grid, '${A}').tabs) === JSON.stringify(['${A}'])`), 'and A stays where it was: a drop on a pane that has gone is refused');
+    await setShape([[A, C], [D, B]]);
+    await ev(`SB.activate('${D}')`);
+    await wait(300);
+
     // ---- Keys: Alt+arrow to the next pane, Ctrl+Alt+arrow to move one.
     const press = async (key, mods) => {
       for (const type of ['rawKeyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key, code: key, windowsVirtualKeyCode: { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 }[key], modifiers: mods });
