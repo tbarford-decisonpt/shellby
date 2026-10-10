@@ -79,7 +79,7 @@ def lineup(names, captions, out, title=None, scale=1.0, pad=48):
         im.alpha_composite(c, (cx - c.width // 2, top + tallest - c.height))
         d.text((cx, top + tallest + 30), cap, font=cap_font, fill=GLASS, anchor="mm")
     im.save(DOCS / out)
-    print("wrote", f"docs/{out}", im.size)
+    print("wrote", f"docs/img/{out}", im.size)
 
 
 def banner():
@@ -88,17 +88,17 @@ def banner():
     d = ImageDraw.Draw(im)
     title = ImageFont.truetype(PIXEL, 112)
     tag = ImageFont.truetype(BODY, 30)
-    d.text((70, 190), "Shellby", font=title, fill=SAND, anchor="ls")
-    d.text((74, 248), "A pixel hermit crab for your Windows desktop", font=tag, fill=SAND, anchor="ls")
-    d.text((74, 290), "who gets things done with Claude Code.", font=tag, fill=MUTED, anchor="ls")
+    d.text((70, 172), "Shellby", font=title, fill=SAND, anchor="ls")
+    d.text((74, 228), "A pixel hermit crab for your Windows desktop", font=tag, fill=SAND, anchor="ls")
+    d.text((74, 268), "who gets things done with Claude Code.", font=tag, fill=MUTED, anchor="ls")
     # The cast, standing on the sand, the star a little bigger and up front.
     cast = [("set-tide-pool", 1.0), ("music", 1.0), ("voice", 1.25)]
-    x = w - 50
+    x = w - 30
     for name, s in reversed(cast):
         c = crab(name, s)
         x -= c.width
         im.alpha_composite(c, (x, h - 26 - c.height))
-        x -= 14
+        x += 48  # their effects have room around them; let those overlap, not the words
     d.rectangle([0, h - 6, w, h], fill=(*CORAL, 255))
     im.save(DOCS / "banner.png")
     print("wrote docs/img/banner.png", im.size)

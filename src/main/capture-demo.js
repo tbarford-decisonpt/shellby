@@ -423,4 +423,25 @@ function demoLean(now) {
   };
 }
 
-module.exports = { demoProjects, demoTime, demoLife, demoWeek, demoBeach, demoLean, demoBugdex };
+// The 3d-rack page's Next up (wiring/backlog.js view): a task, an issue, a note and a TODO.
+function demoBacklog() {
+  const item = (id, kind, tier, title, reason, extra) => ({ id, kind, tier, title, reason, reasons: [reason], ...extra });
+  return {
+    ok: true, project: '3d-rack', repo: 'you/3d-rack', cloned: true, key: 'root:c:\\users\\you\\code\\3d-rack',
+    items: [
+      item('t1', 'task', 'now', 'Snap cable trays to the rack rails', 'Now, on your list', { task: { id: 't1', line: 3, notes: [], ref: null, closed: false, from: 'you' } }),
+      item('gh:you/3d-rack#42', 'issue', 'next', 'Export the rack layout as a PDF', 'Assigned to you · due in 3 days', { issue: { key: 'you/3d-rack#42', number: 42, title: 'Export the rack layout as a PDF', url: 'https://github.com/you/3d-rack/issues/42', labels: ['feature'] } }),
+      item('idea:n1', 'task', 'next', 'Try a darker grid for the floor plan', 'From your Notes', { idea: { id: 'n1', scope: 'project', from: 'you' } }),
+      item('todo:src/scene/Rack.tsx:88', 'todo', 'later', 'units over 42U overflow the frame', 'A TODO in the code', { todo: { tag: 'TODO', file: 'src/scene/Rack.tsx', line: 88, text: 'units over 42U overflow the frame' } }),
+    ],
+    more: 0, milestone: null, milestones: [],
+    github: { state: 'ok', error: null, stale: false },
+    tracker: null,
+    sentry: { state: 'none', error: null, stale: false, project: null, projects: [], url: null },
+    tasks: { exists: true, ignored: false, uncommitted: false },
+    looseEnds: { error: null, more: 0 },
+    done: [], hidden: 0, helpers: [], canPr: true,
+  };
+}
+
+module.exports = { demoProjects, demoTime, demoLife, demoWeek, demoBeach, demoLean, demoBugdex, demoBacklog };

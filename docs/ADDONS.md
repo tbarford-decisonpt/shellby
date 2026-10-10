@@ -241,7 +241,7 @@ Each anchor value is `[x, y]` with integers from −16 to 48. If your crab has t
 
 ## Voices
 
-A voice changes what Shellby says in his speech bubble. He wears **one voice at a time**: pick it under **Wardrobe → Voice**, and pick **His own** to go back. The built-in [`voices.json`](../src/wardrobe/voices.json) pack has a Pirate, a Grumpy crab, a Robot, a Surfer, a Royal, a Cowboy, Español and Français to copy from.
+A voice changes what Shellby says in his speech bubble. He wears **one voice at a time**: pick it under **Outfits → Voice**, and pick **His own** to go back. The built-in [`voices.json`](../src/wardrobe/voices.json) pack has a Pirate, a Grumpy crab, a Robot, a Surfer, a Royal, a Cowboy, Español and Français to copy from.
 
 ```jsonc
 {
@@ -412,7 +412,7 @@ Want other people to find your pack? Submit it to the community gallery:
 
 1. Open a pull request to [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs) that adds your pack file. Its [CONTRIBUTING.md](https://github.com/x-salmon/shellby-packs/blob/main/CONTRIBUTING.md) explains where the file goes and what reviewers look for.
 2. Your pack must pass the same validation as the app (and the stricter [`addon.schema.json`](addon.schema.json) check), and follow the [rules for shared packs](#rules-for-shared-packs) below.
-3. Once it's merged, your pack appears at [x-salmon.github.io/shellby-packs](https://x-salmon.github.io/shellby-packs/) with an **Add to Shellby** button. Anyone running Shellby 0.4.0 or later can install it in one click (they still see Shellby's confirmation dialog first).
+3. Once it's merged, your pack appears in the gallery at [getshellby.com/community](https://getshellby.com/community/) with an **Add to Shellby** button. (The app itself still takes the list of packs, and each pack's checksum, only from the gallery's index at `https://x-salmon.github.io/shellby-packs/index.json`.) Anyone running Shellby 0.4.0 or later can install it in one click (they still see Shellby's confirmation dialog first).
 
 To ship an update, bump `version` and open another pull request. Keep the same `id` so it replaces the old copy.
 

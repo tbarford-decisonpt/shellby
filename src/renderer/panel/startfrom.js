@@ -75,12 +75,14 @@
     // A different list is a different question: the tick doesn't carry over.
     if (JSON.stringify(risk) !== JSON.stringify(prev)) $('sfAck').checked = false;
     const list = items => h('ul', { class: 'sf-risk-list' }, items.map(t => h('li', {}, h('code', { text: t }))));
-    $('sfRiskBody').replaceChildren(
+    // filter(Boolean): replaceChildren writes a null as the text "null".
+    $('sfRiskBody').replaceChildren(...[
       risk.files.length ? h('p', { text: `It changes ${risk.files.length + risk.moreFiles === 1 ? 'a file' : 'files'} Claude Code reads for its instructions, hooks or MCP servers, so they'd apply in the copy:` }) : null,
       risk.files.length ? list(risk.moreFiles ? [...risk.files, `and ${risk.moreFiles} more`] : risk.files) : null,
       risk.authors.length ? h('p', { text: 'It has commits from someone other than you:' }) : null,
       risk.authors.length ? list(risk.authors) : null,
-      risk.unknown.length ? h('p', { text: `${forge} didn't tell Shellby ${risk.unknown.join(' or ')}, so he can't say it's only your work.` }) : null);
+      risk.unknown.length ? h('p', { text: `${forge} didn't tell Shellby ${risk.unknown.join(' or ')}, so he can't say it's only your work.` }) : null,
+    ].filter(Boolean));
   }
 
   async function refresh({ fresh = false } = {}) {

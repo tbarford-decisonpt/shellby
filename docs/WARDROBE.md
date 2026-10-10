@@ -6,7 +6,8 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 
 ## Outfits
 
-- **173 accessories, 24 effects and 18 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads.
+- **173 accessories, 24 effects and 18 crabs** for his hat, face, neck, claw and shell. They move with him: a pumpkin swings with his claw, and eyewear scans along while he reads. He and everything he wears are shaded, with a fine dark line round them, so he stands out on any wallpaper.
+- **Effects move like he does,** a pixel at a time: bats flap their wings, sparkles twinkle from a dot to a star and back, fireflies glow and fade, embers cool from yellow to red, leaves flip as they fall, and snow lands at his feet and blinks away.
 - **Head-to-tail sets:** a dev desk with a rubber duck, a tide pool he'd actually come from, and an on-call kit with a pager and an extinguisher. Each covers every slot.
 - **He grows into new shells:** level 3 brings a Snail Shell, then a Tin Can, a Teacup, a Toy Brick, the Golden Conch at level 20, and on up through a Coconut Half, a Lantern Jar, a Diving Helmet, a Crystal Geode and a Treasure Chest to the Rainbow Nautilus at level 99. Each is a little molt on your desktop: out of the old shell, a shiver, into the new one. Pick any home you've grown into under **Outfits → Homes**.
 - **Seasons:** he dresses up for Halloween, winter, Valentine's, spring, summer and autumn, and seasonal items are yours to keep if you're around while the season is on.
@@ -24,7 +25,7 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 
 ## Trophies and XP
 
-- **50+ trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Finish 10 tasks for a hard hat, send out your first helper for a captain's hat, finish a task after midnight for a nightcap, free up a full drive for a broom. Most trophies hand out one to three things, and unlocks celebrate on your desktop with confetti.
+- **102 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Finish 10 tasks for a hard hat, send out your first helper for a captain's hat, finish a task after midnight for a nightcap, free up a full drive for a broom. Most trophies hand out one to three things, and unlocks celebrate on your desktop with confetti.
 - **XP and levels,** from Hatchling to Shellby Supreme at level 99, with a new title, badge colour or shell at least every five levels.
 - **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), turning failing tests green (+40), pushes (+40, and +20 for the first push of the day to a project), a clean dependency audit (+30, once a day per project), passing tests (+25), trophies (+20), focus sessions (+15) and finished tasks (+10). Petting, games, finds and growing closer earn XP too, so a crab-only Shellby levels up as well. It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop. Doing the same thing over and over within an hour pays half, then a quarter, then nothing, so a test loop can't farm it.
 - **Bonuses:** a streak adds 5% a week (up to +25%), and coming back after three days or more away doubles your next 150 XP.
@@ -76,11 +77,11 @@ His **class** comes from his highest stat: 🚢 **Shipper**, 🧪 **Tester**, �
 
 ## Community wardrobe
 
-<a href="https://x-salmon.github.io/shellby-packs/"><img src="img/community-gallery.png" alt="The Shellby community gallery: Dress up the desktop crab"></a>
+<a href="https://getshellby.com/community/"><img src="img/community-gallery.png" alt="The Shellby community gallery: Dress up the desktop crab"></a>
 
-More hats, effects, colors and voices from other people at **[x-salmon.github.io/shellby-packs](https://x-salmon.github.io/shellby-packs/)**.
+More hats, effects, colors and voices from other people at **[getshellby.com/community](https://getshellby.com/community/)**.
 
 - **Install in one click:** every item is previewed on a live Shellby, and the app shows exactly what a pack contains before it installs.
-- **New voices:** packs can teach him to talk like a pirate, grumble like a grump, or speak another language, with little scenes to match. He ships with eight to try under **Wardrobe → Voice**.
+- **New voices:** packs can teach him to talk like a pirate, grumble like a grump, or speak another language, with little scenes to match. He ships with eight to try under **Outfits → Voice**.
 - **Safe by design:** packs are pixel art, short lines and settings in JSON, so they can't run code, and each download is checked against the gallery's SHA-256.
-- **Make your own** in [Pack Studio](https://x-salmon.github.io/shellby-packs/studio.html), then publish it from the app (Shellby forks the gallery and opens the pull request) or by hand on [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs). The format is in [ADDONS.md](ADDONS.md) ([JSON Schema](addon.schema.json)).
+- **Make your own** in [Pack Studio](https://getshellby.com/community/studio/), then publish it from the app (Shellby forks the gallery and opens the pull request) or by hand on [x-salmon/shellby-packs](https://github.com/x-salmon/shellby-packs). The format is in [ADDONS.md](ADDONS.md) ([JSON Schema](addon.schema.json)).

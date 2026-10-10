@@ -84,6 +84,18 @@ const PINNED = [{ kind: 'skill', name: 'rename-screenshots' }, { kind: 'skill', 
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
+// The panel's own boot (boot.js init) restores a tab of its own; a demo sent
+// before it finishes is replaced by it, so the first shot waits for the mark.
+async function panelReady(panel, timeoutMs = 20000) {
+  const until = Date.now() + timeoutMs;
+  const ready = "performance.getEntriesByName('shellby:panel-ready').length > 0";
+  while (!(await panel.webContents.executeJavaScript(ready).catch(() => false))) {
+    if (Date.now() > until) throw new Error('the panel never finished booting');
+    await wait(100);
+  }
+  await wait(800); // first paints and the welcome toasts settle
+}
+
 async function shot(win, file) {
   // Hide transient toasts so they never cover README screenshots.
   await win.webContents.executeJavaScript("{ const t = document.getElementById('toast'); if (t) t.hidden = true; }");
@@ -121,7 +133,10 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
   const setDate = (y, m, d) => { captureClock.now = new Date(y, m - 1, d, 12); wardrobe.collectSeasonals(); broadcastWardrobe(); };
   setDate(2026, 6, 10);
   try {
-    await wait(2500);
+    await panelReady(panel);
+    // The quest card would sit over every chat shot (capture never saves the
+    // quests setting, so hiding it the app's way doesn't stick); they stay in Trophies.
+    await panel.webContents.insertCSS('.quest-card { display: none !important; }');
     // Occluded windows stop painting, so capturePage would return stale frames.
     for (const w of [critter, panel]) w.webContents.setBackgroundThrottling(false);
     critter.setAlwaysOnTop(true, 'screen-saver');
@@ -200,9 +215,6 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     wardrobe.record('crew-size', { n: 3 });
     wardrobe.record('trick-learned');
     wardrobe.record('plan-approved');
-    send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'trophies' });
-    await wait(900);
-    await shot(panel, path.join(out, 'screenshot-trophies.png'));
 
     setDate(2026, 10, 15); // Spooky Season
     wardrobe.wearSeason();
@@ -370,6 +382,10 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
   await js("document.getElementById('xpWeek').scrollIntoView({ block: 'start' })");
   await wait(300);
   await shot(panel, path.join(out, 'screenshot-week.png'));
+  // Trophies from the top, now that the week has given him a level and XP.
+  await js("for (let el = document.getElementById('xpCard'); el; el = el.parentElement) el.scrollTop = 0; 1");
+  await wait(300);
+  await shot(panel, path.join(out, 'screenshot-trophies.png'));
   const week = await js('SB.weekCard.render().then(r => r.canvas.toDataURL("image/png"))');
   fs.writeFileSync(path.join(out, 'week-card.png'), Buffer.from(week.split(',')[1], 'base64'));
   console.log('wrote', path.relative(process.cwd(), path.join(out, 'week-card.png')));
@@ -395,6 +411,7 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
   fake('servers:get', () => pj.servers);
   fake('servers:log', (_e, id) => pj.serverLog(id));
   fake('servers:fix-draft', (_e, a) => pj.fixDraft(a || {}));
+  fake('backlog:view', () => demo.demoBacklog());
   const openRow = name => js(`[...document.querySelectorAll('#pjProjects .pj-row')].find(b => b.querySelector('.pj-row-name b').textContent === ${JSON.stringify(name)})?.click()`);
   await show('projects');
   await shot(panel, path.join(out, 'screenshot-projects.png'));
@@ -433,4 +450,4 @@ const FAKE_STATUS = {
   authMethod: 'claude.ai', subscriptionType: 'max', email: 'you@example.com',
 };
 
-module.exports = { run, FAKE_STATUS };
+module.exports = { run, panelReady, FAKE_STATUS };

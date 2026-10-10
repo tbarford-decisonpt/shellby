@@ -94,7 +94,7 @@ def main():
     # Brand, top right.
     d = ImageDraw.Draw(base)
     d.text((W - 40 * S, 28 * S), "Shellby", font=brand_font, fill=SAND, anchor="ra")
-    d.text((W - 40 * S, 58 * S), "github.com/x-salmon/shellby", font=url_font, fill=(*GLASS, 255), anchor="ra")
+    d.text((W - 40 * S, 58 * S), "getshellby.com", font=url_font, fill=(*GLASS, 255), anchor="ra")
 
     total = frames[-1]["t"] + HOLD_END_MS
     out = []
