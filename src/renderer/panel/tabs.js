@@ -23,6 +23,8 @@
 
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
+  // The tabs of the strip a tab is in, in order (tab-strip.js walks it with the arrow keys).
+  SB.stripIds = () => [...state.tabs.keys()];
 
   SB.ensureTab = (summary) => {
     let tab = state.tabs.get(summary.id);

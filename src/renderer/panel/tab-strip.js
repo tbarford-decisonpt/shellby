@@ -1,7 +1,8 @@
-/* Shellby panel — the tab strip: each conversation's tab, its icon and name,
-   renaming it, its right-click menu, and dragging it: along the strip, into a
+/* Shellby panel — the tab strips: each conversation's tab, its icon and name,
+   renaming it, its right-click menu, and dragging it: along a strip, into a
    pane of the chat, or out of the window (where it lands: tab-panes.js).
-   tabs.js owns the tabs themselves. */
+   drawTabs draws any strip: the top one, which holds every conversation, and
+   (while split) each pane's own. tabs.js owns the tabs themselves. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -13,8 +14,8 @@
   // ------------------------------------------------------------ the strip
 
   let drag = null;   // the tab being dragged along the strip (see "drag to reorder")
-  let renaming = null;  // the tab whose name is being edited in the strip (see "rename")
-  let shownActive = null;  // the tab the strip last scrolled into view
+  let renaming = null;  // the tab whose name is being edited in a strip (see "rename")
+  const shownActive = new WeakMap();  // a strip -> the tab it last scrolled into view
 
   // The strip is redrawn from scratch, and a new element starts its animation
   // from the top. Backdated to when the page loaded, every redraw picks the
@@ -30,69 +31,78 @@
   }
   SB.tabIcon = tabIcon;
 
-  // The strip is one Tab stop: arrow keys, Home and End walk the conversations.
+  // A tab's element, in whichever strip draws it.
+  const tabElOf = tabId => [...document.querySelectorAll('.tabs > .tab')].find(el => el.dataset.tabId === tabId) || null;
+  SB.tabElOf = tabElOf;
+
+  // A strip is one Tab stop: arrow keys, Home and End walk its conversations.
   function tabKey(e, id) {
     if (e.target !== e.currentTarget) return; // keys in the rename box are the box's
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); return SB.activate(id); }
     if (e.key === 'F2') { e.preventDefault(); return SB.renameTab(id); }
-    const to = L.keyTarget([...state.tabs.keys()], id, e.key);
+    const to = L.keyTarget(SB.stripIds(id), id, e.key);
     if (!to || e.ctrlKey || e.altKey || e.shiftKey) return;
     e.preventDefault();
+    const strip = e.currentTarget.closest('.tabs');
     SB.activate(to);
-    [...$('tabs').querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === to)?.querySelector('[role="tab"]').focus();
+    [...strip.querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === to)?.querySelector('[role="tab"]').focus();
   }
 
-  SB.renderTabStrip = () => {
-    const strip = $('tabs');
-    // Redrawing would throw away the name being typed; finishing the edit redraws.
-    if (renaming && strip.querySelector('.title-edit')) return;
+  // One tab. .tab draws it; inside it the role=tab part and its × sit side by
+  // side (a button can't live inside a tab).
+  function tabEl(t, active, shown) {
+    const clash = SB.clashLine?.(t.id) || '';
+    return h('div', {
+      class: L.tabClass(t, { active, shown, clash, dragging: !!drag?.moved && t.id === drag.id }),
+      role: 'presentation',
+      'data-tab-id': t.id,
+      onclick: () => SB.activate(t.id),
+      onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
+      onpointerdown: e => dragStart(e, t.id),
+      oncontextmenu: e => { e.preventDefault(); openTabMenu(t.id, e.currentTarget.querySelector('[role="tab"]')); },
+    },
+    h('div', {
+      class: 'tab-main', role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
+      title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, t.agent ? `Run by your ${t.agent} agent` : null,
+        t.safeMode ? 'Safe mode: without your CLAUDE.md, skills, plugins, hooks and MCP servers' : null, clash || null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
+      onkeydown: e => tabKey(e, t.id),
+    },
+    tabIcon(t),
+    h('span', { class: 'tab-title', text: shownTitle(t) }),
+    t.safeMode ? h('span', { class: 'tab-safe', 'aria-label': ', safe mode', text: '🛟' }) : null,
+    // Another copy changed the same files (clashes.js): a shape, not just a colour, and said aloud.
+    clash ? h('span', { class: 'tab-clash', 'aria-hidden': 'true', text: '⚠' }) : null,
+    clash ? h('span', { class: 'sr-only', text: `. ${clash}` }) : null),
+    // Only the open tab's × is a Tab stop; Ctrl+W closes any of them.
+    h('button', { class: 'tab-x', type: 'button', tabindex: active ? null : '-1', 'aria-label': `Close ${t.title}`, title: `Close (${SB.shortcuts.primary('closeTab')})`, onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
+    t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
+  }
+
+  // One strip: `ids` in order, `activeId` the tab it shows. shown(id): on
+  // screen in another pane (lit, see tab-logic.js tabClass).
+  function drawTabs(strip, ids, activeId, shown = () => false) {
     // A busy tab redraws the strip as it streams; keep the keyboard on the tab (or ×) it was on.
     const focused = strip.contains(document.activeElement) ? document.activeElement : null;
     const keep = focused && { id: focused.closest('[data-tab-id]')?.dataset.tabId, x: focused.classList.contains('tab-x') };
-    const split = SB.panes.ids(state.grid).length > 1;
-    strip.replaceChildren(...[...state.tabs.values()].map(t => {
-      const active = t.id === state.activeTab;
-      const shown = split && SB.isShown(t.id);
-      const clash = SB.clashLine?.(t.id) || '';
-      // .tab draws the tab; inside it the role=tab part and its × sit side by
-      // side (a button can't live inside a tab).
-      const btn = h('div', {
-        class: L.tabClass(t, { active, shown, clash, dragging: !!drag?.moved && t.id === drag.id }),
-        role: 'presentation',
-        'data-tab-id': t.id,
-        onclick: () => SB.activate(t.id),
-        onauxclick: e => { if (e.button === 1) SB.closeTab(t.id); },
-        onpointerdown: e => dragStart(e, t.id),
-        oncontextmenu: e => { e.preventDefault(); openTabMenu(t.id, e.currentTarget.querySelector('[role="tab"]')); },
-      },
-      h('div', {
-        class: 'tab-main', role: 'tab', 'aria-selected': String(active), tabindex: active ? '0' : '-1',
-        title: [t.title, t.branchOf ? `Branched from "${t.branchOf.title}"` : null, t.agent ? `Run by your ${t.agent} agent` : null,
-          t.safeMode ? 'Safe mode: without your CLAUDE.md, skills, plugins, hooks and MCP servers' : null, clash || null, t.context ? contextText(t.context) : null].filter(Boolean).join('\n'),
-        onkeydown: e => tabKey(e, t.id),
-      },
-      tabIcon(t),
-      h('span', { class: 'tab-title', text: shownTitle(t) }),
-      t.safeMode ? h('span', { class: 'tab-safe', 'aria-label': ', safe mode', text: '🛟' }) : null,
-      // Another copy changed the same files (clashes.js): a shape, not just a colour, and said aloud.
-      clash ? h('span', { class: 'tab-clash', 'aria-hidden': 'true', text: '⚠' }) : null,
-      clash ? h('span', { class: 'sr-only', text: `. ${clash}` }) : null),
-      // Only the open tab's × is a Tab stop; Ctrl+W closes any of them.
-      h('button', { class: 'tab-x', type: 'button', tabindex: active ? null : '-1', 'aria-label': `Close ${t.title}`, title: `Close (${SB.shortcuts.primary('closeTab')})`, onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
-      t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
-      return btn;
-    }));
+    strip.replaceChildren(...ids.map(id => state.tabs.get(id)).filter(Boolean).map(t => tabEl(t, t.id === activeId, shown(t.id))));
     if (keep?.id) {
       const tab = [...strip.querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === keep.id);
       tab?.querySelector(keep.x ? '.tab-x' : '[role="tab"]')?.focus({ preventScroll: true });
     }
-    // Only when the open tab changes, so a working tab redrawing the strip doesn't
+    // Only when the strip's open tab changes, so a working tab redrawing it doesn't
     // snap it back while you're scrolling through the rest. Not while dragging:
     // following the active tab would fight the strip's own scrolling.
-    if (!drag && shownActive !== state.activeTab) {
-      shownActive = state.activeTab;
+    if (!drag && shownActive.get(strip) !== activeId) {
+      shownActive.set(strip, activeId);
       strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
+  }
+
+  SB.renderTabStrip = () => {
+    // Redrawing would throw away the name being typed; finishing the edit redraws.
+    if (renaming && document.querySelector('.tabs .title-edit')) return;
+    const split = SB.panes.ids(state.grid).length > 1;
+    drawTabs($('tabs'), [...state.tabs.keys()], state.activeTab, id => split && SB.isShown(id));
     // Title bar shows total running count at a glance.
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
@@ -103,25 +113,30 @@
   // tabs.js leaves the order alone while a tab is being dragged.
   SB.isDraggingTab = () => !!drag;
 
-  // ------------------------------------------------------------ rename
+  // ------------------------------------------------------------ rename, and scrolling a strip
 
   // Double-click a tab (or F2 on it) to name it. Watched on the strip rather than
   // with dblclick on the tab, because the first click activates the tab, which
   // redraws the strip, and the second click lands on a different element.
   const DOUBLE_MS = 400;
   let lastClick = null;
-  $('tabs').addEventListener('click', e => {
-    const el = e.target.closest('.tab');
-    if (!el || e.target.closest('.tab-x, .title-edit')) return;
-    const id = el.dataset.tabId;
-    const again = lastClick && lastClick.id === id && e.timeStamp - lastClick.at < DOUBLE_MS;
-    lastClick = again ? null : { id, at: e.timeStamp };
-    if (again) SB.renameTab(id);
-  });
+  function wireStrip(strip) {
+    strip.addEventListener('click', e => {
+      const el = e.target.closest('.tab');
+      if (!el || e.target.closest('.tab-x, .title-edit')) return;
+      const id = el.dataset.tabId;
+      const again = lastClick && lastClick.id === id && e.timeStamp - lastClick.at < DOUBLE_MS;
+      lastClick = again ? null : { id, at: e.timeStamp };
+      if (again) SB.renameTab(id);
+    });
+    strip.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+  }
+  wireStrip($('tabs'));
+  SB.wireStrip = wireStrip;
 
   SB.renameTab = (tabId) => {
     const tab = state.tabs.get(tabId);
-    const el = [...$('tabs').children].find(c => c.dataset.tabId === tabId)?.querySelector('.tab-title');
+    const el = tabElOf(tabId)?.querySelector('.tab-title');
     if (!tab || !el || renaming) return;
     renaming = tabId;
     SB.editTitle(el, shownTitle(tab), async title => {
@@ -225,7 +240,6 @@
     field.select();
   };
 
-  $('tabs').addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
   $('newTabBtn').addEventListener('click', () => SB.newTab());
 
   // ------------------------------------------------------------ drag to reorder, split or pop out
@@ -238,7 +252,6 @@
   //
   // Pulled down into the chat, the tab splits a pane (a preview shows where it
   // will land); let go well outside the window, it opens in a window of its own.
-  // A pane's header drags the same way (tab-panes.js).
   const EDGE = 26;            // px from a strip edge where dragging starts scrolling it
   const SLOP = 5;             // px of movement before a click becomes a drag
 
@@ -287,14 +300,14 @@
     // pointer came up on would lose the click.
   }
 
-  // Marks the dragged tab in place, so starting and ending a drag don't have to
-  // redraw the strip. A redraw in between re-applies it from `drag` itself.
+  // Marks the dragged tab in place, in every strip, so starting and ending a
+  // drag don't have to redraw them. A redraw in between re-applies it from `drag` itself.
   function lift() {
-    for (const el of $('tabs').children) el.classList.toggle('dragging', !!drag?.moved && el.dataset.tabId === drag.id);
+    for (const el of document.querySelectorAll('.tabs > .tab')) el.classList.toggle('dragging', !!drag?.moved && el.dataset.tabId === drag.id);
   }
 
-  // The tab to land in front of: the first whose midpoint is still right of the
-  // pointer. Nothing means past them all, i.e. the end of the strip.
+  // The tab to land in front of on the top strip: the first whose midpoint is
+  // still right of the pointer. Nothing means past them all, i.e. the end.
   function dropBefore(clientX) {
     for (const el of $('tabs').children) {
       const r = el.getBoundingClientRect();
