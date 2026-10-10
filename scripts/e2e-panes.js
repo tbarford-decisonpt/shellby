@@ -15,6 +15,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const PORT = 9398;
 const SHOT_TIMEOUT_MS = 10000;   // an unpainted window never answers captureScreenshot
+const CDP_TIMEOUT_MS = 30000;    // the longest any one call to the page may take
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const shotsAt = process.argv.indexOf('--shots');
 const SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
@@ -25,7 +26,14 @@ async function connect(target) {
   await new Promise(r => { ws.onopen = r; });
   let id = 0; const p = new Map();
   ws.onmessage = e => { const m = JSON.parse(e.data); p.get(m.id)?.(m); };
-  const send = (method, params = {}) => new Promise(r => { const i = ++id; p.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
+  // Every call has a deadline: one the page never answers (a promise that never
+  // settles, a window gone) fails the run, naming it, rather than hanging it.
+  const send = (method, params = {}) => new Promise((resolve, reject) => {
+    const i = ++id;
+    const timer = setTimeout(() => { p.delete(i); reject(new Error(`no answer to ${method} in ${CDP_TIMEOUT_MS / 1000} s: ${String(params.expression ?? JSON.stringify(params)).slice(0, 200)}`)); }, CDP_TIMEOUT_MS);
+    p.set(i, m => { clearTimeout(timer); p.delete(i); resolve(m); });
+    ws.send(JSON.stringify({ id: i, method, params }));
+  });
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })).result?.result?.value;
   const until = async (expr, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await ev(expr)) return true; await wait(150); } return false; };
   // A real drag: press, a few steps of movement, let go.
@@ -44,7 +52,7 @@ async function connect(target) {
   };
   const shot = async name => {
     if (!SHOTS) return;
-    const r = await Promise.race([send('Page.captureScreenshot', { format: 'png' }), wait(SHOT_TIMEOUT_MS).then(() => null)]);
+    const r = await Promise.race([send('Page.captureScreenshot', { format: 'png' }).catch(() => null), wait(SHOT_TIMEOUT_MS).then(() => null)]);
     if (r?.result?.data) fs.writeFileSync(path.join(SHOTS, `${name}.png`), Buffer.from(r.result.data, 'base64'));
   };
   return { ws, send, ev, until, drag, click, shot };
@@ -55,6 +63,12 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
 (async () => {
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
+  // Something on the port already (an Electron left behind by a run that was killed, or another
+  // run of this): this one's Electron couldn't take it, and the checks would drive that app instead.
+  if ((await targets()).length) {
+    console.log(`FAIL  port ${PORT} is taken by another app, maybe an Electron a killed run left behind`);
+    process.exit(1);
+  }
   // The same profile both times: the restart below has to find the layout it saved.
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-test-'));
   const launch = () => spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
