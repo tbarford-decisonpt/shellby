@@ -36,8 +36,14 @@ async function connect(target) {
   });
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })).result?.result?.value;
   const until = async (expr, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await ev(expr)) return true; await wait(150); } return false; };
+  // Before a real press: nothing of the panel's own lies over the spot. An unlock
+  // card (celebrate.js) and a toast float over the chat for a few seconds, and on
+  // a small screen (CI's is 1024 x 720) they land on the panes; a press under one
+  // goes to it, and the pointer then resting on it holds it there for good.
+  const uncover = () => ev("SB.clearCelebrations?.(); document.querySelectorAll('.celebrate').forEach(c => c.remove()); document.querySelector('#toast .toast-close')?.click()");
   // A real drag: press, a few steps of movement, let go.
   const drag = async (from, to, steps = 8) => {
+    await uncover();
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', buttons: 1, clickCount: 1 });
     for (let i = 1; i <= steps; i++) {
       const x = from.x + ((to.x - from.x) * i) / steps;
@@ -48,6 +54,7 @@ async function connect(target) {
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', buttons: 0, clickCount: 1 });
   };
   const click = async at => {
+    await uncover();
     for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1 });
   };
   const shot = async name => {
@@ -55,7 +62,7 @@ async function connect(target) {
     const r = await Promise.race([send('Page.captureScreenshot', { format: 'png' }).catch(() => null), wait(SHOT_TIMEOUT_MS).then(() => null)]);
     if (r?.result?.data) fs.writeFileSync(path.join(SHOTS, `${name}.png`), Buffer.from(r.result.data, 'base64'));
   };
-  return { ws, send, ev, until, drag, click, shot };
+  return { ws, send, ev, until, uncover, drag, click, shot };
 }
 
 // The panel has booted (boot.js marks it): its tabs are back and one is showing. Before
@@ -281,7 +288,9 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     // Three to a column in a short window (the page told it's 760 px tall, about
     // as short as three rows fit): the menu is taller than the room above the top
     // pane's box, and is cut down to it rather than off by the chat's edge.
-    await panel.send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 760, deviceScaleFactor: 0, mobile: false });
+    // The page is told its screen too, one a window that size fits: left as it
+    // is, the screen is the real one, and CI's is 768 px tall, too short for it.
+    await panel.send('Emulation.setDeviceMetricsOverride', { width: 1100, height: 760, screenWidth: 1280, screenHeight: 860, deviceScaleFactor: 0, mobile: false });
     await wait(300);
     check(await ev(`SB.placeTab('${B}', ${PID(A)}, 'bottom')`), 'three panes fit in a column 760 px tall');
     await wait(300);
@@ -330,6 +339,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await isShape([[A, C], [D, B]]), 'B under D again');
 
     // ---- A pane closing mid-drag (its line redrawn away) still ends the drag.
+    await panel.uncover();
     const line2 = await ev(`(() => { const r = document.querySelector('.pane-divider.across').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: line2.x, y: line2.y, button: 'left', buttons: 1, clickCount: 1 });
     await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: line2.x + 20, y: line2.y, button: 'left', buttons: 1 });
@@ -470,6 +480,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until("!document.querySelector('.title-edit')"), 'Escape puts the name back');
 
     // ---- A pane closing while a tab is dragged over it: letting go does nothing, and leaves no drag behind.
+    await panel.uncover();
     const from = await tabAt(A);
     const over = await paneSpot(D, 0.5, 0.5);
     await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', buttons: 1, clickCount: 1 });
@@ -579,6 +590,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await wait(300);
     await ev(`SB.state.tabs.get('${B}').scrollToEnd()`);
     await wait(300);
+    await panel.uncover();
     const allowAt = await ev(`(() => { const r = [...SB.state.tabs.get('${B}').el.querySelectorAll('.btn.allow')].pop().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     // A person's press and release, a moment apart.
     await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: allowAt.x, y: allowAt.y, button: 'left', buttons: 1, clickCount: 1 });
@@ -598,6 +610,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await wait(300);
     await ev(`SB.state.tabs.get('${B}').scrollToEnd()`);
     await wait(300);
+    await panel.uncover();
     const otherAt = await ev(`(() => { const r = [...SB.state.tabs.get('${B}').el.querySelectorAll('.qa-other')].pop().getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     await panel.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: otherAt.x, y: otherAt.y, button: 'left', buttons: 1, clickCount: 1 });
     await wait(120);
