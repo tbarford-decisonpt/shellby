@@ -429,6 +429,14 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await ev(`SB.panes.paneWith(SB.state.grid, '${K2}')?.id === '${kPane}' && SB.state.activeTab === '${K2}' && SB.panes.count(SB.state.grid) === 4`), 'a focused tab taken away under the panes: its replacement opens in the same pane, which stays');
     await ev(`SB.closeTab('${K2}')`);
     await ev(`SB.closeTab('${G1}')`);
+
+    // Closing the last tab of the focused bottom pane: the focus goes to the pane above it.
+    const X1 = await ev(`(async () => (await SB.newTab({ focus: false, reuse: false })).id)()`);
+    await setShape([[A, C], [D, X1], [B]]);
+    await ev(`SB.activate('${X1}')`);
+    check(await until(`SB.state.activeTab === '${X1}'`), 'the bottom pane has the focus');
+    await ev(`SB.closeTab('${X1}')`);
+    check(await until(`SB.state.activeTab === '${D}' && SB.panes.count(SB.state.grid) === 4`), 'closing the last tab of the focused bottom pane focuses the pane above it');
     await setShape([[A, C], [D, B]]);
     await ev(`SB.activate('${D}')`);
     await wait(300);

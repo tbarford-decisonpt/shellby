@@ -77,7 +77,10 @@
   // order, as main keeps it; a split closing down to one keeps the order its
   // pane was left in, and main is told it at once. -> whether the panes, or a
   // pane's shown tab, changed.
-  let paneCount = 1;   // panes at the last settle, to see a split close down to one
+  // paneCount: panes at the last settle, to see a split close down to one. Any
+  // settle call site (renderTabStrip, nextShown, ...) may be the one that sees
+  // it and sends the collapse layout, so no caller can assume it was its own.
+  let paneCount = 1;
   SB.settlePanes = () => {
     const open = [...state.tabs.keys()];
     let next = P.settle(state.grid, open, homePane());
@@ -560,16 +563,23 @@
     SB.renderTabStrip();
   };
 
+  // The pane that takes over from `id` if it closes: above, else below, else
+  // left, else right (as merge does). Ask before the pane is removed.
+  const heir = id => ['up', 'down', 'left', 'right'].reduce((got, dir) => got ?? P.neighbor(state.grid, id, dir), null);
+
   // The tab to show once the focused one has gone. Split: the one pane `was`
-  // (the pane it was in) shows now, else the first pane's. With one pane, the
-  // last tab in the strip, as it always was.
-  function nextShown(was) {
+  // (the pane it was in) shows now; if that pane closed, its neighbour `heir`
+  // (taken before it went) does, else the first pane's. With one pane, the
+  // last tab in the strip, as it always was. It settles the grid without
+  // rendering: the caller must activate the tab or render afterwards.
+  function nextShown(was, heirId) {
     const split = P.count(state.grid) > 1;
-    return (split && (activeOf(was) || P.shownTabs(state.grid)[0])) || [...state.tabs.keys()].pop();
+    return (split && (activeOf(was) || activeOf(heirId) || P.shownTabs(state.grid)[0])) || [...state.tabs.keys()].pop();
   }
   // For main's tab list (tabs.js syncTabs) arriving with no tab focused: the
   // focused one taken away under the panes, its replacement not here yet.
-  SB.nextShown = () => { SB.settlePanes(); return nextShown(homePane()); };
+  // Settles without rendering; the caller activates a tab or renders.
+  SB.nextShown = () => { const was = homePane(); const near = heir(was); SB.settlePanes(); return nextShown(was, near); };
 
   // A tab leaves this window: closed, popped out, or gone from main. Split,
   // its pane shows its neighbour (a pane left with none closes) and, if it was
@@ -580,10 +590,11 @@
     const was = P.paneWith(state.grid, tabId)?.id;
     tab.destroy();
     state.tabs.delete(tabId);
+    const near = heir(was);
     state.grid = P.leave(state.grid, tabId);
     if (state.activeTab !== tabId) return SB.renderPanes();
     state.activeTab = null;
-    const next = nextShown(was);
+    const next = nextShown(was, near);
     if (next) SB.activate(next);
     else if (!SB.solo) SB.newTab();
   };
