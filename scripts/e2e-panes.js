@@ -221,8 +221,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev(`(() => { const el = SB.state.tabs.get('${A}').el; el.scrollTop = 40; el.dispatchEvent(new Event('scroll')); })()`);
     await wait(150);
     await ev(`SB.closePane(${PID(B)})`);
-    await wait(300);
-    check(await ev(`SB.state.tabs.get('${A}').el.scrollTop`) === 40, 'a scrolled-up feed keeps its place when a pane closes');
+    // Put back on the next frame (renderPanes), which a busy PC can hold back past a fixed wait.
+    check(await until(`SB.state.tabs.get('${A}').el.scrollTop === 40`, 3000), 'a scrolled-up feed keeps its place when a pane closes');
     // D was half its column; alone now, it takes the whole column (sizes are normalized).
     check(await ev(`(() => { const p = document.querySelector('.pane[data-tab="${D}"]').getBoundingClientRect(); const c = document.querySelector('.pane[data-tab="${D}"]').parentElement.getBoundingClientRect(); return p.height > c.height - 20; })()`), 'D fills its column once B\'s pane closes');
     await panel.drag(await tabAt(B), await paneSpot(D, 0.5, 0.92));
@@ -331,8 +331,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await panel.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: line2.x + 20, y: line2.y, button: 'left', buttons: 1 });
     check(await ev(`document.body.classList.contains('resizing-panes')`), 'pressing a line starts a drag');
     await ev(`SB.closePane(${PID(B)})`);
-    await wait(200);
-    check(!(await ev(`document.body.classList.contains('resizing-panes')`)), 'a pane closing mid-drag ends it, so the feeds take clicks again');
+    // The line's lostpointercapture comes on the next frame, which a busy PC can hold back past a fixed wait.
+    check(await until(`!document.body.classList.contains('resizing-panes')`, 3000), 'a pane closing mid-drag ends it, so the feeds take clicks again');
     await panel.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: line2.x + 20, y: line2.y, button: 'left', buttons: 0, clickCount: 1 });
     await ev(`SB.placeTab('${B}', ${PID(D)}, 'bottom')`);
     await wait(300);
