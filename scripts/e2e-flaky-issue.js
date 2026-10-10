@@ -52,13 +52,19 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({
       SHELLBY_GITHUB_WEB: mock.base, SHELLBY_GITHUB_API: mock.base, SHELLBY_GITHUB_CLIENT_ID: 'e2e-client',
     },
   });
-  const targets = async () => { try { return await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json(); } catch { return []; } };
+  const targets = async () => { try { return await (await fetch(`http://127.0.0.1:${PORT}/json/list`, { signal: AbortSignal.timeout(10000) })).json(); } catch { return []; } };
   const connect = async url => {
+    // Every call has a limit, so a window that stops answering fails the check
+    // with what it was asked and which windows were open, not the runner's 300 s.
+    const stuck = async what => new Error(`no answer in 30 s: ${what}\n  windows: ${(await targets()).map(t => `${t.type} ${t.url.split('/').pop()}`).join(', ')}`);
     const ws = new WebSocket(url);
-    await new Promise(r => { ws.onopen = r; });
+    await new Promise((r, j) => { ws.onopen = r; setTimeout(async () => j(await stuck(`connecting to ${url}`)), 30000); });
     let id = 0; const p = new Map();
     ws.onmessage = e => { const m = JSON.parse(e.data); p.get(m.id)?.(m); };
-    const send = (method, params = {}) => new Promise(r => { const i = ++id; p.set(i, m => r(m.result)); ws.send(JSON.stringify({ id: i, method, params })); });
+    const send = (method, params = {}) => new Promise((r, j) => {
+      const i = ++id; p.set(i, m => r(m.result)); ws.send(JSON.stringify({ id: i, method, params }));
+      setTimeout(async () => j(await stuck(`${method} ${String(params.expression || '').slice(0, 120)}`)), 30000);
+    });
     const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }))?.result?.value;
     return { ev, close: () => ws.close() };
   };
