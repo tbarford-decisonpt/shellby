@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.79.0: Routines that follow you, live replies and code in colour
+
+### New
+- **Replies appear as Claude writes them.** Words now stream into the conversation as Claude writes them, instead of the whole reply landing at once.
+- **What you might ask next.** When Claude Code has a guess at your next message, it shows above the box. Tab or a click puts it in the box. Nothing is sent until you press Enter.
+- **Helper crabs say what they're doing.** A helper's own words show in its lane and in a speech bubble over its crab on the desktop.
+- **Your goal, pinned.** `/goal` pins the goal above the box until Claude meets it or you clear it with the ×.
+- **Keep going when the model is busy.** Settings → Model → When it's busy can switch to another model when yours is overloaded, instead of failing the turn.
+- **Claude in Chrome.** Settings → Model → Let Claude use Chrome lets new conversations work in your own Chrome through the extension.
+- **Try it in safe mode.** Right-click a tab to run that conversation without your CLAUDE.md, skills, plugins, hooks or MCP servers. It's a quick way to check whether one of them is causing trouble. The tab wears a 🛟 until you turn it off.
+- **Chat as one of your agents.** Toolbox → Chat as opens a conversation that one of your agents runs from its first message, with its own instructions, tools and model.
+- **Cloud sessions from the palette.** Ctrl+Shift+P can pick up a cloud session here, start one from what's in the box, or reopen the conversation behind a pull request. Each opens in a terminal, where Claude Code asks first.
+- **Conversations keep their names in Claude Code.** A tab's title is now the conversation's name in `claude --resume` and on claude.ai.
+- **Code in colour.** Code blocks in Claude's replies, a turn's diffs and the diff on a permission card are coloured by language: keywords, strings, comments, numbers and the rest, for JavaScript, TypeScript, Python, shell, PowerShell, JSON, HTML, CSS, Rust, Go, C-family languages, SQL, YAML and more. Each code block also gets a bar that names its language and a **Copy** button.
+- **Mermaid diagrams, drawn.** A flowchart, state diagram or sequence diagram in a reply shows as the picture itself, with **Show the code** a click away. Shellby draws them on its own, so there's nothing extra to install and nothing in a reply can run. Other kinds of diagram stay as code.
+- **Side by side.** A turn's diff can show the file before and after next to each other: **Side by side** above the diff, or **Inline** to go back. It opens the way you left it.
+- **Undo just part of a file.** Each part of a changed file's diff has **Undo this part** (press it twice). Those lines go back to how they were before the turn and the rest stays, and the diff then shows what's left. Like Undo, it refuses if the file changed again since.
+- **Ctrl+Shift+T brings back the conversation you closed,** and pressing it again brings back the one before, like a browser's tabs. It's in Ctrl+K too.
+- **Your own keyboard shortcuts.** In the shortcut list (Ctrl+/), press **Change keys**, then **Change** beside a shortcut and press the keys you want. Shellby won't let you take keys that already mean something (copying, another shortcut) and says why. **Reset** puts one back. It's also in **Settings → General → Shortcut**, and your keys follow you with Sync.
+- **Outline (Ctrl+Shift+O).** Every message you've sent in a conversation, with the files each turn touched under it. Type to narrow it down to a message or a file, then press Enter to jump there. On a file, its diff opens in that turn.
+- **Problems (Ctrl+Shift+M).** The errors and warnings your project's checks printed, listed file by file with line and column. Click one to open the file at that line, or press **Fix it** (or **Fix all**) to send them to Claude. **Look for problems** runs the project's lint and typecheck (or `cargo check`, `go vet`, or its tests), asking first in a project it hasn't checked before. It reads what tsc, ESLint, gcc, clang, go, rustc, mypy, ruff, flake8 and pytest print.
+- **@ what Shellby knows, not just files.** Type `@` and above the files come a dev server's output, a red build's log, your other conversations in the project and its open notes. Pick one and a snapshot of it goes with your message: click its chip to read exactly what Claude gets.
+- **Debug mode.** `/debug the cart total is wrong` has Claude list what could cause it and add logging, then asks you to reproduce the bug while the lines your app logs show up live on a card. Claude fixes it from that evidence, you check, and once it's fixed Claude takes the logging out while Shellby makes sure none is left behind.
+- **Pack effects can animate.** An effect sprite can have `frames` (up to three more pictures, played at the effect's `fps`) and an effect can turn on `ink` for Shellby's outline. See ADDONS.md.
+- Your routines and workflows now follow you to your other PCs through GitHub sync. Each one keeps the newest add, edit or delete from any PC. One that arrives from another PC comes in switched off, so nothing runs twice. A routine edited on another PC switches off until you turn it back on, and a workflow that acts without asking still needs your OK on each PC. Anything in Autonomous mode, and every webhook link, stays on the PC where you made it. A workflow that arrives with the name of one you already have is renamed "Name (2)", since Claude finds workflows by name, and Shellby tells you what came in.
+
+### Fixed
+- **No more stray "null".** The week on Trophies printed the word "null" after its new trophies, and the right-click menu on text, the Council's verdict and the warning on Fix this build and Address the review could do the same. They don't now.
+- The Scoop package says Shellby is GPL-3.0, as it is, instead of MIT, and its homepage is getshellby.com.
+- **Autonomous from the start.** The first-run screen now lets you pick Autonomous, after the same one-time warning Settings shows, instead of sending you to Settings later.
+- **The "I understand, enable it" button has its words back.** Red buttons showed red text on red, so Autonomous's confirm (and a few others) looked blank.
+- **His eyes stay on his head.** When he perked up (asking you something, gazing about, catching or showing off a find), his eyes, stalks and hat lifted a pixel clear of his body and floated there. His stalks now run down behind his body, so they stay attached.
+- **No more flash over your windows when he hops.** Hopping up onto a window, back down from one, or across the desktop, he used to jump in front of every app for the length of the hop. Now he stays in the window's place in the stack, so anything covering it covers him too, and a hop across the desktop stays under your apps.
+- **The sign-in toast fits on screen again.** When a lot of MCP servers are waiting for you to sign in (plugins can bring dozens), the toast names two and counts the rest instead of listing every one down past the edge of the window. Show me still opens the full list in the Toolbox.
+- **Your settings survive the PC losing power.** Switching off at the wall while Shellby was saving could leave his settings file full of nothing, and he started over as if brand new: GitHub features to approve again, every screen locked away, the welcome back. Saves now reach the disk before they count, and he keeps a backup copy he comes back from if the file is ever damaged anyway.
+- **GitHub remembers what you turned on.** The features you approved are kept with your GitHub sign-in as well, so they come back even if the settings don't, and Settings never shows "signed in" with no account in it: he fetches who you are again.
+- **An expired Claude sign-in says so.** When Claude Code turns your saved sign-in down, Settings shows "Sign-in expired" with a Sign in button, instead of "Signed in" over a sign-in that no longer works.
+- A voice's tile in the Wardrobe no longer cuts off a long line: the Royal Crab's "one shall see to it" ran over the tile's name. The bubble now grows to fit.
+
+### Changed
+- **Shellby checks what your Claude Code supports.** Newer options are only passed to a Claude Code that lists them, so an older install keeps working until it updates.
+- Shellby got a touch-up: big white eyes that look where he's going, crisper shell shading, a lit claw tip, and no more dark patch behind his body. The Classic, Midnight, Phosphor and Sandcastle skins all have the new eyes.
+- **Every effect, redrawn.** All 24 of them (snow, bats, hearts, rain, sparkles and the rest) are shaded now, and the ones with a shape get the same ink line as Shellby. They move like he does, a pixel at a time, instead of gliding and spinning. Bats flap their wings, sparkles twinkle from a dot to a star and back, fireflies glow and fade, embers cool from yellow to red, leaves flip as they fall, and snow lands at his feet and blinks away. Confetti tumbles out in a real arc.
+- **Bring it home and push sends that copy's work, and asks about the rest.** If your branch already had commits that aren't on GitHub yet, like copies you brought home without pushing or your own local work, Shellby lists them and asks before they go along with it. Say "Not now" and everything stays on your PC.
+- **Tidy up no longer publishes your private branches.** It still pushes branches the remote already has, but a branch that has only ever lived on this PC gets listed with what's on it, and Claude asks before pushing it. It also asks before committing straight to your main branch.
+- Notices inside the panel have a lit edge down their left side and a pixel-font headline, so they read as Shellby's own rather than a plain pill.
+- **Releases wait for CI.** When a project's branch has commits that aren't pushed yet, CI has never checked them, so the Releases card no longer cuts over them without asking. **Push them first** sends just the branch, and once CI is green you cut the release. To go ahead without CI, tick "Release anyway".
+- Windows notifications have new pictures: Shellby on his own patch of sand under falling light, with a confetti burst when something lands, a speech bubble when he needs you, and a storm cloud when something went wrong. The round crab in the corner sits in a porthole of sea.
+
 ## 0.78.0: The Council, every slash command and undo to here
 
 ### New
