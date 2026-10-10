@@ -12,6 +12,8 @@
 // haven't seen never runs on its own (a workflow's approval covers that). A
 // webhook's token never travels: it's a secret, and one planted in the gist
 // would let anyone who knows it start the workflow. Each PC keeps its own.
+// Claude finds a workflow by its name, so one arriving with the name of one
+// you already have here is renamed "Name (2)", and the sync says so (arrived).
 //
 // The gist is untrusted input: every item is checked again by the same rules
 // as one you save, and nothing in Autonomous mode comes across (switching to
@@ -69,6 +71,7 @@ const KEYS = Object.freeze(Object.keys(KINDS));
 const num = v => (Number.isFinite(v) && v > 0 ? v : 0);
 const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+const lower = n => String(n).toLowerCase();
 const sorted = o => Object.fromEntries(Object.entries(o).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)));
 
 /** The items of a list that travel, by id, in their order. budget: false for all of them. */
@@ -133,6 +136,41 @@ function mergeList(x, y) {
   };
 }
 
+// "Deploy" -> "Deploy (2)", or the next number free, within the 60-character limit.
+function freeName(name, taken) {
+  for (let n = 2; ; n++) {
+    const tail = ` (${n})`;
+    const next = name.slice(0, 60 - tail.length).trimEnd() + tail;
+    if (!taken.has(lower(next))) return next;
+  }
+}
+
+/**
+ * What a sync brought in, for the line that tells you: how many routines and
+ * workflows are new here (they arrive off), and the workflows renamed because
+ * their name was taken. before/after: config.data around the sync.
+ */
+function arrived(before, after) {
+  const fresh = k => {
+    const had = new Set((Array.isArray(before?.[k]) ? before[k] : []).map(x => x?.id));
+    return (Array.isArray(after?.[k]) ? after[k] : []).filter(x => x?.id && !had.has(x.id));
+  };
+  const routines = fresh('routines'), workflows = fresh('workflows');
+  const names = new Set((Array.isArray(after?.workflows) ? after.workflows : []).map(w => lower(w?.name)));
+  const renamed = workflows.map(w => w.name).filter(n => { const m = /^(.*) \(\d+\)$/.exec(n); return m && names.has(lower(m[1])); });
+  return { routines: routines.length, workflows: workflows.length, renamed };
+}
+
+/** "2 routines and 1 workflow arrived switched off. Renamed so names stay unique: Deploy (2)." or ''. */
+function describeArrived({ routines, workflows, renamed }) {
+  const n = (c, w) => `${c} ${w}${c === 1 ? '' : 's'}`;
+  const parts = [routines && n(routines, 'routine'), workflows && n(workflows, 'workflow')].filter(Boolean);
+  if (!parts.length) return '';
+  const total = routines + workflows;
+  const line = `${parts.join(' and ')} came from your other PC, switched off${total === 1 ? '' : ' until you turn them on'}.`;
+  return renamed.length ? `${line} Renamed so Claude can tell them apart: ${renamed.join(', ')}.` : line;
+}
+
 function merge(aIn, bIn) {
   const a = clean(aIn), b = clean(bIn);
   return Object.fromEntries(KEYS.map(k => [k, mergeList(a[k], b[k])]));
@@ -155,9 +193,12 @@ function apply(data, merged) {
     const mine = new Map(list.map(raw => [KINDS[k].share(raw)?.id, raw]).filter(([id]) => id));
     const kept = list.filter(raw => !KINDS[k].share(raw));
     const keptIds = new Set(kept.map(raw => raw?.id));
+    const taken = new Set(list.map(raw => lower(raw?.name)));
     const next = [
       ...m[k].v.filter(item => !keptIds.has(item.id)).map(item => {
         const was = mine.get(item.id);
+        if (!was && k === 'workflows' && taken.has(lower(item.name))) item = { ...item, name: freeName(item.name, taken) };
+        if (!was) taken.add(lower(item.name));
         const state = !was ? KINDS[k].fresh() : { ...KINDS[k].local(was), ...(same(KINDS[k].share(was), item) ? {} : KINDS[k].edited()) };
         return KINDS[k].fill({ ...item, ...state }, was);
       }),
@@ -202,4 +243,4 @@ function restamp(patch, prev, stampsIn, now) {
   return changed ? out : null;
 }
 
-module.exports = { KEYS, clean, snapshot, merge, apply, restamp };
+module.exports = { KEYS, clean, snapshot, merge, apply, restamp, arrived, describeArrived };

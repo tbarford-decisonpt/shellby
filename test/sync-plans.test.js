@@ -88,3 +88,14 @@ test('no more routines arrive than a PC can hold', () => {
   const many = Array.from({ length: 60 }, (_, n) => routine({ id: 'r' + n, name: 'R' + n }));
   assert.strictEqual(plans.snapshot({ routines: many }, {}).routines.v.length, 50);
 });
+
+test('a workflow arriving with a name taken here is renamed, and the sync says so', () => {
+  const local = { workflows: [workflow({ id: 'mine', name: 'Deploy' })] };
+  const remote = plans.snapshot({ workflows: [workflow({ id: 'theirs', name: 'deploy' })] }, {});
+  const { values } = plans.apply(local, plans.merge(plans.snapshot(local, {}), remote));
+  assert.deepStrictEqual(values.workflows.map(w => w.name), ['Deploy', 'deploy (2)']);
+  const news = plans.arrived(local, values);
+  assert.deepStrictEqual(news, { routines: 0, workflows: 1, renamed: ['deploy (2)'] });
+  assert.match(plans.describeArrived(news), /1 workflow came from your other PC, switched off\. Renamed .*deploy \(2\)/);
+  assert.strictEqual(plans.describeArrived(plans.arrived(values, values)), '');
+});

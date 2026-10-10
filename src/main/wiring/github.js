@@ -67,6 +67,8 @@ function wireGithub(d) {
         // Routines and workflows added, changed or deleted on another PC (sync-plans.js).
         if (JSON.stringify(d.config.data.routines) !== JSON.stringify(before.routines)) d.send(d.panel, 'routines', d.routinesView());
         if (JSON.stringify(d.config.data.workflows) !== JSON.stringify(before.workflows)) d.workflows?.reload();
+        const news = syncPlans.describeArrived(syncPlans.arrived(before, d.config.data));
+        if (news) d.send(d.panel, 'github:error', news);
         if (d.life) d.send(d.panel, 'life', d.life.view()); // finds, the bond, games from another PC
         // A friend added on another PC needs their card fetched here.
         if (d.friends && friendsChanged(d.config.data, before)) { d.friends.emit('change', d.friends.view()); d.friends.refresh().catch(() => {}); }
