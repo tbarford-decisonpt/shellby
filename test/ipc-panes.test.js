@@ -26,7 +26,10 @@ function setup() {
 test('the panel\'s layout is saved, cleaned', () => {
   const { panel, config, save } = setup();
   save(panel, { grid: [['a', 'a', 7], [], ['b']], sizes: { w: { a: 2, b: -1 }, h: {} } });
-  assert.deepEqual(config.get('paneLayout'), { grid: [['a'], ['b']], sizes: { w: { a: 2, b: 2 }, h: { a: 1, b: 1 } } });
+  assert.deepEqual(config.get('paneLayout'), {
+    grid: [[{ id: 'p1', tabs: ['a'], active: 'a' }], [{ id: 'p2', tabs: ['b'], active: 'b' }]],
+    sizes: { w: { p1: 2, p2: 2 }, h: { p1: 1, p2: 1 } },
+  }, 'an old one-tab-per-pane layout, cleaned into panes');
 });
 
 test('the same layout again writes nothing', () => {
@@ -55,5 +58,8 @@ test('back to one pane clears the saved layout', () => {
 test('ids an object already has (__proto__, constructor) never reach the saved sizes', () => {
   const { panel, config, save } = setup();
   save(panel, JSON.parse('{"grid":[["__proto__","a"],["constructor","b"]],"sizes":{"w":{"__proto__":5,"a":2,"b":3},"h":{}}}'));
-  assert.deepEqual(config.get('paneLayout'), { grid: [['a'], ['b']], sizes: { w: { a: 2, b: 3 }, h: { a: 1, b: 1 } } });
+  assert.deepEqual(config.get('paneLayout'), {
+    grid: [[{ id: 'p1', tabs: ['a'], active: 'a' }], [{ id: 'p2', tabs: ['b'], active: 'b' }]],
+    sizes: { w: { p1: 2, p2: 3 }, h: { p1: 1, p2: 1 } },
+  });
 });
