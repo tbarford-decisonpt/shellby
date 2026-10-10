@@ -312,7 +312,7 @@
       if (stand) {
         const text = String(t.draft || '').trim().split('\n')[0];
         stand.querySelector('.standin-text').textContent = text || 'Type to give it a task…';
-        stand.classList.toggle('empty', !text);
+        stand.classList.toggle('no-draft', !text); // not .empty: that's the empty chat's, which rises in (panel.css)
         const q = t.queue?.length || 0;
         // Working, asking or done: the same mark the strip shows (tab-strip.js tabIcon).
         stand.querySelector('.standin-meta').replaceChildren(...[SB.tabIcon(t), q ? `${q} queued` : null].filter(Boolean));

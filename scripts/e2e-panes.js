@@ -122,7 +122,17 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(startWidth >= 700 || grownTo > startWidth, `the panel grew to fit two panes (${startWidth} -> ${grownTo})`);
     check(grownTo <= Math.max(startWidth, 2 * 286 + 6 + chromeW + 2), `and no wider than they need (${grownTo})`);
     check(await ev(`[...document.querySelectorAll('.pane')].every(p => p.getBoundingClientRect().width >= ${280 - 1})`), 'no pane narrower than 280 px');
-    await ev(`SB.activate('${A}'); SB.activate('${D}')`); // the left pane shows A from here on; after the widths, as the box moving to another pane puts a scrollbar on the chat for under 100 ms (as it always has)
+    // The left pane shows A from here on. The box moving to another pane leaves
+    // a stand-in where it was, which comes in still: nothing slides past the
+    // chat's foot and puts a scrollbar on it, a frame or ten narrowing every pane.
+    const barFrames = await ev(`(async () => {
+      SB.activate('${A}'); SB.activate('${D}');
+      const home = document.getElementById('chatView');
+      let n = 0;
+      for (let i = 0; i < 12; i++) { if (home.offsetWidth > home.clientWidth) n++; await new Promise(requestAnimationFrame); }
+      return n;
+    })()`);
+    check(barFrames === 0, `the box moving to another pane never puts a scrollbar on the chat (${barFrames} of 12 frames had one)`);
 
     // ---- Split from a workflow map with Make room on (the palette shows the chat
     // and splits at once): the room goes back first, then the panel grows for the
