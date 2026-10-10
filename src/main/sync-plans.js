@@ -21,13 +21,17 @@ const { validateRoutine } = require('./routines');
 const crypto = require('crypto');
 const { validateWorkflow } = require('./workflows/schema');
 
-const MAX_ITEMS = 100;
+// The gist file is read only below 512 KB (github/sync.js MAX_BYTES), and a
+// workflow can be far bigger, so each list travels only up to its budget: what
+// doesn't fit stays on its PC rather than stopping every sync.
+const MAX_BYTES = 128 * 1024;
 const MAX_GONE = 200;
 const ID_RE = /^[\w-]{1,64}$/;
 
 // key -> what of one item travels (null when it won't do), and what stays on this PC.
 const KINDS = Object.freeze({
   routines: {
+    max: 50, // routines/service.js MAX_ROUTINES
     share(raw) {
       if (!raw || typeof raw !== 'object') return null;
       const { routine } = validateRoutine({ ...raw, enabled: false, lastRunAt: null, lastStatus: null });
@@ -41,6 +45,7 @@ const KINDS = Object.freeze({
     fill: item => item,
   },
   workflows: {
+    max: 100, // workflows/service.js MAX_WORKFLOWS
     share(raw) {
       if (!raw || typeof raw !== 'object') return null;
       const now = Number.isFinite(raw.updatedAt) && raw.updatedAt > 0 ? raw.updatedAt : 1;
@@ -66,12 +71,19 @@ const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const sorted = o => Object.fromEntries(Object.entries(o).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)));
 
-/** The items of a list that travel, by id, in their order. */
-function shared(k, list) {
+/** The items of a list that travel, by id, in their order. budget: false for all of them. */
+function shared(k, list, budget = true) {
   const out = new Map();
+  let bytes = 0;
   for (const raw of Array.isArray(list) ? list : []) {
     const item = KINDS[k].share(raw);
-    if (item && !out.has(item.id) && out.size < MAX_ITEMS) out.set(item.id, item);
+    if (!item || out.has(item.id)) continue;
+    if (budget) {
+      const size = JSON.stringify(item).length;
+      if (out.size >= KINDS[k].max || bytes + size > MAX_BYTES) continue;
+      bytes += size;
+    }
+    out.set(item.id, item);
   }
   return out;
 }
@@ -81,9 +93,9 @@ function shared(k, list) {
  * An item never stamped (made before this sync, or by an older Shellby)
  * counts as changed at 1, so any real change beats it.
  */
-function cleanList(k, raw) {
+function cleanList(k, raw, budget = true) {
   const r = isObj(raw) ? raw : {};
-  const byId = shared(k, r.v);
+  const byId = shared(k, r.v, budget);
   const stamps = isObj(r.items) ? r.items : {};
   const items = {};
   for (const id of byId.keys()) items[id] = num(stamps[id]) || 1;
@@ -115,7 +127,7 @@ function mergeList(x, y) {
   for (const side of [x, y]) for (const [id, at] of Object.entries(side.gone)) consider(id, { at, item: null });
   const order = [...new Set([...x.v, ...y.v].map(i => i.id))].filter(id => latest.get(id).item);
   return {
-    v: order.map(id => latest.get(id).item).slice(0, MAX_ITEMS),
+    v: order.map(id => latest.get(id).item),
     items: sorted(Object.fromEntries(order.map(id => [id, latest.get(id).at]))),
     gone: sorted(Object.fromEntries([...latest].filter(([, e]) => !e.item).sort((p, q) => q[1].at - p[1].at).slice(0, MAX_GONE).map(([id, e]) => [id, e.at]))),
   };
@@ -152,6 +164,9 @@ function apply(data, merged) {
       ...kept,
     ];
     // Compared in the same shape, so key order alone never counts as a change.
+    // One of yours the merge left out (over the budget) stays, unless it was deleted.
+    const decided = new Set([...m[k].v.map(i => i.id), ...Object.keys(m[k].gone)]);
+    for (const [id, raw] of mine) if (!decided.has(id)) next.splice(next.length - kept.length, 0, KINDS[k].fill({ ...KINDS[k].share(raw), ...KINDS[k].local(raw) }, raw));
     const before = [...[...mine.values()].map(raw => KINDS[k].fill({ ...KINDS[k].share(raw), ...KINDS[k].local(raw) }, raw)), ...kept];
     if (!same(next, before)) values[k] = next;
   }
@@ -170,9 +185,9 @@ function restamp(patch, prev, stampsIn, now) {
   const out = { ...was };
   let changed = false;
   for (const k of keys) {
-    const before = cleanList(k, { ...(isObj(was[k]) ? was[k] : {}), v: prev?.[k] });
+    const before = cleanList(k, { ...(isObj(was[k]) ? was[k] : {}), v: prev?.[k] }, false);
     const old = new Map(before.v.map(i => [i.id, i]));
-    const next = shared(k, patch[k]);
+    const next = shared(k, patch[k], false);
     const items = {};
     for (const [id, item] of next) items[id] = same(old.get(id), item) ? before.items[id] : now;
     // One still here that no longer travels (switched to Autonomous) isn't deleted.

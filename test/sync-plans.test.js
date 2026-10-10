@@ -72,3 +72,19 @@ test('garbage from the gist is dropped', () => {
   assert.deepStrictEqual(c.routines, { v: [], items: {}, gone: {} });
   assert.deepStrictEqual(c.workflows.v, []);
 });
+
+test('a list over its budget sends what fits, and nothing is lost or deleted', () => {
+  const big = n => workflow({ id: 'w' + n, name: 'Big ' + n, steps: [{ type: 'tell', text: 'x'.repeat(900) }, ...Array.from({ length: 59 }, (_, i) => ({ type: 'tell', text: String(n) + 'y'.repeat(900) + i }))] });
+  const local = { workflows: Array.from({ length: 4 }, (_, n) => big(n)) };
+  const snap = plans.snapshot(local, {});
+  assert.ok(JSON.stringify(snap).length < 160 * 1024);
+  assert.ok(snap.workflows.v.length < 4);
+  const { values } = plans.apply(local, plans.merge(snap, plans.snapshot({}, {})));
+  assert.ok(!values.workflows || values.workflows.length === 4);
+  assert.strictEqual(plans.restamp({ workflows: local.workflows.map(w => ({ ...w, enabled: false })) }, local, plans.restamp(local, {}, {}, 5), 9), null);
+});
+
+test('no more routines arrive than a PC can hold', () => {
+  const many = Array.from({ length: 60 }, (_, n) => routine({ id: 'r' + n, name: 'R' + n }));
+  assert.strictEqual(plans.snapshot({ routines: many }, {}).routines.v.length, 50);
+});
