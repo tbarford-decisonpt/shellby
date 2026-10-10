@@ -127,20 +127,34 @@
       "motion": "float",
       "count": 8,
       "speed": 0.4,
+      "fps": 2,
       "rarity": "rare",
       "unlock": { "season": "autumn" },
       "sprites": [
         {
-          "palette": { "m": "#cfd8dc" },
+          "palette": { "M": "#e3eaed", "m": "#b8c4c9" },
           "pixels": [
-            "mmm"
+            "..mmm..",
+            "mmMMMmm"
+          ],
+          "frames": [
+            [
+              ".mmmm..",
+              "mmMMMm."
+            ]
           ]
         },
         {
-          "palette": { "m": "#b8c4c9" },
+          "palette": { "M": "#d3dde1", "m": "#a9b6bc" },
           "pixels": [
-            "mm.",
-            ".mm"
+            ".mm..",
+            "mMMm."
+          ],
+          "frames": [
+            [
+              "..mm.",
+              ".mMMm"
+            ]
           ]
         }
       ]

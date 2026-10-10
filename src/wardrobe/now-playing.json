@@ -105,29 +105,36 @@
       "motion": "float",
       "count": 4,
       "speed": 0.7,
+      "ink": true,
       "sprites": [
         {
           "palette": {
-            "c": "#ff7a5c"
+            "c": "#ff7a5c",
+            "C": "#ffb199",
+            "H": "#ffd0c2",
+            "d": "#c94a2e"
           },
           "pixels": [
-            ".cc",
-            ".c.",
-            ".c.",
-            "cc.",
-            "cc."
+            ".cCc",
+            ".c.C",
+            ".c..",
+            "Hc..",
+            "cd.."
           ]
         },
         {
           "palette": {
-            "c": "#7fd6c2"
+            "c": "#5cc9b0",
+            "C": "#a8efe0",
+            "H": "#d9fff6",
+            "d": "#2e8f7a"
           },
           "pixels": [
-            ".cccc",
+            ".CCCC",
             ".c..c",
             ".c..c",
-            "cc.cc",
-            "cc.cc"
+            "Hc.Hc",
+            "cd.cd"
           ]
         }
       ]

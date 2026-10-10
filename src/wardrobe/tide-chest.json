@@ -32,21 +32,58 @@
       "motion": "rise",
       "count": 7,
       "speed": 0.7,
+      "fps": 8,
       "rarity": "epic",
       "unlock": { "achievement": "shiny-hunter" },
       "sprites": [
         {
-          "palette": { "w": "#ffffff", "y": "#fff1a8" },
+          "palette": { "W": "#ffffff", "y": "#fff1a8", "b": "#b8f2e6" },
           "pixels": [
-            ".y.",
-            "ywy",
-            ".y."
+            ".....",
+            ".....",
+            "..y..",
+            ".....",
+            "....."
+          ],
+          "frames": [
+            [
+              ".....",
+              "..y..",
+              ".yWy.",
+              "..y..",
+              "....."
+            ],
+            [
+              "b...b",
+              "..y..",
+              ".yWy.",
+              "..y..",
+              "b...b"
+            ],
+            [
+              ".....",
+              "..y..",
+              ".yWy.",
+              "..y..",
+              "....."
+            ]
           ]
         },
         {
-          "palette": { "c": "#b8f2e6" },
+          "palette": { "W": "#ffffff", "y": "#fff1a8", "c": "#b8f2e6" },
           "pixels": [
-            "c"
+            "W"
+          ],
+          "frames": [
+            [
+              "y"
+            ],
+            [
+              "c"
+            ],
+            [
+              "y"
+            ]
           ]
         }
       ]

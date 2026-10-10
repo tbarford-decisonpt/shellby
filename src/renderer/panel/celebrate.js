@@ -13,11 +13,11 @@
   document.body.append(host);
 
   function thumb(item) {
-    const art = item.pixels ? { pixels: item.pixels, palette: item.palette } : item.sprites?.[0];
+    const art = item.pixels ? { pixels: item.pixels, palette: item.palette } : SB.Sprite.poster(item.sprites);
     if (!art) return h('span', { class: 'cel-thumb empty', text: '✦' });
     const w = Math.max(...art.pixels.map(r => r.length)), hgt = art.pixels.length;
     const k = Math.max(2, Math.floor(26 / Math.max(w, hgt)));
-    const svg = SB.Sprite.grid(art.pixels, art.palette, { px: k, ink: !item.sprites }); // lined like he holds it; effects stay plain
+    const svg = SB.Sprite.grid(art.pixels, art.palette, { px: k, ink: !item.sprites || !!item.ink }); // lined like he holds it, and effects drawn lined
     return h('span', { class: 'cel-thumb' }, svg);
   }
 

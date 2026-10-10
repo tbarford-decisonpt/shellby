@@ -22,8 +22,8 @@
       return g;
     }
     if (item.sprites) {
-      const sp = [...item.sprites].sort((a, b) => b.pixels.join('').length - a.pixels.join('').length)[0];
-      return window.ShellbySprite.grid(sp.pixels, sp.palette);
+      const sp = window.ShellbySprite.poster(item.sprites);
+      return window.ShellbySprite.grid(sp.pixels, sp.palette, { ink: !!item.ink });
     }
     if (item.kind === 'skin' && spec.skin) {
       return window.ShellbySprite.build({ ...spec.skin, ...item, parts: item.parts || spec.skin.parts });

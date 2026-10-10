@@ -141,19 +141,38 @@ function validateEffect(raw, known) {
   if (!MOTIONS.includes(raw.motion)) return { error: `bad motion ${q(raw.motion)}` };
   if (raw.count !== undefined && !isInt(raw.count, 1, 24)) return { error: 'count must be an integer 1–24' };
   if (raw.speed !== undefined && !(typeof raw.speed === 'number' && raw.speed >= 0.25 && raw.speed <= 3)) return { error: 'speed must be 0.25–3' };
+  if (raw.ink !== undefined && typeof raw.ink !== 'boolean') return { error: 'ink must be true or false' };
   if (!Array.isArray(raw.sprites) || raw.sprites.length < 1 || raw.sprites.length > LIMITS.spritesMax) return { error: `sprites must be 1–${LIMITS.spritesMax} entries` };
   const sprites = [];
   for (const [i, s] of raw.sprites.entries()) {
     if (!isObj(s)) return { error: `sprite ${i} must be an object` };
-    const e = checkPalette(s.palette) || checkPixels(s.pixels, LIMITS.spriteGrid);
+    const e = checkPalette(s.palette) || checkPixels(s.pixels, LIMITS.spriteGrid) || checkFrames(s.frames, s.pixels, LIMITS.spriteGrid);
     if (e) return { error: `sprite ${i}: ${e}` };
-    sprites.push({ palette: copyPalette(s.palette), pixels: [...s.pixels] });
+    sprites.push({ palette: copyPalette(s.palette), pixels: [...s.pixels], ...(s.frames ? { frames: s.frames.map(f => [...f]) } : {}) });
   }
+  const animated = sprites.some(s => s.frames);
+  if (raw.fps !== undefined && (!animated || !isInt(raw.fps, 1, 12))) return { error: 'fps must be an integer 1–12, with frames' };
   const [unlock, ue] = checkUnlock(raw.unlock, known);
   if (ue) return { error: ue };
   return {
-    item: { ...base, motion: raw.motion, count: raw.count ?? 10, speed: raw.speed ?? 1, sprites, unlock },
+    item: {
+      ...base, motion: raw.motion, count: raw.count ?? 10, speed: raw.speed ?? 1, ink: raw.ink === true,
+      fps: animated ? raw.fps ?? 4 : 0, sprites, unlock,
+    },
   };
+}
+
+// A picture's extra frames: 1–framesMax more, each the same size as `pixels`.
+function checkFrames(frames, pixels, max) {
+  if (frames === undefined) return null;
+  if (!Array.isArray(frames) || frames.length < 1 || frames.length > LIMITS.framesMax) return `frames must be 1–${LIMITS.framesMax} pictures`;
+  const w = Math.max(...pixels.map(r => r.length));
+  for (const [i, f] of frames.entries()) {
+    const fe = checkPixels(f, max);
+    if (fe) return `frame ${i}: ${fe}`;
+    if (f.length !== pixels.length || Math.max(...f.map(r => r.length)) > w) return `frame ${i} must be the same size as pixels`;
+  }
+  return null;
 }
 
 function validatePackSkin(raw, known) {

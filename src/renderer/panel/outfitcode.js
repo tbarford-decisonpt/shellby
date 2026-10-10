@@ -44,14 +44,14 @@
   function close() { sheet.hidden = true; }
 
   function thumb(f) {
-    const art = f.item?.pixels ? { pixels: f.item.pixels, palette: f.item.palette } : f.item?.sprites?.[0];
+    const art = f.item?.pixels ? { pixels: f.item.pixels, palette: f.item.palette } : SB.Sprite.poster(f.item?.sprites);
     if (f.slot === 'skin') {
       const skin = state.skins.find(s => s.id === f.key);
       return h('span', { class: 'cel-thumb' }, skin ? SB.sprite(skin, { plain: true }) : '🎨');
     }
     if (!art) return h('span', { class: 'cel-thumb', text: '✦' });
     const w = Math.max(...art.pixels.map(r => r.length)), hgt = art.pixels.length;
-    return h('span', { class: 'cel-thumb' }, SB.Sprite.grid(art.pixels, art.palette, { px: Math.max(2, Math.floor(26 / Math.max(w, hgt))), ink: !f.item?.sprites }));
+    return h('span', { class: 'cel-thumb' }, SB.Sprite.grid(art.pixels, art.palette, { px: Math.max(2, Math.floor(26 / Math.max(w, hgt))), ink: !f.item?.sprites || !!f.item?.ink }));
   }
 
   function render() {

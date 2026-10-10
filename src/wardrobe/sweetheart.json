@@ -108,27 +108,51 @@
       "motion": "fall",
       "count": 12,
       "speed": 0.6,
+      "fps": 3,
       "rarity": "rare",
       "unlock": { "season": "valentine" },
       "sprites": [
         {
-          "palette": { "p": "#ff8fab" },
+          "palette": { "p": "#ff8fab", "H": "#ffd1dc", "d": "#e05780" },
           "pixels": [
-            "p"
+            "pp.",
+            "pHp",
+            ".pd"
+          ],
+          "frames": [
+            [
+              ".pp",
+              "pHp",
+              "dp."
+            ]
           ]
         },
         {
-          "palette": { "p": "#ff5c8a" },
+          "palette": { "p": "#ff5c8a", "H": "#ffb3c8", "d": "#c9184a" },
           "pixels": [
-            "pp",
-            ".p"
+            "pH",
+            "dp"
+          ],
+          "frames": [
+            [
+              "Hp",
+              "pd"
+            ]
           ]
         },
         {
-          "palette": { "p": "#ffb3c8" },
+          "palette": { "p": "#ffb3c8", "H": "#fff0f5", "d": "#ff8fab" },
           "pixels": [
-            ".p",
-            "pp"
+            ".pp.",
+            "pHHp",
+            ".dd."
+          ],
+          "frames": [
+            [
+              "....",
+              "pHpd",
+              "...."
+            ]
           ]
         }
       ]

@@ -105,6 +105,28 @@ test('wardrobe: effects validate motion, count, speed and sprite size', () => {
   assert.deepEqual(p.effects.map(e => [e.id, e.count, e.speed]), [['good', 24, 0.25]]);
   assert.equal(warnings.length, 6);
 });
+test('wardrobe: effect frames, fps and ink', () => {
+  const flap = { palette: { b: '#111111' }, pixels: ['b.b', '.b.'], frames: [['.b.', 'b.b']] };
+  const effects = [
+    fx({ id: 'flaps', ink: true, fps: 8, sprites: [flap] }),
+    fx({ id: 'plain' }),
+    fx({ id: 'ink-word', ink: 'yes' }),
+    fx({ id: 'fps-alone', fps: 6 }),
+    fx({ id: 'fps-fast', fps: 13, sprites: [flap] }),
+    fx({ id: 'frame-size', sprites: [{ ...flap, frames: [['b.b']] }] }),
+    fx({ id: 'frame-wide', sprites: [{ ...flap, frames: [['b.b.', '.b.']] }] }),
+    fx({ id: 'too-many', sprites: [{ ...flap, frames: Array(4).fill(['.b.', 'b.b']) }] }),
+  ];
+  const { pack: p, warnings } = validatePack(pack({ effects }), known);
+  assert.deepEqual(p.effects.map(e => [e.id, e.ink, e.fps]), [['flaps', true, 8], ['plain', false, 0]]);
+  assert.deepEqual(p.effects[0].sprites[0].frames, [['.b.', 'b.b']]);
+  assert.equal(warnings.length, 6);
+  assert.ok(warnings.includes('skipped effect fps-alone: fps must be an integer 1–12, with frames'));
+  assert.ok(warnings.includes('skipped effect frame-size: sprite 0: frame 0 must be the same size as pixels'));
+  // frames with no fps play at 4
+  const { pack: q } = validatePack(pack({ effects: [fx({ sprites: [flap] })] }), known);
+  assert.equal(q.effects[0].fps, 4);
+});
 test('wardrobe: unlock references must be known achievements/seasons', () => {
   const accessories = [
     hat({ id: 'a', unlock: { achievement: 'ten-tasks' } }),
@@ -163,7 +185,7 @@ test('wardrobe: unknown fields are stripped', () => {
   assert.deepEqual(Object.keys(p.accessories[0]).sort(),
     ['anchor', 'description', 'follows', 'id', 'key', 'name', 'packId', 'palette', 'pivot', 'pixels', 'rarity', 'slot', 'source', 'unlock']);
   assert.deepEqual(Object.keys(p.effects[0]).sort(),
-    ['count', 'description', 'id', 'key', 'motion', 'name', 'packId', 'rarity', 'source', 'speed', 'sprites', 'unlock']);
+    ['count', 'description', 'fps', 'id', 'ink', 'key', 'motion', 'name', 'packId', 'rarity', 'source', 'speed', 'sprites', 'unlock']);
   assert.deepEqual(Object.keys(p.effects[0].sprites[0]).sort(), ['palette', 'pixels']);
   assert.deepEqual(Object.keys(p.decor[0]).sort(),
     ['category', 'description', 'fps', 'frames', 'id', 'key', 'layer', 'name', 'packId', 'palette', 'pixels', 'rarity', 'source', 'spots', 'unlock']);

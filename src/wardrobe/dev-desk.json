@@ -92,21 +92,38 @@
       "motion": "twinkle",
       "count": 5,
       "speed": 0.8,
+      "ink": true,
+      "fps": 3,
       "rarity": "rare",
       "sprites": [
         {
-          "palette": { "c": "#3ddc68" },
+          "palette": { "C": "#8ff0a8", "c": "#3ddc68" },
           "pixels": [
-            "cc",
+            "CC",
             "cc",
             "cc",
             "cc"
+          ],
+          "frames": [
+            [
+              "..",
+              "..",
+              "..",
+              ".."
+            ]
           ]
         },
         {
-          "palette": { "c": "#3ddc68" },
+          "palette": { "W": "#ffffff", "w": "#c9d1dc" },
           "pixels": [
-            "cc"
+            "W....",
+            "WW...",
+            "WWW..",
+            "WWWW.",
+            "WWWWw",
+            "WWw..",
+            "W.Ww.",
+            "...w."
           ]
         }
       ],
@@ -119,19 +136,45 @@
       "motion": "float",
       "count": 6,
       "speed": 0.7,
+      "ink": true,
+      "fps": 6,
       "sprites": [
         {
-          "palette": { "k": "#1b1b1f", "K": "#c1121f" },
+          "palette": { "k": "#1b1b1f", "R": "#e63946", "H": "#ff8a8a" },
           "pixels": [
-            "kKk",
-            "kKk"
+            ".k.k.",
+            "..k..",
+            ".HkR.",
+            "kRkRk",
+            ".RkR."
+          ],
+          "frames": [
+            [
+              "k...k",
+              "..k..",
+              "kHkRk",
+              ".RkR.",
+              "kRkRk"
+            ]
           ]
         },
         {
-          "palette": { "k": "#1b1b1f", "K": "#8d99ae" },
+          "palette": { "k": "#1b1b1f", "R": "#8d99ae", "H": "#c5ced9" },
           "pixels": [
-            "K.K",
-            ".k."
+            ".k.k.",
+            "..k..",
+            ".HkR.",
+            "kRkRk",
+            ".RkR."
+          ],
+          "frames": [
+            [
+              "k...k",
+              "..k..",
+              "kHkRk",
+              ".RkR.",
+              "kRkRk"
+            ]
           ]
         }
       ]

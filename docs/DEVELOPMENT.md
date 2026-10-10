@@ -226,7 +226,9 @@ the work is in drawing fewer frames, not cheaper ones:
   ~2 points while they play, so on the crab's window they come in flights
   (effects.js `FLIGHT`: 8 s every 3 min, fading in and out) and the particles
   are removed in between. Previews (the wardrobe, the OBS overlay) play them
-  all the time. They stop with everything else when he's covered, the screen
+  all the time. A particle's path is held in whole art pixels for whole ticks
+  of the 12 fps clock (step-eased Web Animations, effects.js `plan`), so the
+  frame clock only presents a frame when one of them actually moves. They stop with everything else when he's covered, the screen
   is locked, or nobody is at the desk.
 - **The window in front** is read once for the game and cover checks
   (front-poll.js): its exe is kept while it stays in front, and the poll goes
