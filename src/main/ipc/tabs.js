@@ -7,6 +7,7 @@ const { effectiveAfter } = require('../step-undo');
 const ctx = require('../context');
 const editor = require('../editor');
 const quiz = require('../quiz');
+const problems = require('../problems');
 const { run: runCli, skipSettings } = require('../claude/cli');
 
 // The most queued messages that go in at once, and files across all of them (as one task:send).
@@ -168,7 +169,34 @@ function registerTabsIpc(ipcMain, d) {
   // ---- what a turn changed
   ipcMain.handle('changes:diff', (_e, raw) => {
     const ref = d.changeRef(raw);
-    return ref ? changes.patchFor(ref) : { error: "That isn't a change from this conversation." };
+    if (!ref) return { error: "That isn't a change from this conversation." };
+    // Once part of a file has been taken back, its diff shows what's left.
+    const items = ref.file ? d.history.load(ref.tabId) : [];
+    const partly = items.some(i => i?.kind === 'undone-hunk' && i.after === ref.after && i.before === ref.before && i.file === ref.file);
+    return changes.patchFor(partly ? effectiveAfter(items, ref) : ref);
+  });
+  // Take back one hunk of one file: main re-reads the diff and checks the
+  // hunk's header still matches what the panel showed (changes.undoHunk).
+  ipcMain.handle('changes:undo-hunk', async (_e, raw) => {
+    const ref = d.isStr(raw?.file) ? d.changeRef(raw) : null;
+    if (!ref) return { ok: false, error: "That isn't a file from this conversation's changes." };
+    if (ref.retired) return { ok: false, error: 'That copy has been tidied away, and its work is in your checkout now. Undo it there with git.' };
+    if (ref.status && ref.status !== 'M') return { ok: false, error: 'Only a changed file can be taken back a part at a time.' };
+    const tab = d.manager.tabs.get(ref.tabId);
+    if (d.manager.isBusy(ref.tabId)) return { ok: false, error: 'Let him finish first, then undo.' };
+    if (tab?.undoingStep) return { ok: false, error: 'Already undoing.' };
+    const items = d.history.load(ref.tabId);
+    if (items.some(i => i?.kind === 'undone' && i.after === ref.after)) return { ok: false, error: 'That whole turn has been undone already.' };
+    const turnId = items.find(i => i?.kind === 'changes' && i.after === ref.after && i.before === ref.before)?.turnId;
+    if (tab) tab.undoingStep = true;
+    try {
+      const r = await changes.undoHunk(effectiveAfter(items, ref), { hunk: raw.hunk, header: raw.header });
+      if (!r.ok) return r;
+      d.manager.note(ref.tabId, { kind: 'undone-hunk', ...(turnId ? { turnId } : {}), before: ref.before, after: ref.after, file: ref.file, to: r.to });
+      return { ok: true };
+    } finally {
+      if (tab) tab.undoingStep = false;
+    }
   });
   // "Quiz me" on a turn's changes (quiz.js): Claude writes the questions from the
   // diff, and the answers stay here until each one is picked.
@@ -228,6 +256,24 @@ function registerTabsIpc(ipcMain, d) {
     const ref = d.changeRef(raw);
     if (!ref) return { ok: false, error: "That isn't a change from this conversation." };
     return d.runChecksFor(ref);
+  });
+  // ---- Problems: what this conversation's last checks found, file by file (problems.js)
+  const lastChecks = tabId => [...d.history.load(tabId)].reverse().find(i => i?.kind === 'checks') || null;
+  ipcMain.handle('problems:get', (_e, tabId) => {
+    if (!d.isStr(tabId) || !d.manager.tabs.has(tabId)) return { problems: [] };
+    const v = lastChecks(tabId);
+    if (!v) return { problems: [], never: true };
+    return { at: v.at, status: v.status, problems: problems.ofVerdict(v), commands: (v.commands || []).map(c => ({ cmd: c.cmd, ok: !!c.ok })) };
+  });
+  ipcMain.handle('problems:run', (_e, tabId) => (d.isStr(tabId) && d.manager.tabs.has(tabId) ? d.findProblems(tabId) : { ok: false, error: 'That conversation has closed.' }));
+  // The message that asks Claude to fix some of them, written here from what
+  // main noted, never from text the panel sends (at: which checks they're from).
+  ipcMain.handle('problems:fix', (_e, { tabId, at, picked } = {}) => {
+    const v = d.isStr(tabId) && d.manager.tabs.has(tabId) ? lastChecks(tabId) : null;
+    if (!v || v.at !== at) return { error: 'Those checks have been run again since. Have another look.' };
+    const all = problems.ofVerdict(v);
+    const list = Array.isArray(picked) ? [...new Set(picked)].filter(i => Number.isInteger(i) && all[i]).map(i => all[i]) : all;
+    return list.length ? { text: problems.fixPrompt(list) } : { error: 'Nothing to fix there.' };
   });
   // One file of a turn in VS Code's diff (editor.js): both sides come out of git, never a path from here.
   ipcMain.handle('changes:open-editor', async (_e, raw) => {

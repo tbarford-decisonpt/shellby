@@ -353,6 +353,8 @@
   // (settings-account.js and the rest register here, in load order).
   const opening = [];
   SB.onSettingsOpen = fn => { opening.push(fn); };
+  // Ctrl+/ is the list, and where each shortcut gets your own keys (nav.js).
+  $('panelKeysBtn').addEventListener('click', () => SB.openShortcuts({ edit: true }));
 
   SB.views.settings = {
     render: () => {

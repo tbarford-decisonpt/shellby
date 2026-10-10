@@ -14,6 +14,7 @@ const path = require('path');
 const fileIndex = require('./fileindex');
 const shellCmd = require('./shellcmd');
 const rewind = require('./rewind');
+const { outline } = require('./outline');
 const exporter = require('./exporter');
 const claudeSetup = require('./claude/setup');
 const mcpAdmin = require('./mcpadmin');
@@ -163,6 +164,12 @@ function register(deps) {
         return { ...p, conversation: plan.conversation, code: live.length, ...rewind.weight(live) };
       }),
     };
+  });
+
+  // The outline (Ctrl+Shift+O): every message and the files its turn touched (outline.js).
+  ipcMain.handle('outline:get', (_e, tabId) => {
+    const tab = tabOf(tabId);
+    return { turns: tab?.saved ? outline(history.load(tab.id)) : [] };
   });
 
   ipcMain.handle('rewind:run', async (_e, { tabId, turnId, conversation = true, code = true } = {}) => {

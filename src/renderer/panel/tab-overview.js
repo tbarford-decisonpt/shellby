@@ -212,7 +212,7 @@
   SB.refreshTabList = () => { if (!list.hidden) renderRows(); };
 
   document.addEventListener('keydown', e => {
-    if (e.defaultPrevented || !e.ctrlKey || !e.shiftKey || e.altKey || e.key.toLowerCase() !== 'a') return;
+    if (e.defaultPrevented || !SB.shortcuts.matches(e, 'tabList')) return;
     e.preventDefault();
     if (list.hidden) SB.openTabList(); else SB.closeMenus();
   });
@@ -226,7 +226,7 @@
     allBtn.hidden = tabs.length < SHOW_LIST_AT;
     $('tabAllCount').textContent = String(tabs.length);
     allBtn.classList.toggle('asking', tabs.some(t => S.standing(t) === 'asking'));
-    allBtn.setAttribute('aria-label', `Every open conversation: ${tabs.length} (Ctrl+Shift+A)`);
+    allBtn.setAttribute('aria-label', `Every open conversation: ${tabs.length} (${SB.shortcuts.primary('tabList')})`);
     paintEdges();            // now, not next frame: a hidden panel gets no frames
     if (!list.hidden) renderRows();
   };

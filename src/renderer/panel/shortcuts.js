@@ -6,12 +6,14 @@
 (function (root) {
   // keys: how each way of pressing it is written, shown as is. Ones that can't
   // be matched as a single press ("Esc Esc", "Ctrl+1…8") are only ever shown;
-  // their handlers live where they always did.
+  // their handlers live where they always did. fixed: can't be changed in the
+  // list (Ctrl+/), because what it does depends on the very key (Esc, Enter, a
+  // typed /, PgUp for left and PgDn for right).
   const SHORTCUTS = [
     { id: 'palette', group: 'Anywhere', keys: ['Ctrl+K', 'Ctrl+Shift+P'], what: 'Jump anywhere, or run an action on this conversation' },
-    { id: 'shortcuts', group: 'Anywhere', keys: ['Ctrl+/', '?'], what: 'This list of shortcuts (? when you’re not typing)' },
-    { id: 'dock', group: 'Anywhere', keys: ['Ctrl+1…8'], what: 'The screens on the bottom bar, in order' },
-    { id: 'back', group: 'Anywhere', keys: ['Esc'], what: 'Close a menu, or go back a screen' },
+    { id: 'shortcuts', fixed: true, group: 'Anywhere', keys: ['Ctrl+/', '?'], what: 'This list of shortcuts (? when you’re not typing)' },
+    { id: 'dock', fixed: true, group: 'Anywhere', keys: ['Ctrl+1…8'], what: 'The screens on the bottom bar, in order' },
+    { id: 'back', fixed: true, group: 'Anywhere', keys: ['Esc'], what: 'Close a menu, or go back a screen' },
     { id: 'zoomIn', group: 'Anywhere', keys: ['Ctrl+=', 'Ctrl++'], what: 'Bigger text in the panel (it stays that way)' },
     { id: 'zoomOut', group: 'Anywhere', keys: ['Ctrl+-'], what: 'Smaller text in the panel' },
     { id: 'zoomReset', group: 'Anywhere', keys: ['Ctrl+0'], what: 'Text back to its usual size' },
@@ -20,37 +22,40 @@
     { id: 'closeTab', group: 'Conversations', keys: ['Ctrl+W'], what: 'Close this conversation (press twice if he’s still working)' },
     { id: 'nextTab', group: 'Conversations', keys: ['Ctrl+Tab', 'Ctrl+PgDn'], what: 'Next conversation' },
     { id: 'prevTab', group: 'Conversations', keys: ['Ctrl+Shift+Tab', 'Ctrl+PgUp'], what: 'Previous conversation' },
-    { id: 'moveTab', group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right' },
+    { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right' },
     { id: 'tabList', group: 'Conversations', keys: ['Ctrl+Shift+A'], what: 'Every open conversation, grouped by what it needs from you' },
-    { id: 'renameTab', group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
+    { id: 'renameTab', fixed: true, group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
     { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'Another conversation alongside this one (or drag a tab into the chat, or out of the window)' },
+    { id: 'reopenTab', group: 'Conversations', keys: ['Ctrl+Shift+T'], what: 'Bring back the conversation you closed last (again for the one before)' },
 
-    { id: 'stop', group: 'This conversation', keys: ['Esc'], what: 'Stop, while he’s working' },
+    { id: 'stop', fixed: true, group: 'This conversation', keys: ['Esc'], what: 'Stop, while he’s working' },
     { id: 'find', group: 'This conversation', keys: ['Ctrl+F'], what: 'Find text in it (Enter and Shift+Enter step through)' },
-    { id: 'rewind', group: 'This conversation', keys: ['Esc Esc'], what: 'Rewind to an earlier message (with the box empty)' },
+    { id: 'rewind', fixed: true, group: 'This conversation', keys: ['Esc Esc'], what: 'Rewind to an earlier message (with the box empty)' },
     { id: 'tryAgain', group: 'This conversation', keys: ['Ctrl+Shift+B'], what: 'Try your last message another way, in a new tab' },
     { id: 'showChanges', group: 'This conversation', keys: ['Ctrl+Shift+D'], what: 'Show what the last turn changed' },
     { id: 'bringHome', group: 'This conversation', keys: ['Ctrl+Shift+H'], what: 'Bring its own copy home (merge it back)' },
-    { id: 'cycleMode', group: 'This conversation', keys: ['Shift+Tab'], what: 'Next permission mode (in the box)' },
+    { id: 'outline', group: 'This conversation', keys: ['Ctrl+Shift+O'], what: 'Outline: every message you sent and the files each turn touched' },
+    { id: 'problems', group: 'This conversation', keys: ['Ctrl+Shift+M'], what: 'Problems: the errors its checks found, file by file, each with Fix it' },
+    { id: 'cycleMode', fixed: true, group: 'This conversation', keys: ['Shift+Tab'], what: 'Next permission mode (in the box)' },
 
-    { id: 'send', group: 'The message box', keys: ['Enter'], what: 'Send, or queue it while he works' },
-    { id: 'newline', group: 'The message box', keys: ['Shift+Enter'], what: 'New line' },
-    { id: 'hold', group: 'The message box', keys: ['Ctrl+Shift+Enter'], what: 'Hold it for after your usage resets' },
-    { id: 'recall', group: 'The message box', keys: ['↑', '↓'], what: 'What you sent before; ↑ in an empty box edits a queued message' },
+    { id: 'send', fixed: true, group: 'The message box', keys: ['Enter'], what: 'Send, or queue it while he works' },
+    { id: 'newline', fixed: true, group: 'The message box', keys: ['Shift+Enter'], what: 'New line' },
+    { id: 'hold', fixed: true, group: 'The message box', keys: ['Ctrl+Shift+Enter'], what: 'Hold it for after your usage resets' },
+    { id: 'recall', fixed: true, group: 'The message box', keys: ['↑', '↓'], what: 'What you sent before; ↑ in an empty box edits a queued message' },
     { id: 'searchSent', group: 'The message box', keys: ['Ctrl+R'], what: 'Search what you’ve sent' },
-    { id: 'slash', group: 'The message box', keys: ['/'], what: 'Skills, commands and your snippets' },
-    { id: 'mention', group: 'The message box', keys: ['@'], what: 'Mention a file' },
-    { id: 'shell', group: 'The message box', keys: ['!'], what: 'Run a shell command yourself' },
-    { id: 'paste', group: 'The message box', keys: ['Ctrl+V'], what: 'Paste a screenshot or copied files' },
+    { id: 'slash', fixed: true, group: 'The message box', keys: ['/'], what: 'Skills, commands and your snippets' },
+    { id: 'mention', fixed: true, group: 'The message box', keys: ['@'], what: 'Mention a file' },
+    { id: 'shell', fixed: true, group: 'The message box', keys: ['!'], what: 'Run a shell command yourself' },
+    { id: 'paste', fixed: true, group: 'The message box', keys: ['Ctrl+V'], what: 'Paste a screenshot or copied files' },
 
-    { id: 'askKeys', group: 'Cards in the chat', keys: ['Y', 'A', 'N'], what: 'Allow, Always allow or Deny a request (outside the box)' },
-    { id: 'questionKeys', group: 'Cards in the chat', keys: ['1…9'], what: 'Pick an answer to his question' },
+    { id: 'askKeys', fixed: true, group: 'Cards in the chat', keys: ['Y', 'A', 'N'], what: 'Allow, Always allow or Deny a request (outside the box)' },
+    { id: 'questionKeys', fixed: true, group: 'Cards in the chat', keys: ['1…9'], what: 'Pick an answer to his question' },
   ];
 
   const GROUPS = [...new Set(SHORTCUTS.map(s => s.group))];
   const byId = new Map(SHORTCUTS.map(s => [s.id, s]));
 
-  const KEY_NAMES = { Esc: 'Escape', PgUp: 'PageUp', PgDn: 'PageDown', '↑': 'ArrowUp', '↓': 'ArrowDown' };
+  const KEY_NAMES = { Esc: 'Escape', PgUp: 'PageUp', PgDn: 'PageDown', '↑': 'ArrowUp', '↓': 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight', Space: ' ' };
   const MODS = new Set(['Ctrl', 'Shift', 'Alt']);
 
   /** "Ctrl+Shift+D" -> { ctrl, shift, alt, key }, or null for one that's only shown. */
@@ -70,11 +75,109 @@
   // doesn't count for it; for letters and named keys it does.
   const isSymbol = key => key.length === 1 && !/[a-z0-9]/i.test(key);
 
+  // ------------------------------------------------------------ your own keys
+  //
+  // Settings keep { id: [combo] } for the ones you changed (main's settings,
+  // so they follow you with Sync); the table's own keys are the rest. Read
+  // through a getter the panel sets once, and checked again only when the
+  // object it hands back is a new one.
+
+  // Keys that mean something already: text editing, the browser, the dock,
+  // and the ones the box and comment boxes handle themselves.
+  const RESERVED = ['Ctrl+Z', 'Ctrl+Y', 'Ctrl+Shift+Z', 'Ctrl+A', 'Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+I', 'Ctrl+Shift+R',
+    'Ctrl+Backspace', 'Ctrl+Delete', 'Ctrl+Enter', 'Ctrl+S', 'Alt+F4', 'Ctrl+Left', 'Ctrl+Right', 'Ctrl+Home', 'Ctrl+End',
+    ...Array.from({ length: 8 }, (_v, i) => `Ctrl+${i + 1}`)];
+  const MAX_WAYS = 2;
+
+  const sig = (c) => `${c.ctrl}|${c.alt}|${isSymbol(c.key) ? '' : c.shift}|${c.key.toLowerCase()}`;
+  const RESERVED_SIGS = new Set(RESERVED.map(k => sig(parse(k))));
+
+  let source = () => null;
+  let seenRaw;
+  let seen = {};
+
+  /** Where the panel keeps your keys: a function that returns the settings' map. */
+  function useOverrides(get) {
+    source = typeof get === 'function' ? get : () => get;
+    seenRaw = undefined;
+  }
+
+  function overrides() {
+    const raw = source();
+    if (raw !== seenRaw) { seenRaw = raw; seen = sanitizeOverrides(raw); }
+    return seen;
+  }
+
+  /** How shortcut `id` is pressed now: your keys if you changed it, else the table's. */
+  const keysOf = id => overrides()[id] || byId.get(id)?.keys || [];
+
+  /** Can it be changed at all? */
+  const changeable = id => { const s = byId.get(id); return !!s && !s.fixed && s.keys.some(k => parse(k)); };
+
+  // Why `combo` can't be one of id's keys, with `ov` as your other changes; null if it can.
+  function whyNot(id, combo, ov) {
+    const c = parse(combo);
+    if (!c) return 'That can’t be pressed as one shortcut.';
+    if (!c.ctrl && !c.alt && !/^F([1-9]|1[0-2])$/.test(c.key)) return 'Use Ctrl or Alt with it, so typing never sets it off.';
+    if (RESERVED_SIGS.has(sig(c))) return `${combo} already means something (copying, undo, the screens on the bar…).`;
+    for (const other of SHORTCUTS) {
+      if (other.id === id) continue;
+      const keys = ov[other.id] || other.keys;
+      if (keys.some(k => { const o = parse(k); return o && sig(o) === sig(c); })) return `${combo} is already “${other.what.split(/[:(,]/)[0].trim()}”.`;
+    }
+    return null;
+  }
+
+  /** Can `combo` be shortcut id's key, with your other changes as they are? -> null | why not */
+  function checkBinding(id, combo, ov = overrides()) {
+    if (!changeable(id)) return 'That one can’t be changed.';
+    return whyNot(id, String(combo || ''), ov);
+  }
+
+  /**
+   * Your saved keys, cleaned: known ids that can change, one or two ways each
+   * that parse, need Ctrl or Alt, aren't taken and don't clash with each
+   * other. Main runs the same over what the panel saves (ipc/settings.js).
+   */
+  function sanitizeOverrides(raw) {
+    const out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    for (const s of SHORTCUTS) {
+      const keys = raw[s.id];
+      if (!changeable(s.id) || !Array.isArray(keys) || !keys.length || keys.length > MAX_WAYS) continue;
+      if (!keys.every(k => typeof k === 'string' && k.length <= 30 && parse(k))) continue;
+      if (new Set(keys.map(k => sig(parse(k)))).size !== keys.length) continue;
+      if (keys.join() === s.keys.join()) continue; // the same as the table's: nothing changed
+      out[s.id] = keys.slice();
+    }
+    // Checked all together, so a key moved off one shortcut is free for
+    // another; where two still clash, the one later in the table gives way.
+    for (let again = true; again;) {
+      again = false;
+      for (const s of [...SHORTCUTS].reverse()) {
+        if (out[s.id] && out[s.id].some(k => whyNot(s.id, k, out))) { delete out[s.id]; again = true; break; }
+      }
+    }
+    return out;
+  }
+
+  const CODE_NAMES = { Escape: 'Esc', PageUp: 'PgUp', PageDown: 'PgDn', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: 'Left', ArrowRight: 'Right', ' ': 'Space' };
+  const LONE = new Set(['Control', 'Shift', 'Alt', 'Meta', 'AltGraph', 'CapsLock', 'Dead', 'Unidentified', 'Process', 'OS']);
+
+  /** A keydown written the table's way ("Ctrl+Shift+O"), or null for a lone modifier. */
+  function comboOf(e) {
+    const k = e?.key;
+    if (!k || LONE.has(k) || e.isComposing) return null;
+    const key = CODE_NAMES[k] || (k.length === 1 ? k.toUpperCase() : k);
+    const mods = [e.ctrlKey && 'Ctrl', e.shiftKey && !isSymbol(k) && 'Shift', e.altKey && 'Alt'].filter(Boolean);
+    return [...mods, key].join('+');
+  }
+
   /** Does this keydown press shortcut `id` (any of its ways)? */
   function matches(e, id) {
     const s = byId.get(id);
     if (!s || !e || e.isComposing) return false;
-    return s.keys.some(combo => {
+    return keysOf(id).some(combo => {
       const c = parse(combo);
       if (!c) return false;
       if (!!e.ctrlKey !== c.ctrl || !!e.altKey !== c.alt || e.metaKey) return false;
@@ -84,12 +187,19 @@
   }
 
   /** Its keys as one line, for a tooltip or the palette: "Ctrl+Tab or Ctrl+PgDn". */
-  const label = id => (byId.get(id)?.keys || []).join(' or ');
+  const label = id => keysOf(id).join(' or ');
   /** The first way of pressing it, for a short hint. */
-  const primary = id => byId.get(id)?.keys[0] || '';
+  const primary = id => keysOf(id)[0] || '';
 
-  /** The table for the cheat sheet: [{ group, items }], in the table's order. */
-  const grouped = () => GROUPS.map(group => ({ group, items: SHORTCUTS.filter(s => s.group === group) }));
+  /**
+   * The table for the cheat sheet: [{ group, items }], in the table's order,
+   * each with the keys it has now, changed: true where they're yours, and
+   * changeable where they can be.
+   */
+  const grouped = () => GROUPS.map(group => ({
+    group,
+    items: SHORTCUTS.filter(s => s.group === group).map(s => ({ ...s, keys: keysOf(s.id), changed: !!overrides()[s.id], changeable: changeable(s.id) })),
+  }));
 
   // ------------------------------------------------------------ palette ranking
 
@@ -164,7 +274,10 @@
     return best && { project: best.project, clone: best.clone };
   }
 
-  const api = { SHORTCUTS, GROUPS, parse, matches, label, primary, grouped, idOf, noteRecent, score, rank, cloneFor, RECENT_MAX };
+  const api = {
+    SHORTCUTS, GROUPS, RESERVED, parse, matches, label, primary, grouped, idOf, noteRecent, score, rank, cloneFor, RECENT_MAX,
+    useOverrides, keysOf, changeable, checkBinding, sanitizeOverrides, comboOf,
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyShortcuts = api;
 })(typeof window !== 'undefined' ? window : globalThis);

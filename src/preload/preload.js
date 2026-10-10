@@ -102,6 +102,7 @@ contextBridge.exposeInMainWorld('shellby', {
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
   askBtw: (tabId, question) => ipcRenderer.invoke('btw:ask', { tabId, question }),
   rewindPoints: invoke('rewind:points'),
+  outline: invoke('outline:get'),             // every message and the files its turn touched (outline.js)
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
   clearTab: invoke('tab:clear'), // /clear: a new conversation in this tab (not clearSessions, which empties History)
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
@@ -128,11 +129,10 @@ contextBridge.exposeInMainWorld('shellby', {
   listStyles: invoke('styles:list'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
-  undoChanges: invoke('changes:undo'),
-  undoToStep: invoke('changes:undo-step'), // Undo to here, on one step of a turn
-  startQuiz: invoke('quiz:start'),                 // three questions on a turn's diff (quiz.js)
-  pickQuiz: invoke('quiz:pick'),                   // { tabId, after, question, choice } -> right or not, and why
+  undoChanges: invoke('changes:undo'), undoToStep: invoke('changes:undo-step'), undoHunk: invoke('changes:undo-hunk'), // a whole turn, back to one of its steps, or one hunk of a file
+  startQuiz: invoke('quiz:start'), pickQuiz: invoke('quiz:pick'), // three questions on a turn's diff; { tabId, after, question, choice } -> right or not (quiz.js)
   runChecks: invoke('checks:run'),                 // the project's tests on a turn's diff (checks.js)
+  problems: invoke('problems:get'), findProblems: invoke('problems:run'), fixProblems: invoke('problems:fix'), // problems.js
   onChecksRunning: on('checks:running'),           // { tabId, after, running, commands? }
   openInEditor: invoke('changes:open-editor'),     // one file of a turn in VS Code's diff (editor.js)
   shotImage: invoke('shots:image'),                // a before/after picture, as a data URL (shots.js)

@@ -67,13 +67,15 @@
       removed ? h('b', { class: 'del', text: `−${removed}` }) : null);
   };
 
-  // Red and green rows. Numbers only when we know where the edit sits (`line`).
-  SB.diffView = (edits, { line = null } = {}) => {
+  // Red and green rows. Numbers only when we know where the edit sits (`line`);
+  // colours when the file's name says what language it's in (code.js).
+  SB.diffView = (edits, { line = null, file = null } = {}) => {
     const box = h('div', { class: `ediff${line ? '' : ' no-nums'}`, role: 'group', 'aria-label': 'Changes' });
     let shown = 0;
     let left = 0;
     edits.forEach((e, i) => {
       const rows = D.rows(e, { line: i === 0 ? line : null });
+      const paint = file ? SB.diffPainter?.(file) : null; // each edit is its own run of the file
       if (i && shown < MAX_DIFF_ROWS) box.append(h('div', { class: 'er fold', text: '⋯' }));
       for (const r of rows) {
         if (shown >= MAX_DIFF_ROWS) { left++; continue; }
@@ -83,7 +85,7 @@
           h('span', { class: 'en', 'aria-hidden': 'true', text: r.a ?? '' }),
           h('span', { class: 'en', 'aria-hidden': 'true', text: r.b ?? '' }),
           h('span', { class: 'eg', text: r.t === ' ' ? ' ' : r.t === '-' ? '−' : '+' }),
-          h('span', { class: 'et', text: r.s || ' ' })));
+          paint && r.s ? SB.paintTokens(h('span', { class: 'et' }), paint(r.t === '+' ? 'add' : r.t === '-' ? 'del' : 'ctx', r.s)) : h('span', { class: 'et', text: r.s || ' ' })));
       }
     });
     if (left) box.append(h('div', { class: 'er fold', text: `… ${left} more line${left === 1 ? '' : 's'}` }));

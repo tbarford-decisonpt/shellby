@@ -37,7 +37,7 @@
                 SB.fileLink(item.filePath, { line: item.line, text: SB.relPath(item.filePath, this.cwd) }),
                 item.line ? h('span', { class: 'ask-line', text: `line ${item.line}` }) : null,
                 SB.diffStats(edits)),
-              SB.diffView(edits, { line: item.line }),
+              SB.diffView(edits, { line: item.line, file: item.filePath }),
               item.description ? h('p', { class: 'ask-desc', text: item.description }) : null)
           : h('div', { class: 'ask-body' },
             h('code', { class: 'ask-cmd', text: item.detail || item.toolName }),

@@ -25,6 +25,8 @@ const SB = window.SB = {
   },
 };
 if (SB.solo) document.body.classList.add('solo');
+// The shortcuts you changed (Ctrl+/ → Change): every handler that asks shortcuts.js gets them.
+SB.shortcuts?.useOverrides(() => SB.state.settings.keybindings);
 
 SB.$ = id => document.getElementById(id);
 
@@ -325,6 +327,7 @@ SB.helperSprite = index => {
 
 SB.renderMarkdownInto = (el, text) => {
   el.innerHTML = SB.md.render(text); // md escapes all input first; see shared/markdown.js
+  SB.enhanceCode?.(el);               // colours, Copy, Mermaid (code.js): spans and SVG made with textContent
   return el;
 };
 

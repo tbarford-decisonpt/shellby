@@ -21,6 +21,7 @@ const { CMD, TASKKILL } = require('./system32');
 const scripts = require('./devservers/scripts');
 const { hasTests } = require('./depwatch');
 const flaky = require('./flaky');
+const problems = require('./problems');
 
 const DEFAULT_TIMEOUT_MIN = 5;
 const TIMEOUTS_MIN = Object.freeze([2, 5, 10, 20]);
@@ -37,6 +38,9 @@ const FIXED = Object.freeze({
   cargo: 'cargo test',
   go: 'go test ./...',
   pytest: 'python -m pytest -q',
+  // "Look for problems" (problems.js): the quick checks that say where, not the tests.
+  cargoCheck: 'cargo check --message-format short',
+  goVet: 'go vet ./...',
 });
 // A Python project's own virtualenv, where its pytest lives: these paths
 // (relative to the folder, fixed here), first one that exists wins. bin\ is
@@ -74,6 +78,26 @@ function pickFromPackage(pkgText, files = []) {
   const second = ['typecheck', 'type-check', 'check-types', 'tsc'].find(has) || (has('build') ? 'build' : null);
   if (second) out.push(scripts.commandFor(manager, second));
   return out.filter(isSafeCommand);
+}
+
+/**
+ * The commands that find problems rather than run tests, for the Problems
+ * list: package.json's lint script and its typecheck, cargo check or go vet.
+ * [] when there are none (the tests are what's left). Pure.
+ */
+function pickProblemCommands({ pkgText = null, files = [] } = {}) {
+  const names = new Set(files);
+  const pkg = pkgText != null ? parseJson(pkgText) : null;
+  const raw = pkg?.scripts && typeof pkg.scripts === 'object' && !Array.isArray(pkg.scripts) ? pkg.scripts : null;
+  if (raw) {
+    const manager = scripts.managerOf(names);
+    const has = name => typeof raw[name] === 'string' && raw[name].trim() && scripts.SCRIPT_RE.test(name);
+    const out = ['lint', ['typecheck', 'type-check', 'check-types', 'tsc'].find(has)].filter(n => n && has(n)).map(n => scripts.commandFor(manager, n));
+    if (out.length) return out.filter(isSafeCommand);
+  }
+  if (names.has('Cargo.toml')) return [FIXED.cargoCheck];
+  if (names.has('go.mod')) return [FIXED.goVet];
+  return [];
 }
 
 /** pyproject.toml / setup.cfg text says pytest is set up here. Pure. */
@@ -127,6 +151,16 @@ function detect(dir) {
   } catch { return []; }
 }
 
+/** A folder -> the commands that find its problems, else its checks. Never throws. */
+function detectProblems(dir) {
+  try {
+    if (typeof dir !== 'string' || !path.isAbsolute(dir)) return [];
+    const files = fs.readdirSync(dir);
+    const found = pickProblemCommands({ pkgText: files.includes('package.json') ? readSmall(path.join(dir, 'package.json')) : null, files });
+    return found.length ? found : detect(dir);
+  } catch { return []; }
+}
+
 /** The last few lines of a command's output, colour codes out. Pure. */
 function tailOf(output, n = TAIL_LINES) {
   const lines = String(output || '').replace(ANSI_RE, '').replace(/\r\n?/g, '\n').split('\n').map(l => l.trimEnd());
@@ -138,19 +172,22 @@ function tailOf(output, n = TAIL_LINES) {
 const missingPytest = (cmd, output) => (cmd === FIXED.pytest || VENV_PYTEST.includes(cmd)) && NO_PYTEST_RE.test(String(output || ''));
 
 /**
- * One finished command -> { cmd, ok, durationMs, failed, tail, timedOut?, error?, needsEnv? }. Pure.
+ * One finished command -> { cmd, ok, durationMs, failed, tail, problems?, timedOut?, error?, needsEnv? }. Pure.
  * The exit code is the truth (it's our own run, nothing masks it); the output
  * is only read for which tests failed (flaky.js knows the runners' formats).
  * pytest missing from the python that ran it isn't a failing test: that's an
  * error (needsEnv), and it doesn't hold up bringing a copy home.
  */
-function commandVerdict({ cmd, exitCode = null, timedOut = false, error = null, output = '', durationMs = 0 }) {
+function commandVerdict({ cmd, exitCode = null, timedOut = false, error = null, output = '', durationMs = 0, cwd = null }) {
   const ok = !timedOut && !error && exitCode === 0;
   const needsEnv = !ok && !timedOut && !error && missingPytest(cmd, output);
   if (needsEnv) error = "pytest isn't installed for this python: it needs its virtualenv.";
   const failed = ok ? [] : flaky.parse(output, cmd).failed.slice(0, MAX_FAILED_SHOWN);
+  // Where it went wrong, file by file, for the Problems list (problems.js).
+  const found = problems.parse(output, { cwd });
   return {
     cmd, ok, durationMs: Math.max(0, Math.round(durationMs) || 0), failed, tail: tailOf(output),
+    ...(found.length ? { problems: found } : {}),
     ...(timedOut ? { timedOut: true } : {}), ...(error ? { error: String(error).slice(0, 200) } : {}),
     ...(needsEnv ? { needsEnv: true } : {}),
   };
@@ -167,8 +204,8 @@ function statusOf(commands) {
  * The item noted into the tab. after: the turn's tree it stamps; tree: the
  * folder as the checks found it (not the same when it moved on since). Pure.
  */
-function buildVerdict(results, { after, root, tree = null, at = Date.now() } = {}) {
-  const commands = (results || []).map(commandVerdict);
+function buildVerdict(results, { after, root, tree = null, at = Date.now(), cwd = null } = {}) {
+  const commands = (results || []).map(r => commandVerdict({ cwd, ...r }));
   return {
     kind: 'checks', after, root, tree, at,
     status: commands.length ? statusOf(commands) : 'error',
@@ -347,7 +384,7 @@ const timeoutMs = minutes => (TIMEOUTS_MIN.includes(minutes) ? minutes : DEFAULT
 
 module.exports = {
   DEFAULT_TIMEOUT_MIN, TIMEOUTS_MIN, STATUSES, FIXED, VENV_PYTHONS, TAIL_LINES,
-  isSafeCommand, pickFromPackage, pickCommands, usesPytest, detect,
+  isSafeCommand, pickFromPackage, pickCommands, usesPytest, detect, detectProblems, pickProblemCommands,
   tailOf, commandVerdict, statusOf, buildVerdict, failingOf, homeGate, gatePasses, redHeadline, fixPrompt,
   projectKey, trustOf, withTrust, checkEnv, runCommand, runAll, timeoutMs,
 };

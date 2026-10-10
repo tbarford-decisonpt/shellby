@@ -78,7 +78,7 @@
       clash ? h('span', { class: 'tab-clash', 'aria-hidden': 'true', text: '⚠' }) : null,
       clash ? h('span', { class: 'sr-only', text: `. ${clash}` }) : null),
       // Only the open tab's × is a Tab stop; Ctrl+W closes any of them.
-      h('button', { class: 'tab-x', type: 'button', tabindex: active ? null : '-1', 'aria-label': `Close ${t.title}`, title: 'Close (Ctrl+W)', onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
+      h('button', { class: 'tab-x', type: 'button', tabindex: active ? null : '-1', 'aria-label': `Close ${t.title}`, title: `Close (${SB.shortcuts.primary('closeTab')})`, onclick: e => { e.stopPropagation(); SB.closeTab(t.id); } }, '×'),
       t.context ? h('span', { class: `tab-ctx ${contextLevel(t.context)}`, 'aria-hidden': 'true', style: `--fill: ${t.context.pct / 100}` }) : null);
       return btn;
     }));
@@ -144,7 +144,7 @@
       handoffItem(tabId),
       safeItem(tabId),
       h('button', { class: 'menu-item', role: 'menuitem', onclick: () => { SB.closeMenus(); SB.closeTab(tabId); } },
-        h('span', { class: 'mi-check', text: '×' }), h('span', { class: 'mi-title', text: 'Close  (Ctrl+W)' })),
+        h('span', { class: 'mi-check', text: '×' }), h('span', { class: 'mi-title', text: `Close  (${SB.shortcuts.primary('closeTab')})` })),
     ].filter(Boolean));
   }
 

@@ -23,7 +23,7 @@
     }
     menu.hidden = false;
     const head = pick.mode === 'history'
-      ? h('div', { class: 'pick-head', text: `Search what you've sent${pick.query ? `: "${pick.query}"` : ''} · Enter to use · Ctrl+R for older` })
+      ? h('div', { class: 'pick-head', text: `Search what you've sent${pick.query ? `: "${pick.query}"` : ''} · Enter to use · ${SB.shortcuts.primary('searchSent')} for older` })
       : null;
     menu.replaceChildren(...[head, ...pick.items.map((it, i) => h('button', {
       type: 'button', role: 'option', class: `slash-item pick-item${it.ctx ? ' pick-ctx' : ''}${i === pick.index ? ' on' : ''}`, 'aria-selected': String(i === pick.index),
@@ -66,7 +66,7 @@
   }
 
   SB.pickKeydown = (e) => {
-    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'r') {
+    if (SB.shortcuts.matches(e, 'searchSent')) {
       e.preventDefault();
       if (pick.mode === 'history') { if (pick.items.length) { pick.index = (pick.index + 1) % pick.items.length; renderPick(); } return true; }
       openHistorySearch();
