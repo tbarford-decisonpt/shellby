@@ -114,6 +114,8 @@ class GitHubService extends EventEmitter {
       const features = { ...this.state.features };
       for (const f of FEATURES) if (f !== 'profile' && this.auth.features[f] === true) features[f] = true;
       this.save({ features });
+    } else if (this.config.get('github') != null) {
+      this.keepFeatures(); // a sign-in from before they were kept beside it
     }
     if (!this.state.login) this.refreshProfile().catch(() => { /* offline: the next boot tries again */ });
   }

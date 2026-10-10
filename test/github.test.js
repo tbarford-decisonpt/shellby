@@ -363,6 +363,15 @@ test('service: signed in with nobody in Settings fetches the account again; feat
   } finally { await mock.close(); }
 });
 
+test('service: a sign-in from before features were kept beside it gets them at boot', () => {
+  const store = new TokenStore(path.join(tmp(), 'gh.bin'), fakeCrypto);
+  store.save({ token: 'gho_mocktoken123', scopes: ['gist', 'read:user'] });
+  const svc = new GitHubService({ config: new MemConfig({ github: { login: 'crabfan', features: { sync: true, history: true } } }), store, api: 'https://api.invalid' });
+  svc.restore();
+  assert.deepEqual(store.load().features, { sync: true, history: true });
+  svc.stop();
+});
+
 test('the token file written earlier, without features, still loads', () => {
   const file = path.join(tmp(), 'github.bin');
   fs.writeFileSync(file, fakeCrypto.encryptString(JSON.stringify({ token: 'gho_old', scopes: ['gist'] })));
