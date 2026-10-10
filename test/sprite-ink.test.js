@@ -133,3 +133,22 @@ test('a lone grid is lined only when asked', () => {
   assert.equal(pixelsOf(inked).size, 5);
   assert.equal(inked.attrs.viewBox, '-1 -1 3 3');
 });
+
+test('his stalks run on behind his body, so lifting his eyes a pixel never shows a gap', () => {
+  const skin = require('../src/skins/classic.json');
+  const svg = withDocument(() => build(skin));
+  const stalks = groupOf(svg, 'part-stalks');
+  const roots = stalks.children.filter(c => c.attrs.class === 'stalk-root');
+  const tops = new Set();
+  skin.pixels.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (skin.parts[ch] === 'stalks' && skin.parts[(skin.pixels[y + 1] || '')[x]] === 'body') tops.add(`${x},${y + 1}`);
+  }));
+  assert.ok(tops.size > 0, 'the classic crab\'s stalks stand on his body');
+  assert.deepEqual(new Set(roots.map(r => `${r.attrs.x},${r.attrs.y}`)), tops, 'a root under each stalk');
+  for (const r of roots) {
+    for (let i = 0; i < Number(r.attrs.height); i++) {
+      assert.equal(skin.parts[skin.pixels[Number(r.attrs.y) + i][Number(r.attrs.x)]], 'body', 'only ever behind his body');
+    }
+  }
+  assert.ok(svg.children.indexOf(stalks) < svg.children.indexOf(groupOf(svg, 'part-body')), 'drawn under the body');
+});
