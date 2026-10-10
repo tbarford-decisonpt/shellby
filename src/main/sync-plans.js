@@ -8,12 +8,17 @@
 // with a key only this PC has). One that arrives from another PC comes in
 // switched off, so a routine you run on one PC doesn't start running twice,
 // and a risky workflow still has to be approved here before it acts unasked.
+// A routine edited on another PC is switched off here too, so a prompt you
+// haven't seen never runs on its own (a workflow's approval covers that). A
+// webhook's token never travels: it's a secret, and one planted in the gist
+// would let anyone who knows it start the workflow. Each PC keeps its own.
 //
 // The gist is untrusted input: every item is checked again by the same rules
 // as one you save, and nothing in Autonomous mode comes across (switching to
 // it has to be confirmed on each PC, as with the mode in sync-prefs.js).
 // Pure. See test/sync-plans.test.js.
 const { validateRoutine } = require('./routines');
+const crypto = require('crypto');
 const { validateWorkflow } = require('./workflows/schema');
 
 const MAX_ITEMS = 100;
@@ -32,6 +37,8 @@ const KINDS = Object.freeze({
     },
     local: r => ({ enabled: r.enabled === true, lastRunAt: r.lastRunAt ?? null, lastStatus: r.lastStatus ?? null }),
     fresh: () => ({ enabled: false, lastRunAt: null, lastStatus: null }),
+    edited: () => ({ enabled: false }),
+    fill: item => item,
   },
   workflows: {
     share(raw) {
@@ -40,10 +47,16 @@ const KINDS = Object.freeze({
       const r = validateWorkflow({ ...raw, enabled: false }, { allowAutonomous: false, now });
       if (!r.ok) return null;
       const { enabled: _e, needsApproval: _n, ...rest } = r.workflow;
-      return rest;
+      return { ...rest, when: rest.when.map(t => (t.type === 'webhook' ? { type: 'webhook' } : t)) };
     },
     local: w => ({ enabled: w.enabled === true }),
     fresh: () => ({ enabled: false }),
+    edited: () => ({}),
+    // This PC's webhook tokens, in order; a new webhook gets a new one.
+    fill(item, was) {
+      const mine = (Array.isArray(was?.when) ? was.when : []).filter(t => t?.type === 'webhook' && typeof t.token === 'string').map(t => t.token);
+      return { ...item, when: item.when.map(t => (t.type === 'webhook' ? { type: 'webhook', token: mine.shift() || crypto.randomBytes(24).toString('hex') } : t)) };
+    },
   },
 });
 const KEYS = Object.freeze(Object.keys(KINDS));
@@ -133,12 +146,13 @@ function apply(data, merged) {
     const next = [
       ...m[k].v.filter(item => !keptIds.has(item.id)).map(item => {
         const was = mine.get(item.id);
-        return { ...item, ...(was ? KINDS[k].local(was) : KINDS[k].fresh()) };
+        const state = !was ? KINDS[k].fresh() : { ...KINDS[k].local(was), ...(same(KINDS[k].share(was), item) ? {} : KINDS[k].edited()) };
+        return KINDS[k].fill({ ...item, ...state }, was);
       }),
       ...kept,
     ];
     // Compared in the same shape, so key order alone never counts as a change.
-    const before = [...[...mine.values()].map(raw => ({ ...KINDS[k].share(raw), ...KINDS[k].local(raw) })), ...kept];
+    const before = [...[...mine.values()].map(raw => KINDS[k].fill({ ...KINDS[k].share(raw), ...KINDS[k].local(raw) }, raw)), ...kept];
     if (!same(next, before)) values[k] = next;
   }
   return { values, stamps };

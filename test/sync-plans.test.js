@@ -18,13 +18,27 @@ test('an item from another PC arrives switched off, with none of its run state',
   assert.strictEqual(values.workflows[0].enabled, false);
 });
 
-test('an edit made later wins, and this PC keeps it switched on', () => {
+test('an edit made later wins, and switches the routine off here', () => {
   const local = { routines: [routine()] };
   const localSnap = plans.snapshot(local, { routines: { items: { r1: 10 } } });
   const remote = plans.snapshot({ routines: [routine({ prompt: 'Tidy Desktop too', enabled: false })] }, { routines: { items: { r1: 20 } } });
   const { values } = plans.apply(local, plans.merge(localSnap, remote));
   assert.strictEqual(values.routines[0].prompt, 'Tidy Desktop too');
-  assert.strictEqual(values.routines[0].enabled, true);
+  assert.strictEqual(values.routines[0].enabled, false);
+});
+
+test("a webhook's token never goes to the gist, and each PC keeps its own", () => {
+  const mine = 'a'.repeat(48), theirs = 'b'.repeat(48);
+  const hook = token => workflow({ when: [{ type: 'webhook', token }] });
+  assert.ok(!JSON.stringify(plans.snapshot({ workflows: [hook(mine)] }, {})).includes(mine));
+  const local = { workflows: [hook(mine)] };
+  const remote = plans.snapshot({ workflows: [{ ...hook(theirs), steps: [{ type: 'tell', text: 'changed' }] }] }, { workflows: { items: { w1: 99 } } });
+  const { values } = plans.apply(local, plans.merge(plans.snapshot(local, {}), remote));
+  assert.strictEqual(values.workflows[0].when[0].token, mine);
+  assert.strictEqual(values.workflows[0].enabled, true);
+  const fresh = plans.apply({}, remote).values.workflows[0].when[0].token;
+  assert.match(fresh, /^[a-f0-9]{48}$/);
+  assert.notStrictEqual(fresh, theirs);
 });
 
 test('a delete made later removes it; an older one does not', () => {
