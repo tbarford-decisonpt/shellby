@@ -44,6 +44,7 @@ function registerTabsIpc(ipcMain, d) {
     d.queueWaits.get(tabId)?.({ ok: false, interrupted: true, closed: true });
     d.queueWaits.delete(tabId);
     d.workflows?.onTabClosed(tabId);
+    d.debugMode?.tabClosed(tabId); // its debug receiver stops listening
     d.remote?.settleTab(tabId);
     return true;
   });

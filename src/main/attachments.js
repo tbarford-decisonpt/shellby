@@ -10,6 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const mentionContext = require('./mention-context');
 
 const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' };
 const MAX_EDGE = 2000;                    // a 4K snip is shrunk to this; Claude scales big ones down anyway
@@ -96,23 +97,33 @@ function loadForClaude(file, { nativeImage, readFile = fs.readFileSync, statSize
  * The message content for a task: the plain prompt when nothing could go inline,
  * otherwise the pictures first (what the API recommends) and then the text.
  * `load(file)` is loadForClaude bound to Electron (injected for tests).
+ * `readContext(file)` is an @ context pick's block, or null for any other file
+ * (wiring/mention-context.js): those go in the text, not the list.
  */
-function composeContent(text, files, load) {
+function composeContent(text, files, load, readContext = () => null) {
   const shown = new Set();
   const blocks = [];
+  const context = [];
+  const listed = [];
   for (const f of files) {
+    const said = readContext(f);
+    if (said) context.push(said);
+    else listed.push(f);
+  }
+  for (const f of listed) {
     if (blocks.length >= MAX_INLINE_IMAGES || !imageType(f)) continue;
     const img = load(f);
     if (!img) continue;
     shown.add(f);
     blocks.push({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } });
   }
-  const allPictures = files.length > 0 && shown.size === files.length;
-  let prompt = text || (allPictures ? `Take a look at the attached ${files.length === 1 ? 'screenshot' : 'screenshots'}.` : 'Take a look at the attached files.');
-  if (files.length) {
-    const list = files.map(f => `- ${f}${shown.has(f) ? ' (picture, shown above)' : ''}`).join('\n');
+  const allPictures = listed.length > 0 && shown.size === listed.length;
+  let prompt = text || (!listed.length ? 'Take a look at what I attached from Shellby.' : allPictures ? `Take a look at the attached ${listed.length === 1 ? 'screenshot' : 'screenshots'}.` : 'Take a look at the attached files.');
+  if (listed.length) {
+    const list = listed.map(f => `- ${f}${shown.has(f) ? ' (picture, shown above)' : ''}`).join('\n');
     prompt += `\n\nAttached files (given to Shellby):\n${list}`;
   }
+  prompt = mentionContext.withBlocks(prompt, context);
   return blocks.length ? [...blocks, { type: 'text', text: prompt }] : prompt;
 }
 

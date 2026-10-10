@@ -97,7 +97,7 @@ contextBridge.exposeInMainWorld('shellby', {
   freshTab: invoke('tab:fresh'),
   tabCost: invoke('tab:cost'),
   // the terminal's conveniences (parity.js)
-  suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
+  suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }), context: { suggest: (tabId, query) => ipcRenderer.invoke('context:suggest', { tabId, query }), attach: (tabId, id) => ipcRenderer.invoke('context:attach', { tabId, id }) }, // @ files, and a dev server, red build, chat or note (wiring/mention-context.js)
   promptHistory: invoke('prompt:history'),
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
   askBtw: (tabId, question) => ipcRenderer.invoke('btw:ask', { tabId, question }),
@@ -113,8 +113,8 @@ contextBridge.exposeInMainWorld('shellby', {
   keepBranch: invoke('branch:keep'),
   // Try it N ways (wiring/tries.js): main always asks, with the cost, before any start
   startTries: (/** @type {string} */ tabId, /** @type {{ n?: number, text?: string, arg?: string, attachments?: string[] }} */ { n, text, arg, attachments } = {}) => ipcRenderer.invoke('tries:start', { tabId, n, text, arg, attachments }),
-  stopTries: invoke('tries:stop'),
-  triesStatus: invoke('tries:status'),
+  stopTries: invoke('tries:stop'), triesStatus: invoke('tries:status'),
+  debug: { start: (tabId, bug) => ipcRenderer.invoke('debug:start', { tabId, bug }), act: (id, what) => ipcRenderer.invoke('debug:act', { id, what }), status: invoke('debug:status'), onLines: on('debug:lines') }, // /debug (wiring/debug-mode.js)
   onTriesDone: on('tries:done'),                   // { runId, firstId, text }
   // learning from corrections: review comments in, the rule card's buttons, Toolbox → Memory (corrections.js)
   noteReviewComments: (tabId, comments, batch) => ipcRenderer.invoke('corrections:comments', { tabId, comments, batch }),

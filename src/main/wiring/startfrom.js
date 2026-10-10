@@ -162,6 +162,21 @@ function wireStartFrom(d) {
     return res;
   }
 
+  /**
+   * Just a red build's log, for an @ mention (wiring/mention-context.js): the
+   * same fetch and trim as Fix this build, without its prompt.
+   * -> { ok, job, lines, why } | { ok: false, error }
+   */
+  async function ciLog(key) {
+    const pr = knownPr(key);
+    if (!pr) return { ok: false, error: 'Shellby isn\'t watching that pull request any more.' };
+    if (onGitLab(pr) ? !d.gitlabOn?.() : !d.github?.signedIn) return { ok: false, error: onGitLab(pr) ? 'Turn on GitLab in Settings → GitLab first.' : 'Sign in with GitHub first (Settings → GitHub).' };
+    const m = await material('build', pr, false);
+    if (m.error) return { ok: false, error: m.error };
+    const log = m.log ? startfrom.trimLog(m.log, { format: onGitLab(pr) ? 'gitlab' : 'github' }) : null;
+    return { ok: true, job: m.job, lines: log?.lines || [], why: log?.lines.length ? '' : m.why || 'it was empty' };
+  }
+
   // ---- loose ends
 
   const rootOk = root => typeof root === 'string' && path.isAbsolute(root) && !!d.projects?.knowsRoot(root) && fs.existsSync(root);
@@ -222,7 +237,7 @@ function wireStartFrom(d) {
     d.send(d.panel, 'startfrom:open', { kind: kind === 'review' ? 'review' : 'build', key });
   }
 
-  return { startFromDraft: draft, startFromSend: send, looseEnds, looseEndDraft, showBuildFix };
+  return { startFromDraft: draft, startFromSend: send, ciLog, looseEnds, looseEndDraft, showBuildFix };
 }
 
 module.exports = { wireStartFrom };

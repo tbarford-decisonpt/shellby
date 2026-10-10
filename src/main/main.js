@@ -53,6 +53,8 @@ const { wireUsagePlan } = require('./wiring/usageplan');
 const { wireChecks } = require('./wiring/checks');
 const { wireLanes } = require('./wiring/lanes');
 const { wireTries } = require('./wiring/tries');
+const { wireMentionContext } = require('./wiring/mention-context');
+const { wireDebugMode } = require('./wiring/debug-mode');
 const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
@@ -337,6 +339,8 @@ share({ usagePlan: wireUsagePlan(shared) });
 share(wireChecks(shared));
 share(wireLanes(shared)); // the board of every conversation, lining copies up, one answer for many prompts
 share({ tries: wireTries(shared) }); // Try it N ways: only ever from tries:start, after asking
+share({ mentionContext: wireMentionContext(shared) }); // @ a dev server, a red build, a chat or a note
+share({ debugMode: wireDebugMode(shared) }); // /debug: hypotheses, logging, you reproduce it, a fix from the evidence
 share(wireShots(shared));
 const { createCorrections } = share(wireCorrections(shared));
 share({ handoff: wireHandoff(shared) });
