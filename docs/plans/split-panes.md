@@ -121,7 +121,8 @@ it, and supporting it would mean a different model.
   conversation.
 - **Closing.** A tab's × closes that conversation, as now; closing a pane's
   last tab closes the pane. The pane's own × closes the pane and moves its
-  tabs into the pane beside it, so no conversation is closed by accident.
+  tabs into the pane beside it (above it, else below, else level with it to
+  the left, else to the right), so no conversation is closed by accident.
 - **Clicking a tab** in an unfocused pane shows it there and focuses the
   pane.
 - **A pop-out** leaves its pane. When it comes back, it joins the focused
@@ -269,8 +270,8 @@ Details:
   grows to it, clamps to the work area, and does nothing when it already fits.
 - **Unit, IPC, `test/ipc-panes.test.js`**: `panes:layout` cleans bad shapes
   and refuses pop-out senders.
-- **e2e, `scripts/e2e-panes.js`**: it isn't run by CI today (its first line has
-  no `// ci:` mark). It gets one, and:
+- **e2e, `scripts/e2e-panes.js`**: run by CI (its first line has a `// ci:`
+  mark), and:
   - the 2×2 assertions change (a 2×2 still offers left and right);
   - a 4×1 strip by Ctrl+\\, with the panel grown to fit;
   - dragging a divider changes the sizes, and double-clicking evens them;

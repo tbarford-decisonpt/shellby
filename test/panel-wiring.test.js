@@ -70,7 +70,7 @@ test('put back inside the work area when it was moved half off screen', () => {
   assert.equal(back.y, WA.height - from.height - ROOMY.gap);
 });
 
-// ---- room for more panes (tab-panes.js asks over panel:fit)
+// ---- room for more panes (pane-room.js asks over panel:fit)
 
 test('grown to a wanted size for the panes, toward the middle of the screen', () => {
   const b = { x: 1400, y: 300, width: 460, height: 700 };

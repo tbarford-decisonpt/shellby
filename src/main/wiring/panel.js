@@ -119,7 +119,7 @@ function wirePanel(d) {
     return { ok: true, roomy: true };
   }
 
-  // Room for more panes (tab-panes.js): the panel grows toward the middle of
+  // Room for more panes (pane-room.js): the panel grows toward the middle of
   // its screen until they fit, and stays that size. Never smaller, never while
   // maximized, and not remembered as your size. want: the window's size in DIP
   // (the renderer has already scaled by its zoom). It's the panes' size now, so
