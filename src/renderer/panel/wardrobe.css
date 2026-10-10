@@ -116,7 +116,11 @@ body[data-view="trophies"] .view-trophies { display: block; overflow-y: auto; pa
   content: ''; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
   border: 4px solid transparent; border-top-color: var(--sand); border-bottom: 0;
 }
-.wd-tile .wd-art:has(.wd-bubble) { width: 100%; overflow: visible; }
+/* A long line wraps to three or four lines in the mono face, past the 44px art
+   box and over the name: the bubble's art grows to fit (plus its tail), and the
+   name sits at the tile's foot so names in a row still line up. */
+.wd-tile .wd-art:has(.wd-bubble) { width: 100%; height: auto; min-height: 44px; padding-bottom: 4px; box-sizing: border-box; }
+.wd-tile:has(.wd-bubble) { grid-template-rows: 1fr auto; align-content: stretch; }
 .wd-hint { margin: 6px 2px 0; }
 .wd-name { font-size: var(--fs-11-5); font-weight: 700; line-height: 1.2; text-align: center; }
 .wd-tile .new-pill { position: absolute; top: 5px; right: 5px; transition: opacity .3s ease, transform .3s ease; }
