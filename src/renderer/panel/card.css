@@ -163,7 +163,7 @@ body.celebrating .toast { bottom: auto; top: 64px; }
 .toast-action { flex: none; white-space: nowrap; padding: 5px 12px; }
 /* A toast with a headline: bold title, lighter body, quiet note. */
 .toast-body { display: flex; flex-direction: column; gap: 2px; }
-.toast-title { font-size: var(--fs-12-5); font-weight: 800; color: var(--sand); overflow-wrap: anywhere; }
+.toast-title { font: 600 var(--fs-13)/1.25 var(--font-pixel); color: var(--sand); overflow-wrap: anywhere; }
 .toast-text { font-size: var(--fs-11-5); font-weight: 500; line-height: 1.4; color: var(--sand-dim); }
 .toast-note { font-size: var(--fs-11-5); font-weight: 500; color: var(--sand-faint); }
 

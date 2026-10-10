@@ -223,8 +223,10 @@ function dismissToasts() {
   endToast();
 }
 
-function showToast(msg, { title, note, action, onAction, actions, ms = TOAST_MS } = {}) {
+function showToast(msg, { title, note, action, onAction, actions, tone = null, ms = TOAST_MS } = {}) {
   const t = toastSlot();
+  t.classList.toggle('urgent', tone === 'urgent');
+  t.classList.toggle('danger', tone === 'danger');
   const offers = (actions || (action ? [{ label: action, onAction }] : [])).filter(a => a?.label);
   const body = title || note
     ? SB.h('span', { class: 'toast-body' },
@@ -252,8 +254,9 @@ function showToast(msg, { title, note, action, onAction, actions, ms = TOAST_MS 
 
 // actions: [{ label, onAction }] when there's more than one thing to offer.
 // title / note: a bold headline above msg and a quiet line under it, for
-// toasts with more to say than one sentence.
-SB.toast = (msg, opts = {}) => {
+// toasts with more to say than one sentence. tone: 'urgent' (amber) or
+// 'danger' (red) for its edge; sea-glass otherwise.
+SB.toast =(msg, opts = {}) => {
   if (!toastHolds) return showToast(msg, opts);
   const until = Date.now() + (opts.ms ?? TOAST_MS) + TOAST_STALE_MS;
   toastWaiting = [...toastWaiting, { msg, opts, until }].slice(-TOAST_WAITING_MAX);

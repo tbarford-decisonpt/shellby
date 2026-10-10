@@ -669,7 +669,7 @@ button.rq-title:hover, button.rq-title:focus-visible { color: var(--glass); text
 .toast-close:hover, .toast-close:focus-visible { color: var(--sand); background: rgba(127, 214, 194, .12); }
 .toast-close svg { width: 14px; height: 14px; }
 /* Always in the page so screen readers hear it; empty means nothing showing. */
-.toast:empty { opacity: 0; padding: 0; box-shadow: none; pointer-events: none; animation: none; }
+.toast:empty { opacity: 0; padding: 0; border: 0; box-shadow: none; pointer-events: none; animation: none; }
 
 /* ================================================================ themed tooltip */
 .tip {
