@@ -50,6 +50,9 @@
       // What it left running in the background (main's jobs.js), and whether Claude is planning.
       jobs: Array.isArray(summary.jobs) ? summary.jobs : tab.jobs || [],
       planning: summary.planning !== undefined ? !!summary.planning : !!tab.planning,
+      // Started without your customizations (safe mode), and the agent that runs it, if one does.
+      safeMode: summary.safeMode !== undefined ? !!summary.safeMode : !!tab.safeMode,
+      agent: summary.agent !== undefined ? summary.agent : tab.agent || null,
     });
     return tab;
   };
@@ -146,6 +149,18 @@
       return tab;
     })().finally(() => { creating = null; });
     return creating;
+  };
+
+  // A fresh conversation that one of your agents runs from its first message
+  // (claude --agent): its own instructions, tools and model.
+  SB.newTabAs = async (agent) => {
+    const r = await api.newTab({ agent });
+    if (!r.ok) return SB.toast(r.error);
+    const tab = SB.ensureTab({ id: r.tabId, title: 'New task', cwd: state.cwd });
+    SB.setView('chat');
+    SB.activate(r.tabId);
+    tab.render({ kind: 'agent', name: agent });
+    input.focus();
   };
 
   // A fresh tab in a known project (or the usual folder), with a prompt ready to

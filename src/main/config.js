@@ -32,6 +32,8 @@ const DEFAULTS = {
   effort: '', // new conversations' effort: '' -> Claude Code's default; low | medium | high | xhigh | max (session.js)
   effortPick: true, // with effort on Auto, size each new conversation from its first message instead (effort-pick.js)
   outputStyle: '', // '' -> the user's own; a style name otherwise (outputstyles.js)
+  fallbackModel: '', // '' -> none; a model (models.js) Claude Code switches to when the chosen one is busy (session.js)
+  claudeInChrome: false, // conversations can use Claude in Chrome, when its extension is installed (session.js)
   shellAcknowledged: false, // ! in the box runs PowerShell commands; asked once in the confirm window (parity.js)
   claudePath: null, // set only when the user points at the CLI by hand (see claude/cli.js)
   planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude/cli.js)

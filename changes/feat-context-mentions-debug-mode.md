@@ -1,0 +1,3 @@
+### New
+- **@ what Shellby knows, not just files.** Type `@` and above the files come a dev server's output, a red build's log, your other conversations in the project and its open notes. Pick one and a snapshot of it goes with your message: click its chip to read exactly what Claude gets.
+- **Debug mode.** `/debug the cart total is wrong` has Claude list what could cause it and add logging, then asks you to reproduce the bug while the lines your app logs show up live on a card. Claude fixes it from that evidence, you check, and once it's fixed Claude takes the logging out while Shellby makes sure none is left behind.

@@ -28,6 +28,8 @@
     if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
     if (tab) syncSteers(tab);
     SB.renderModStatus?.(tab);
+    SB.renderGoal?.(tab); // its goal and what you might ask next (native-cli.js)
+    SB.renderNextPrompt?.(tab);
     SB.renderTodos?.(tab); // Claude's to-do list and its background commands (native-strip.js)
     SB.renderJobs?.(tab);
     tickClock();
@@ -217,6 +219,8 @@
     if (slashKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); SB.send(); }
     if (e.key === 'Tab' && e.shiftKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); SB.cycleMode(); return; }
+    // Tab in an empty box takes what Claude guessed you'd ask next, like Claude Code (native-cli.js).
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !input.value && SB.takeNextPrompt?.()) { e.preventDefault(); return; }
     // Up in an empty box pulls back the last queued message, like Claude Code.
     const tab = SB.activeTab();
     if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); return; }

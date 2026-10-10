@@ -26,9 +26,11 @@
       ? h('div', { class: 'pick-head', text: `Search what you've sent${pick.query ? `: "${pick.query}"` : ''} · Enter to use · Ctrl+R for older` })
       : null;
     menu.replaceChildren(...[head, ...pick.items.map((it, i) => h('button', {
-      type: 'button', role: 'option', class: `slash-item pick-item${i === pick.index ? ' on' : ''}`, 'aria-selected': String(i === pick.index),
+      type: 'button', role: 'option', class: `slash-item pick-item${it.ctx ? ' pick-ctx' : ''}${i === pick.index ? ' on' : ''}`, 'aria-selected': String(i === pick.index),
       onmousedown: e => { e.preventDefault(); choose(i); },
-    }, pick.mode === 'files'
+    }, pick.mode === 'files' && it.ctx
+      ? [h('span', { class: 'pick-glyph', text: it.glyph }), h('span', { class: 'slash-name', text: it.label }), h('span', { class: 'slash-desc', text: it.sub })]
+      : pick.mode === 'files'
       ? [h('span', { class: 'pick-glyph', text: it.dir ? '▸' : '·' }), h('span', { class: 'slash-name', text: it.path }), h('span')]
       : [h('span', { class: 'pick-glyph', text: it.startsWith('!') ? '!' : '›' }), h('span', { class: 'pick-text', text: it.replace(/\s+/g, ' ').slice(0, 200) }), h('span')]))].filter(Boolean));
     menu.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
@@ -47,6 +49,8 @@
     if (pick.mode === 'history') {
       input.value = it;
       SB.hidePick();
+    } else if (it.ctx) {
+      attachContext(it);
     } else {
       const caret = input.selectionStart;
       const text = it.dir ? it.mention : `${it.mention} `;
@@ -94,6 +98,25 @@
 
   // ------------------------------------------------------------ @ file mentions
 
+  // What Shellby knows and Claude can't see (a dev server, a red build, a chat,
+  // a note) sits above the files (src/main/wiring/mention-context.js). A pick
+  // takes the @word out of the box and attaches a snapshot: its chip opens to
+  // exactly what goes to Claude.
+  async function attachContext(it) {
+    const tab = SB.activeTab();
+    const caret = input.selectionStart;
+    input.value = input.value.slice(0, pick.start) + input.value.slice(caret);
+    input.setSelectionRange(pick.start, pick.start);
+    SB.hidePick();
+    if (!tab) return;
+    if (it.kind === 'ci') SB.toast('Getting the build log…', { ms: 3000 });
+    const r = await api.context.attach(tab.id, it.id).catch(() => null);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't attach that.");
+    if (SB.activeTab() === tab) return SB.addAttachments([r.path]);
+    // Moved on while a build log came in: it waits in the box it was picked in.
+    if (!tab.attachments.includes(r.path)) tab.attachments.push(r.path);
+  }
+
   // What's being typed after an @ just before the caret: a bare path, or a
   // quoted one with spaces in it.
   const MENTION = /(?:^|\s)@("[^"]*|[^\s"]*)$/;
@@ -109,7 +132,11 @@
     clearTimeout(mentionTimer);
     const seq = ++pick.seq;
     mentionTimer = setTimeout(async () => {
-      const items = await api.suggestFiles(tab.id, query).catch(() => []);
+      const [ctx, files] = await Promise.all([
+        api.context.suggest(tab.id, query).catch(() => []),
+        api.suggestFiles(tab.id, query).catch(() => []),
+      ]);
+      const items = [...ctx.map(c => ({ ...c, ctx: true })), ...files];
       if (seq !== pick.seq) return; // typed on since
       pick.mode = 'files';
       pick.items = items;
@@ -219,6 +246,7 @@
     { name: 'rewind', kind: 'shellby', description: 'Go back to an earlier message: the conversation, the code, or both (Esc Esc)' },
     { name: 'branch', kind: 'shellby', description: 'Try again from an earlier message in a new tab, with its own copy of the files. This one stays as it is' },
     { name: 'tries', kind: 'shellby', description: 'Try a message 2, 3 or 4 ways at once, each in its own copy, then pick the best: /tries 3 fix the login. Asks first, with the cost' },
+    { name: 'debug', kind: 'shellby', description: 'Find what really causes a bug: Claude adds logging, you reproduce it, he fixes it from what was logged, then takes the logging out: /debug the cart total is wrong' },
     { name: 'btw', kind: 'shellby', description: 'Ask a quick side question, even while Claude works. It sees the conversation but stays out of it' },
     { name: 'export', kind: 'shellby', description: 'Save this conversation as Markdown (/export clipboard copies it)' },
     { name: 'effort', kind: 'shellby', description: 'How hard Claude thinks here: low, medium, high, xhigh, max or auto. /effort new <level|pick> for new conversations' },
@@ -237,6 +265,8 @@
     tries: (tab, arg) => startTries(tab, arg),
     try: (tab, arg) => startTries(tab, arg),
     btw: (tab, arg) => askBtw(tab, arg),
+    // Debug mode (debug-mode.js): every later step is a button on its card.
+    debug: (tab, arg) => SB.startDebug(tab, arg),
     export: async (tab, arg) => {
       if (!tab.saved) return SB.toast('Send it something first: there is nothing to export yet.');
       const to = /^clip/i.test(arg) ? 'clipboard' : 'file';

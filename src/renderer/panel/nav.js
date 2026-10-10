@@ -376,6 +376,27 @@
     }));
   }
 
+  // Claude Code's cloud sessions (wiring/handoff.js openCloud): each opens in a
+  // terminal, where Claude Code shows its own lists and asks what it needs to.
+  function cloudEntries() {
+    if (!claude()) return [];
+    const tabId = state.activeTab;
+    const open = async (kind, value = null) => {
+      const r = await api.openCloud({ kind, value, tabId }).catch(() => null);
+      if (!r?.ok) return SB.toast(r?.error || "Couldn't open a terminal.", { ms: 6000 });
+      SB.toast(r.text, { ms: 6000 });
+    };
+    // What's in the box is what a new cloud session starts on.
+    const typed = () => $('input').value.trim();
+    return [
+      { group: 'Cloud', icon: '☁️', title: 'Pick up a cloud session here', sub: 'claude --teleport, in a terminal: from claude.ai/code or the app', keys: 'teleport cloud web remote session resume', run: () => open('teleport') },
+      { group: 'Cloud', icon: '☁️', title: 'Start a cloud session on what\'s in the box', sub: 'claude --cloud, in a terminal: it keeps going with this PC off', keys: 'cloud web remote session start background',
+        run: () => { if (!typed()) return SB.toast('Type what the cloud session should do in the box first.', { ms: 5000 }); return open('cloud', typed()); } },
+      { group: 'Cloud', icon: '⑂', title: 'Pick up the conversation behind a pull request', sub: 'claude --from-pr, in a terminal. Paste its address in the box first to skip the list', keys: 'pull request pr github from-pr resume review',
+        run: () => open('pr', /^https:\/\/github\.com\/\S+\/pull\/\d+$/.test(typed()) ? typed() : null) },
+    ];
+  }
+
   // The open conversation: carrying it on in a terminal, and reordering the tab
   // strip without a pointer (the drag gesture's keyboard twin, and the only way
   // there is for anyone who can't drag).
@@ -444,7 +465,7 @@
     const screens = screenEntries();
     const settings = settingEntries();
     const all = [...actions, ...screens, ...focusEntries(), ...projectEntries(), ...claudeEntries(), ...editorEntries(), ...settings, ...modeEntries(),
-      ...routineEntries(), ...snippetEntries(), ...tabEntries(), ...paneEntries(), ...conversationEntries(), ...toolEntries()];
+      ...routineEntries(), ...snippetEntries(), ...tabEntries(), ...cloudEntries(), ...paneEntries(), ...conversationEntries(), ...toolEntries()];
     return K.rank(all, raw, {
       recent, groupRank: GROUP_RANK,
       pinned: state.view === 'chat' ? actions : [],
