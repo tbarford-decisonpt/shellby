@@ -5,7 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const notes = require('../notes');
 
-const NOTE_MODE = { plan: 'plan', build: null, ask: 'ask' }; // build: whatever mode you're in
+// build: whatever mode you're in. Plan and Ask only start in theirs (sessions.js modeToStart).
+const NOTE_MODE = { plan: 'plan', build: null, ask: 'ask' };
 
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
@@ -96,6 +97,7 @@ function registerNotesIpc(ipcMain, d) {
     let r = kind === 'ask' ? null : await d.startTaskInCopy(dir.cwd, title, () => prompt, { mode, draft });
     if (!r || (!r.ok && r.notRepo)) r = draft ? d.startDraft(dir.cwd, title, prompt, { mode }) : d.startTask(prompt, title, { mode, cwd: dir.cwd });
     if (!r.ok) return r;
+    if (mode) d.manager.modeToStart(r.tabId);
     const view = await d.saveNotes(notes.markRun(d.config.get('notes'), scope, id, { kind, tabId: r.tabId, at: Date.now() }));
     d.showPanel({ focusInput: false, tabId: r.tabId });
     return { ...r, view, copy: !!r.worktree, draft };
