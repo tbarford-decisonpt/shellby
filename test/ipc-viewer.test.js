@@ -146,3 +146,15 @@ test('forgetting a folder nudges the viewers open on it, and only those', async 
     assert.equal(s.sent.length, before);
   } finally { s.done(); }
 });
+
+test('a conversation in the home folder (the default when none was picked) is refused', async () => {
+  const s = setup();
+  try {
+    s.d.manager.tabs.set('home', { id: 'home', session: { cwd: os.homedir() } });
+    const r = await s.ipc.invoke('viewer:open', { tabId: 'home' });
+    assert.equal(r.ok, false);
+    assert.match(r.error, /whole home folder/);
+    assert.deepEqual(await s.ipc.invoke('viewer:locate', 'home', path.join(os.homedir(), '.gitconfig')), { inside: false });
+    assert.deepEqual(await s.ipc.invoke('viewer:branch', 'home'), { branch: null });
+  } finally { s.done(); }
+});

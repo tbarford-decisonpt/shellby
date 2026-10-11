@@ -290,6 +290,42 @@ test('a non-local folder is refused, and a closed tab takes its handles with it'
   } finally { r.done(); }
 });
 
+test('the home folder, a folder above it and a whole drive are refused; a repo inside home opens', async () => {
+  const r = repo();                       // r.base stands in for home; r.dir (base/proj) is a repo in it
+  const dotfiles = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-viewer-home-')));
+  try {
+    const home = r.base;
+    const v = createViewer({ home });
+    const HOME = /whole home folder/;
+    const said = async dir => { const o = await v.open({ dir }); assert.equal(o.ok, false, dir); return o.error; };
+    assert.match(await said(home), HOME);
+    assert.match(await said(home.toUpperCase()), HOME, 'case-blind');
+    assert.match(await said(path.dirname(home)), HOME, 'a folder above home');
+    const drive = path.parse(home).root;
+    assert.match(await said(drive), /whole drive/);
+    // A drive root is refused for being one, not only for being above home.
+    assert.match((await createViewer({ home: 'Q:\\nobody' }).open({ dir: drive })).error, /whole drive/);
+    const proj = await v.open({ dir: r.dir, tabId: 't' });
+    assert.equal(proj.ok, true, 'a repo of its own inside home still opens');
+    assert.equal(await branchOf(r.dir, { home }), 'main');
+    // Home is a dotfiles repo, and the conversation is in a plain folder of it: the root would be home.
+    const g = (...a) => execFileSync('git', ['-C', dotfiles, ...a], { encoding: 'utf8', windowsHide: true });
+    g('init', '-q', '-b', 'main');
+    fs.mkdirSync(path.join(dotfiles, 'notes'));
+    fs.writeFileSync(path.join(dotfiles, 'notes', 'todo.txt'), 'x\n');
+    const notes = path.join(dotfiles, 'notes');
+    assert.match((await createViewer({ home: dotfiles }).open({ dir: notes })).error, HOME);
+    // A file link and the branch chip answer as for a conversation with no folder.
+    assert.deepEqual(await locate(notes, path.join(notes, 'todo.txt'), { home: dotfiles }), { inside: false });
+    assert.equal(await branchOf(notes, { home: dotfiles }), null);
+    assert.deepEqual(await locate(home, path.join(r.dir, 'a.txt'), { home }), { inside: false });
+    assert.equal((await locate(r.dir, path.join(r.dir, 'a.txt'), { home })).inside, true);
+  } finally {
+    r.done();
+    fs.rmSync(dotfiles, { recursive: true, force: true });
+  }
+});
+
 test('writeWatch nudges once a writing tool has finished, and never for a read', () => {
   const seen = [];
   const watch = writeWatch(cwd => seen.push(cwd));

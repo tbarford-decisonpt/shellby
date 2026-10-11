@@ -11,6 +11,7 @@
 const { execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const changes = require('./changes');
 const { parseTarget } = require('./filelinks');
@@ -44,6 +45,19 @@ const sameDir = (a, b) => {
   const y = typeof b === 'string' ? longPath(b) : null;
   return !!x && !!y && path.relative(x, y) === '';
 };
+
+// Too wide to browse: the home folder, a folder above it, or a whole drive. A conversation started
+// in ~ (where Shellby starts one by default), or in a folder of a dotfiles repo at ~, would otherwise
+// hand the panel .ssh, .aws and .claude. Anything at or above a too-wide folder is too wide as well,
+// so a repo's root is checked along with the folder asked about. -> the reason, or null
+function tooWide(dir, home = os.homedir()) {
+  if (typeof dir !== 'string' || !dir) return 'Open what?';
+  const key = p => (process.platform === 'win32' ? p.toLowerCase() : p);
+  const at = key(longPath(dir) || path.resolve(dir));
+  if (path.parse(at).root === at) return "Shellby doesn't browse a whole drive.";
+  const h = typeof home === 'string' && home ? key(longPath(home) || path.resolve(home)) : null;
+  return h && (path.relative(at, h) === '' || isUnder(at, h)) ? "Shellby doesn't browse your whole home folder." : null;
+}
 
 // A relative path made only of plain names: no drive (C:x), no stream (a.txt:s), no
 // UNC or rooted start, no '..'. Checked before anything touches the disk, so a
@@ -94,20 +108,22 @@ async function mainBranchFor(root) {
   return main && !sameDir(main.path, root) ? main.branch || null : null;
 }
 
-/** The branch a folder's repo is on, or null (not a repo, or detached). */
-async function branchOf(dir) {
+/** The branch a folder's repo is on, or null (not a repo, detached, or a folder too wide to browse). */
+async function branchOf(dir, { home = os.homedir() } = {}) {
   const top = await changes.rootOf(dir);
+  if (top && (tooWide(dir, home) || tooWide(top, home))) return null;
   const head = top ? (await git(top, ['rev-parse', '--abbrev-ref', 'HEAD']))?.trim() : null;
   return head && head !== 'HEAD' ? head : null;
 }
 
-/** A file link from a reply: inside the conversation's repo (a file there), or not. */
-async function locate(cwd, target) {
+/** A file link from a reply: inside the conversation's repo (a file there), or not. Never in a folder too wide to browse. */
+async function locate(cwd, target, { home = os.homedir() } = {}) {
   const t = parseTarget(target, cwd);
   if (!t) return { inside: false };
   const root = longPath((await changes.rootOf(cwd)) || cwd);
+  if (!root || tooWide(cwd, home) || tooWide(root, home)) return { inside: false };
   const file = longPath(t.file);
-  if (!root || !file || !isUnder(root, file)) return { inside: false };
+  if (!file || !isUnder(root, file)) return { inside: false };
   try { if (!fs.statSync(file).isFile()) return { inside: false }; } catch { return { inside: false }; }
   return { inside: true, rel: path.relative(root, file).split(path.sep).join('/'), line: t.line };
 }
@@ -125,7 +141,8 @@ function writeWatch(nudge) {
   };
 }
 
-function createViewer() {
+/** opts.home: the home folder, never browsed (tests give their own). */
+function createViewer({ home = os.homedir() } = {}) {
   // id -> { id, root, git, branch, base, tabId, gen, shown, slots, pending, last }, the last four each by mode ('base' | 'head'):
   // slots[mode] = { files: Map(lower path -> file), ref } (what a diff is cut from), pending[mode] = a look running,
   // last[mode] = { at, result }; shown = the mode of the list the panel was last handed; gen counts nudges.
@@ -138,7 +155,9 @@ function createViewer() {
     const top = await changes.rootOf(dir);
     const root = longPath(top || dir);
     if (!root) return { ok: false, gone: true, error: 'This folder is gone.' };
-    const branch = top ? await branchOf(root) : null;
+    const wide = tooWide(dir, home) || tooWide(root, home);
+    if (wide) return { ok: false, error: wide };
+    const branch = top ? await branchOf(root, { home }) : null;
     const against = top ? (typeof base === 'string' && base ? base : await mainBranchFor(root)) : null;
     const id = crypto.randomBytes(8).toString('hex');
     if (handles.size >= MAX_HANDLES) handles.delete(handles.keys().next().value);
@@ -222,4 +241,4 @@ function createViewer() {
   return { open, get: id => handles.get(id) || null, changesOf, diffOf, read, close: id => { handles.delete(id); }, staleFor, keepTabs };
 }
 
-module.exports = { readInside, sameDir, isUnder, longPath, createViewer, locate, branchOf, writeWatch, MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE };
+module.exports = { readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, branchOf, writeWatch, MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE };
