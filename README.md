@@ -77,6 +77,10 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 </table>
 
 **Work in parallel**
+
+<img src="docs/img/screenshot-panes.png" alt="Four Claude conversations in a 2x2 grid: fixing a login bug, writing tests, reviewing a PR and updating the README">
+<p align="center"><sub>Drag a tab into the chat to split it: up to twelve conversations side by side, or pop one out into its own window</sub></p>
+
 - **Helper crabs:** every subagent gets a lane in the panel and a crab on your desktop, and each kind levels up into a named crew member.
 - **Tabs on their own branches:** each one works in its own copy of the repo. **Bring it home** merges it back, never with a force-push.
 - **Up to twelve side by side,** or branch from any turn to **try it another way**.
