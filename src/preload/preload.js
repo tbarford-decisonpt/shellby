@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld('shellby', {
   popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
   shownTab: fire('tab:shown'), savePaneLayout: fire('panes:layout'), // the Stream Deck follows the shown tab; the split view, for the next start
+  paneShapes: (list) => ipcRenderer.invoke('panes:shapes', list), // the layouts you saved by name: read them, or (a list) save them
   setTabEffort: (tabId, effort) => ipcRenderer.invoke('tab:effort', { tabId, effort }), // the effort chip, for one conversation
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),

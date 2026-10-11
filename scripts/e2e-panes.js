@@ -650,6 +650,106 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await ev(`SB.state.activeTab === '${B}' && document.getElementById('input').value.endsWith('@')`), 'AltGr+Q (@) on B\'s stand-in starts B\'s message with @');
     await ev(`document.getElementById('input').value = ''; SB.activate('${D}')`);
 
+    // ---- Zoom: Ctrl+Alt+Enter fills the chat with the focused pane, and again brings the rest back.
+    await setShape([[A, C], [D, B]]);
+    await ev(`SB.activate('${D}')`);
+    await wait(200);
+    const showing = () => ev(`[...document.querySelectorAll('.pane')].filter(p => p.offsetWidth).map(p => p.dataset.tab)`);
+    const zoomKey = async () => {
+      for (const type of ['rawKeyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: CTRL_ALT });
+      await wait(200);
+    };
+    // An @ menu left open by the AltGr check above would take the Enter.
+    await ev(`SB.closeMenus(); SB.hidePick?.(); document.getElementById('input').focus()`);
+    await zoomKey();
+    check(await until(`SB.state.zoomPane === ${PID(D)}`), `Ctrl+Alt+Enter zooms the focused pane (${await ev(`JSON.stringify({ z: SB.state.zoomPane, overlay: SB.overlayOpen(), view: SB.state.view, focus: document.activeElement?.id || document.activeElement?.className, n: SB.panes.count(SB.state.grid) })`)})`);
+    check(JSON.stringify(await showing()) === JSON.stringify([D]), `only it shows (${JSON.stringify(await showing())})`);
+    check(await ev(`(() => { const f = document.getElementById('feeds').getBoundingClientRect(), p = document.querySelector('.pane.zoomed').getBoundingClientRect(); return p.width > f.width * 0.9 && p.height > f.height * 0.9; })()`), `and fills the chat (${await ev(`JSON.stringify([document.getElementById('feeds').getBoundingClientRect(), document.querySelector('.pane.zoomed')?.getBoundingClientRect()].map(r => r && [r.width, r.height].map(Math.round)))`)})`);
+    check(await ev(`document.querySelector('.pane.zoomed .pane-zoom').getAttribute('aria-pressed') === 'true' && document.querySelector('.pane.zoomed').contains(document.getElementById('composer'))`), 'its button reads pressed, and the box is in it');
+    await zoomKey();
+    check(await until('SB.state.zoomPane === null') && (await showing()).length === 4, 'again: every pane is back');
+    await ev(`document.querySelector('.pane[data-tab="${C}"] .pane-zoom').click()`);
+    check(await until(`SB.state.activeTab === '${C}' && SB.state.zoomPane === ${PID(C)}`), 'a pane\'s zoom button focuses and zooms that pane');
+    await press('ArrowRight', ALT);
+    check(await until(`SB.state.activeTab === '${B}' && SB.state.zoomPane === null`) && (await showing()).length === 4, 'Alt+→ from a zoomed pane goes next door and brings the rest back');
+    await panel.shot('zoom-off');
+
+    // ---- Layouts you name: the shape is saved, and used again with whatever is open.
+    await ev(`SB.saveLayout('Quad')`);
+    check(await until(`SB.state.paneShapes.some(s => s.name === 'Quad' && s.cols.length === 2 && s.cols.every(c => c.rows.length === 2))`), 'Save this layout keeps its shape by name');
+    check((await ev('shellby.paneShapes()')).some(s => s.name === 'Quad'), 'and main keeps it');
+    await setShape([[A, B, C], [D]]);
+    check(await ev(`SB.useLayout(SB.state.paneShapes.find(s => s.name === 'Quad'))`), 'Use the "Quad" layout');
+    check(await until(`JSON.stringify(SB.state.grid.map(col => col.map(p => p.active))) === JSON.stringify([['${A}', '${B}'], ['${C}', '${D}']])`), `the four conversations fill it in turn (${await shape()})`);
+    const tabsBefore = await ev('SB.state.tabs.size');
+    await ev(`(() => { SB.state.grid = [[{ id: 'p1', tabs: ['${A}', '${B}', '${C}', '${D}'], active: '${A}' }]]; SB.renderPanes(); SB.renderTabStrip(); })()`);
+    check(await ev(`SB.useLayout(SB.state.paneShapes.find(s => s.name === 'Quad'))`), 'from one pane holding all four');
+    const fresh = await ev(`[...SB.state.tabs.keys()].filter(id => !['${A}', '${B}', '${C}', '${D}'].includes(id))`);
+    check(fresh.length === 3 && await ev('SB.state.tabs.size') === tabsBefore + 3 && await ev('SB.panes.count(SB.state.grid)') === 4, `three new conversations for the panes short (${fresh.length})`);
+    for (const id of fresh) await ev(`SB.closeTab('${id}')`);
+    await ev(`SB.forgetLayout('Quad')`);
+    check(await until('!SB.state.paneShapes.length') && !(await ev('shellby.paneShapes()')).length, 'Forget the layout');
+    await setShape([[A, C], [D, B]]);
+    await ev(`SB.activate('${D}')`);
+    await wait(200);
+
+    // ---- Swap: Alt+Shift+arrow trades places with the pane that way; so does dragging a header onto another pane.
+    const ALT_SHIFT = 9; // CDP: Alt = 1, Shift = 8
+    await ev(`document.getElementById('input').focus()`);
+    await press('ArrowLeft', ALT_SHIFT);
+    check(await until(`JSON.stringify(SB.state.grid.map(col => col.map(p => p.active))) === JSON.stringify([['${D}', '${C}'], ['${A}', '${B}']])`), `Alt+Shift+← swaps D's pane with A's (${await shape()})`);
+    check(await ev(`SB.state.activeTab === '${D}' && document.querySelector('.pane[data-tab="${D}"]').contains(document.getElementById('composer'))`), 'D keeps the box, in its new place');
+    const headSpot = id => ev(`(() => { const s = document.querySelector('.pane[data-tab="${id}"] .pane-tabs').getBoundingClientRect(); return { x: s.right - 6, y: s.top + s.height / 2 }; })()`);
+    await panel.drag(await headSpot(C), await paneSpot(B, 0.5, 0.5));
+    check(await until(`JSON.stringify(SB.state.grid.map(col => col.map(p => p.active))) === JSON.stringify([['${D}', '${B}'], ['${A}', '${C}']])`), `C's header dragged onto B's pane swaps them (${await shape()})`);
+    check(await ev("document.getElementById('dropHint').hidden && !document.body.classList.contains('swapping-panes')"), 'and the preview goes on letting go');
+
+    // ---- A pane's lane: its copy's branch and its last checks.
+    await ev(`(() => { const t = SB.state.tabs.get('${A}'); t.worktree = { branch: 'shellby/fix-login-1a2b', base: 'main', originalCwd: t.cwd }; SB.refreshPaneHeads(); })()`);
+    const laneOf = id => ev(`(() => { const l = document.querySelector('.pane[data-tab="${id}"] .pane-lane'); return { hidden: l.hidden, text: l.textContent, cls: l.className }; })()`);
+    let lane = await laneOf(A);
+    check(!lane.hidden && lane.text.includes('fix-login-1a2b') && !lane.text.includes('shellby/'), `A's lane shows its branch (${JSON.stringify(lane)})`);
+    check((await laneOf(B)).hidden, 'B, in your own checkout with no checks, has none');
+    await ev(`SB.renderChecks(SB.state.tabs.get('${A}'), { status: 'fail', commands: [{ cmd: 'npm test', ok: false, failed: ['login'] }] })`);
+    lane = await laneOf(A);
+    check(lane.cls.includes('fail') && lane.text.includes('✗'), `failed checks show on it (${JSON.stringify(lane)})`);
+    await ev(`SB.renderChecks(SB.state.tabs.get('${A}'), { status: 'pass', commands: [{ cmd: 'npm test', ok: true }] })`);
+    check((await laneOf(A)).cls.includes('pass'), 'and passing ones after');
+    await ev(`(() => { const t = SB.state.tabs.get('${A}'); delete t.worktree; delete t.checkState; SB.refreshPaneHeads(); })()`);
+
+    // ---- Needs you: a pane asking for your OK lights up; zoomed, the header says so; Alt+J goes there.
+    await ev(`(() => { SB.state.tabs.get('${C}').pending = { toolName: 'Bash' }; SB.renderTabStrip(); })()`);
+    check(await until(`document.querySelector('.pane[data-tab="${C}"] .pane-head').classList.contains('needs-you')`), 'C asking: its pane\'s header lights up');
+    check(!(await ev(`document.querySelector('.pane[data-tab="${D}"] .pane-head').classList.contains('needs-you')`)), 'D\'s, the one you\'re in, doesn\'t');
+    await ev(`SB.activate('${D}'); SB.toggleZoom()`);
+    check(await until(`(() => { const p = document.querySelector('.pane.zoomed .pane-needs'); return !!p && !p.hidden && p.textContent.includes('needs you'); })()`), 'zoomed in, the header says one needs you');
+    for (const type of ['rawKeyDown', 'keyUp']) await panel.send('Input.dispatchKeyEvent', { type, key: 'j', code: 'KeyJ', windowsVirtualKeyCode: 74, modifiers: ALT });
+    check(await until(`SB.state.activeTab === '${C}' && SB.state.zoomPane === null`), 'Alt+J goes to it, and the rest come back');
+    await ev(`(() => { delete SB.state.tabs.get('${C}').pending; SB.renderTabStrip(); })()`);
+    await ev(`SB.activate('${D}')`);
+    check(!(await ev('SB.goToNeeds()')), 'with nothing asking, Alt+J stays put');
+
+    // ---- A project's own layout: its conversations take a pane each, and it's offered when you come back to it.
+    await ev('SB.saveProjectLayout()');
+    check(await until(`SB.state.paneShapes.some(s => s.project && s.project === SB.projectOf(SB.activeTab()))`), 'Make this the project\'s layout');
+    await ev(`(() => { SB.state.grid = [[{ id: 'p1', tabs: ['${A}', '${B}', '${C}', '${D}'], active: '${D}' }]]; SB.renderPanes(); SB.renderTabStrip(); })()`);
+    const openBefore = await ev('SB.state.tabs.size');
+    check(await ev('SB.useLayout(SB.projectLayout())'), 'Use it, from one pane');
+    check(await ev('SB.panes.count(SB.state.grid)') === 4 && await ev('SB.state.tabs.size') === openBefore && await ev(`SB.state.grid[0][0].active === '${D}'`), `each of the project's four a pane, the one you're in first, none new (${await shape()})`);
+    // Elsewhere and back, in one pane: offered.
+    await ev(`(() => { SB.state.grid = [[{ id: 'p1', tabs: ['${A}', '${B}', '${C}', '${D}'], active: '${D}' }]]; SB.renderPanes(); SB.renderTabStrip(); })()`);
+    const other = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-other-')));
+    await ev(`SB.newTabIn({ cwd: ${JSON.stringify(other)} })`);
+    const otherId = await ev('SB.state.activeTab');
+    await ev(`SB.activate('${D}')`);
+    check(await until(`document.getElementById('toast').textContent.includes('has a layout of its own')`, 3000), 'back in the project with one pane: its layout is offered');
+    await ev(`SB.closeTab('${otherId}')`);
+    await ev('SB.forgetLayout(SB.projectLayout().name)');
+    await until('!SB.state.paneShapes.length');
+    await setShape([[A, C], [D, B]]);
+    await ev(`SB.activate('${D}')`);
+    await wait(200);
+
     // ---- A restart brings the layout and its sizes back. Only conversations
     // that have said something reopen after a restart (main's openTabs), and A
     // and B have, so C and D say something first.

@@ -92,6 +92,16 @@ function registerTabsIpc(ipcMain, d) {
     if (JSON.stringify(keep) === JSON.stringify(d.config.get('paneLayout') ?? null)) return;
     d.config.set({ paneLayout: keep });
   });
+  // The layouts you saved by name (shapes only, no conversations): the list
+  // as it stands, after saving `list` if one is given. Cleaned on the way in.
+  ipcMain.handle('panes:shapes', (e, list) => {
+    if (d.popoutTabOf(e.sender)) return [];
+    if (list !== undefined) {
+      const keep = panes.cleanShapes(list);
+      if (JSON.stringify(keep) !== JSON.stringify(d.config.get('paneShapes') ?? [])) d.config.set({ paneShapes: keep });
+    }
+    return panes.cleanShapes(d.config.get('paneShapes'));
+  });
   // A conversation in a window of its own (wiring/popouts.js). x, y: where it was
   // dropped, in screen pixels; carry: what was typed in the panel but not sent.
   ipcMain.handle('tab:pop-out', (_e, { tabId, x, y, carry } = {}) => {

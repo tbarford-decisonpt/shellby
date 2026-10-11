@@ -17,6 +17,7 @@
   const POP_ICON = 'M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .4-.4.8-.8.8H3.3c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8h3.2';
   const PLUS_ICON = 'M8 3.5v9M3.5 8h9';
   const CLOSE_ICON = 'M4.5 4.5l7 7M11.5 4.5l-7 7';
+  const ZOOM_ICON = 'M3 6.5V3h3.5M13 6.5V3H9.5M3 9.5V13h3.5M13 9.5V13H9.5';
   const EDGES = new Set(['left', 'right', 'top', 'bottom']);
 
   // On screen: the tab a pane shows.
@@ -42,6 +43,7 @@
 
   const paneRow = () => $('feeds').querySelector(':scope > .pane-row') || $('feeds').appendChild(h('div', { class: 'pane-row' }));
   SB.paneStripOf = id => panes.get(id)?.strip || null;
+  SB.paneEls = panes; // read by pane-layouts.js
 
   // A pane's element: its header (its strip), the feed of the tab it shows,
   // and the slot under it for the box. Another tab's feed left in it goes
@@ -302,10 +304,14 @@
     const strip = h('div', { class: 'tabs pane-tabs', role: 'tablist', 'aria-label': 'Conversations in this pane' });
     const left = h('button', { type: 'button', class: 'tab-edge left', hidden: true });
     const right = h('button', { type: 'button', class: 'tab-edge right', hidden: true });
-    const head = h('div', { class: 'pane-head', dataset: { pane: paneId } },
+    const head = h('div', { class: 'pane-head', dataset: { pane: paneId }, onpointerdown: e => dragHead(e, paneId) },
       h('div', { class: 'tabs-wrap' }, strip, left, right),
+      h('span', { class: 'pane-lane', hidden: true }),
+      h('button', { class: 'pane-needs', type: 'button', hidden: true, title: 'Go to it (Alt+J)', onclick: () => SB.goToNeeds() }),
       h('button', { class: 'pane-btn', type: 'button', title: 'New conversation in this pane (Ctrl+T)', 'aria-label': 'New conversation in this pane', onclick: () => newTabIn(paneId) },
         SB.icon(PLUS_ICON, { width: 1.6 })),
+      h('button', { class: 'pane-btn pane-zoom', type: 'button', title: 'Fill the chat with this pane, and back (Ctrl+Alt+Enter)', 'aria-label': 'Zoom this pane', 'aria-pressed': 'false', onclick: () => SB.zoomFrom(paneId) },
+        SB.icon(ZOOM_ICON, { width: 1.5 })),
       h('button', { class: 'pane-btn', type: 'button', title: 'Open in its own window', 'aria-label': 'Open in its own window', onclick: () => { const id = activeOf(paneId); if (id) SB.popOut(id); } },
         SB.icon(POP_ICON)),
       h('button', { class: 'pane-btn', type: 'button', title: 'Close this pane (its conversations move to the one beside it)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(paneId) },
@@ -314,6 +320,50 @@
     SB.watchEdges(strip, left, right);
     return { head, strip };
   }
+
+  // A pane's header dragged (anywhere but a tab or a button) onto another pane:
+  // the two trade places (panes.swap). The drop preview covers the pane it
+  // would trade with.
+  function dragHead(e, paneId) {
+    if (e.button !== 0 || SB.solo || P.count(state.grid) < 2 || e.target.closest('.tab, button')) return;
+    const head = e.currentTarget;
+    const x0 = e.clientX, y0 = e.clientY;
+    let moved = false, over = null, done = false;
+    const under = ev => {
+      const id = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.pane')?.dataset.pane;
+      return id && id !== paneId && panes.has(id) ? id : null;
+    };
+    const move = ev => {
+      if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
+      if (!moved) { moved = true; document.body.classList.add('swapping-panes'); }
+      over = under(ev);
+      SB.showDrop(over ? { kind: 'pane', rect: panes.get(over).el.getBoundingClientRect() } : null);
+    };
+    const end = ev => {
+      if (done || ev.pointerId !== e.pointerId) return;
+      done = true;
+      head.removeEventListener('pointermove', move);
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) head.removeEventListener(type, end);
+      document.body.classList.remove('swapping-panes');
+      SB.showDrop(null);
+      if (moved && ev.type === 'pointerup' && over) SB.swapPanes(paneId, over);
+    };
+    head.setPointerCapture(e.pointerId);
+    head.addEventListener('pointermove', move);
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) head.addEventListener(type, end);
+  }
+
+  // Panes a and b trade what they hold; the conversation you're in keeps the box, in its new place.
+  SB.swapPanes = (a, b) => {
+    const next = P.swap(state.grid, a, b);
+    if (next === state.grid) return false;
+    SB.unzoom();
+    state.grid = next;
+    SB.renderPanes();
+    SB.renderTabStrip();
+    SB.savePanes();
+    return true;
+  };
 
   // A strip's "+": a new conversation in that pane, after the tab it shows.
   function newTabIn(paneId) {
@@ -345,12 +395,56 @@
         // Working, asking or done: the same mark the strip shows (tab-strip.js tabIcon).
         stand.querySelector('.standin-meta').replaceChildren(...[SB.tabIcon(t), q ? `${q} queued` : null].filter(Boolean));
       }
+      paintLane(p.head.querySelector('.pane-lane'), t);
+      // A conversation in this pane asking for your OK that you aren't looking at: its header lights up.
+      p.head.classList.toggle('needs-you', split && (P.byId(state.grid, id)?.tabs || []).some(x => x !== state.activeTab && asking(x)));
     }
+    SB.applyZoom();
+    // Zoomed in, the others asking can't be seen: the zoomed pane's header says so, and takes you there.
+    const waiting = P.tabIds(state.grid).filter(x => x !== state.activeTab && asking(x));
+    for (const [id, p] of panes) {
+      const pill = p.head.querySelector('.pane-needs');
+      pill.hidden = !(id === state.zoomPane && waiting.length);
+      if (!pill.hidden) pill.textContent = waiting.length === 1 ? `${SB.shownTitle(state.tabs.get(waiting[0])).slice(0, 30)} needs you` : `${waiting.length} need you`;
+    }
+    SB.offerProjectLayout();
     // Which pane you're typing to, when there's more than one it could be.
     const tab = SB.activeTab();
     input.placeholder = split && tab ? `Give "${SB.shownTitle(tab).slice(0, 40)}" a task…` : PLACEHOLDER;
     // A popped-out window is named for its conversation, on the taskbar too.
     if (SB.solo && tab) document.title = $('winTitle').textContent = SB.shownTitle(tab);
+  };
+
+  // A pane's lane, beside its tabs: the branch of the copy its conversation
+  // works in, and how its last checks went (turn-checks.js keeps them on the tab).
+  const CHECK_MARK = { running: '…', pass: '✓', fail: '✗' };
+  const CHECK_SAY = { running: 'Its checks are running', pass: 'Its last checks passed', fail: 'Its last checks failed' };
+  function paintLane(lane, t) {
+    const branch = t.worktree?.branch ? t.worktree.branch.replace(/^shellby\//, '') : '';
+    const check = t.checkRunning ? 'running' : t.checkState || '';
+    lane.hidden = !branch && !check;
+    lane.className = check ? `pane-lane ${check}` : 'pane-lane';
+    lane.replaceChildren(...[
+      check ? h('span', { class: 'lane-mark', 'aria-hidden': 'true', text: CHECK_MARK[check] }) : null,
+      branch ? h('span', { class: 'lane-branch', text: branch }) : null,
+    ].filter(Boolean));
+    lane.title = [branch && `Its own copy, on ${t.worktree.branch}`, check && CHECK_SAY[check]].filter(Boolean).join('\n');
+  }
+
+  // ------------------------------------------------------------ what needs you
+
+  const asking = id => { const t = state.tabs.get(id); return !!t && window.ShellbyTabSort.standing(t) === 'asking'; };
+
+  // Alt+J, or a zoomed pane's "needs you": the next conversation asking for
+  // your OK, after the one you're in, in pane order. -> went?
+  SB.goToNeeds = () => {
+    const ids = SB.solo ? [] : P.tabIds(state.grid);
+    const at = ids.indexOf(state.activeTab);
+    const next = [...ids.slice(at + 1), ...ids.slice(0, Math.max(0, at))].find(asking);
+    if (!next) { SB.toast('Nothing is waiting on you.'); return false; }
+    if (state.view !== 'chat') SB.setView('chat');
+    SB.activate(next);
+    return true;
   };
 
   // Clicking into a pane makes it the one the box talks to: on the press, so
@@ -384,6 +478,7 @@
   // `before`, the tab to land in front of) and focus it there, growing the
   // window first if a new pane needs it. -> placed?
   SB.placeTab = async (tabId, target, zone, before = null) => {
+    SB.unzoom();
     const was = state.grid;
     let next = P.place(was, tabId, target, zone, before);
     if (next === was) return false;
@@ -426,6 +521,7 @@
   // an id in no pane, so place treats it as a tab coming from off screen.)
   SB.splitPane = async () => {
     if (SB.solo || !state.activeTab || !(await SB.chatShowing())) return;
+    SB.unzoom();
     const here = P.paneWith(state.grid, state.activeTab);
     const take = here && here.tabs.length > 1 ? state.activeTab : null;
     const moving = take || 'new';
