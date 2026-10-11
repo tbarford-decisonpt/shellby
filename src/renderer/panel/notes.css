@@ -1,25 +1,47 @@
-/* Shellby panel — Notes (see notes.js). Rows follow the routine cards. */
+/* Shellby panel — Notes (see notes.js). */
 .view-head .notes-scope { margin-left: auto; max-width: 55%; text-overflow: ellipsis; }
 
-.note-add { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 6px; }
-.note-add .field.area { min-height: 0; resize: none; }
-.note-add .slim-btn { height: 34px; }
-.notes-where { margin: 0 0 12px; overflow-wrap: anywhere; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-faint); }
+/* The box and its Add button are one surface: type, then save from the corner. */
+.note-add { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 6px; padding: 4px 6px 6px 0;
+  background: var(--reef); border: 1px solid var(--line); border-radius: var(--r); }
+.note-add:focus-within { border-color: var(--glass); }
+.note-add .field.area { min-height: 0; resize: none; background: transparent; border: 0; }
+.note-add .slim-btn { height: 30px; flex: none; }
+.notes-where { margin: 0 0 14px 2px; overflow-wrap: anywhere; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-faint); }
 
 .notes-filter { width: 100%; margin: 0 0 8px; }
 
-.note-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 8px 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); }
-.note.pinned { border-left: 2px solid var(--amber); padding-left: 11px; }
-.note.done { opacity: .55; }
+/* One page of lines, not a stack of cards. */
+.note-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--reef); overflow: hidden; }
+.note-list:empty { display: none; }
+.note-list:has(> .note-empty) { border: 0; background: none; }
+.note { display: flex; gap: 12px; align-items: flex-start; padding: 11px 8px 10px 14px; }
+.note + .note { border-top: 1px solid var(--line-soft); }
+.note:hover, .note:focus-within { background: color-mix(in srgb, var(--reef-2) 55%, var(--reef)); }
+.note.pinned { box-shadow: inset 2px 0 0 var(--amber); }
+.note.done .note-text, .note.done .note-meta { opacity: .55; }
 .note.done .note-text { text-decoration: line-through; text-decoration-color: var(--sand-faint); }
-.note-check { margin: 3px 0 0; accent-color: var(--glass); flex: none; }
+
+/* A round tick, quiet until you're on it. */
+.note-check {
+  appearance: none; flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin: 1px 0 0;
+  border: 1.5px solid var(--sand-faint); border-radius: 50%; background: transparent; cursor: pointer;
+  transition: border-color .12s ease-out, background-color .12s ease-out;
+}
+.note-check::after { content: ''; width: 4px; height: 8px; margin-top: -2px; border: solid var(--glass); border-width: 0 2px 2px 0; transform: rotate(45deg); opacity: 0; }
+.note-check:hover { border-color: var(--glass); }
+.note-check:hover::after { opacity: .6; }
+.note-check:checked { border-color: var(--glass); background: var(--glass); }
+.note-check:checked::after { border-color: var(--ink); opacity: 1; }
+.note-check:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .note-check { transition: none; } }
+
 .note-main { flex: 1; min-width: 0; }
-.note-text { font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; border-radius: var(--r-sm); }
-.note-text:hover { color: var(--sand); background: var(--reef-2); }
+.note-text { max-width: 72ch; margin: 0 -4px; padding: 0 4px; font-size: 13.5px; line-height: 1.45; color: var(--sand); white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; border-radius: var(--r-sm); }
+.note-text:hover { background: var(--reef-2); }
 .note-text:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
 .note-edit { min-height: 0; }
-.note-meta { margin-top: 3px; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-faint); }
+.note-meta { margin-top: 4px; font: 11px var(--font-mono); font-stretch: 88%; color: var(--sand-faint); }
 .note-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
 .note-tag { padding: 0 5px; border: 1px solid var(--line); border-radius: var(--r-sm); line-height: 16px; }
 .note-from { color: var(--sand-dim); }
@@ -53,6 +75,6 @@
 /* A narrow panel: the buttons go under the text. */
 @media (max-width: 420px) {
   .note { flex-wrap: wrap; }
-  .note-actions { width: 100%; padding-left: 23px; }
+  .note-actions { width: 100%; padding-left: 30px; }
   .note-run { opacity: 1; }
 }
