@@ -7,7 +7,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { snapshot, summarize, scope, newTouch, noteTool, patchFor, undo, parseDiffSummary, checkRef, mapLimit, MAX_UNTRACKED, SKIPPED_TOO_MANY } = require('../src/main/changes');
+const { snapshot, summarize, scope, newTouch, noteTool, mayWrite, patchFor, undo, parseDiffSummary, checkRef, mapLimit, MAX_UNTRACKED, SKIPPED_TOO_MANY } = require('../src/main/changes');
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-changes-'));
@@ -233,4 +233,14 @@ test('checkRef refuses paths that leave the project', () => {
   assert.equal(checkRef({ ...ok, paths: ['src/a.js'] }), null);
   assert.ok(checkRef({ ...ok, paths: ['../x'] }));
   assert.ok(checkRef({ ...ok, paths: 'src/a.js' }));
+});
+
+test('mayWrite: file tools and unknown tools could write; reads and results could not', () => {
+  assert.equal(mayWrite({ kind: 'tool', name: 'Edit' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'Bash' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'mcp__someone__thing' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'Read' }), false);
+  assert.equal(mayWrite({ kind: 'tool', name: 'mcp__shellby__say' }), false);
+  assert.equal(mayWrite({ kind: 'tool_result', name: 'Edit' }), false);
+  assert.equal(mayWrite(null), false);
 });

@@ -32,6 +32,15 @@ const MAX_UNTRACKED_BYTES = 20 * 1024 * 1024;   // a 2 GB video someone forgot t
 const MAX_FILES = 500;                          // rows shown for one turn
 const MAX_PATCH = 400 * 1024;                   // one file's diff, as text
 
+// A snapshot taken only to look (the file viewer) runs none of the repo's own
+// hooks: git add and write-tree write the temporary index, and post-index-change would fire.
+// A -c before the subcommand, so any git takes it (GIT_CONFIG_COUNT would need 2.31).
+let noHooksDir = null;
+const noHooks = () => {
+  try { noHooksDir = noHooksDir && fs.existsSync(noHooksDir) ? noHooksDir : fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-no-hooks-')); } catch { /* git finds no hooks in a folder that isn't there either */ }
+  return ['-c', `core.hooksPath=${noHooksDir || path.join(os.tmpdir(), 'shellby-no-hooks')}`];
+};
+
 function git(cwd, args, { env, input, timeout = SNAPSHOT_TIMEOUT_MS, maxBuffer = 8 * 1024 * 1024 } = {}) {
   return new Promise(resolve => {
     const child = execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...args], {
@@ -65,8 +74,9 @@ const sameRoot = (root, dir) => !!root && longPath(root).toLowerCase() === longP
  * Runs before and after every turn, so nothing in it blocks the main thread.
  * info: optional; given a skipped reason (SKIPPED_TOO_MANY) when the folder is
  * one it won't snapshot, so the turn can say why it has no diff.
+ * opts.hooks: false for a look only (the file viewer): the repo's hooks don't run.
  */
-async function snapshot(dir, info = null) {
+async function snapshot(dir, info = null, { hooks = true } = {}) {
   const root = await rootOf(dir);
   if (!root) return null;
   const [idx, at] = await Promise.all([
@@ -81,7 +91,8 @@ async function snapshot(dir, info = null) {
     // A fresh repo has no index yet; an empty temp one is the same thing.
     try { await fs.promises.copyFile(realIndex, tmp); } catch (e) { if (e.code !== 'ENOENT') throw e; }
     const env = { GIT_INDEX_FILE: tmp };
-    const tracked = await git(root, ['add', '-u', '--', '.'], { env });
+    const pre = hooks ? [] : noHooks();
+    const tracked = await git(root, [...pre, 'add', '-u', '--', '.'], { env });
     if (!tracked.ok) return null;
     const others = await git(root, ['ls-files', '-z', '--others', '--exclude-standard'], { env });
     if (!others.ok) return null;
@@ -92,10 +103,10 @@ async function snapshot(dir, info = null) {
     });
     const small = untracked.filter((_f, i) => fits[i]);
     if (small.length) {
-      const added = await git(root, ['add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: small.join('\0') });
+      const added = await git(root, [...pre, 'add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: small.join('\0') });
       if (!added.ok) return null;
     }
-    const tree = await git(root, ['write-tree'], { env });
+    const tree = await git(root, [...pre, 'write-tree'], { env });
     const t = tree.ok && tree.out.trim();
     return t && TREE.test(t) ? { root, tree: t, head } : null;
   } catch {
@@ -199,6 +210,10 @@ function noteTool(touch, item) {
     touch.broad = true;
   }
 }
+
+/** Could this tool call have written to the folder? (The file viewer looks again once its result is in.) */
+const mayWrite = item => item?.kind === 'tool' && typeof item.name === 'string'
+  && (FILE_TOOLS.has(item.name) || (!READ_ONLY_TOOLS.has(item.name) && !SHELLBY_TOOL.test(item.name)));
 
 // An absolute path as git names it in this repo (forward slashes), lower-cased to compare; null when outside it.
 function relKey(root, abs) {
@@ -467,4 +482,4 @@ async function treeWith(root, tree, file) {
   }
 }
 
-module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, scope, newTouch, noteTool, patchFor, undo, undoHunk, splitHunks, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
+module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, MAX_UNTRACKED_BYTES, noHooks, mapLimit, summarize, scope, newTouch, noteTool, mayWrite, patchFor, undo, undoHunk, splitHunks, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
