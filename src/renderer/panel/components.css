@@ -169,12 +169,13 @@ body.solo .brand { pointer-events: none; }
 body.solo .brand-name, body.solo .brand-xp, body.solo .brand-level,
 body.solo .tabstrip, body.solo .dock, body.solo .usage, body.solo .pop-btn,
 body.solo #paletteBtn, body.solo #settingsBtn, body.solo .win-btns .sep { display: none; }
-.tab-add {
+.tab-add, .tab-files {
   flex: none; width: 28px; height: 28px; margin-bottom: 2px; border: 0; border-radius: var(--r-sm);
   background: none; color: var(--sand-dim); display: grid; place-items: center;
 }
-.tab-add svg { width: 15px; height: 15px; }
-.tab-add:hover { background: var(--reef-2); color: var(--sand); }
+.tab-add svg, .tab-files svg { width: 15px; height: 15px; }
+.tab-add:hover, .tab-files:hover { background: var(--reef-2); color: var(--sand); }
+.tab-files[hidden] { display: none; }
 .ti {
   flex: none; min-width: 15px; height: 15px; border-radius: 8px; padding: 0 3px;
   display: grid; place-items: center; font: 700 var(--fs-10)/1 var(--font-mono);

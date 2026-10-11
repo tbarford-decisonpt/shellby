@@ -259,6 +259,7 @@
     },
   };
 
+  $('filesBtn').addEventListener('click', () => SB.viewer.openTab(state.activeTab));
   $('viewerBack').addEventListener('click', () => SB.goBack());
   $('viewerRefresh').addEventListener('click', () => refresh());
   $('viewerEditor').addEventListener('click', openInEditor);
@@ -288,6 +289,12 @@
     },
     // The Files buttons (Task 6) and the header's live state follow the tabs.
     syncButtons() {
+      const canOpen = SB.viewer.canOpen;
+      $('filesBtn').hidden = SB.panes.count(state.grid) > 1 || !canOpen(state.tabs.get(state.activeTab));
+      for (const b of document.querySelectorAll('.pane-head .pane-files')) {
+        const pane = state.grid.flat().find(p => p.id === b.closest('.pane-head')?.dataset.pane);
+        b.hidden = !canOpen(state.tabs.get(pane?.active));
+      }
       if (cur && state.view === 'viewer') drawLive();
     },
     current: () => (cur ? { id: cur.id, root: cur.root, file: cur.file, side: cur.side, files: cur.files } : null),

@@ -88,7 +88,9 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev(`SB.activate(${JSON.stringify(copyTab)})`);
 
     // ---- the viewer on it
-    await ev(`SB.viewer.openTab(${JSON.stringify(copyTab)})`);
+    const paneId = await ev(`SB.panes.paneWith(SB.state.grid, ${JSON.stringify(copyTab)}).id`);
+    check(await until(`!document.querySelector('.pane-head[data-pane="${paneId}"] .pane-files').hidden`), "the copy's pane has a Files button");
+    await ev(`document.querySelector('.pane-head[data-pane="${paneId}"] .pane-files').click()`);
     check(await until("SB.state.view === 'viewer' && document.querySelectorAll('#viewerList .vw-row').length > 0"), 'the viewer opens on the copy');
     const rows = await ev("[...document.querySelectorAll('#viewerList .vw-row')].map(b => b.dataset.path + ':' + b.querySelector('.vw-st').textContent)");
     check(JSON.stringify(rows) === JSON.stringify([`${MADE[0].file}:?`]), `Changes lists the new file as untracked (${rows})`);
@@ -127,6 +129,30 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
     check(await until("SB.state.view === 'chat'"), 'Esc goes back to the chat');
     check(await ev('SB.panes.count(SB.state.grid)') === 2, 'with both panes still there');
+
+    // ---- file links: click opens the viewer, Ctrl the editor, Shift its folder, outside the repo the editor
+    await ev("window.__opened = []; SB.openFile = (p, o) => { window.__opened.push({ p, line: o?.line ?? null, reveal: !!o?.reveal }); }");
+    const linkIn = (file, opts = {}) => `(() => { const a = SB.fileLink(${JSON.stringify(file)}, { line: 1 }); document.querySelector('.feed[data-tab="' + ${JSON.stringify(copyTab)} + '"]').append(a); a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: ${!!opts.ctrl}, shiftKey: ${!!opts.shift} })); })()`;
+    await ev(linkIn(MADE[0].file));
+    check(await until(`SB.state.view === 'viewer' && SB.viewer.current()?.file === ${JSON.stringify(MADE[0].file)}`), 'a file link opens the viewer on that file');
+    await ev("SB.setView('chat')");
+    await ev(linkIn(MADE[0].file, { ctrl: true }));
+    check(await until('window.__opened.length === 1') && await ev("SB.state.view === 'chat' && !window.__opened[0].reveal"), 'Ctrl+click opens the editor instead');
+    await ev(linkIn(MADE[0].file, { shift: true }));
+    check(await until('window.__opened.length === 2') && await ev('window.__opened[1].reveal'), 'Shift+click shows it in its folder');
+    await ev(linkIn(path.join(base, 'outside.txt')));
+    check(await until('window.__opened.length === 3') && await ev("SB.state.view === 'chat'"), 'a file outside the repo still opens in the editor');
+
+    // ---- the branch chip, in a conversation in your own checkout
+    const other = await ev(`[...SB.state.tabs.keys()].find(id => id !== ${JSON.stringify(copyTab)})`);
+    await ev(`SB.activate(${JSON.stringify(other)})`);
+    check(await until("!document.getElementById('branchChip').hidden && document.getElementById('branchLabel').textContent === 'main'"), 'a plain checkout shows its branch too');
+    await ev("document.getElementById('branchChip').click()");
+    check(await until("[...document.querySelectorAll('#branchMenu .mi-title')].some(t => t.textContent === 'View changes')"), 'its menu offers View changes');
+    await ev("[...document.querySelectorAll('#branchMenu .menu-item')].find(b => b.textContent.includes('View changes')).click()");
+    check(await until("SB.state.view === 'viewer' && SB.viewer.current()?.side === 'changes'"), 'which opens the viewer on Changes');
+    check(await until("document.getElementById('viewerNote').textContent === 'Nothing has changed here.'"), 'and says when nothing has');
+    await ev("SB.setView('chat')");
 
     console.log(fails ? `\n${fails} failed` : '\nall passed');
     process.exitCode = fails ? 1 : 0;
