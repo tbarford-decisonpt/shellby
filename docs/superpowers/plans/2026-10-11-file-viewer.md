@@ -18,7 +18,7 @@
 - git runs through `execFile` with fixed arguments, `core.fsmonitor=false`, `GIT_OPTIONAL_LOCKS=0`, a timeout, and never throws to its caller.
 - Line endings are LF. Edit with the Edit tool or Node `fs`; never Python text mode.
 - Caps (exact): 8 handles; 2 MB per file read; NUL in the first 8 KB means binary; colour up to 4,000 lines; refresh at most once every 2 s; 500 files per changes list (`changes.js` MAX_FILES); 400 KB per patch (`changes.js` MAX_PATCH).
-- User-facing strings, exact: "This folder is gone", "Couldn't read changes", "This file is gone", "Showing the first 500 of N", "Too many new files to compare", "Open in editor", "Just uncommitted", "Changes", "All files", "Whole file", "View changes", "Browse files", "and N more".
+- User-facing strings, exact: "This folder is gone", "Couldn't read changes", "This file is gone", "Showing the first 500 of N", "Too many new files to compare", "Open in editor", "Just uncommitted", "Changes", "All files", "Whole file", "View changes", "Browse files".
 - Click on a reply's file link opens the viewer; Ctrl+click opens the editor (`SB.openFile`); Shift+click reveals in Explorer; a path outside the conversation's repo falls back to the editor; pop-out windows (`SB.solo`) keep the editor.
 - Temp dirs in tests: `fs.realpathSync.native(fs.mkdtempSync(...))`, except where a test deliberately passes the unresolved form.
 - Commits: `<type>: <description>` (feat, fix, perf, refactor, test, docs, chore, ci), ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
@@ -33,6 +33,15 @@
 3. **A repo with no commits yet**: Changes compares with the empty tree and lists every file as new, instead of failing. Pinned in Task 2.
 4. **A worktree deleted while the viewer is open**: changes and reads return `gone`, and the screen says "This folder is gone" instead of erroring. Pinned in Task 2 (main) and drawn in Task 5.
 5. **A conversation started in a subfolder of the repo**: the handle's root is the repo's top level, and a reply link relative to the subfolder resolves to the right file. Pinned in Task 2 (`locate`).
+
+Added after the plan's redteam (run `20261011-0207-redteam-file-viewer-plan`, findings folded in):
+- A UNC, drive-relative or stream path never reaches the disk, and outside-the-folder answers exactly like missing (Task 1).
+- A repo's own hooks never run when it's only being looked at (Task 2; verified that `changes.snapshot` runs `post-index-change` without this).
+- A worktree record planted in `.git/worktrees` can't vouch for a folder of another repo (Task 3).
+- The viewer catches up on nudges it heard while hidden, because `SB.send` always returns to the chat (Task 5).
+- `preload.js` sits at 797 of 800 lines: the bridge is exactly three lines (Task 3).
+
+Accepted residuals: clean filters (git-lfs) still run on `git add` and `git status`, as they already do for the Project page's status reads and every turn's snapshot. A hard link inside the folder to a file outside reads through (needs a local writer in the folder). A viewer snapshot writes loose blobs of untracked files into `.git`, as turn snapshots do. Turn snapshots (existing code, out of scope) also still run repo hooks. Files-button hiding for remote tabs has no e2e, since it needs an ssh folder.
 
 ---
 
@@ -109,6 +118,33 @@ test('the folder named any way: different case, or not yet resolved', async () =
   } finally { f.done(); }
 });
 
+test('network, drive and stream paths are refused before anything touches the disk', async () => {
+  const f = folder();
+  try {
+    // A UNC path would make Windows log in to that host; it must never reach realpath.
+    const fsReal = fs.realpathSync.native;
+    const seen = [];
+    fs.realpathSync.native = p => { seen.push(p); return fsReal(p); };
+    try {
+      for (const rel of ['\\\\attacker.example\\share\\x', '//attacker.example/share/x', 'C:x.txt', 'a.txt:secret', 'src/../../outside/secret.txt', 'D:\\other\\x']) {
+        assert.deepEqual(await readInside(f.root, rel), { ok: false, missing: true }, rel);
+      }
+      assert.ok(!seen.some(p => /attacker|other/.test(p)), `realpath never saw them (${seen.join(' | ')})`);
+    } finally { fs.realpathSync.native = fsReal; }
+  } finally { f.done(); }
+});
+
+test('outside the folder answers exactly as missing does: no telling what exists elsewhere', async () => {
+  const f = folder();
+  try {
+    fs.symlinkSync(path.join(f.base, 'outside'), path.join(f.root, 'link'), 'junction');
+    const there = await readInside(f.root, 'link/secret.txt');
+    const absent = await readInside(f.root, 'link/no-such.txt');
+    assert.deepEqual(there, absent);
+    assert.deepEqual(there, { ok: false, missing: true });
+  } finally { f.done(); }
+});
+
 test('missing, gone, too big and binary say so instead of reading', async () => {
   const f = folder();
   try {
@@ -175,24 +211,46 @@ const sameDir = (a, b) => {
   return !!x && !!y && path.relative(x, y) === '';
 };
 
+// A relative path made only of plain names: no drive (C:x), no stream (a.txt:s), no
+// UNC or rooted start, no '..'. Checked before anything touches the disk, so a
+// network path never makes Windows log in to a host (as filelinks.js refuses too).
+const plainRel = rel => typeof rel === 'string' && !!rel && rel.length <= 1000 && !/[\0:]/.test(rel)
+  && !/^[\\/]/.test(rel) && !path.isAbsolute(rel) && !rel.split(/[\\/]/).includes('..');
+
+// Outside the folder and not there at all answer alike: the panel learns nothing about other files.
+const NOT_HERE = { ok: false, missing: true };
+
 /** A file under root, as text. rel: as git names it (forward slashes) or the OS does. */
 async function readInside(root, rel) {
-  if (typeof rel !== 'string' || !rel || rel.length > 1000 || rel.includes('\0')) return { ok: false, error: 'Not a file in this folder.' };
   const top = typeof root === 'string' ? longPath(root) : null;
   if (!top) return { ok: false, gone: true };
-  const file = longPath(path.resolve(top, rel));
-  if (!file) return { ok: false, missing: true };
-  if (!isUnder(top, file)) return { ok: false, error: 'Not a file in this folder.' };
-  let st;
-  try { st = await fs.promises.stat(file); } catch { return { ok: false, missing: true }; }
-  if (!st.isFile()) return { ok: false, error: 'Not a file.' };
-  if (st.size > MAX_BYTES) return { ok: false, tooBig: true, size: st.size };
-  let buf;
-  try { buf = await fs.promises.readFile(file); } catch { return { ok: false, missing: true }; }
-  if (buf.subarray(0, SNIFF_BYTES).includes(0)) return { ok: false, binary: true, size: st.size };
-  let text = buf.toString('utf8');
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-  return { ok: true, text, size: st.size };
+  if (!plainRel(rel)) return { ...NOT_HERE };
+  const abs = path.resolve(top, rel);
+  if (!isUnder(top, abs)) return { ...NOT_HERE };
+  const file = longPath(abs); // links followed: a junction out of the folder ends outside it
+  if (!file || !isUnder(top, file)) return { ...NOT_HERE };
+  let fh;
+  try { fh = await fs.promises.open(file, 'r'); } catch { return { ...NOT_HERE }; }
+  try {
+    // Swapped for a link between the check and the open: the file opened must still be the one inside.
+    const st = await fh.stat({ bigint: true });
+    const again = longPath(abs);
+    if (!again || !isUnder(top, again)) return { ...NOT_HERE };
+    const now = await fs.promises.stat(again, { bigint: true });
+    if (now.ino !== st.ino || now.dev !== st.dev) return { ...NOT_HERE };
+    if (!st.isFile()) return { ok: false, error: 'Not a file.' };
+    const size = Number(st.size);
+    if (size > MAX_BYTES) return { ok: false, tooBig: true, size };
+    const buf = await fh.readFile();
+    if (buf.subarray(0, SNIFF_BYTES).includes(0)) return { ok: false, binary: true, size };
+    let text = buf.toString('utf8');
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    return { ok: true, text, size };
+  } catch {
+    return { ...NOT_HERE };
+  } finally {
+    await fh.close().catch(() => {});
+  }
 }
 
 module.exports = { readInside, sameDir, isUnder, longPath, MAX_BYTES, SNIFF_BYTES };
@@ -201,7 +259,7 @@ module.exports = { readInside, sameDir, isUnder, longPath, MAX_BYTES, SNIFF_BYTE
 - [ ] **Step 5: Run the test to make sure it passes**
 
 Run: `node --test test/viewer-read.test.js`
-Expected: PASS, 5 tests.
+Expected: PASS, 7 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -218,10 +276,12 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `src/main/viewer.js`
-- Test: `test/viewer.test.js`
+- Modify: `src/main/changes.js:69-83` (`snapshot` gains a `{ hooks }` option)
+- Test: `test/viewer.test.js`; add to `test/changes.test.js`
 
 **Interfaces:**
-- Consumes: Task 1's `readInside`, `sameDir`, `isUnder`, `longPath`; `changes.rootOf`, `changes.snapshot`, `changes.summarize`, `changes.patchFor`; `leaving.parseWorktrees`; `filelinks.parseTarget`.
+- Consumes: Task 1's `readInside`, `sameDir`, `isUnder`, `longPath`; `changes.rootOf`, `changes.snapshot`, `changes.summarize`, `changes.patchFor`; `leaving.parseWorktrees`, `leaving.okDir`; `filelinks.parseTarget`.
+- Changes: `changes.snapshot(dir, info = null, { hooks = true } = {})`. With `hooks: false` its `git add` calls run with `core.hooksPath` pointed at an empty Shellby-made folder, so a repo's own hooks (`post-index-change` runs on every index write, verified in the redteam run) never fire for a folder that is only being looked at. Turn snapshots keep today's behaviour (`hooks` defaults to true).
 - Produces:
   - `createViewer() -> { open, get, changesOf, diffOf, read, close, staleFor }`
   - `open({ dir, base?: string|null, tabId?: string|null }) -> Promise<{ ok: true, id, root, name, branch: string|null, base: string|null, git: boolean } | { ok: false, gone?: true, error }>`
@@ -229,7 +289,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `changesOf(id, { uncommittedOnly?: boolean }) -> Promise<{ ok: true, files: [{ path, status: 'A'|'M'|'D'|'T'|'?', added, removed, binary }], more: number, against: string } | { ok: true, noGit: true, files: [], more: 0, against: null } | { ok: false, expired?: true, gone?: true, tooManyNew?: true, error? }>`
   - `diffOf(id, rel) -> Promise<{ ok: true, patch, truncated, binary } | { ok: false, expired?: true, error }>`
   - `read(id, rel) -> Promise<readInside result | { ok: false, expired: true }>`
-  - `close(id) -> void`; `staleFor(dir) -> string[]` (handle ids whose root is dir or contains it)
+  - `close(id) -> void`; `staleFor(dir) -> string[]` (handle ids whose root is dir or contains it); `keepTabs(ids: Set<string>) -> void` (drops handles opened from a tab no longer open)
+  - `writeWatch(nudge: (cwd) => void) -> (item, cwd) => void`: remembers tool calls `changes.mayWrite` flags and calls `nudge(cwd)` once each one's `tool_result` arrives (Task 3 wires it into the session item handler)
+  - `changesOf` answers a repeat call for the same handle and mode from its last result for 2 s (`REFRESH_MS`), and viewer snapshots run one at a time across all handles
   - `locate(cwd, target) -> Promise<{ inside: true, rel: string, line: number|null } | { inside: false }>`
   - `branchOf(dir) -> Promise<string | null>`
   - constants `MAX_HANDLES = 8`, `EMPTY_TREE`
@@ -428,14 +490,122 @@ test('branchOf names the branch, and nothing outside a repo', async () => {
     assert.equal(await branchOf(os.tmpdir()), null);
   } finally { r.done(); }
 });
+
+test("looking at a repo never runs its hooks", async () => {
+  const r = repo();
+  try {
+    const marker = path.join(r.base, 'HOOK_RAN').split(path.sep).join('/');
+    fs.writeFileSync(path.join(r.dir, '.git', 'hooks', 'post-index-change'), `#!/bin/sh\necho ran > "${marker}"\n`, { mode: 0o755 });
+    r.write(r.dir, 'new.txt', 'x\n');
+    const v = createViewer();
+    const h = await v.open({ dir: r.dir });
+    assert.equal((await v.changesOf(h.id)).ok, true);
+    assert.equal(fs.existsSync(marker), false);
+  } finally { r.done(); }
+});
+
+test('a repeat within 2 s is answered from the last look; a different mode looks again', async () => {
+  const r = repo();
+  try {
+    const v = createViewer();
+    const h = await v.open({ dir: r.dir });
+    r.write(r.dir, 'a.txt', 'x\n');
+    const first = await v.changesOf(h.id);
+    r.write(r.dir, 'b.txt', 'y\n');
+    assert.deepEqual((await v.changesOf(h.id)).files.map(f => f.path), first.files.map(f => f.path), 'b.txt waits for the next look');
+    assert.deepEqual((await v.changesOf(h.id, { uncommittedOnly: true })).files.map(f => f.path).sort(), ['a.txt', 'b.txt']);
+    r.write(r.dir, 'c.txt', 'z\n');
+    v.staleFor(r.dir); // a nudge: something there changed
+    assert.deepEqual((await v.changesOf(h.id)).files.map(f => f.path).sort(), ['a.txt', 'b.txt', 'c.txt'], 'a nudge always looks again');
+  } finally { r.done(); }
+});
+
+test('a non-local folder is refused, and a closed tab takes its handles with it', async () => {
+  const r = repo();
+  try {
+    const v = createViewer();
+    assert.equal((await v.open({ dir: '\\\\attacker.example\\share' })).ok, false);
+    const a = await v.open({ dir: r.dir, tabId: 'keep' });
+    const b = await v.open({ dir: r.dir, tabId: 'gone' });
+    const c = await v.open({ dir: r.dir });
+    v.keepTabs(new Set(['keep']));
+    assert.ok(v.get(a.id));
+    assert.equal(v.get(b.id), null);
+    assert.ok(v.get(c.id), 'a handle from the Project page belongs to no tab');
+  } finally { r.done(); }
+});
+
+test('writeWatch nudges once a writing tool has finished, and never for a read', () => {
+  const seen = [];
+  const watch = writeWatch(cwd => seen.push(cwd));
+  watch({ kind: 'tool', id: 't1', name: 'Write' }, 'C:\\p');
+  watch({ kind: 'tool', id: 't2', name: 'Read' }, 'C:\\p');
+  assert.deepEqual(seen, [], 'nothing until the result is in');
+  watch({ kind: 'tool_result', id: 't2' }, 'C:\\p');
+  watch({ kind: 'tool_result', id: 't1' }, 'C:\\p');
+  watch({ kind: 'tool_result', id: 't1' }, 'C:\\p');
+  assert.deepEqual(seen, ['C:\\p']);
+});
+```
+
+Change the `require` line at the top of this test file to:
+
+```js
+const { createViewer, locate, branchOf, writeWatch, MAX_HANDLES } = require('../src/main/viewer');
+```
+
+Append to `test/changes.test.js` (add `mayWrite` to its `require` on line 10):
+
+```js
+test('mayWrite: file tools and unknown tools could write; reads and results could not', () => {
+  assert.equal(mayWrite({ kind: 'tool', name: 'Edit' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'Bash' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'mcp__someone__thing' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'Read' }), false);
+  assert.equal(mayWrite({ kind: 'tool', name: 'mcp__shellby__say' }), false);
+  assert.equal(mayWrite({ kind: 'tool_result', name: 'Edit' }), false);
+  assert.equal(mayWrite(null), false);
+});
 ```
 
 - [ ] **Step 2: Run it to make sure it fails**
 
-Run: `node --test test/viewer.test.js`
-Expected: FAIL with `createViewer is not a function`.
+Run: `node --test test/viewer.test.js test/changes.test.js`
+Expected: FAIL with `createViewer is not a function` and `mayWrite is not a function`.
 
-- [ ] **Step 3: Write the implementation**
+- [ ] **Step 3: Teach `changes.js` two things**
+
+In `src/main/changes.js`, below `const MAX_PATCH = ...`, add:
+
+```js
+// A snapshot taken only to look (the file viewer) runs none of the repo's own
+// hooks: git add writes the temporary index, and post-index-change would fire.
+let noHooksDir = null;
+const noHooks = () => {
+  try { noHooksDir = noHooksDir && fs.existsSync(noHooksDir) ? noHooksDir : fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-no-hooks-')); } catch { /* git falls back to none found */ }
+  return { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.hooksPath', GIT_CONFIG_VALUE_0: noHooksDir || path.join(os.tmpdir(), 'shellby-no-hooks') };
+};
+```
+
+Change `async function snapshot(dir, info = null) {` to `async function snapshot(dir, info = null, { hooks = true } = {}) {`, and its line `const env = { GIT_INDEX_FILE: tmp };` (line 83, inside `snapshot`, not the one at line 459) to:
+
+```js
+    const env = { GIT_INDEX_FILE: tmp, ...(hooks ? {} : noHooks()) };
+```
+
+Update the doc comment above `snapshot` with one line: ` * opts.hooks: false for a look only (the file viewer): the repo's hooks don't run.`
+
+After `noteTool` (around line 199), add:
+
+```js
+/** Could this tool call have written to the folder? (The file viewer looks again once its result is in.) */
+const mayWrite = item => item?.kind === 'tool' && typeof item.name === 'string'
+  && (FILE_TOOLS.has(item.name) || (!READ_ONLY_TOOLS.has(item.name) && !SHELLBY_TOOL.test(item.name)));
+```
+
+Add `mayWrite` to the `module.exports` object on the last line.
+
+- [ ] **Step 4: Write the viewer's handles**
 
 In `src/main/viewer.js`, replace the two `require` lines at the top with:
 
@@ -446,13 +616,14 @@ const fs = require('fs');
 const path = require('path');
 const changes = require('./changes');
 const { parseTarget } = require('./filelinks');
-const { parseWorktrees } = require('./leaving');
+const { parseWorktrees, okDir } = require('./leaving');
 ```
 
 Below `SNIFF_BYTES`, add:
 
 ```js
 const MAX_HANDLES = 8;               // folders open at once; the oldest goes first
+const REFRESH_MS = 2000;             // a look again sooner than this is answered from the last one
 const GIT_TIMEOUT_MS = 8000;
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // what a repo with no commits is compared with
 
@@ -494,11 +665,26 @@ async function locate(cwd, target) {
   return { inside: true, rel: path.relative(root, file).split(path.sep).join('/'), line: t.line };
 }
 
+/** Tool calls that could write, until their results come in; then nudge(cwd) once for each. */
+function writeWatch(nudge) {
+  const writing = new Set();
+  return (item, cwd) => {
+    if (changes.mayWrite(item) && item.id) {
+      writing.add(item.id);
+      if (writing.size > 200) writing.delete(writing.values().next().value);
+    } else if (item?.kind === 'tool_result' && writing.delete(item.id) && typeof cwd === 'string') {
+      nudge(cwd);
+    }
+  };
+}
+
 function createViewer() {
-  const handles = new Map(); // id -> { id, root, git, branch, base, tabId, files: Map(lower path -> file), ref, pending }
+  const handles = new Map(); // id -> { id, root, git, branch, base, tabId, files: Map(lower path -> file), ref, pending, last }
+  let line = Promise.resolve(); // viewer snapshots take turns: eight handles never hash a big repo at once
 
   async function open({ dir, base = null, tabId = null } = {}) {
-    if (typeof dir !== 'string' || !path.isAbsolute(dir)) return { ok: false, error: 'Open what?' };
+    // A local folder only: a network share would make Windows log in to it (leaving.js okDir).
+    if (!okDir(dir)) return { ok: false, error: 'Open what?' };
     const top = await changes.rootOf(dir);
     const root = longPath(top || dir);
     if (!root) return { ok: false, gone: true, error: 'This folder is gone.' };
@@ -506,14 +692,14 @@ function createViewer() {
     const against = top ? (typeof base === 'string' && base ? base : await mainBranchFor(root)) : null;
     const id = crypto.randomBytes(8).toString('hex');
     if (handles.size >= MAX_HANDLES) handles.delete(handles.keys().next().value);
-    handles.set(id, { id, root, git: !!top, branch, base: against, tabId, files: new Map(), ref: null, pending: null });
+    handles.set(id, { id, root, git: !!top, branch, base: against, tabId, files: new Map(), ref: null, pending: null, last: null });
     return { ok: true, id, root, name: path.basename(root), branch, base: against, git: !!top };
   }
 
   async function compute(h, uncommittedOnly) {
     if (!longPath(h.root)) return { ok: false, gone: true, error: 'This folder is gone.' };
     const info = {};
-    const snap = await changes.snapshot(h.root, info);
+    const snap = await changes.snapshot(h.root, info, { hooks: false });
     if (!snap) return info.skipped ? { ok: false, tooManyNew: true, error: 'Too many new files to compare.' } : { ok: false, error: "Couldn't read changes." };
     const fork = !uncommittedOnly && h.base ? (await git(h.root, ['merge-base', h.base, 'HEAD']))?.trim() || null : null;
     const before = fork || snap.head || EMPTY_TREE;
@@ -534,10 +720,15 @@ function createViewer() {
     const h = handles.get(id);
     if (!h) return Promise.resolve({ ok: false, expired: true });
     if (!h.git) return Promise.resolve({ ok: true, noGit: true, files: [], more: 0, against: null });
-    // Asked twice while the first is still hashing the folder: one snapshot answers both.
+    // Asked twice while the first is still hashing the folder, or again within 2 s: one snapshot answers both.
     const key = uncommittedOnly ? 'head' : 'base';
     if (h.pending?.key === key) return h.pending.p;
-    const p = compute(h, uncommittedOnly).finally(() => { if (h.pending?.p === p) h.pending = null; });
+    if (h.last?.key === key && Date.now() - h.last.at < REFRESH_MS) return Promise.resolve(h.last.result);
+    const p = line.then(() => compute(h, uncommittedOnly)).then(result => {
+      if (result.ok) h.last = { key, at: Date.now(), result };
+      return result;
+    }).finally(() => { if (h.pending?.p === p) h.pending = null; });
+    line = p.catch(() => {});
     h.pending = { key, p };
     return p;
   }
@@ -556,31 +747,40 @@ function createViewer() {
     return h ? readInside(h.root, rel) : { ok: false, expired: true };
   }
 
+  // The handles a changed folder belongs to. Their last look no longer answers a repeat:
+  // the 2 s reuse only absorbs asking twice, never a real change.
   function staleFor(dir) {
     if (typeof dir !== 'string' || !path.isAbsolute(dir)) return [];
     const at = longPath(dir) || path.resolve(dir);
-    return [...handles.values()].filter(h => path.relative(h.root, at) === '' || isUnder(h.root, at)).map(h => h.id);
+    const hit = [...handles.values()].filter(h => path.relative(h.root, at) === '' || isUnder(h.root, at));
+    for (const h of hit) h.last = null;
+    return hit.map(h => h.id);
   }
 
-  return { open, get: id => handles.get(id) || null, changesOf, diffOf, read, close: id => { handles.delete(id); }, staleFor };
+  // A conversation closed: the handles opened from it go too (the Project page's belong to no tab).
+  function keepTabs(open) {
+    for (const [id, h] of handles) if (h.tabId && !open.has(h.tabId)) handles.delete(id);
+  }
+
+  return { open, get: id => handles.get(id) || null, changesOf, diffOf, read, close: id => { handles.delete(id); }, staleFor, keepTabs };
 }
 ```
 
 Replace the `module.exports` line with:
 
 ```js
-module.exports = { readInside, sameDir, isUnder, longPath, createViewer, locate, branchOf, MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, EMPTY_TREE };
+module.exports = { readInside, sameDir, isUnder, longPath, createViewer, locate, branchOf, writeWatch, MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE };
 ```
 
-- [ ] **Step 4: Run the tests to make sure they pass**
+- [ ] **Step 5: Run the tests to make sure they pass**
 
-Run: `node --test test/viewer.test.js test/viewer-read.test.js`
-Expected: PASS, 15 tests. If the no-commits test fails because `changes.snapshot` returns null for a repo with no HEAD, read `snapshot` in `src/main/changes.js` (it copies a missing index as empty and handles `head: null`) and fix the viewer side rather than `changes.js`.
+Run: `node --test test/viewer.test.js test/viewer-read.test.js test/changes.test.js`
+Expected: PASS (14 in viewer.test.js, 7 in viewer-read.test.js, and every changes test including mayWrite). If the no-commits test fails because `changes.snapshot` returns null for a repo with no HEAD, read `snapshot` in `src/main/changes.js` (it copies a missing index as empty and handles `head: null`) and fix the viewer side.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/main/viewer.js test/viewer.test.js
+git add src/main/viewer.js src/main/changes.js test/viewer.test.js test/changes.test.js
 git commit -m "feat: file viewer handles list what changed since a branch began and serve its diffs
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -595,14 +795,15 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/main/ipc/index.js` (import beside `registerFilesIpc`; call after `registerFilesIpc(ipcMain, d);`)
 - Modify: `src/preload/preload.js` (after the `zoom: invoke('panel:zoom'),` line)
 - Modify: `src/main/fileindex.js:109-111` (`forget`) and its `module.exports`
-- Modify: `src/main/changes.js` (add `mayWrite` and export it)
 - Modify: `src/main/wiring/sessions.js` (the item handler, beside `changes.noteTool(...)`)
+- Modify: `src/renderer/panel/settings.js:210-212` (the editor note under Settings, Claude, Editor)
 - Modify: `docs/THREAT-MODEL.md` (the "Where each boundary is held" table)
 - Modify: `docs/DEVELOPMENT.md` (code map, beside the `fileindex.js` line)
-- Test: `test/ipc-viewer.test.js`; add to `test/fileindex.test.js`; add to `test/changes.test.js`
+- Test: `test/ipc-viewer.test.js`; add to `test/fileindex.test.js`
 
 **Interfaces:**
-- Consumes: Task 2's `createViewer`, `locate`, `branchOf`, `sameDir`; `leaving.okDir`, `leaving.git`, `leaving.parseWorktrees`; `d.manager.tabs`, `d.remoteService.placeOf`, `d.projects.knowsRoot`, `d.send`, `d.panel`, `d.isStr`.
+- Consumes: Task 2's `createViewer`, `locate`, `branchOf`, `sameDir`, `writeWatch`; `changes.sameRepo`; `leaving.okDir`, `leaving.git`, `leaving.parseWorktrees`; `d.manager.tabs`, `d.manager.on('tabs')`, `d.remoteService.placeOf`, `d.projects.knowsRoot`, `d.send`, `d.panel`, `d.isStr`.
+- Produces for main: `d.viewerNudge(cwd)` (sends `viewer:stale` for handles on that folder without dropping the @-mention cache) and `d.viewerWrites(item, cwd)` (Task 2's `writeWatch(d.viewerNudge)`).
 - Produces (channels, all `ipcRenderer.invoke` except the event):
   - `viewer:open({ tabId } | { projectRoot, worktreePath? })` → Task 2 `open` result
   - `viewer:tree(id)` → `{ ok: true, entries: string[] } | { ok: false, expired: true }` (entries as `fileIndex.list`: files and `folder/` entries, forward slashes)
@@ -612,7 +813,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `viewer:close(id)` → `true`
   - event `viewer:stale` → `{ ids: string[] }`
 - Preload names: `viewerOpen`, `viewerTree`, `viewerChanges`, `viewerRead`, `viewerDiff`, `viewerLocate`, `viewerBranch`, `viewerClose`, `onViewerStale`.
-- `fileIndex.onForget(fn: (cwd) => void)`; `changes.mayWrite(item) -> boolean`.
+- `fileIndex.onForget(fn: (cwd) => void)`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -656,15 +857,17 @@ function setup() {
     ['t2', { id: 't2', session: { cwd: remoteDir } }],
   ]);
   const sent = [];
+  const listeners = {};
   const ipc = createFakeIpc();
-  registerViewerIpc(ipc.ipcMain, {
-    isStr, manager: { tabs },
+  const d = {
+    isStr, manager: { tabs, on: (ev, fn) => { listeners[ev] = fn; } },
     remoteService: { placeOf: cwd => (cwd === remoteDir ? { host: 'box' } : null) },
     projects: { knowsRoot: r => (typeof r === 'string' && r.toLowerCase() === repo.toLowerCase() ? repo : null) },
     panel: { isDestroyed: () => false },
     send: (_win, channel, payload) => sent.push({ channel, payload }),
-  });
-  return { base, repo, wt, stranger, ipc, sent, done: () => fs.rmSync(base, { recursive: true, force: true }) };
+  };
+  registerViewerIpc(ipc.ipcMain, d);
+  return { base, repo, wt, stranger, ipc, sent, d, listeners, g, done: () => fs.rmSync(base, { recursive: true, force: true }) };
 }
 
 test("a conversation's folder opens, with its copy's base", async () => {
@@ -701,6 +904,44 @@ test("a project's own worktrees open; any other folder is refused", async () => 
     assert.equal((await s.ipc.invoke('viewer:open', { projectRoot: s.repo, worktreePath: s.wt })).ok, true);
     assert.equal((await s.ipc.invoke('viewer:open', { projectRoot: s.repo, worktreePath: s.stranger })).ok, false);
     assert.equal((await s.ipc.invoke('viewer:open', { projectRoot: s.stranger })).ok, false, 'not a project the page showed');
+    assert.equal((await s.ipc.invoke('viewer:open', { projectRoot: s.repo, worktreePath: '\\\\attacker.example\\share' })).ok, false, 'never a network path');
+  } finally { s.done(); }
+});
+
+test('a worktree record planted in the project cannot vouch for a folder of another repo', async () => {
+  const s = setup();
+  try {
+    // git worktree list reports a locked record whatever its folder holds; the folder must point back to this repo.
+    const planted = path.join(s.repo, '.git', 'worktrees', 'evil');
+    fs.mkdirSync(planted, { recursive: true });
+    fs.writeFileSync(path.join(planted, 'gitdir'), `${path.join(s.stranger, '.git').split(path.sep).join('/')}\n`);
+    fs.writeFileSync(path.join(planted, 'HEAD'), 'ref: refs/heads/main\n');
+    fs.writeFileSync(path.join(planted, 'commondir'), '../..\n');
+    fs.writeFileSync(path.join(planted, 'locked'), '');
+    assert.match(s.g(s.repo, 'worktree', 'list', '--porcelain'), /stranger/, 'git does list it');
+    assert.equal((await s.ipc.invoke('viewer:open', { projectRoot: s.repo, worktreePath: s.stranger })).ok, false);
+  } finally { s.done(); }
+});
+
+test("a closed conversation's handles go with it", async () => {
+  const s = setup();
+  try {
+    const h = await s.ipc.invoke('viewer:open', { tabId: 't1' });
+    s.listeners.tabs([{ id: 't2' }]);
+    assert.deepEqual(await s.ipc.invoke('viewer:changes', h.id), { ok: false, expired: true });
+  } finally { s.done(); }
+});
+
+test('viewerWrites nudges after a writing tool, and the @-mention list is left alone', async () => {
+  const s = setup();
+  try {
+    const h = await s.ipc.invoke('viewer:open', { tabId: 't1' });
+    const forgot = [];
+    fileIndex.onForget(cwd => forgot.push(cwd));
+    s.d.viewerWrites({ kind: 'tool', id: 'w1', name: 'Write' }, s.wt);
+    s.d.viewerWrites({ kind: 'tool_result', id: 'w1' }, s.wt);
+    assert.deepEqual(s.sent.at(-1), { channel: 'viewer:stale', payload: { ids: [h.id] } });
+    assert.deepEqual(forgot, [], 'fileIndex.forget was not called');
   } finally { s.done(); }
 });
 
@@ -744,24 +985,12 @@ test('onForget hears every forget, and a listener that throws harms nothing', ()
 });
 ```
 
-Append to `test/changes.test.js` (add `mayWrite` to the `require` on line 10):
-
-```js
-test('mayWrite: file tools and unknown tools could write; reads and results could not', () => {
-  assert.equal(mayWrite({ kind: 'tool', name: 'Edit' }), true);
-  assert.equal(mayWrite({ kind: 'tool', name: 'Bash' }), true);
-  assert.equal(mayWrite({ kind: 'tool', name: 'mcp__someone__thing' }), true);
-  assert.equal(mayWrite({ kind: 'tool', name: 'Read' }), false);
-  assert.equal(mayWrite({ kind: 'tool', name: 'mcp__shellby__say' }), false);
-  assert.equal(mayWrite({ kind: 'tool_result', name: 'Edit' }), false);
-  assert.equal(mayWrite(null), false);
-});
-```
+If the planted-record test's `git does list it` assertion fails on this machine's git, git itself refuses the record and the viewer check is moot: keep the second assertion, drop the first.
 
 - [ ] **Step 2: Run them to make sure they fail**
 
-Run: `node --test test/ipc-viewer.test.js test/fileindex.test.js test/changes.test.js`
-Expected: FAIL: `Cannot find module '../src/main/ipc/viewer'`, `onForget is not a function`, `mayWrite is not a function`.
+Run: `node --test test/ipc-viewer.test.js test/fileindex.test.js`
+Expected: FAIL: `Cannot find module '../src/main/ipc/viewer'` and `onForget is not a function`.
 
 - [ ] **Step 3: Add `onForget` to fileindex.js**
 
@@ -782,31 +1011,20 @@ function forget(cwd) {
 
 Change the export to: `module.exports = { list, rank, mention, suggest, forget, onForget, withFolders };`
 
-- [ ] **Step 4: Add `mayWrite` to changes.js**
-
-After `noteTool` (around line 199), add:
-
-```js
-/** Could this tool call have written to the folder? (The file viewer looks again once its result is in.) */
-const mayWrite = item => item?.kind === 'tool' && typeof item.name === 'string'
-  && (FILE_TOOLS.has(item.name) || (!READ_ONLY_TOOLS.has(item.name) && !SHELLBY_TOOL.test(item.name)));
-```
-
-Add `mayWrite` to the `module.exports` object on the last line.
-
-- [ ] **Step 5: Write `src/main/ipc/viewer.js`**
+- [ ] **Step 4: Write `src/main/ipc/viewer.js`**
 
 ```js
 // The file viewer's channels (viewer.js): open a handle on a conversation's
 // folder, or on a worktree of a project the Project page showed, then read
 // inside it. Read-only. Kept out of main.js, which only wires it up.
+const changes = require('../changes');
 const fileIndex = require('../fileindex');
 const leaving = require('../leaving');
-const { createViewer, locate, branchOf, sameDir } = require('../viewer');
+const { createViewer, locate, branchOf, sameDir, writeWatch } = require('../viewer');
 
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
- * @param d  what main shares with its IPC (main.js ipcDeps)
+ * @param d  what main shares with its IPC (main.js ipcDeps); this sets d.viewerNudge and d.viewerWrites
  */
 function registerViewerIpc(ipcMain, d) {
   const viewer = createViewer();
@@ -819,7 +1037,13 @@ function registerViewerIpc(ipcMain, d) {
     if (d.remoteService?.placeOf(cwd)) return { error: 'That folder is on another computer.' };
     return { tab, cwd };
   };
-  const worktreesOf = async root => leaving.parseWorktrees(await leaving.git(['-C', root, 'worktree', 'list', '--porcelain']));
+  // The project's worktrees as git lists them, but only local folders that really are this repo's:
+  // a record in .git/worktrees is the repo's own word, so the folder must point back to it.
+  const isWorktreeOf = async (root, dir) => {
+    if (!leaving.okDir(dir)) return false;
+    const listed = leaving.parseWorktrees(await leaving.git(['-C', root, 'worktree', 'list', '--porcelain']));
+    return listed.some(w => leaving.okDir(w.path) && sameDir(w.path, dir)) && changes.sameRepo(root, dir);
+  };
 
   ipcMain.handle('viewer:open', async (_e, req) => {
     if (d.isStr(req?.tabId)) {
@@ -831,9 +1055,8 @@ function registerViewerIpc(ipcMain, d) {
       const root = d.projects?.knowsRoot(req.projectRoot);
       if (!root) return { ok: false, error: "That isn't a project Shellby knows." };
       const dir = d.isStr(req.worktreePath) ? req.worktreePath : root;
-      if (!sameDir(dir, root) && !(await worktreesOf(root)).some(w => sameDir(w.path, dir))) {
-        return { ok: false, error: "That isn't one of the project's worktrees." };
-      }
+      if (!leaving.okDir(dir)) return { ok: false, error: "That isn't one of the project's worktrees." };
+      if (!sameDir(dir, root) && !(await isWorktreeOf(root, dir))) return { ok: false, error: "That isn't one of the project's worktrees." };
       return viewer.open({ dir });
     }
     return { ok: false, error: 'Open what?' };
@@ -854,54 +1077,62 @@ function registerViewerIpc(ipcMain, d) {
     return { branch: f.error ? null : await branchOf(f.cwd) };
   });
   ipcMain.handle('viewer:close', (_e, id) => { viewer.close(id); return true; });
-  // Something in a folder may have changed (fileindex.js forget): a nudge for each viewer open on it.
-  fileIndex.onForget(dir => {
+  // Something in a folder may have changed: a nudge for each viewer open on it.
+  const nudge = d.viewerNudge = dir => {
     const ids = viewer.staleFor(dir);
     if (ids.length && d.panel && !d.panel.isDestroyed()) d.send(d.panel, 'viewer:stale', { ids });
-  });
+  };
+  fileIndex.onForget(nudge);                      // turn ends, ! commands, step undo
+  d.viewerWrites = writeWatch(nudge);             // each tool that could have written (wiring/sessions.js)
+  d.manager.on?.('tabs', summary => viewer.keepTabs(new Set(summary.map(t => t.id))));
   return viewer;
 }
 
 module.exports = { registerViewerIpc };
 ```
 
-- [ ] **Step 6: Register it and expose it**
+`changes.sameRepo(a, b)` (changes.js) compares `git rev-parse --git-common-dir` of both folders, so a folder that isn't a repo, or is another repo, fails it.
+
+- [ ] **Step 5: Register it and expose it**
 
 In `src/main/ipc/index.js`, after `const { registerFilesIpc } = require('./files');` add `const { registerViewerIpc } = require('./viewer');`, and after `registerFilesIpc(ipcMain, d);` add `registerViewerIpc(ipcMain, d);`.
 
-In `src/preload/preload.js`, after `zoom: invoke('panel:zoom'),` add:
+`src/preload/preload.js` is at 797 of the 800 lines `test/file-size.test.js` allows, so the bridge takes exactly three lines and no comment line of its own. After `zoom: invoke('panel:zoom'),` add:
 
 ```js
-  // the file viewer (main's viewer.js): a folder's files and what changed in it, read-only
-  viewerOpen: invoke('viewer:open'), viewerTree: invoke('viewer:tree'), viewerChanges: invoke('viewer:changes'),
+  viewerOpen: invoke('viewer:open'), viewerTree: invoke('viewer:tree'), viewerChanges: invoke('viewer:changes'), // the file viewer (main's viewer.js), read-only
   viewerRead: invoke('viewer:read'), viewerDiff: invoke('viewer:diff'), viewerLocate: invoke('viewer:locate'),
   viewerBranch: invoke('viewer:branch'), viewerClose: invoke('viewer:close'), onViewerStale: on('viewer:stale'),
 ```
 
-- [ ] **Step 7: Nudge after each tool that could have written**
+- [ ] **Step 6: Nudge after each tool that could have written**
 
-In `src/main/wiring/sessions.js`, inside `wireSessions(d)` before the `d.manager = new SessionManager({` line, add:
-
-```js
-  // Tool calls that could have written, until their results come in: the file viewer looks again then (ipc/viewer.js).
-  const writing = new Set();
-```
-
-In the item handler, directly after the line `if (item.kind === 'tool') changes.noteTool(touchOf(tabId)?.touch, item); // what this turn could have written`, add:
+In `src/main/wiring/sessions.js`, in the item handler, directly after the line `if (item.kind === 'tool') changes.noteTool(touchOf(tabId)?.touch, item); // what this turn could have written`, add:
 
 ```js
-      if (changes.mayWrite(item) && item.id) { writing.add(item.id); if (writing.size > 200) writing.delete(writing.values().next().value); }
-      if (item.kind === 'tool_result' && writing.delete(item.id)) fileIndex.forget(tab.session?.cwd);
+      d.viewerWrites?.(item, tab.session?.cwd); // the file viewer looks again once a writing tool is done (ipc/viewer.js)
 ```
 
-The turn's end (`noteTurnChanges`), `!` commands (`parity.js`) and step undo (`step-undo.js`) already call `fileIndex.forget`, so they nudge too with no change.
+This nudges the viewer without calling `fileIndex.forget`, so the @-mention list keeps its 20 s cache as today. The turn's end (`noteTurnChanges`), `!` commands (`parity.js`) and step undo (`step-undo.js`) already call `fileIndex.forget`, which nudges through `onForget`.
+
+`d.viewerWrites` is looked up when each item arrives, not when sessions are wired: `main.js` wires sessions (line 315) before `registerIpc` (line 385), and both run at boot before any turn.
+
+- [ ] **Step 7: Update what Settings says about file links**
+
+In `src/renderer/panel/settings.js`, change the `$('editorNote').textContent = ed.using ? ...` sentence (line 211) to:
+
+```js
+      ? `File paths in a conversation open in Shellby's viewer. Ctrl+click opens ${ed.using} at the line, and Shift+click shows a file in its folder.`
+```
+
+Leave the no-editor sentence as it is.
 
 - [ ] **Step 8: Document the boundary and the module**
 
 In `docs/THREAT-MODEL.md`, add this row after the `| Renderer → main | ...` row:
 
 ```markdown
-| Renderer → main file read | The panel reading files outside the folder it was shown, or aiming git at another repo | The panel opens a handle on a conversation id or a worktree `git worktree list` reported for a project the page showed; reads resolve links and 8.3 names and stay under the handle's root; diffs only for files on that handle's own changes list; 2 MB cap, binary refused | `src/main/viewer.js`, `src/main/ipc/viewer.js` |
+| Renderer → main file read | The panel reading files outside the folder it was shown, aiming git at another repo, reaching a network share, or a browsed repo running its own programs | The panel opens a handle on a conversation id or on a local worktree that `git worktree list` reports and that shares the project's git directory; paths with a drive, a stream, a network or rooted start, or `..` are refused before the disk is touched, then links and 8.3 names are resolved and the file opened is checked to be the one inside; outside and missing answer alike; diffs only for files on that handle's own changes list; 2 MB cap, binary refused. Its snapshots run `git add` into a temporary index with hooks pointed at an empty folder; clean filters (git-lfs) still run, as they do for status reads | `src/main/viewer.js`, `src/main/ipc/viewer.js`, `src/main/changes.js` |
 ```
 
 In `docs/DEVELOPMENT.md`, after the `  fileindex.js     @ mentions: ...` line, add:
@@ -910,18 +1141,15 @@ In `docs/DEVELOPMENT.md`, after the `  fileindex.js     @ mentions: ...` line, a
   viewer.js        the file viewer: handles on a folder, reads kept inside it, and what changed since its branch began; ipc/viewer.js serves it
 ```
 
-- [ ] **Step 9: Run the tests, lint and typecheck**
+- [ ] **Step 9: Run every unit test, lint and typecheck**
 
-Run: `node --test test/ipc-viewer.test.js test/fileindex.test.js test/changes.test.js test/ipc-surface.test.js`
-Expected: PASS. `ipc-surface.test.js` checks the preload names match main's channels.
-
-Run: `npm run lint; npm run typecheck`
-Expected: both clean.
+Run: `npm test; npm run lint; npm run typecheck`
+Expected: all clean. `test/ipc-surface.test.js` checks the preload names match main's channels, and `test/file-size.test.js` checks preload.js is still at most 800 lines.
 
 - [ ] **Step 10: Commit**
 
 ```bash
-git add src/main/ipc/viewer.js src/main/ipc/index.js src/preload/preload.js src/main/fileindex.js src/main/changes.js src/main/wiring/sessions.js docs/THREAT-MODEL.md docs/DEVELOPMENT.md test/ipc-viewer.test.js test/fileindex.test.js test/changes.test.js
+git add src/main/ipc/viewer.js src/main/ipc/index.js src/preload/preload.js src/main/fileindex.js src/main/wiring/sessions.js src/renderer/panel/settings.js docs/THREAT-MODEL.md docs/DEVELOPMENT.md test/ipc-viewer.test.js test/fileindex.test.js
 git commit -m "feat: the file viewer's channels, and a nudge when an open folder may have changed
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1217,9 +1445,16 @@ fs.writeFileSync(path.join(base, 'outside.txt'), 'not in the project\n');
 // What the turns write, and so what the viewer must list: counts come from here.
 const MADE = [{ file: 'b.txt', words: 'made in the copy' }, { file: 'c.txt', words: 'second change' }];
 
+const targets = async () => { try { return await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json(); } catch { return []; } };
+
 (async () => {
   let fails = 0;
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
+  // Something already on the port (an Electron a killed run left behind): the checks would drive that app instead.
+  if ((await targets()).length) {
+    console.log(`FAIL  port ${PORT} is taken by another app, maybe an Electron a killed run left behind`);
+    process.exit(1);
+  }
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
     env: { ...process.env, SHELLBY_USER_DATA: userData, CLAUDE_CONFIG_DIR: claudeConfig, SHELLBY_FAKE_CLAUDE: path.join(ROOT, 'test', 'fixtures', 'fake-claude.js'), SHELLBY_HOOK_PORT: '47972', SHELLBY_E2E: '1' },
@@ -1271,10 +1506,20 @@ const MADE = [{ file: 'b.txt', words: 'made in the copy' }, { file: 'c.txt', wor
     check(await ev("document.querySelector('#viewerMain .dl.add .vw-ln:nth-child(2)').textContent") === '1', 'with the new side numbered');
     await shot('1-changes');
 
-    // ---- a second edit shows up on its own
+    // ---- a second edit shows up on its own. SB.send goes back to the chat (tab-send.js), so the
+    // viewer hears the nudge while hidden and catches up when it's shown again.
     await ev(`SB.send(${JSON.stringify(`edit ${MADE[1].file} ${MADE[1].words}`)})`);
     await idle();
-    check(await until(`document.querySelectorAll('#viewerList .vw-row').length === ${MADE.length}`), 'a second edit adds itself to the list');
+    check(await ev("SB.state.view === 'chat' && SB.viewer.current() !== null"), 'sending went back to the chat, the viewer kept its place');
+    await ev("SB.setView('viewer')");
+    check(await until(`document.querySelectorAll('#viewerList .vw-row').length === ${MADE.length}`), 'shown again, it lists the second edit');
+    check(await ev(`SB.viewer.current().file === ${JSON.stringify(MADE[0].file)}`), 'and still has the file you were on');
+
+    // ---- Whole file on a changed file, and back to its diff
+    await ev("[...document.querySelectorAll('#viewerMain .vw-file-head button')].find(b => b.textContent === 'Whole file').click()");
+    check(await until(`[...document.querySelectorAll('#viewerMain .dl.ctx .code')].some(c => c.textContent === ${JSON.stringify(MADE[0].words)})`), 'Whole file shows the changed file as text');
+    await ev("[...document.querySelectorAll('#viewerMain .vw-file-head button')].find(b => b.textContent === 'Diff').click()");
+    check(await until("!!document.querySelector('#viewerMain .dl.add')"), 'and Diff goes back');
 
     // ---- a file that didn't change, read whole
     await ev("document.getElementById('viewerTabFiles').click()");
@@ -1284,6 +1529,7 @@ const MADE = [{ file: 'b.txt', words: 'made in the copy' }, { file: 'c.txt', wor
     await shot('2-whole-file');
 
     // ---- Esc puts the panes back
+    check(await ev("SB.state.view === 'viewer'"), 'still in the viewer before Esc');
     await ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
     check(await until("SB.state.view === 'chat'"), 'Esc goes back to the chat');
     check(await ev('SB.panes.count(SB.state.grid)') === 2, 'with both panes still there');
@@ -1301,7 +1547,7 @@ const MADE = [{ file: 'b.txt', words: 'made in the copy' }, { file: 'c.txt', wor
 })();
 ```
 
-Check two things against `scripts/e2e-changes.js` before running: that it calls `SB.send` exactly this way while another view is showing (if `SB.send` needs the chat view, call `SB.setView('chat')` before each send and `SB.setView('viewer')` after `idle()`), and how it closes the app (copy its teardown if it does more than `app.kill()`).
+`SB.send` ends with `SB.setView('chat')` (`src/renderer/panel/tab-send.js:172`); the script relies on that, and on the viewer catching up when shown again. Before running, compare the teardown with `scripts/e2e-changes.js` and copy its extra steps if it does more than `app.kill()`.
 
 - [ ] **Step 2: Run it to make sure it fails**
 
@@ -1430,7 +1676,8 @@ Create `src/renderer/panel/viewer.js`:
   let cur = null;             // what's open: the handle, the lists and the file on screen
   let shownAt = 0, timer = null;
 
-  // A call on the handle. One dropped (eight others opened since, or a reload) is opened again, once.
+  // A call on the handle. One dropped (eight others opened since, a closed tab, a reload) is opened
+  // again, once, with its changes list rebuilt, since main serves diffs only for files on that list.
   async function call(fn) {
     const me = cur;
     let r = await fn(me.id).catch(() => null);
@@ -1438,6 +1685,7 @@ Create `src/renderer/panel/viewer.js`:
       const again = await api.viewerOpen(me.req).catch(() => null);
       if (!again?.ok) return { ok: false, error: again?.error || "Couldn't open that folder." };
       me.id = again.id;
+      if (me.git) await api.viewerChanges(me.id, { uncommittedOnly: me.only }).catch(() => null);
       r = await fn(me.id).catch(() => null);
     }
     return r || { ok: false, error: "Couldn't read that." };
@@ -1450,8 +1698,8 @@ Create `src/renderer/panel/viewer.js`:
     if (!r?.ok) return SB.toast(r?.error || "Couldn't open that folder.");
     if (cur && cur.id !== r.id) api.viewerClose(cur.id);
     const me = cur = {
-      ...r, req, tabId: req.tabId || null, side, only: false, files: [], more: 0, against: null, note: null, gone: false,
-      entries: [], open: new Set(), filter: '', file: file || lastFile.get(r.root) || null, line, whole: false,
+      ...r, req, tabId: req.tabId || null, side, only: false, files: [], more: 0, against: null, note: null, gone: false, dirty: false,
+      entries: [], open: new Set(), filter: '', file: file || lastFile.get(r.root) || null, line, whole: !!line,
     };
     $('viewerFilter').value = '';
     $('viewerMain').replaceChildren();
@@ -1459,7 +1707,7 @@ Create `src/renderer/panel/viewer.js`:
     draw();
     await Promise.all([loadChanges(), loadTree()]);
     if (cur !== me) return;
-    if (!me.side) me.side = me.file && !me.files.some(f => f.path === me.file) ? 'files' : me.files.length ? 'changes' : 'files';
+    if (!me.side) me.side = me.files.length ? 'changes' : 'files';
     if (me.file) for (const a of ancestors(me.file)) me.open.add(a);
     draw();
     if (me.file) showFile(me.file, { line });
@@ -1563,9 +1811,10 @@ Create `src/renderer/panel/viewer.js`:
     SB.openFile(`${cur.root}\\${cur.file.replace(/\//g, '\\')}`, { line: cur.line, tabId: cur.tabId || state.activeTab });
   }
 
+  // A line to go to (a link's :42) opens the whole file there, changed or not; Diff is a click away.
   async function showFile(rel, { line = null, keep = false } = {}) {
     const me = cur;
-    if (me.file !== rel) me.whole = false;
+    if (me.file !== rel || line) me.whole = !!line;
     me.file = rel; me.line = line;
     lastFile.set(me.root, rel);
     for (const b of document.querySelectorAll('#viewerList .vw-row')) b.classList.toggle('on', b.dataset.path === rel);
@@ -1642,16 +1891,31 @@ Create `src/renderer/panel/viewer.js`:
     if (me.file && (tree || sig(me.file) !== before)) showFile(me.file, { line: me.line, keep: true });
   }
 
-  // Main's nudge: something in the folder may have changed. One look, at most every 2 s, and only on Changes.
+  // Main's nudge: something in the folder may have changed. One look, at most every 2 s, only on
+  // Changes and only while showing; otherwise the viewer remembers, and looks when it's shown again.
+  const showing = () => state.view === 'viewer' && cur?.side === 'changes';
   api.onViewerStale(({ ids } = {}) => {
-    if (!cur || !ids?.includes(cur.id) || state.view !== 'viewer' || cur.side !== 'changes' || timer) return;
-    timer = setTimeout(() => { timer = null; refresh({ tree: false }); }, Math.max(0, REFRESH_MS - (Date.now() - shownAt)));
+    if (!cur || !ids?.includes(cur.id)) return;
+    if (!showing()) { cur.dirty = true; return; }
+    if (timer) return;
+    timer = setTimeout(() => {
+      timer = null;
+      if (showing()) refresh({ tree: false }); else if (cur) cur.dirty = true;
+    }, Math.max(0, REFRESH_MS - (Date.now() - shownAt)));
   });
+  // Shown again (Back to chat, then the Files button, or SB.setView): catch up on what it missed.
+  SB.views.viewer = {
+    render() {
+      if (!cur?.dirty) return;
+      cur.dirty = false;
+      refresh({ tree: false });
+    },
+  };
 
   $('viewerBack').addEventListener('click', () => SB.goBack());
   $('viewerRefresh').addEventListener('click', () => refresh());
   $('viewerEditor').addEventListener('click', openInEditor);
-  $('viewerTabChanges').addEventListener('click', async () => { if (!cur) return; cur.side = 'changes'; draw(); await loadChanges(); draw(); });
+  $('viewerTabChanges').addEventListener('click', async () => { if (!cur) return; cur.side = 'changes'; cur.dirty = false; draw(); await loadChanges(); draw(); });
   $('viewerTabFiles').addEventListener('click', () => { if (!cur) return; cur.side = 'files'; draw(); });
   $('viewerOnly').addEventListener('change', async e => { if (!cur) return; cur.only = e.target.checked; await loadChanges(); draw(); });
   $('viewerFilter').addEventListener('input', e => { if (!cur) return; cur.filter = e.target.value; $('viewerList').replaceChildren(...treeRows()); });
@@ -1690,7 +1954,10 @@ Run: `npm run panel:html; npm run lint; node --test test/panel-html.test.js`
 Expected: `panel.html` rebuilt, lint clean, the panel-html test passes.
 
 Run: `node scripts/e2e-viewer.js`
-Expected: every line PASS, `all passed`. If "a second edit adds itself to the list" fails, check the turn-end path: `noteTurnChanges` calls `fileIndex.forget(cwd)`, which must reach `viewer:stale` (Task 3); log in `onViewerStale` to see whether the nudge arrives.
+Expected: every line PASS, `all passed`. If "shown again, it lists the second edit" fails, find which link broke: log in `onViewerStale` (did a nudge arrive while hidden and set `cur.dirty`?), in `SB.views.viewer.render` (did it refresh?), and in main's `d.viewerNudge` (did `staleFor` match the copy's folder and clear its last look?).
+
+Run: `npm test`
+Expected: all pass, `test/file-size.test.js` and `test/panel-html.test.js` included.
 
 - [ ] **Step 8: Commit**
 
@@ -1834,13 +2101,17 @@ Replace the click listener body (lines 33-39) with:
     const a = e.target.closest?.('a.file-link');
     if (!a) return;
     e.preventDefault();
-    const tabId = a.closest('.feed')?.dataset.tab || state.activeTab;
+    const feed = a.closest('.feed');
+    const tabId = feed?.dataset.tab || state.activeTab;
     const line = Number(a.dataset.line) || null;
-    // Ctrl: your editor, as a click used to be. Shift: its folder. A popped-out window has only its chat.
-    if (e.ctrlKey || e.shiftKey || SB.solo || !SB.viewer) return SB.openFile(a.dataset.path, { line, reveal: e.shiftKey, tabId });
+    // Ctrl: your editor, as a click used to be. Shift: its folder. A popped-out window has only its
+    // chat, and a link outside a conversation (Workflows' runs, say) has no folder to show it in.
+    if (e.ctrlKey || e.shiftKey || SB.solo || !SB.viewer || !feed) return SB.openFile(a.dataset.path, { line, reveal: e.shiftKey, tabId });
     SB.viewer.openLink(tabId, a.dataset.path, line);
   });
 ```
+
+Inside a conversation (`.feed`) this covers reply text, tool rows, permission cards and attachment chips: all of them name files in that conversation's folder.
 
 Run `node --test` and grep `test/` for `Shift+click shows it in its folder`; update any test that asserts the old title.
 
@@ -1850,31 +2121,38 @@ In `src/renderer/panel/tab-chips.js`, above `function applyFolderLabel`, add:
 
 ```js
   // A conversation in your own checkout shows its branch too: the way into the file viewer (viewer.js).
-  const branchSeen = new Map(); // cwd -> { at, branch }
-  async function showPlainBranch(tab) {
-    let seen = branchSeen.get(tab.cwd);
-    if (!seen || Date.now() - seen.at > 15000) {
-      const r = await api.viewerBranch(tab.id).catch(() => null);
-      seen = { at: Date.now(), branch: r?.branch || null };
-      branchSeen.set(tab.cwd, seen);
+  // What's known shows at once, so the chip never blinks; a lookup older than 15 s is redone
+  // quietly, one at a time per folder.
+  const branchSeen = new Map(); // cwd -> { at, branch, asking }
+  function plainBranch(tab) {
+    const seen = branchSeen.get(tab.cwd) || { at: 0, branch: null, asking: null };
+    branchSeen.set(tab.cwd, seen);
+    if (Date.now() - seen.at > 15000 && !seen.asking) {
+      seen.asking = api.viewerBranch(tab.id).catch(() => null).then(r => {
+        Object.assign(seen, { at: Date.now(), branch: r?.branch || null, asking: null });
+        if (SB.activeTab()?.id === tab.id && !tab.worktree) showBranch(seen.branch);
+      });
     }
-    if (SB.activeTab()?.id !== tab.id || tab.worktree) return;
-    $('branchChip').hidden = !seen.branch;
-    if (seen.branch) {
-      $('branchLabel').textContent = seen.branch;
-      $('branchChip').title = `On branch ${seen.branch}`;
+    return seen.branch;
+  }
+  function showBranch(branch) {
+    $('branchChip').hidden = !branch;
+    if (branch) {
+      $('branchLabel').textContent = branch;
+      $('branchChip').title = `On branch ${branch}`;
     }
   }
 ```
 
-In `applyFolderLabel`, replace the `if (w) { ... }` block with:
+In `applyFolderLabel`, replace the line `$('branchChip').hidden = !w;` and the `if (w) { ... }` block after it with:
 
 ```js
     if (w) {
+      $('branchChip').hidden = false;
       $('branchLabel').textContent = w.branch.replace(/^shellby\//, '');
       $('branchChip').title = `Its own copy, on branch ${w.branch} (from ${w.base})`;
-    } else if (tab && !SB.solo) {
-      showPlainBranch(tab);
+    } else {
+      showBranch(tab && !SB.solo ? plainBranch(tab) : null);
     }
 ```
 
@@ -1934,7 +2212,7 @@ If a test asserting the old link title changed, add it to this commit.
 - Modify: `scripts/e2e-viewer.js`
 
 **Interfaces:**
-- Consumes: `SB.viewer.openWorktree(projectRoot, worktreePath)`, `SB.viewer.ICON`; `git.copyList` (`{ path, branch, changed }`, at most 12) and `git.copies` (the full count) from `projects/service.js` `gitView`.
+- Consumes: `SB.viewer.openWorktree(projectRoot, worktreePath)`, `SB.viewer.ICON`; `git.copyList` (`{ path, branch, changed }`, at most 12) from `projects/service.js` `gitView`. (No "and N more": `leaving.js` reads at most 12 worktrees including the main checkout, so the list is never cut.)
 
 - [ ] **Step 1: Write the failing e2e checks**
 
@@ -1979,15 +2257,13 @@ Replace `copiesList` with:
   function copiesList(root, git) {
     const list = git?.copyList || [];
     if (!list.length) return null;
-    const more = Math.max(0, (git.copies || 0) - list.length);
     const d = P.keptDetails(`copies:${root}`, L.copiesSummary(list),
       h('ul', { class: 'pj-copy-list' },
         list.map(w => h('li', {},
           h('button', { type: 'button', class: 'pj-copy-open', title: `Browse ${w.path}`, onclick: () => SB.viewer?.openWorktree(root, w.path) },
             SB.icon(SB.viewer?.ICON || '', { width: 1.3 }),
             h('code', { text: w.branch || 'detached' }),
-            w.changed ? h('span', { class: 'pj-chip warn', text: `${w.changed} changed` }) : h('span', { class: 'muted small', text: 'clean' })))),
-        more ? h('li', { class: 'muted small', text: `and ${more} more` }) : null));
+            w.changed ? h('span', { class: 'pj-chip warn', text: `${w.changed} changed` }) : h('span', { class: 'muted small', text: 'clean' }))))));
     d.classList.add('pj-copies');
     return d;
   }
@@ -2055,3 +2331,19 @@ git commit -m "docs: change note for the file viewer
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
+
+- [ ] **Step 5: Delivery, after PR #27 (split-panes) merges upstream; not before, and only with Tyler's go-ahead to push**
+
+Run: `git fetch upstream; git rebase upstream/main`
+Expected: the 35 split-panes commits drop out as already upstream; only this branch's commits remain. Resolve conflicts by keeping upstream's version of split-panes code and re-applying this branch's edits.
+
+Then drop the design documents, which upstream has no folder for (the spec says so), unless Tyler asks to ship them:
+
+```bash
+git rm -r docs/superpowers
+git commit -m "chore: drop the file viewer's design notes from the branch
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+Run all four checks again (`npm run lint; npm run typecheck; npm test; npm run e2e:ci`) on the rebased branch, then ask Tyler before pushing or opening the PR. The PR description notes the new trust boundary (CONTRIBUTING.md requires it for IPC and preload changes) and links the THREAT-MODEL row.

@@ -137,7 +137,7 @@ The header's live state comes from what the renderer already knows about the tab
 
 ## Project page
 
-`copiesList` (`project-page.js`) is display-only today. Each row becomes clickable and opens that worktree in the viewer, keeping its branch and "N changed" chip, plus a Files icon. It's fed by `git worktree list` minus the main checkout (`projects/service.js` `gitView`), so Claude Code's `.claude/worktrees/*` and hand-made worktrees appear too. The 12-row cap stays, with "and N more" added when it's hit. The project card gets a "Browse files" button for the main checkout.
+`copiesList` (`project-page.js`) is display-only today. Each row becomes clickable and opens that worktree in the viewer, keeping its branch and "N changed" chip, plus a Files icon. It's fed by `git worktree list` minus the main checkout (`projects/service.js` `gitView`), so Claude Code's `.claude/worktrees/*` and hand-made worktrees appear too. The 12-row cap stays. (No "and N more": `leaving.js` reads at most 12 worktrees including the main checkout, so the list of others is never cut.) The project card gets a "Browse files" button for the main checkout.
 
 ## When things go wrong
 
