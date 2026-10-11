@@ -8,6 +8,7 @@ const ctx = require('../context');
 const editor = require('../editor');
 const quiz = require('../quiz');
 const problems = require('../problems');
+const panes = require('../../renderer/shared/panes');
 const { run: runCli, skipSettings } = require('../claude/cli');
 
 // The most queued messages that go in at once, and files across all of them (as one task:send).
@@ -78,6 +79,19 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.on('tab:seen', (_e, tabId) => { if (d.isStr(tabId)) d.manager.markRead(tabId); });
   // The conversation on screen: the Stream Deck's Stop and Bring it home follow it (deck.js).
   ipcMain.on('tab:shown', (_e, tabId) => { if (d.isStr(tabId) && d.manager.tabs.has(tabId)) d.deckShownTab(tabId); });
+  // The split view as it stands (tab-panes.js), for the next start. Cleaned
+  // here too, against the conversations open: config only ever holds a grid
+  // within the caps, of tabs that exist, and only a split (one pane writes
+  // nothing). Main's tab order becomes each pane's tabs in turn, one pane's
+  // included, so openTabs comes back in that order.
+  ipcMain.on('panes:layout', (e, layout) => {
+    if (d.popoutTabOf(e.sender)) return; // a conversation in its own window has no grid
+    const clean = panes.clean(layout, [...d.manager.tabs.keys()]);
+    if (clean) d.manager.setOrder(panes.tabIds(clean.grid));
+    const keep = clean && panes.count(clean.grid) > 1 ? clean : null;
+    if (JSON.stringify(keep) === JSON.stringify(d.config.get('paneLayout') ?? null)) return;
+    d.config.set({ paneLayout: keep });
+  });
   // A conversation in a window of its own (wiring/popouts.js). x, y: where it was
   // dropped, in screen pixels; carry: what was typed in the panel but not sent.
   ipcMain.handle('tab:pop-out', (_e, { tabId, x, y, carry } = {}) => {

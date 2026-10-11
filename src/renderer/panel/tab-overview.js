@@ -18,14 +18,24 @@
 
   // ------------------------------------------------------------ edge markers
 
-  function paintEdges() {
-    const items = [...strip.querySelectorAll('[data-tab-id]')].map(el => {
+  const watched = new Map();   // a strip -> its [left, right] markers and size observer
+
+  function paintEdges(onStrip, left, right) {
+    const items = [...onStrip.querySelectorAll('[data-tab-id]')].map(el => {
       const t = state.tabs.get(el.dataset.tabId);
       return t && { id: t.id, left: el.offsetLeft, width: el.offsetWidth, standing: S.standing(t) };
     }).filter(Boolean);
-    const e = S.edges(items, { scrollLeft: strip.scrollLeft, width: strip.clientWidth });
-    paintEdge($('tabEdgeLeft'), e.left, 'left');
-    paintEdge($('tabEdgeRight'), e.right, 'right');
+    const e = S.edges(items, { scrollLeft: onStrip.scrollLeft, width: onStrip.clientWidth });
+    paintEdge(left, e.left, 'left');
+    paintEdge(right, e.right, 'right');
+  }
+
+  // Every strip with markers; a pane's goes when its pane closes.
+  function paintAllEdges() {
+    for (const [s, [left, right, observer]] of watched) {
+      if (!s.isConnected) { observer.disconnect(); watched.delete(s); continue; }
+      paintEdges(s, left, right);
+    }
   }
 
   function paintEdge(el, side, dir) {
@@ -42,19 +52,28 @@
     el.replaceChildren(h('span', { class: 'tab-edge-pill' }, urgent ? h('i', { 'aria-hidden': 'true' }) : null, `+${side.count}`));
   }
 
-  // Urgent: open it. Otherwise scroll that way by most of a strip.
+  // Urgent: open it. Otherwise scroll its strip that way by most of a strip.
   function edgeClick(e) {
     const el = e.currentTarget;
     if (el.dataset.target && state.tabs.has(el.dataset.target)) return SB.activate(el.dataset.target);
-    const step = strip.clientWidth * 0.8 * (el.classList.contains('left') ? -1 : 1);
-    strip.scrollBy({ left: step, behavior: reducedMotion() ? 'auto' : 'smooth' });
+    const onStrip = el.parentElement.querySelector('.tabs');
+    const step = onStrip.clientWidth * 0.8 * (el.classList.contains('left') ? -1 : 1);
+    onStrip.scrollBy({ left: step, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
-  for (const id of ['tabEdgeLeft', 'tabEdgeRight']) $(id).addEventListener('click', edgeClick);
 
-  let edgeFrame = 0;
-  const queueEdges = () => { if (!edgeFrame) edgeFrame = requestAnimationFrame(() => { edgeFrame = 0; paintEdges(); }); };
-  strip.addEventListener('scroll', queueEdges, { passive: true });
-  new ResizeObserver(queueEdges).observe(strip);
+  // A strip's markers follow its scrolling and its size.
+  function watchEdges(onStrip, left, right) {
+    if (watched.has(onStrip)) return; // once per strip, or its listeners stack
+    let frame = 0;
+    const queue = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; paintEdges(onStrip, left, right); }); };
+    const observer = new ResizeObserver(queue);
+    watched.set(onStrip, [left, right, observer]);
+    onStrip.addEventListener('scroll', queue, { passive: true });
+    observer.observe(onStrip);
+    for (const el of [left, right]) el.addEventListener('click', edgeClick);
+  }
+  watchEdges(strip, $('tabEdgeLeft'), $('tabEdgeRight'));
+  SB.watchEdges = watchEdges;
 
   // ------------------------------------------------------------ every open conversation
 
@@ -222,12 +241,16 @@
   const drawStrip = SB.renderTabStrip;
   SB.renderTabStrip = () => {
     drawStrip();
+    // Split, the top strip hides: the list's button, and the review inbox's,
+    // move to the end of the bar under it (review-view.js anchors to them).
+    const where = SB.panes.count(state.grid) > 1 ? $('subbar') : $('tabstrip');
+    if (allBtn.parentElement !== where) where.append($('reviewBtn'), allBtn);
     const tabs = [...state.tabs.values()];
     allBtn.hidden = tabs.length < SHOW_LIST_AT;
     $('tabAllCount').textContent = String(tabs.length);
     allBtn.classList.toggle('asking', tabs.some(t => S.standing(t) === 'asking'));
     allBtn.setAttribute('aria-label', `Every open conversation: ${tabs.length} (${SB.shortcuts.primary('tabList')})`);
-    paintEdges();            // now, not next frame: a hidden panel gets no frames
+    paintAllEdges();         // now, not next frame: a hidden panel gets no frames
     if (!list.hidden) renderRows();
   };
 })();

@@ -152,6 +152,7 @@ const DEFAULTS = {
   mcpSeen: {},          // when Shellby first saw each MCP server (one that's new isn't idle)
   pluginEnabledAt: {},  // when a plugin was turned back on from the Lean tab
   openTabs: [],       // history ids of conversations open as tabs
+  paneLayout: null,   // { grid, sizes }: the split view as you left it (shared/panes.js); null -> one pane
   pinnedTools: [],    // [{ kind, name }] shown as quick chips
   snippets: null,     // [{ name, text, hint?, newTab? }]: saved prompts, /name in the panel and @name in a terminal (see snippets.js); null -> the starters
   snippetUse: {},     // { name: { n, at } }: how often each snippet has run, and when last

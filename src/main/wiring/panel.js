@@ -9,6 +9,7 @@ const { sendToBottom } = require('../desktop-layer');
 const native = require('../native-windows');
 const { panelPosition } = require('../placement');
 const { kindOfApp } = require('../surroundings');
+const { ignoresRealMouse } = require('../test-desktop');
 
 const PANEL_DEFAULT = { width: 460, height: 700 };
 // "Make room" on a workflow map: the panel grows toward the middle of its screen,
@@ -27,12 +28,13 @@ const clampInto = (r, wa) => ({
 
 /**
  * Where the panel at bounds b grows to on work area wa: toward the middle of
- * the screen, so it keeps the corner nearest the screen's edge. Pure.
+ * the screen, so it keeps the corner nearest the screen's edge. want: the size
+ * it's after (Make room's, or what the panes need). Pure.
  * -> { set, right, low } | null when it's already as big as it would get
  */
-function grownBounds(b, wa) {
-  const width = Math.min(ROOMY.width, wa.width - ROOMY.gap * 2);
-  const height = Math.max(b.height, Math.min(ROOMY.height, wa.height - ROOMY.gap * 2));
+function grownBounds(b, wa, want = ROOMY) {
+  const width = Math.min(want.width, wa.width - ROOMY.gap * 2);
+  const height = Math.max(b.height, Math.min(want.height, wa.height - ROOMY.gap * 2));
   if (width <= b.width && height <= b.height) return null;
   const right = b.x + b.width / 2 > wa.x + wa.width / 2;
   const low = b.y + b.height / 2 > wa.y + wa.height / 2;
@@ -58,6 +60,7 @@ function wirePanel(d) {
       show: false, frame: false, backgroundColor: '#0c1719', title: 'Shellby', icon: d.ICON, webPreferences: d.webPreferences,
     });
     d.secureWindow(panel);
+    if (ignoresRealMouse(process.env, app.isPackaged)) panel.setIgnoreMouseEvents(true); // an e2e run drives it over CDP alone (test-desktop.js)
     attachContextMenu(panel, ipcMain); // checks the sender itself: only the panel picks from its menu
     panel.loadFile(path.join(d.RENDERER, 'panel', 'panel.html'));
     panel.webContents.on('did-finish-load', () => panel.webContents.setZoomFactor(d.config.get('panelZoom') || 1)); // Ctrl+= / Ctrl+- (ipc/files.js)
@@ -101,8 +104,9 @@ function wirePanel(d) {
         const back = c.x === set.x && c.y === set.y ? from : shrunkBounds(roomyFrom, c, screen.getDisplayMatching(c).workArea);
         roomyAt = Date.now();
         panel.setBounds(back);
+        roomyFrom = null;
+        return { ok: true, roomy: false, size: { width: back.width, height: back.height } }; // what the page waits to be
       }
-      roomyFrom = null;
       return { ok: true, roomy: false };
     }
     if (roomyFrom) return { ok: true, roomy: true };
@@ -113,6 +117,25 @@ function wirePanel(d) {
     roomyAt = Date.now();
     panel.setBounds(grown.set);
     return { ok: true, roomy: true };
+  }
+
+  // Room for more panes (pane-room.js): the panel grows toward the middle of
+  // its screen until they fit, and stays that size. Never smaller, never while
+  // maximized, and not remembered as your size. want: the window's size in DIP
+  // (the renderer has already scaled by its zoom). It's the panes' size now, so
+  // Make room has nothing to put back: the map hears it's lost its room, as
+  // when you resize it yourself.
+  function fitPanel(want) {
+    const { panel } = d;
+    if (!panel || panel.isDestroyed() || panel.isMaximized()) return { ok: false, grew: false };
+    const b = panel.getBounds();
+    const w = { width: Math.max(b.width, Math.ceil(want.width)), height: Math.max(b.height, Math.ceil(want.height)) };
+    const grown = grownBounds(b, screen.getDisplayMatching(b).workArea, w);
+    if (!grown) return { ok: true, grew: false };
+    if (roomyFrom) { roomyFrom = null; d.send(panel, 'panel:roomy-lost'); }
+    roomyAt = Date.now(); // ours, not yours: the resized handler won't save it as panelSize
+    panel.setBounds(grown.set);
+    return { ok: true, grew: true };
   }
 
   // ---- showing it
@@ -172,7 +195,7 @@ function wirePanel(d) {
     else showPanel();
   }
 
-  return { createPanel, gameInFront, reachedForShellby, setPanelRoomy, showPanel, togglePanel };
+  return { createPanel, fitPanel, gameInFront, reachedForShellby, setPanelRoomy, showPanel, togglePanel };
 }
 
 module.exports = { wirePanel, grownBounds, shrunkBounds, ROOMY };

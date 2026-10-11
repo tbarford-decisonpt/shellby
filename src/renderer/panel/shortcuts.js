@@ -8,7 +8,7 @@
   // be matched as a single press ("Esc Esc", "Ctrl+1…8") are only ever shown;
   // their handlers live where they always did. fixed: can't be changed in the
   // list (Ctrl+/), because what it does depends on the very key (Esc, Enter, a
-  // typed /, PgUp for left and PgDn for right).
+  // typed /, PgUp for left and PgDn for right, an arrow for its direction).
   const SHORTCUTS = [
     { id: 'palette', group: 'Anywhere', keys: ['Ctrl+K', 'Ctrl+Shift+P'], what: 'Jump anywhere, or run an action on this conversation' },
     { id: 'shortcuts', fixed: true, group: 'Anywhere', keys: ['Ctrl+/', '?'], what: 'This list of shortcuts (? when you’re not typing)' },
@@ -20,12 +20,14 @@
 
     { id: 'newTab', group: 'Conversations', keys: ['Ctrl+T'], what: 'New conversation' },
     { id: 'closeTab', group: 'Conversations', keys: ['Ctrl+W'], what: 'Close this conversation (press twice if he’s still working)' },
-    { id: 'nextTab', group: 'Conversations', keys: ['Ctrl+Tab', 'Ctrl+PgDn'], what: 'Next conversation' },
-    { id: 'prevTab', group: 'Conversations', keys: ['Ctrl+Shift+Tab', 'Ctrl+PgUp'], what: 'Previous conversation' },
-    { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right' },
+    { id: 'nextTab', group: 'Conversations', keys: ['Ctrl+Tab', 'Ctrl+PgDn'], what: 'Next conversation (in this pane, when they’re side by side)' },
+    { id: 'prevTab', group: 'Conversations', keys: ['Ctrl+Shift+Tab', 'Ctrl+PgUp'], what: 'Previous conversation (in this pane, when they’re side by side)' },
+    { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right along its strip' },
     { id: 'tabList', group: 'Conversations', keys: ['Ctrl+Shift+A'], what: 'Every open conversation, grouped by what it needs from you' },
     { id: 'renameTab', fixed: true, group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
-    { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'Another conversation alongside this one (or drag a tab into the chat, or out of the window)' },
+    { id: 'focusPane', fixed: true, group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
+    { id: 'movePane', fixed: true, group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation into the pane beside it, with its tabs (at the left or right edge, into a column of its own)' },
+    { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'This conversation into a pane of its own, or a new one alongside if it’s alone in its pane (or drag a tab into the chat, or out of the window)' },
     { id: 'reopenTab', group: 'Conversations', keys: ['Ctrl+Shift+T'], what: 'Bring back the conversation you closed last (again for the one before)' },
 
     { id: 'stop', fixed: true, group: 'This conversation', keys: ['Esc'], what: 'Stop, while he’s working' },
@@ -55,7 +57,7 @@
   const GROUPS = [...new Set(SHORTCUTS.map(s => s.group))];
   const byId = new Map(SHORTCUTS.map(s => [s.id, s]));
 
-  const KEY_NAMES = { Esc: 'Escape', PgUp: 'PageUp', PgDn: 'PageDown', '↑': 'ArrowUp', '↓': 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight', Space: ' ' };
+  const KEY_NAMES = { Esc: 'Escape', PgUp: 'PageUp', PgDn: 'PageDown', '↑': 'ArrowUp', '↓': 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight', Space: ' ', '←': 'ArrowLeft', '→': 'ArrowRight' };
   const MODS = new Set(['Ctrl', 'Shift', 'Alt']);
 
   /** "Ctrl+Shift+D" -> { ctrl, shift, alt, key }, or null for one that's only shown. */

@@ -46,6 +46,14 @@ function registerPanelIpc(ipcMain, d) {
     if (win.isMaximized()) win.unmaximize(); else win.maximize();
   });
   ipcMain.handle('panel:roomy', (_e, on) => d.setPanelRoomy(on === true));
+  // Room for more panes: grow the panel to { width, height } DIP (wiring/panel.js fitPanel).
+  // The panel's alone: a popped-out conversation shares the bridge but has no panes to fit.
+  ipcMain.handle('panel:fit', (e, want) => {
+    if (!d.panel || e.sender !== d.panel.webContents) return { ok: false, grew: false };
+    const n = x => typeof x === 'number' && Number.isFinite(x) && x > 0 && x < 20000;
+    if (!want || !n(want.width) || !n(want.height)) return { ok: false, grew: false };
+    return d.fitPanel({ width: want.width, height: want.height });
+  });
 
   ipcMain.handle('app:bootstrap', async () => {
     d.claudeStatus = d.CAPTURE || d.FAKE_CLI ? require('../capture').FAKE_STATUS : await checkStatus({ configured: d.claudePath() });
@@ -69,6 +77,7 @@ function registerPanelIpc(ipcMain, d) {
       cutOff: (d.cutOff || []).splice(0),
       tabs,
       tabItems: Object.fromEntries(tabs.map(t => [t.id, d.history.load(t.id)])),
+      paneLayout: d.CAPTURE ? null : d.config.get('paneLayout') || null,
       startView: (() => { const v = d.startView; d.startView = null; return v; })(),
     };
   });

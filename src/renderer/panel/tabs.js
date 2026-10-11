@@ -23,6 +23,12 @@
 
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
+  // The tabs of the strip a tab is in, in order: its pane's while split, every
+  // conversation with one pane (tab-strip.js walks it with the arrow keys).
+  SB.stripIds = (tabId = state.activeTab) => {
+    const pane = SB.panes.count(state.grid) > 1 && SB.panes.paneWith(state.grid, tabId);
+    return pane ? pane.tabs : [...state.tabs.keys()];
+  };
 
   SB.ensureTab = (summary) => {
     let tab = state.tabs.get(summary.id);
@@ -88,6 +94,9 @@
     state.tabs.clear();
     for (const [id, tab] of order) state.tabs.set(id, tab);
   }
+  // The whole order at once (tab-panes.js, a split closing down to one pane):
+  // `ids` first, any tab they leave out after, so none is ever dropped.
+  SB.orderTabs = ids => orderTabs([...new Set([...ids.filter(id => state.tabs.has(id)), ...state.tabs.keys()])]);
 
   // Move a tab in front of `beforeId` (null = the end of the strip). Main keeps
   // the same order and writes it to disk, so a reorder outlives the session.
@@ -101,8 +110,17 @@
     return true;
   };
 
-  // One place left or right, for the keyboard and the palette.
+  // One place left or right, for the keyboard and the palette: along its
+  // pane's strip while split (the layout keeps it, and main's order with it).
   SB.nudgeTab = (tabId, step) => {
+    if (SB.panes.count(state.grid) > 1) {
+      const next = SB.panes.nudge(state.grid, tabId, step);
+      if (next === state.grid) return false;
+      state.grid = next;
+      SB.renderTabStrip();
+      SB.savePanes();
+      return true;
+    }
     const before = L.nudgeBefore([...state.tabs.keys()], tabId, step);
     return before === undefined ? false : SB.moveTab(tabId, before);
   };
@@ -122,7 +140,7 @@
     // mid-drag can't snap the strip back from under the pointer.
     if (!SB.isDraggingTab()) orderTabs([...summaries.map(s => s.id).filter(id => state.tabs.has(id)), ...[...state.tabs.keys()].filter(id => !ids.has(id))]);
     if (!state.tabs.has(state.activeTab)) {
-      const next = [...state.tabs.keys()].pop();
+      const next = SB.nextShown(); // the last tab; split, one its pane would show (tab-panes.js)
       if (next) SB.activate(next); else if (!SB.solo) SB.newTab();
     }
     syncBusyUi();
@@ -226,9 +244,9 @@
     SB.closeTab(tabId);
   };
 
-  // One step along the strip, wrapping round at the ends.
+  // One step along the strip, wrapping round at the ends: the focused pane's, while split.
   function stepTab(step) {
-    const to = L.stepTarget([...state.tabs.keys()], state.activeTab, step);
+    const to = L.stepTarget(SB.stripIds(), state.activeTab, step);
     if (to !== undefined) SB.activate(to);
   }
 
@@ -247,9 +265,22 @@
     if (K.matches(e, 'closeTab')) { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
     if (K.matches(e, 'reopenTab')) { e.preventDefault(); if (!SB.solo) SB.reopenClosed(); return; }
     // A popped-out window has its one conversation: no strip to add to, split or walk along.
-    if (SB.solo && ['newTab', 'splitPane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
+    if (SB.solo && ['newTab', 'splitPane', 'focusPane', 'movePane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
     if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
     if (K.matches(e, 'splitPane')) { e.preventDefault(); SB.splitPane(); return; }
+    if (K.matches(e, 'focusPane') || K.matches(e, 'movePane')) {
+      const dir = SB.paneDir(e.key);
+      // Only while split, and never behind the palette, the cheat sheet or a dialog:
+      // otherwise the keys stay the textarea's and the page's.
+      // Nor while a tab's name is being typed: the arrows are the caret's then.
+      // Nor when something the key was pressed in took it already (defaultPrevented).
+      if (e.defaultPrevented || e.target.closest?.('.title-edit') || !dir || !state.activeTab || state.view !== 'chat' || SB.panes.count(state.grid) < 2 || SB.overlayOpen()) return;
+      e.preventDefault();
+      if (K.matches(e, 'movePane')) { SB.movePane(state.activeTab, dir); return; }
+      const to = SB.panes.neighbor(state.grid, SB.focusedPane(), dir);
+      if (to) SB.activate(SB.panes.byId(state.grid, to).active);
+      return;
+    }
     // Reordering from the keyboard, where a browser puts it too — and the only way
     // to do it without a pointer.
     if (K.matches(e, 'moveTab')) {

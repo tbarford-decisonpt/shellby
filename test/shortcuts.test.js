@@ -184,3 +184,15 @@ test('cloneFor finds the clone that holds a folder, the deepest one if they nest
   assert.equal(K.cloneFor(null, 'C:\\code\\app'), null);
   assert.equal(K.cloneFor([{ name: 'x' }, null], 'C:\\x'), null, 'odd entries are skipped');
 });
+
+test('Alt+arrows go to the next pane; Ctrl+Alt+arrows move the conversation', () => {
+  for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {
+    assert.ok(K.matches(key(k, { altKey: true }), 'focusPane'), k);
+    assert.ok(K.matches(key(k, { altKey: true, ctrlKey: true }), 'movePane'), k);
+    assert.ok(!K.matches(key(k, { altKey: true, ctrlKey: true }), 'focusPane'), `${k}: Ctrl+Alt isn't Alt`);
+    assert.ok(!K.matches(key(k), 'focusPane'), `${k} alone moves the caret`);
+  }
+
+  // The handler takes the direction from the arrow itself, so another key can't stand in.
+  for (const id of ['focusPane', 'movePane']) assert.ok(K.SHORTCUTS.find(x => x.id === id).fixed, `${id} can't be rebound`);
+});

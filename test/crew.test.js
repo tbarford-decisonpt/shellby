@@ -276,6 +276,26 @@ test('a tab can be moved anywhere in the strip, and nowhere it would be a no-op'
   mgr.closeAll();
 });
 
+// The split view keeps main's order as each pane's tabs in turn (ipc/tabs.js panes:layout).
+test('the split view sets the order of the tabs it names; the rest keep their places', () => {
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history: new History(tmp()), getMode: () => 'ask', getModel: () => '' });
+  const order = () => [...mgr.tabs.keys()].join('');
+  for (const id of ['a', 'b', 'c', 'd']) mgr.open({ tabId: id, cwd: os.tmpdir() });
+  assert.equal(mgr.setOrder(['c', 'a']), true);
+  assert.equal(order(), 'cbad', 'the named ones take each other\'s places; b and d stay put');
+  assert.equal(mgr.setOrder(['c', 'b', 'a', 'd']), false, 'already so: no update pushed for nothing');
+  // p is open in main but in no pane (popped out): it keeps its place in the middle.
+  mgr.open({ tabId: 'p', cwd: os.tmpdir() });
+  assert.equal(mgr.reorder('p', 'a'), true);
+  assert.equal(order(), 'cbpad');
+  assert.equal(mgr.setOrder(['d', 'a', 'c', 'b']), true);
+  assert.equal(order(), 'dapcb', 'p is still third');
+  assert.equal(mgr.setOrder(['gone', 'b', 'b']), false, 'unknown and repeated ids skipped: b alone, already where it is');
+  assert.equal(mgr.setOrder([]), false);
+  for (const [id, tab] of mgr.tabs) assert.equal(tab.id, id, `${id} kept its own tab`);
+  mgr.closeAll();
+});
+
 test('SessionManager enforces the tab limit and pins routine modes', () => {
   const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history: new History(tmp()), getMode: () => 'ask', getModel: () => '' });
   for (let i = 0; i < MAX_TABS; i++) mgr.open({ tabId: `t${i}`, cwd: os.tmpdir() });

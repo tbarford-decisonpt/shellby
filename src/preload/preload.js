@@ -1,5 +1,5 @@
 // The only bridge between the sandboxed renderers and main. Every channel is explicit; no Node.js access.
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer, webFrame, webUtils } = require('electron');
 
 const on = channel => cb => {
   const handler = (_e, payload) => cb(payload);
@@ -87,7 +87,7 @@ contextBridge.exposeInMainWorld('shellby', {
   popInTab: (tabId, carry) => ipcRenderer.send('tab:pop-in', { tabId, carry }),
   popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
-  shownTab: fire('tab:shown'), // the Stream Deck's Stop and Bring it home follow it
+  shownTab: fire('tab:shown'), savePaneLayout: fire('panes:layout'), // the Stream Deck follows the shown tab; the split view, for the next start
   setTabEffort: (tabId, effort) => ipcRenderer.invoke('tab:effort', { tabId, effort }), // the effort chip, for one conversation
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
@@ -718,7 +718,6 @@ contextBridge.exposeInMainWorld('shellby', {
   holdForReset: invoke('held:add'),
   cancelHeld: invoke('held:cancel'),
   setQueueKeepAwake: invoke('held:keepAwake'), // the reset queue keeps the PC awake (main.js syncKeepAwake)
-
   // workflows (docs/plans/workflows.md)
   listWorkflows: invoke('workflows:list'),
   validateWorkflow: invoke('workflows:validate'),
@@ -739,7 +738,6 @@ contextBridge.exposeInMainWorld('shellby', {
   deleteWorkflowSecret: invoke('workflows:secret-delete'),
   mcpServers: invoke('workflows:mcp-servers'), // (cwd) -> [{ name, scope, transport, direct }]
   mcpTools: invoke('workflows:mcp-tools'),     // (server, cwd) -> { ok, tools } (starts the server)
-
   // notes
   listNotes: invoke('notes:list'),
   addNote: invoke('notes:add'),
@@ -749,12 +747,11 @@ contextBridge.exposeInMainWorld('shellby', {
   restoreNotes: invoke('notes:restore'), // Undo: what Delete or Clear done just took, back
   moveNote: invoke('notes:move'),
   runNote: invoke('notes:run'),
-
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
   maximize: fire('window:maximize'),
   setPanelRoomy: invoke('panel:roomy'), // widen the panel for a workflow map, or put it back
-
+  fitPanel: invoke('panel:fit'), zoomFactor: () => webFrame.getZoomFactor(), // grow the panel until the panes fit ({ width, height } DIP); the page's zoom, for CSS px -> DIP
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
   onTabs: on('tabs'),

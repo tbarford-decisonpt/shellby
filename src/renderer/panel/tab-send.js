@@ -222,8 +222,10 @@
     // Tab in an empty box takes what Claude guessed you'd ask next, like Claude Code (native-cli.js).
     if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !input.value && SB.takeNextPrompt?.()) { e.preventDefault(); return; }
     // Up in an empty box pulls back the last queued message, like Claude Code.
+    // Not with Alt or Ctrl held: Alt+Up and Ctrl+Alt+Up are pane keys (tabs.js).
     const tab = SB.activeTab();
-    if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); return; }
+    const bare = !e.altKey && !e.ctrlKey && !e.metaKey;
+    if (e.key === 'ArrowUp' && bare && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); return; }
     // Otherwise Up and Down walk back through what you've sent before.
     SB.historyKeydown?.(e);
   });

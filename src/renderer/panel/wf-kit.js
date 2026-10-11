@@ -192,13 +192,35 @@
   // Make room: the panel widens while a map is open, and goes back when you leave it.
   const room = { on: false, want: pref(PREF.roomy, '') === '1' };
 
-  async function applyRoom(on) {
-    if (on === room.on || !api.setPanelRoomy) return;
+  // Settles once the room last given back has actually left the page: Split
+  // (tab-panes.js) measures the chat after that, not at the map's width.
+  let settling = Promise.resolve();
+  SB.roomSettled = () => settling;
+
+  function applyRoom(on) {
+    if (on === room.on || !api.setPanelRoomy) return settling;
     room.on = on;
-    let res;
-    try { res = await api.setPanelRoomy(on); } catch { res = null; }
-    if (on && !res?.roomy) room.on = false; // already as wide as the screen allows
-    for (const b of document.querySelectorAll('[data-room-btn]')) paintRoomBtn(b);
+    settling = (async () => {
+      let res;
+      try { res = await api.setPanelRoomy(on); } catch { res = null; }
+      if (on && !res?.roomy) room.on = false; // already as wide as the screen allows
+      for (const b of document.querySelectorAll('[data-room-btn]')) paintRoomBtn(b);
+      if (res?.size) await sizedTo(res.size);
+    })();
+    return settling;
+  }
+
+  // Until the page is `size` (DIP) wide, or a second has gone: main's reply
+  // can come before the window's resize reaches the page.
+  function sizedTo({ width }) {
+    const zoom = api.zoomFactor?.() || 1;
+    const end = Date.now() + 1000;
+    return new Promise(done => {
+      (function check() {
+        if (Math.abs(window.innerWidth * zoom - width) <= 1 || Date.now() > end) done();
+        else setTimeout(check, 16);
+      })();
+    });
   }
 
   function roomBtn() {
