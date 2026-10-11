@@ -200,7 +200,7 @@
         h('span', { class: 'mi-check', 'aria-hidden': 'true' }),
         h('span', {}, h('div', { class: 'mi-branch', text: w.branch }), h('div', { class: 'mi-sub', text: `from ${w.base}` }), status)),
       ...(SB.clashMenuItems?.(tab) || []), // other copies that changed the same files (clashes.js)
-      viewChangesItem(tab, `Every file changed since it came from ${w.base}, with its diff`),
+      ...(SB.solo ? [] : [viewChangesItem(tab, `Every file changed since it came from ${w.base}, with its diff`)]), // a pop-out shows only its chat
       h('div', { class: 'menu-sep' }),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab); } },
         h('span', { class: 'mi-check', text: '↩' }),
