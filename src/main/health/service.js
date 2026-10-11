@@ -9,6 +9,7 @@ const space = require('./space');
 const hogs = require('./hogs');
 const startup = require('./startup');
 const { FootprintTracker } = require('./footprint');
+const { LhmUpdates, updatePrompt } = require('./lhm-update');
 
 const HEALTH_DEFAULTS = Object.freeze({
   enabled: true,   // watch at all
@@ -79,6 +80,9 @@ class HealthService {
     // loop: walking a cache is not something to do every five seconds.
     this.space = deps.spaceProbe || (fake ? createFakeSpace(fake) : space.createSpaceProbe());
     this.spaceSnapshot = null;
+    // LibreHardwareMonitor's version against its latest release, read when the
+    // Health view asks. Fake runs find no LHM, so they never ask GitHub.
+    this.lhmUpdates = deps.lhmUpdates || new LhmUpdates({ config: deps.config, ...(fake ? { readInstalled: async () => null } : {}) });
     // His own CPU and memory, read on the monitor's beat: getAppMetrics() is a
     // cheap call in main, with no process list to walk.
     this.footprint = deps.appMetrics ? new FootprintTracker({ metrics: deps.appMetrics, panelOpen: () => this.panelOpen() }) : null;
@@ -147,6 +151,15 @@ class HealthService {
     if (this.settings.space) { try { this.spaceSnapshot = await this.space.read({ force: true }); } catch { /* leave the old one */ } }
     await this.monitor.recheck();
     return this.view();
+  }
+
+  /**
+   * LHM's installed and latest versions (lhm-update.js), with the update task's
+   * prompt when it's installed. force asks GitHub now instead of once a day.
+   */
+  async lhmUpdate(force) {
+    const v = await this.lhmUpdates.check({ force: force === true });
+    return { ...v, prompt: v.installed ? updatePrompt({ ...v, port: this.settings.lhmPort }) : null };
   }
 
   /** Start a read-only Claude Code task that investigates one check. */

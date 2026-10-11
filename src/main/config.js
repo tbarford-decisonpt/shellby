@@ -166,6 +166,7 @@ const DEFAULTS = {
   claudeUpdates: null, // { mode, latest, lastCheckAt, … }: keeping Claude Code itself current (see claude/update.js); null -> tell me
   notes: null,        // { general, projects }: ideas to plan, build or ask about (see notes.js)
   health: null,       // health monitor settings (see health/service.js); null -> defaults
+  lhmUpdate: null,    // { latest, lastCheckAt, lastAttemptAt }: LibreHardwareMonitor's latest release (see health/lhm-update.js)
   healthLog: [],      // recent health alerts, newest first
   channels: null,     // where to send "he needs you" when you're away (see channels.js)
   obs: null,          // { enabled, port }: the browser source for a stream (see obs.js)

@@ -35,6 +35,7 @@ function registerSurroundingsIpc(ipcMain, d) {
   ipcMain.handle('health:startup', (_e, force) => d.health.startupItems({ force: force === true }));
   ipcMain.handle('health:ask-startup', () => d.health.askStartup());
   ipcMain.handle('health:set-startup', (_e, id, off) => d.health.setStartup(d.isStr(id) ? id : null, off === true));
+  ipcMain.handle('health:lhm-update', (_e, force) => d.health.lhmUpdate(force === true));
   ipcMain.handle('health:clear-log', () => { d.config.set({ healthLog: [] }); return d.health.view(); });
   ipcMain.on('health:viewed', () => d.stat('health-viewed'));
 

@@ -174,6 +174,18 @@ test('sources asks for CPU setup until LibreHardwareMonitor answers', () => {
   assert.equal(s.rows[0][2], 'NVIDIA GeForce RTX 4080 · via nvidia-smi');
 });
 
+test('lhmVersion offers an update only when a newer LHM is out', () => {
+  const rel = () => '2 hours ago';
+  const installed = { exe: 'C:\\LHM\\LibreHardwareMonitor.exe', version: '0.9.6', winget: true };
+  assert.equal(L.lhmVersion(null, rel), null);
+  assert.equal(L.lhmVersion({ installed: null }, rel), null, 'not installed: no line');
+  const out = L.lhmVersion({ installed, latest: '0.9.7', available: true, lastCheckAt: 1 }, rel);
+  assert.deepEqual(out, { text: 'LibreHardwareMonitor 0.9.6 is installed, and 0.9.7 is out. Checked 2 hours ago.', update: true, summary: 'LHM 0.9.7 is out' });
+  assert.equal(L.lhmVersion({ installed, latest: '0.9.6', available: false, lastCheckAt: 1 }, rel).text, 'LibreHardwareMonitor 0.9.6, the newest there is. Checked 2 hours ago.');
+  assert.equal(L.lhmVersion({ installed, error: "Couldn't reach GitHub." }, rel).update, false);
+  assert.equal(L.lhmVersion({ installed, latest: null }, rel).text, 'LibreHardwareMonitor 0.9.6.');
+});
+
 test('sources reads from HWiNFO when that is the app, and counts drives and fans', () => {
   const view = { sample: sample({ storage: [{}], fans: [{}, {}] }), sources: { app: 'hwinfo', cpuTemp: true, storage: true, lhm: 'ok' } };
   const s = L.sources(view);

@@ -620,7 +620,7 @@ contextBridge.exposeInMainWorld('shellby', {
   askAboutProcesses: invoke('health:ask-processes'),
   getStartupApps: invoke('health:startup'),
   askAboutStartup: invoke('health:ask-startup'),
-  setStartupApp: invoke('health:set-startup'),
+  setStartupApp: invoke('health:set-startup'), getLhmUpdate: invoke('health:lhm-update'),
   healthViewed: fire('health:viewed'),
   onHealth: on('health'),
   onHealthLog: on('health:log'),
