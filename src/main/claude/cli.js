@@ -14,6 +14,32 @@ const BILLING_ENV = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BAS
 let planOnly = false;
 function setPlanOnly(on) { planOnly = !!on; }
 
+// A sign-in Claude Code turned down mid-turn ("OAuth session expired and could
+// not be refreshed"). `claude auth status` still says signed in then: it only
+// looks for saved credentials, not whether they still work, so Settings said
+// "Signed in" over a sign-in that was dead. Until the credentials file changes
+// (a new sign-in, or a refresh that worked), the status says signed out instead,
+// and Settings offers Sign in.
+/** @type {{ file: string, mtimeMs: number } | null} */
+let lapsed = null;
+const mtimeOf = f => { try { return fs.statSync(f).mtimeMs; } catch { return 0; } };
+const credentialsFile = configDir => path.join(configDir || path.join(require('os').homedir(), '.claude'), '.credentials.json');
+
+/** A turn failed as signed out: the status to show now. Only for a claude.ai sign-in (an API key isn't ours to redo). */
+function signInLapsed(status) {
+  if (!status?.loggedIn || status.authMethod !== 'claude.ai') return status;
+  const file = credentialsFile(status.configDir);
+  lapsed = { file, mtimeMs: mtimeOf(file) };
+  return { ...status, loggedIn: false, lapsed: true };
+}
+
+/** A fresh status, still signed out while the lapsed sign-in's credentials haven't changed. */
+function applyLapsed(status) {
+  if (!lapsed) return status;
+  if (!status.loggedIn || mtimeOf(lapsed.file) !== lapsed.mtimeMs) { lapsed = null; return status; }
+  return { ...status, loggedIn: false, lapsed: true };
+}
+
 // Which of BILLING_ENV are set here, so Settings can say what Claude Code will bill.
 function billingEnv(base = process.env) {
   return BILLING_ENV.filter(k => base[k]);
@@ -180,27 +206,35 @@ function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
   });
 }
 
-// { installed, exe, version, loggedIn, authMethod, subscriptionType, email, planOnly, billingEnv, warning, picked }
+/** The flags a `claude --help` lists ('--name', ...), sorted. */
+function helpFlags(text) {
+  return [...new Set(String(text || '').match(/(?<![\w-])--[a-z][\w-]*/g) || [])].sort();
+}
+
+// { installed, exe, version, flags, loggedIn, lapsed, authMethod, subscriptionType, email, configDir, planOnly, billingEnv, warning, picked }
 // configured: the path the user chose in Settings, if any (see candidatePaths).
 /** @param {{ configured?: string | null }} [opts] */
 async function checkStatus({ configured = null } = {}) {
   const exe = findClaude(process.env, configured);
   if (!exe) return { installed: false };
-  const ver = await run(exe, ['--version']);
+  const [ver, help] = await Promise.all([run(exe, ['--version']), run(exe, ['--help'])]);
   const version = (ver.stdout.match(/\d+\.\d+\.\d+/) || [null])[0];
   const auth = await run(exe, ['auth', 'status', '--json']);
   let info = {};
   try { info = JSON.parse(auth.stdout); } catch { /* not logged in or old CLI */ }
-  const status = {
+  const status = applyLapsed({
     installed: true, exe, version,
+    // What this version takes, for the flags Shellby only passes when it can (session.js OPTIONAL_FLAGS).
+    flags: help.ok ? helpFlags(help.stdout) : null,
     picked: !!configured && exe === configured, // Settings shows where it came from
     loggedIn: !!info.loggedIn,
     authMethod: info.authMethod || null,
     subscriptionType: info.subscriptionType || null,
     email: info.email || null,
+    configDir: info.configDirectory || null,
     planOnly,
     billingEnv: planOnly ? [] : billingEnv(),
-  };
+  });
   if (status.billingEnv.length) {
     status.warning = `${status.billingEnv.join(', ')} ${status.billingEnv.length > 1 ? 'are' : 'is'} set on this PC, so Claude Code may bill that instead of your Claude plan. Turn on "Always use my Claude plan" in Settings to ignore ${status.billingEnv.length > 1 ? 'them' : 'it'}.`;
   } else if (status.loggedIn && status.authMethod && status.authMethod !== 'claude.ai') {
@@ -209,4 +243,4 @@ async function checkStatus({ configured = null } = {}) {
   return status;
 }
 
-module.exports = { findClaude, currentClaude, claudeMoved, verifyClaude, checkStatus, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, skipSettings, candidatePaths, run, BILLING_ENV };
+module.exports = { findClaude, currentClaude, claudeMoved, verifyClaude, checkStatus, helpFlags, signInLapsed, applyLapsed, claudeEnv, terminalEnv, billingScrub, billingEnv, setPlanOnly, skipSettings, candidatePaths, run, BILLING_ENV };

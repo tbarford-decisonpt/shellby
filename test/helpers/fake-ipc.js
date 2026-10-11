@@ -43,6 +43,7 @@ class FakeBrowserWindow extends EventEmitter {
   setBounds(b) { this.bounds = { ...b }; }
   isVisible() { return this.visible; }
   isDestroyed() { return this.destroyed; }
+  isMaximized() { return !!this.maximized; }
   show() { this.visible = true; }
   focus() {}
   close() { if (this.destroyed) return; this.destroyed = true; this.emit('closed'); }
@@ -76,6 +77,7 @@ function installFakeElectron({ userData = 'C:\\fake\\userData', pictures = 'C:\\
     screen: {
       getCursorScreenPoint: () => ({ x: 0, y: 0 }),
       getDisplayNearestPoint: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }),
+      getDisplayMatching: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }),
     },
     BrowserWindow: FakeBrowserWindow,
     ipcMain: rawIpc,

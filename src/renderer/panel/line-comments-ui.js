@@ -74,39 +74,97 @@
 
   // ------------------------------------------------------------ one file's diff
 
-  /** One file's diff for a turn, with its lines open to comments. */
-  SB.reviewDiff = (tab, patch, { file, ref, binary }) => {
+  // Inline, or the file before and after side by side: the last one picked
+  // is how every diff opens after it.
+  const LAYOUT_KEY = 'shellby.diff.layout';
+
+  /**
+   * One file's diff for a turn, with its lines open to comments. status: the
+   * file's (A, M, D…); a changed file's hunks can each be taken back, and
+   * onChanged is called once one has been, to read the diff again.
+   */
+  SB.reviewDiff = (tab, patch, { file, ref, binary, status = null, onChanged = null }) => {
     const rows = R.numberLines(patch);
-    if (!rows.some(R.commentable)) return SB.renderDiff(patch, { binary });
-    const view = new DiffView(tab, rows, file, ref);
-    (tab.reviewViews ||= new Set()).add(view);
-    view.draw();
-    return h('div', { class: 'rv-wrap' },
-      h('p', { class: 'rv-hint small muted', text: 'Click a line number to comment · Shift+click for several' }),
-      view.el, view.live);
+    if (!rows.some(R.commentable)) return SB.renderDiff(patch, { binary, file });
+    const wrap = h('div', { class: 'rv-wrap' });
+    let view = null;
+    const show = () => {
+      const split = SB.pref(LAYOUT_KEY, 'inline') === 'split';
+      view = new DiffView(tab, rows, file, ref, { split, undoable: !!ref && status === 'M' && !!onChanged, onChanged });
+      (tab.reviewViews ||= new Set()).add(view);
+      view.draw();
+      const seg = (key, label) => h('button', {
+        class: `rv-seg${(key === 'split') === split ? ' on' : ''}`, type: 'button', 'aria-pressed': String((key === 'split') === split),
+        onclick: () => {
+          if ((key === 'split') === split || view.busyWriting()) return;
+          SB.pref.set(LAYOUT_KEY, key);
+          show();
+        },
+      }, label);
+      wrap.replaceChildren(
+        h('div', { class: 'rv-head' },
+          h('p', { class: 'rv-hint small muted', text: 'Click a line number to comment · Shift+click for several' }),
+          h('div', { class: 'rv-layout', role: 'group', 'aria-label': 'Show the diff' }, seg('inline', 'Inline'), seg('split', 'Side by side'))),
+        view.el, view.live);
+    };
+    show();
+    return wrap;
   };
 
   class DiffView {
-    constructor(tab, rows, file, ref) {
-      Object.assign(this, { tab, rows, file, ref });
+    constructor(tab, rows, file, ref, { split = false, undoable = false, onChanged = null } = {}) {
+      Object.assign(this, { tab, rows, file, ref, onChanged });
       this.pick = null;    // { a, b }: rows picked, a where it started
       this.box = null;     // the comment being written, if any
-      this.lines = rows.map((r, i) => h('div', { class: `dl ${r.kind}`, dataset: { i }, title: r.kind === 'del' ? `Removed: line ${r.old} before this turn` : null },
-        h('span', { class: 'ln', 'aria-hidden': 'true', text: R.commentable(r) ? String(r.kind === 'del' ? r.old : r.new) : '' }),
-        h('span', { class: 'code', text: r.text || ' ' })));
+      // Colours, worked out in the file's own order whichever way it's laid out (code.js).
+      const paint = SB.diffPainter?.(file);
+      const toks = rows.map(r => (paint && r.kind !== 'meta' ? paint(r.kind, (r.text || '').slice(1)) : null));
+      const code = (i) => {
+        const r = rows[i];
+        if (!toks[i]) return h('span', { class: 'code', text: r.text || ' ' });
+        // The +, − or space stays the first character, so the line reads (and copies) as the diff's.
+        return SB.paintTokens(h('span', { class: 'code' }, r.text ? r.text[0] : ' '), toks[i]);
+      };
+      const num = (r, side) => h('span', { class: 'ln', 'aria-hidden': 'true', text: R.commentable(r) ? String(r[side] ?? '') : '' });
+      const line = (i) => {
+        const r = rows[i];
+        const el = h('div', { class: `dl ${r.kind}`, dataset: { i }, title: r.kind === 'del' ? `Removed: line ${r.old} before this turn` : null },
+          num(r, r.kind === 'del' ? 'old' : 'new'), code(i));
+        if (r.kind === 'hunk' && undoable) el.querySelector('.ln').after(this.undoButton(R.hunkOf(rows, i), r.text));
+        return el;
+      };
+      const half = (i, side) => h('div', { class: `dl sx-half ${rows[i].kind}`, dataset: { i } }, num(rows[i], side), code(i));
+      let kids;
+      if (!split) {
+        this.lines = rows.map((_r, i) => line(i));
+        kids = this.lines;
+      } else {
+        // Before on the left, after on the right (line-comments.js pairRows).
+        // An unchanged line is one row across both; a changed one is its half.
+        this.lines = new Array(rows.length);
+        kids = R.pairRows(rows).map((p) => {
+          if (p.full != null) return (this.lines[p.full] = line(p.full));
+          if (p.left === p.right) {
+            return (this.lines[p.left] = h('div', { class: 'dl sx-row ctx', dataset: { i: p.left } }, half(p.left, 'old'), half(p.left, 'new')));
+          }
+          const l = p.left != null ? (this.lines[p.left] = half(p.left, 'old')) : h('div', { class: 'dl sx-half empty' });
+          const r = p.right != null ? (this.lines[p.right] = half(p.right, 'new')) : h('div', { class: 'dl sx-half empty' });
+          return h('div', { class: 'dl sx-row' }, l, r);
+        });
+      }
       this.el = h('div', {
-        class: 'diff reviewable', tabindex: '0',
-        'aria-label': `Changes to ${file}. Up and Down to move between lines, Shift to pick several, Enter to comment.`,
-      }, this.lines);
+        class: `diff reviewable${split ? ' split' : ''}`, tabindex: '0',
+        'aria-label': `Changes to ${file}${split ? ', side by side' : ''}. Up and Down to move between lines, Shift to pick several, Enter to comment.`,
+      }, kids);
       this.live = h('span', { class: 'sr-only', 'aria-live': 'polite' });
       this.el.addEventListener('mousedown', e => {
         // A line number picks lines; it doesn't start a text selection.
         if (e.target.closest('.ln')) { e.preventDefault(); this.el.focus({ preventScroll: true }); }
       });
       this.el.addEventListener('click', e => {
-        const ln = e.target.closest('.dl > .ln');
+        const ln = e.target.closest('.ln');
         if (!ln) return;
-        const i = Number(ln.parentElement.dataset.i);
+        const i = Number(ln.closest('[data-i]')?.dataset.i);
         if (!R.commentable(this.rows[i]) || this.busyWriting()) return;
         this.select(e.shiftKey && this.pick ? this.pick.a : i, i);
         this.write();
@@ -216,10 +274,44 @@
       if (wasEditing) this.draw();
     }
 
+    // ---- taking a hunk back
+
+    // Two presses, like the turn's Undo: the first asks, the second does it.
+    undoButton(n, header) {
+      const idle = 'Undo this part';
+      const b = h('button', { class: 'hunk-undo', type: 'button', title: 'Put just these lines back the way they were before this turn. The rest of the file stays.' }, idle);
+      let armed = null;
+      const disarm = () => { clearTimeout(armed); armed = null; b.textContent = idle; b.classList.remove('armed'); };
+      b.addEventListener('mousedown', e => e.stopPropagation());
+      b.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!armed) {
+          b.textContent = 'Undo it?';
+          b.classList.add('armed');
+          armed = setTimeout(disarm, DISARM_MS);
+          return;
+        }
+        disarm();
+        b.disabled = true;
+        b.textContent = 'Undoing…';
+        const r = await api.undoHunk({ tabId: this.tab.id, ...this.ref, file: this.file, hunk: n, header });
+        if (!r?.ok) {
+          b.disabled = false;
+          b.textContent = idle;
+          SB.toast(r?.error || "Couldn't undo that part.");
+          return;
+        }
+        SB.toast('Put back. The rest of the file stays as the turn left it.', { ms: 2600 });
+        this.onChanged?.();
+      });
+      return b;
+    }
+
     // After row i and any notes already hanging off it (at the top if it no longer lines up).
     place(el, i) {
       if (i == null) { this.el.prepend(el); return; }
       let at = this.lines[i];
+      if (at.parentElement !== this.el) at = at.parentElement; // half of a side-by-side row
       while (at.nextElementSibling && !at.nextElementSibling.classList.contains('dl')) at = at.nextElementSibling;
       at.after(el);
     }

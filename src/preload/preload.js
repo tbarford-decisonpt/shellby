@@ -1,5 +1,5 @@
 // The only bridge between the sandboxed renderers and main. Every channel is explicit; no Node.js access.
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer, webFrame, webUtils } = require('electron');
 
 const on = channel => cb => {
   const handler = (_e, payload) => cb(payload);
@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onClaudeTricks: on('claude:tricks'), // what a newer Claude Code can do (claude/tricks.js)
 
   // tabs + tasks
-  newTab: invoke('tab:new'),
+  newTab: invoke('tab:new'), setSafeMode: invoke('tab:safe'), // safe mode: { tabId, on } (sessions.js setSafeMode)
   closeTab: invoke('tab:close'),
   moveTab: (tabId, beforeId) => ipcRenderer.invoke('tab:reorder', { tabId, beforeId }),
   // a conversation in a window of its own (x/y: where it was dropped, in screen pixels)
@@ -87,7 +87,8 @@ contextBridge.exposeInMainWorld('shellby', {
   popInTab: (tabId, carry) => ipcRenderer.send('tab:pop-in', { tabId, carry }),
   popoutBootstrap: invoke('popout:bootstrap'),
   seenTab: fire('tab:seen'),
-  shownTab: fire('tab:shown'), // the Stream Deck's Stop and Bring it home follow it
+  shownTab: fire('tab:shown'), savePaneLayout: fire('panes:layout'), // the Stream Deck follows the shown tab; the split view, for the next start
+  paneShapes: (list) => ipcRenderer.invoke('panes:shapes', list), // the layouts you saved by name: read them, or (a list) save them
   setTabEffort: (tabId, effort) => ipcRenderer.invoke('tab:effort', { tabId, effort }), // the effort chip, for one conversation
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
   sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
@@ -97,11 +98,12 @@ contextBridge.exposeInMainWorld('shellby', {
   freshTab: invoke('tab:fresh'),
   tabCost: invoke('tab:cost'),
   // the terminal's conveniences (parity.js)
-  suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }),
+  suggestFiles: (tabId, query) => ipcRenderer.invoke('files:suggest', { tabId, query }), context: { suggest: (tabId, query) => ipcRenderer.invoke('context:suggest', { tabId, query }), attach: (tabId, id) => ipcRenderer.invoke('context:attach', { tabId, id }) }, // @ files, and a dev server, red build, chat or note (wiring/mention-context.js)
   promptHistory: invoke('prompt:history'),
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
   askBtw: (tabId, question) => ipcRenderer.invoke('btw:ask', { tabId, question }),
   rewindPoints: invoke('rewind:points'),
+  outline: invoke('outline:get'),             // every message and the files its turn touched (outline.js)
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
   clearTab: invoke('tab:clear'), // /clear: a new conversation in this tab (not clearSessions, which empties History)
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
@@ -113,8 +115,8 @@ contextBridge.exposeInMainWorld('shellby', {
   keepBranch: invoke('branch:keep'),
   // Try it N ways (wiring/tries.js): main always asks, with the cost, before any start
   startTries: (/** @type {string} */ tabId, /** @type {{ n?: number, text?: string, arg?: string, attachments?: string[] }} */ { n, text, arg, attachments } = {}) => ipcRenderer.invoke('tries:start', { tabId, n, text, arg, attachments }),
-  stopTries: invoke('tries:stop'),
-  triesStatus: invoke('tries:status'),
+  stopTries: invoke('tries:stop'), triesStatus: invoke('tries:status'),
+  debug: { start: (tabId, bug) => ipcRenderer.invoke('debug:start', { tabId, bug }), act: (id, what) => ipcRenderer.invoke('debug:act', { id, what }), status: invoke('debug:status'), onLines: on('debug:lines') }, // /debug (wiring/debug-mode.js)
   onTriesDone: on('tries:done'),                   // { runId, firstId, text }
   // learning from corrections: review comments in, the rule card's buttons, Toolbox → Memory (corrections.js)
   noteReviewComments: (tabId, comments, batch) => ipcRenderer.invoke('corrections:comments', { tabId, comments, batch }),
@@ -128,11 +130,10 @@ contextBridge.exposeInMainWorld('shellby', {
   listStyles: invoke('styles:list'),
   answerPermission: (tabId, requestId, decision, message, answers) => ipcRenderer.invoke('task:permission', { tabId, requestId, decision, message, answers }),
   changesDiff: invoke('changes:diff'),
-  undoChanges: invoke('changes:undo'),
-  undoToStep: invoke('changes:undo-step'), // Undo to here, on one step of a turn
-  startQuiz: invoke('quiz:start'),                 // three questions on a turn's diff (quiz.js)
-  pickQuiz: invoke('quiz:pick'),                   // { tabId, after, question, choice } -> right or not, and why
+  undoChanges: invoke('changes:undo'), undoToStep: invoke('changes:undo-step'), undoHunk: invoke('changes:undo-hunk'), // a whole turn, back to one of its steps, or one hunk of a file
+  startQuiz: invoke('quiz:start'), pickQuiz: invoke('quiz:pick'), // three questions on a turn's diff; { tabId, after, question, choice } -> right or not (quiz.js)
   runChecks: invoke('checks:run'),                 // the project's tests on a turn's diff (checks.js)
+  problems: invoke('problems:get'), findProblems: invoke('problems:run'), fixProblems: invoke('problems:fix'), // problems.js
   onChecksRunning: on('checks:running'),           // { tabId, after, running, commands? }
   openInEditor: invoke('changes:open-editor'),     // one file of a turn in VS Code's diff (editor.js)
   shotImage: invoke('shots:image'),                // a before/after picture, as a data URL (shots.js)
@@ -163,8 +164,8 @@ contextBridge.exposeInMainWorld('shellby', {
   onSessionsSynced: on('sessions:synced'),
 
   // between Shellby and a terminal (src/main/handoff.js)
-  continueInTerminal: invoke('handoff:terminal'),
-  pickUpHere: invoke('handoff:pickup'),
+  continueInTerminal: invoke('handoff:terminal'), pickUpHere: invoke('handoff:pickup'),
+  openCloud: invoke('handoff:cloud'), // a cloud session in a terminal: { kind: teleport | cloud | pr, value?, tabId? }
   bringIntoShellby: (id, force = false) => ipcRenderer.invoke('handoff:bring', { id, force }),
 
   // Settings → Other computers: Claude Code over ssh (src/main/remote/)
@@ -323,6 +324,7 @@ contextBridge.exposeInMainWorld('shellby', {
   githubCancel: () => ipcRenderer.send('github:cancel'),
   githubSignOut: invoke('github:sign-out'),
   githubSetFeature: invoke('github:set-feature'),
+  githubWantFeature: invoke('github:want-feature'),
   githubSync: invoke('github:sync'),
   getProfileCard: invoke('profile-card:get'),
   publishProfileCard: invoke('profile-card:publish'),
@@ -718,7 +720,6 @@ contextBridge.exposeInMainWorld('shellby', {
   holdForReset: invoke('held:add'),
   cancelHeld: invoke('held:cancel'),
   setQueueKeepAwake: invoke('held:keepAwake'), // the reset queue keeps the PC awake (main.js syncKeepAwake)
-
   // workflows (docs/plans/workflows.md)
   listWorkflows: invoke('workflows:list'),
   validateWorkflow: invoke('workflows:validate'),
@@ -739,7 +740,6 @@ contextBridge.exposeInMainWorld('shellby', {
   deleteWorkflowSecret: invoke('workflows:secret-delete'),
   mcpServers: invoke('workflows:mcp-servers'), // (cwd) -> [{ name, scope, transport, direct }]
   mcpTools: invoke('workflows:mcp-tools'),     // (server, cwd) -> { ok, tools } (starts the server)
-
   // notes
   listNotes: invoke('notes:list'),
   addNote: invoke('notes:add'),
@@ -749,12 +749,11 @@ contextBridge.exposeInMainWorld('shellby', {
   restoreNotes: invoke('notes:restore'), // Undo: what Delete or Clear done just took, back
   moveNote: invoke('notes:move'),
   runNote: invoke('notes:run'),
-
   hide: fire('panel:hide'),
   minimize: fire('panel:minimize'),
   maximize: fire('window:maximize'),
   setPanelRoomy: invoke('panel:roomy'), // widen the panel for a workflow map, or put it back
-
+  fitPanel: invoke('panel:fit'), zoomFactor: () => webFrame.getZoomFactor(), // grow the panel until the panes fit ({ width, height } DIP); the page's zoom, for CSS px -> DIP
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
   onTabs: on('tabs'),

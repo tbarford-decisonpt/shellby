@@ -170,6 +170,9 @@ test('tidyPrompt names the project and keeps secrets out', () => {
   const p = L.tidyPrompt('shop');
   assert.ok(p.startsWith('In shop: commit any uncommitted work'));
   assert.match(p, /Never commit or push a \.env file/);
+  assert.match(p, /Push only branches the remote already has/);
+  assert.match(p, /ask me before pushing it/);
+  assert.doesNotMatch(p, /push every branch/);
 });
 
 test('copiesSummary counts Shellby\'s copies and those with changes', () => {

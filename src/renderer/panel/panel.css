@@ -255,9 +255,31 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* ================================================================ feed */
-/* One pane by default; tab-panes.js sets the columns and rows for side by side (shared/panes.js). */
+/* Feeds off screen wait, hidden, in #feeds; the ones on screen sit in panes in
+   the row (tab-panes.js), sized by flex-grow (shared/panes.js). */
 .feeds { flex: 1; min-height: 0; position: relative; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+.pane-row { grid-area: 1 / 1; display: flex; min-width: 0; min-height: 0; }
+.pane-col { flex: 1 1 0; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.pane { flex: 1 1 0; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.pane-slot:empty { display: none; }
 .feed { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 8px; }
+/* Floats over the feed's bottom right: its margins cancel its height, so the feed never moves when it shows. */
+.pane-jump {
+  align-self: flex-end; position: relative; z-index: 2; flex: none;
+  width: 30px; height: 30px; margin: -42px 18px 12px 0; padding: 0;
+  display: grid; place-items: center; border-radius: 50%;
+  border: 1px solid var(--reef-3); background: var(--reef); color: var(--sand);
+  font-size: var(--fs-13); box-shadow: 0 4px 12px rgb(0 0 0 / .35);
+  animation: rise .18s var(--ease-out);
+}
+.pane-jump[hidden] { display: none; }
+.pane-jump:hover { border-color: var(--glass); }
+.pane-jump:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.pane-jump.fresh::after {
+  content: ''; position: absolute; top: -1px; right: -1px; width: 9px; height: 9px;
+  border-radius: 50%; background: var(--glass); box-shadow: 0 0 0 2px var(--ink);
+}
+@media (prefers-reduced-motion: reduce) { .pane-jump { animation: none; } }
 
 .empty { text-align: center; padding: 8% 6px 0; animation: rise .5s var(--ease-out); }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
@@ -338,6 +360,35 @@ body:not([data-home]) .msg.assistant::before,
 .msg.assistant p { margin: 0 0 .6em; }
 .msg.assistant p:last-child { margin-bottom: 0; }
 .msg.assistant h3, .msg.assistant h4, .msg.assistant h5, .msg.assistant h6 { font: 600 var(--fs-15) var(--font-pixel); margin: .8em 0 .35em; color: var(--glass); }
+/* Each level a step quieter, so a reply's outline reads at a glance. */
+.msg.assistant h3 { font-size: var(--fs-16); }
+.msg.assistant h5 { font: 700 var(--fs-13) var(--font-body); color: var(--sand); }
+.msg.assistant h6 { font: 700 var(--fs-12) var(--font-body); color: var(--sand-dim); text-transform: uppercase; letter-spacing: .04em; }
+.msg.assistant :is(h3, h4, h5, h6):first-child { margin-top: 0; }
+.msg.assistant blockquote {
+  margin: .4em 0 .8em; padding: 2px 0 2px 11px;
+  border-left: 3px solid var(--line); color: var(--sand-dim);
+}
+.msg.assistant blockquote p:last-child { margin-bottom: 0; }
+.msg.assistant li > ul, .msg.assistant li > ol { margin: .15em 0 .2em; }
+.msg.assistant li > p { margin: 0 0 .4em; }
+.msg.assistant del { color: var(--sand-faint); }
+/* A to-do list: the box is drawn here, so nothing in a reply is a real control. */
+.msg.assistant ul.md-tasks { list-style: none; padding-left: .3em; }
+.msg.assistant li.md-task { position: relative; padding-left: 1.5em; }
+.msg.assistant li.md-task::before {
+  content: ""; position: absolute; left: 0; top: .28em;
+  width: .9em; height: .9em; box-sizing: border-box;
+  border: 1.5px solid var(--sand-dim); border-radius: 3px;
+}
+.msg.assistant li.md-task[data-done="1"]::before { content: "✓"; border-color: var(--glass); color: var(--glass); font: 700 .75em/1.1 var(--font-body); text-align: center; }
+.msg.assistant li.md-task[data-done="1"] { color: var(--sand-dim); }
+/* Thinking, folded under the reply it led to (feed.js). */
+.thought { margin: 0 0 10px 18px; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.thought > summary { cursor: pointer; color: var(--sand-faint); font-style: italic; }
+.thought > summary:hover { color: var(--sand-dim); }
+.thought .thought-body { margin: 6px 0 0; padding-left: 10px; border-left: 2px solid var(--line-soft); font-size: var(--fs-12-5); }
+.thought .thought-body::before { display: none; }
 .msg.assistant ul, .msg.assistant ol { margin: .2em 0 .7em; padding-left: 1.3em; }
 .msg.assistant li { margin: .15em 0; }
 .msg.assistant li::marker { color: var(--coral); }
@@ -350,6 +401,7 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
   background: var(--abyss); border: 1px solid var(--line); border-radius: var(--r-sm);
 }
 .msg.assistant pre code { background: none; padding: 0; font-size: var(--fs-11-5); line-height: 1.6; }
+.msg.assistant pre.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
 .msg.assistant hr { border: 0; border-top: 1px dashed var(--line); margin: 1em 0; }
 
 /* Tables — how he summarises a change set. The panel is 460px by default, so
@@ -400,6 +452,8 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
 .tool .t-state { width: 12px; flex: none; font: 700 var(--fs-11) var(--font-mono); text-align: center; }
 .tool .t-label { flex: none; font-weight: 700; color: var(--sand); }
 .tool .t-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-11-5) var(--font-mono); font-stretch: 85%; color: var(--sand-dim); }
+/* Opened, a step shows its whole command rather than the first line's worth. */
+.tool[open] > summary .t-detail:not(a) { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tool.pending { border-left-color: var(--glass); }
 .tool.pending .t-state::before { content: "◌"; display: inline-block; color: var(--glass); animation: spin 1s linear infinite; }
 .tool.ok .t-state::before { content: "✓"; color: var(--glass); }
@@ -412,6 +466,12 @@ a[data-href]:hover, a[data-href]:focus-visible { color: var(--sand); }
   font: var(--fs-11)/1.6 var(--font-mono); font-stretch: 85%; color: var(--sand-dim);
   white-space: pre-wrap; word-break: break-word;
 }
+.tool .t-result-box { position: relative; }
+.tool .t-result-box .t-result { padding-top: 22px; }
+.tool .t-result.full { max-height: none; }
+.tool .t-result.err { border-color: rgba(255, 90, 74, .4); color: #ffc2bb; }
+.t-result-bar { position: absolute; top: 3px; right: 4px; display: flex; gap: 2px; }
+.t-result-bar .code-copy { margin-left: 0; font-size: var(--fs-10-5); padding: 1px 6px; }
 /* a step's pictures: a screenshot a tool handed Claude, a picture it wrote (feed.js pictureStrip) */
 .tool-pics { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px 10px; }
 .tool-pic {
@@ -605,6 +665,9 @@ body.calm-deep *, body.calm-deep *::before, body.calm-deep *::after { animation:
   font: var(--fs-11-5)/1.55 var(--font-mono); font-stretch: 88%; white-space: pre-wrap;
 }
 /* A sentence and a next step (feed.js troubleBlock), in body text rather than the program's mono. */
+.error-block.raw { display: flex; align-items: flex-start; gap: 6px; }
+.error-raw { flex: 1; min-width: 0; }
+.error-block.raw .code-copy { flex: none; margin: -3px -6px 0 0; color: #ffc2bb; }
 .error-block.trouble { display: grid; gap: 8px; font: var(--fs-13)/1.45 var(--font-body); font-stretch: normal; white-space: normal; }
 .trouble-text { margin: 0; }
 .trouble-actions { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -901,13 +964,18 @@ select.field option { background: var(--reef); }
   position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60;
   display: flex; align-items: center; gap: 10px;
   padding: 8px 14px; border-radius: 99px; max-width: 86%;
-  /* the recap card's surface: reef with a sea-glass edge, not a sand slab */
-  background: radial-gradient(120% 140% at 0% 0%, rgba(127, 214, 194, .12), transparent 60%), var(--reef);
-  border: 1px solid rgba(127, 214, 194, .34);
+  /* The recap card's surface: reef with a lit edge down the left, sea-glass,
+     amber for tone 'urgent', red for 'danger' (core.js SB.toast). */
+  --toast-accent: var(--glass);
+  background: radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--toast-accent) 14%, transparent), transparent 65%), var(--reef);
+  border: 1px solid color-mix(in srgb, var(--toast-accent) 34%, var(--line));
+  border-left: 3px solid var(--toast-accent);
   color: var(--sand); font-size: var(--fs-12-5); font-weight: 600;
   box-shadow: 0 14px 36px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .25);
   animation: toast .3s var(--ease-spring);
 }
+.toast.urgent { --toast-accent: var(--amber); }
+.toast.danger { --toast-accent: var(--danger); }
 @keyframes toast { from { opacity: 0; transform: translate(-50%, 10px) scale(.95); } }
 
 /* shared sprite animations */

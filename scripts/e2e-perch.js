@@ -1,11 +1,12 @@
 // End-to-end check of perching, against the dev app over CDP and a real
 // Notepad window (so it needs a desktop session; it's a manual check, not CI):
-//   1. he hops up onto Notepad's title bar, is owned by it (so sits just above
-//      it), lets clicks through, and lands with his feet on the frame
+//   1. he hops up onto Notepad's title bar, owned by it from take-off (so he
+//      never flashes over windows covering it), lets clicks through, and lands
+//      with his feet on the frame
 //   2. dragging Notepad slowly carries him along, gripping
 //   3. shaking it throws him off, dizzy, and he's back on the desktop
 //   4. closing Notepad under him: the "!" beat, a fall to the floor, the walk home
-//   5. "Hop down" from up there takes him home
+//   5. "Hop down" from up there takes him home, still Notepad's on the way down
 // Screenshots of the critter window at each beat go to the given folder. It
 // never takes the focus, so it can run beside other things; if a fullscreen
 // window covers his usual screen, give him a home on another one:
@@ -90,6 +91,8 @@ async function openNotepad(at) {
     // ------------------------------------------------------------ 1. up he goes
     pad = await openNotepad(spot);
     check(await panel.ev(`shellby.dev.perch({ hwnd: ${pad.hwnd} })`), 'he goes for the Notepad window');
+    check(await until(async () => (await state()).motion === 'hop', 3000), 'hopping up');
+    check((await state()).owner === pad.hwnd, "in the air he is already Notepad's, not over every app");
     check(await until(async () => (await state()).up), 'and lands on it');
     await critter.shot('1-perched');
     let s = await state();
@@ -151,6 +154,8 @@ async function openNotepad(at) {
     await panel.ev(`shellby.dev.perch({ hwnd: ${pad.hwnd} })`);
     check(await until(async () => (await state()).up), 'up again');
     await panel.ev('shellby.dev.perch({ leave: true })');
+    check(await until(async () => (await state()).motion === 'hop', 3000), 'hopping down');
+    check((await state()).owner === pad.hwnd, "still Notepad's on the way down");
     check(await until(async () => { const v = await state(); return !v.up && v.motion === null; }, 5000), '"Hop down" brings him down');
     s = await state();
     check(Math.abs(s.bounds.x - home.bounds.x) <= 4 && Math.abs(s.bounds.y - home.bounds.y) <= 4, 'right back to his spot');

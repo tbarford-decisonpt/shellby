@@ -43,6 +43,8 @@ const { registerGitlabIpc } = require('./gitlab');
 const { registerProgressIpc } = require('./progress');
 const { registerSurroundingsIpc } = require('./surroundings');
 const { registerTriesIpc } = require('./tries');
+const { registerMentionsIpc } = require('./mentions');
+const { registerDebugIpc } = require('./debug');
 const { registerCorrectionsIpc } = require('./corrections');
 const { registerStartFromIpc } = require('./startfrom');
 const { registerBacklogIpc } = require('./backlog');
@@ -213,6 +215,8 @@ function registerIpc(electronIpcMain, d) {
   registerProgressIpc(ipcMain, d);
   registerSurroundingsIpc(ipcMain, d);
   registerTriesIpc(ipcMain, d);
+  registerMentionsIpc(ipcMain, d);
+  registerDebugIpc(ipcMain, d);
   registerCorrectionsIpc(ipcMain, d);
   registerStartFromIpc(ipcMain, d);
   registerBacklogIpc(ipcMain, d);

@@ -55,8 +55,32 @@
       code.replaceWith(a);
       a.append(code);
     }
+    // And in plain prose, outside backticks, but only when it can't be anything
+    // else: a folder in it and an extension code uses (`see src/main/x.js:42`).
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => (n.parentElement.closest('pre, code, a, button') || !/[\\/]/.test(n.nodeValue) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      const text = node.nodeValue;
+      const parts = [];
+      let last = 0;
+      for (const m of text.matchAll(PROSE_PATH)) {
+        const t = m[2].replace(/[.,;:)]+$/, '');
+        const pm = t.match(PATHISH);
+        if (!pm || !/[\\/]/.test(t) || !EXTS.has(pm[1].toLowerCase())) continue;
+        const at = m.index + m[1].length;
+        parts.push(text.slice(last, at), SB.fileLink(t, { line: pm[2] ? Number(pm[2]) : null, text: t }));
+        last = at + t.length;
+      }
+      if (!parts.length) continue;
+      node.replaceWith(...parts, text.slice(last));
+    }
     return el;
   };
+  // A path-shaped word in prose: what's before it (start or a space or bracket), then the word.
+  const PROSE_PATH = /(^|[\s(["'])((?:[A-Za-z]:[\\/]|\.{1,2}[\\/]|~[\\/])?[\w@.+-]+(?:[\\/][\w@.+-]+)+(?::\d+(?::\d+)?)?)/g;
 
   // ------------------------------------------------------------ an edit's diff
 
@@ -67,13 +91,15 @@
       removed ? h('b', { class: 'del', text: `−${removed}` }) : null);
   };
 
-  // Red and green rows. Numbers only when we know where the edit sits (`line`).
-  SB.diffView = (edits, { line = null } = {}) => {
+  // Red and green rows. Numbers only when we know where the edit sits (`line`);
+  // colours when the file's name says what language it's in (code.js).
+  SB.diffView = (edits, { line = null, file = null } = {}) => {
     const box = h('div', { class: `ediff${line ? '' : ' no-nums'}`, role: 'group', 'aria-label': 'Changes' });
     let shown = 0;
     let left = 0;
     edits.forEach((e, i) => {
       const rows = D.rows(e, { line: i === 0 ? line : null });
+      const paint = file ? SB.diffPainter?.(file) : null; // each edit is its own run of the file
       if (i && shown < MAX_DIFF_ROWS) box.append(h('div', { class: 'er fold', text: '⋯' }));
       for (const r of rows) {
         if (shown >= MAX_DIFF_ROWS) { left++; continue; }
@@ -83,7 +109,7 @@
           h('span', { class: 'en', 'aria-hidden': 'true', text: r.a ?? '' }),
           h('span', { class: 'en', 'aria-hidden': 'true', text: r.b ?? '' }),
           h('span', { class: 'eg', text: r.t === ' ' ? ' ' : r.t === '-' ? '−' : '+' }),
-          h('span', { class: 'et', text: r.s || ' ' })));
+          paint && r.s ? SB.paintTokens(h('span', { class: 'et' }), paint(r.t === '+' ? 'add' : r.t === '-' ? 'del' : 'ctx', r.s)) : h('span', { class: 'et', text: r.s || ' ' })));
       }
     });
     if (left) box.append(h('div', { class: 'er fold', text: `… ${left} more line${left === 1 ? '' : 's'}` }));

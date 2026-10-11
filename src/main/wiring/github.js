@@ -33,6 +33,7 @@ const shells = require('../shells');
 const stickers = require('../stickers');
 const syncLife = require('../sync-life');
 const syncPrefs = require('../sync-prefs');
+const syncPlans = require('../sync-plans');
 const tankShare = require('../tank/share');
 const voice = require('../voice');
 const { KNOWN_ACHIEVEMENTS } = require('../wardrobe/achievements');
@@ -63,6 +64,11 @@ function wireGithub(d) {
       onSynced: before => {
         d.broadcastWardrobe(); d.send(d.panel, 'xp', d.xpView()); d.send(d.panel, 'homes', d.homesView()); d.send(d.panel, 'stickers', d.stickersView()); d.refreshStatusLine();
         d.settingsSynced?.(before);
+        // Routines and workflows added, changed or deleted on another PC (sync-plans.js).
+        if (JSON.stringify(d.config.data.routines) !== JSON.stringify(before.routines)) d.send(d.panel, 'routines', d.routinesView());
+        if (JSON.stringify(d.config.data.workflows) !== JSON.stringify(before.workflows)) d.workflows?.reload();
+        const news = syncPlans.describeArrived(syncPlans.arrived(before, d.config.data));
+        if (news) d.send(d.panel, 'github:error', news);
         if (d.life) d.send(d.panel, 'life', d.life.view()); // finds, the bond, games from another PC
         // A friend added on another PC needs their card fetched here.
         if (d.friends && friendsChanged(d.config.data, before)) { d.friends.emit('change', d.friends.view()); d.friends.refresh().catch(() => {}); }
@@ -84,6 +90,9 @@ function wireGithub(d) {
       // Snippets and pins are stamped one by one, with a marker for each one deleted.
       const prefStamps = syncPrefs.restamp(patch, prev, stamps.prefs, Date.now());
       if (prefStamps) { stamps.prefs = prefStamps; changed = true; }
+      // So are routines and workflows; whether one is on, or its last run, isn't shared.
+      const planStamps = syncPlans.restamp(patch, prev, stamps.plans, Date.now());
+      if (planStamps) { stamps.plans = planStamps; changed = true; }
       // A favourite find or your birthday follows the PC that set it last (sync-life.js).
       if ('finds' in patch && (patch.finds?.favourite ?? null) !== (prev.finds?.favourite ?? null)) { stamps.life = { ...stamps.life, favouriteAt: Date.now() }; changed = true; }
       if ('bond' in patch && JSON.stringify(patch.bond?.birthday ?? null) !== JSON.stringify(prev.bond?.birthday ?? null)) { stamps.life = { ...stamps.life, birthdayAt: Date.now() }; changed = true; }
@@ -94,6 +103,7 @@ function wireGithub(d) {
       const eventsMoved = 'events' in patch && JSON.stringify(events.normalize(patch.events)) !== JSON.stringify(events.normalize(prev.events));
       if (changed || syncLife.moved(patch, prev) || stickersMoved || tankMoved || friendsMoved || eventsMoved || (patch.wardrobe && JSON.stringify(patch.wardrobe.unlocked) !== JSON.stringify(prev.wardrobe?.unlocked))) d.github?.changedSoon();
     };
+    d.github.restore();
     d.github.schedule();
     if (d.github.can('sync')) setTimeout(() => d.github.sync().catch(() => {}), 30 * 1000);
     d.profileCard = new ProfileCard({ config: d.config, github: d.github });
@@ -417,81 +427,10 @@ function wireGithub(d) {
     return { ...v, enabled: github || gitlab, githubEnabled: github, gitlab: { ...v.gitlab, enabled: gitlab } };
   };
 
-  // Claude tasks with your GitHub sign-in can push anywhere you can: ask, with the risk spelled out.
+  // Turning a feature on, or ticking it before the first sign-in so that one
+  // approval on GitHub covers it (ipc/github.js): the same question either way.
   async function confirmGitHubFeature(feature, on) {
-    if (feature === 'claude' && on) {
-      const response = await d.askOnce({
-        icon: '🔑', danger: true,
-        title: 'Let Claude tasks use your GitHub?',
-        message: 'Claude Code tasks you run in Shellby get your GitHub sign-in, so they can push commits and open pull requests, including in private repos.',
-        detail: 'Claude can also read the sign-in itself, so a task could use it for anything your GitHub account can do. Only turn this on if you check what your tasks do (Ask mode asks before every command).',
-        note: 'Only Shellby\'s own tabs get it. Claude Code in your terminal is unchanged. Turn it off here any time.',
-        buttons: [{ label: 'Allow', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-      });
-      if (response !== 0) return { ok: false, canceled: true, view: d.github.view() };
-    }
-    // A workflow file decides what runs in CI, on GitHub's machines, with whatever
-    // secrets the repository holds. GitHub keeps it behind its own scope for that
-    // reason, and so does Shellby.
-    if (feature === 'workflows' && on) {
-      const response = await d.askOnce({
-        icon: '⚙️', danger: true,
-        title: 'Let Claude tasks change your CI workflows?',
-        message: 'Tasks will be able to push changes to .github/workflows — the files that decide what GitHub runs on every push.',
-        detail: 'A workflow runs on GitHub with access to that repository\'s secrets, so a task that edits one can make them run anything, in any repo you can push to. Without this, pushes that touch a workflow file are refused by GitHub.',
-        note: 'Needs "Let Claude tasks push" as well. Shellby will ask GitHub for the extra permission, which means signing in again.',
-        buttons: [{ label: 'Allow', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
-      });
-      if (response !== 0) return { ok: false, canceled: true, view: d.github.view() };
-    }
-    // Your conversations are more than progress: say what goes up, and where.
-    if (feature === 'history' && on) {
-      const response = await d.askOnce({
-        icon: '🗂️',
-        title: 'Sync your conversation history?',
-        message: `Shellby keeps a copy of your ${historySync.MAX_SYNCED} newest conversations in a private gist on your GitHub, so they show in History on every PC you sign in on.`,
-        detail: 'What goes up is what History shows: your messages, Claude\'s replies, and the tools it used, with long output cut short and anything that looks like a key or token blanked. A private gist is hidden, not locked: anyone with its link can read it. Routine runs stay on each PC.',
-        note: 'Carrying a conversation on from another PC starts Claude afresh with a recap, since Claude Code keeps its own record on the PC that ran it. Turning this off stops syncing; the gist stays until you delete it on GitHub.',
-        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-      });
-      if (response !== 0) return { ok: false, canceled: true, view: d.github.view() };
-    }
-    // The calling card is a public gist, so say what's on it before it goes up.
-    if (feature === 'friends' && on) {
-      const response = await d.askOnce({
-        icon: '🦀',
-        title: 'Let friends\' crabs visit?',
-        message: 'Shellby puts a small calling card on your GitHub as a public gist: your crab\'s outfit, colors, shell and level, under your GitHub username. His stickers and his tank only go on it if you choose to share them.',
-        detail: 'Friends you add by GitHub username can then have your crab over, and you theirs. Waves arrive as comments on the card, and only from friends you added. No stats, projects or history go on it, though anyone can see when it was last updated (about once a day while Shellby runs).',
-        note: 'Turning this off deletes the card again.',
-        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-      });
-      if (response !== 0) return { ok: false, canceled: true, view: d.github.view() };
-    }
-    // The profile card is a public gist too, and it shows your level and streak.
-    if (feature === 'profileCard' && on) {
-      const response = await d.askOnce({
-        icon: '🪪',
-        title: 'Put your crab on your GitHub profile?',
-        message: 'Shellby keeps an image of your crab in a public gist: his outfit, your level, your streak and your five latest stickers (pictures only, no project names).',
-        detail: 'A small GitHub Action in your profile repository copies it in every few hours, so your profile README can show it. Shellby gives you the Action and the README line to paste; it never touches your repositories itself.',
-        note: 'Turning this off deletes the gist. The last copy stays in your profile repo until you remove it.',
-        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-      });
-      if (response !== 0) return { ok: false, canceled: true, view: d.github.view() };
-    }
-    // The badge makes a public repository on your account and edits your pull requests: say so first.
-    if (feature === 'prBadge' && on) {
-      const response = await d.askOnce({
-        icon: '🦀',
-        title: 'Put your crab on your pull requests?',
-        message: 'When a Shellby tab opens a pull request, Shellby adds a small picture of your crab (dressed as he is now), your level and a link to Shellby at the bottom of its description.',
-        detail: `The picture has to live in a public repository for GitHub to show it, so Shellby makes one on your account, ${d.github.view().login || 'you'}/${prBadges.REPO}, holding only that picture (each new look is a commit, so earlier looks stay in its history). Only pull requests you open from Shellby get it, and you can delete it from any of them like any other text.\n\nGitHub has no permission for just one repository, so this asks for access to your public repositories (public_repo), the same one publishing Wardrobe packs uses. Shellby only ever writes to ${prBadges.REPO} and your own pull requests with it.`,
-        note: 'Turning this off stops new badges. The repository stays, so the pictures on pull requests you already opened keep working. The permission lasts until you sign out.',
-        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
-      });
-      if (response !== 0) return { ok: false, canceled: true, view: d.github.view() };
-    }
+    if (on && !(await askGitHubFeature(feature))) return { ok: false, canceled: true, view: d.github.view() };
     const r = await d.github.setFeature(feature, on);
     if (feature === 'profileCard' && r.ok && !r.needsApproval && !on) {
       const down = await d.profileCard.takeDown();
@@ -505,6 +444,85 @@ function wireGithub(d) {
       }
     }
     return { ...r, view: d.github.view() };
+  }
+
+  // Resolves true when the feature needs no question, or you said yes to it.
+  // Claude tasks with your GitHub sign-in can push anywhere you can: ask, with the risk spelled out.
+  async function askGitHubFeature(feature) {
+    if (feature === 'claude') {
+      const response = await d.askOnce({
+        icon: '🔑', danger: true,
+        title: 'Let Claude tasks use your GitHub?',
+        message: 'Claude Code tasks you run in Shellby get your GitHub sign-in, so they can push commits and open pull requests, including in private repos.',
+        detail: 'Claude can also read the sign-in itself, so a task could use it for anything your GitHub account can do. Only turn this on if you check what your tasks do (Ask mode asks before every command).',
+        note: 'Only Shellby\'s own tabs get it. Claude Code in your terminal is unchanged. Turn it off here any time.',
+        buttons: [{ label: 'Allow', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+      if (response !== 0) return false;
+    }
+    // A workflow file decides what runs in CI, on GitHub's machines, with whatever
+    // secrets the repository holds. GitHub keeps it behind its own scope for that
+    // reason, and so does Shellby.
+    if (feature === 'workflows') {
+      const response = await d.askOnce({
+        icon: '⚙️', danger: true,
+        title: 'Let Claude tasks change your CI workflows?',
+        message: 'Tasks will be able to push changes to .github/workflows — the files that decide what GitHub runs on every push.',
+        detail: 'A workflow runs on GitHub with access to that repository\'s secrets, so a task that edits one can make them run anything, in any repo you can push to. Without this, pushes that touch a workflow file are refused by GitHub.',
+        note: `Needs "Let Claude tasks push" as well.${d.github.signedIn ? ' Shellby will ask GitHub for the extra permission, which means signing in again.' : ''}`,
+        buttons: [{ label: 'Allow', style: 'danger' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+      });
+      if (response !== 0) return false;
+    }
+    // Your conversations are more than progress: say what goes up, and where.
+    if (feature === 'history') {
+      const response = await d.askOnce({
+        icon: '🗂️',
+        title: 'Sync your conversation history?',
+        message: `Shellby keeps a copy of your ${historySync.MAX_SYNCED} newest conversations in a private gist on your GitHub, so they show in History on every PC you sign in on.`,
+        detail: 'What goes up is what History shows: your messages, Claude\'s replies, and the tools it used, with long output cut short and anything that looks like a key or token blanked. A private gist is hidden, not locked: anyone with its link can read it. Routine runs stay on each PC.',
+        note: 'Carrying a conversation on from another PC starts Claude afresh with a recap, since Claude Code keeps its own record on the PC that ran it. Turning this off stops syncing; the gist stays until you delete it on GitHub.',
+        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+      });
+      if (response !== 0) return false;
+    }
+    // The calling card is a public gist, so say what's on it before it goes up.
+    if (feature === 'friends') {
+      const response = await d.askOnce({
+        icon: '🦀',
+        title: 'Let friends\' crabs visit?',
+        message: 'Shellby puts a small calling card on your GitHub as a public gist: your crab\'s outfit, colors, shell and level, under your GitHub username. His stickers and his tank only go on it if you choose to share them.',
+        detail: 'Friends you add by GitHub username can then have your crab over, and you theirs. Waves arrive as comments on the card, and only from friends you added. No stats, projects or history go on it, though anyone can see when it was last updated (about once a day while Shellby runs).',
+        note: 'Turning this off deletes the card again.',
+        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+      });
+      if (response !== 0) return false;
+    }
+    // The profile card is a public gist too, and it shows your level and streak.
+    if (feature === 'profileCard') {
+      const response = await d.askOnce({
+        icon: '🪪',
+        title: 'Put your crab on your GitHub profile?',
+        message: 'Shellby keeps an image of your crab in a public gist: his outfit, your level, your streak and your five latest stickers (pictures only, no project names).',
+        detail: 'A small GitHub Action in your profile repository copies it in every few hours, so your profile README can show it. Shellby gives you the Action and the README line to paste; it never touches your repositories itself.',
+        note: 'Turning this off deletes the gist. The last copy stays in your profile repo until you remove it.',
+        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+      });
+      if (response !== 0) return false;
+    }
+    // The badge makes a public repository on your account and edits your pull requests: say so first.
+    if (feature === 'prBadge') {
+      const response = await d.askOnce({
+        icon: '🦀',
+        title: 'Put your crab on your pull requests?',
+        message: 'When a Shellby tab opens a pull request, Shellby adds a small picture of your crab (dressed as he is now), your level and a link to Shellby at the bottom of its description.',
+        detail: `The picture has to live in a public repository for GitHub to show it, so Shellby makes one on your account, ${d.github.view().login || 'you'}/${prBadges.REPO}, holding only that picture (each new look is a commit, so earlier looks stay in its history). Only pull requests you open from Shellby get it, and you can delete it from any of them like any other text.\n\nGitHub has no permission for just one repository, so this asks for access to your public repositories (public_repo), the same one publishing Wardrobe packs uses. Shellby only ever writes to ${prBadges.REPO} and your own pull requests with it.`,
+        note: 'Turning this off stops new badges. The repository stays, so the pictures on pull requests you already opened keep working. The permission lasts until you sign out.',
+        buttons: [{ label: 'Turn on', style: 'primary' }, { label: 'Cancel' }], defaultId: 0, cancelId: 1,
+      });
+      if (response !== 0) return false;
+    }
+    return true;
   }
 
   async function confirmAndPublishPack(packId) {
@@ -567,7 +585,7 @@ function wireGithub(d) {
   }
 
   return {
-    badgePr, ciView, confirmAndAddMarketplace, confirmAndPublishPack, confirmGitHubFeature,
+    badgePr, ciView, confirmAndAddMarketplace, confirmAndPublishPack, askGitHubFeature, confirmGitHubFeature,
     createCi, createFriends, createGitHub, createIssues, friendsView, githubEndpoints,
     makeIssueCopy, openGitHubUrl, openIssuePr, openPrUrl, pinnedTools, sendVisitor,
   };

@@ -28,6 +28,7 @@ const guard = require('./guard');
 const mischief = require('./mischief');
 const { isModel } = require('./models');
 const outputStyles = require('./outputstyles');
+const shortcuts = require('../renderer/panel/shortcuts');
 const { SETTINGS: PERCH_SETTINGS } = require('./perch');
 const { FEATURES: SUGGESTABLE } = require('./selfaware');
 const { EFFORTS } = require('./session');
@@ -67,6 +68,7 @@ const PREFS = {
   spendReserve: oneOf(guard.RESERVES),
   spendMaxMinutes: oneOf(guard.MAX_MINUTES),
   checkTimeoutMin: oneOf(TIMEOUTS_MIN),
+  keybindings: v => (isObj(v) ? shortcuts.sanitizeOverrides(v) : undefined),
   // Work mode's keys only, each held to its own rule.
   workOverrides: v => {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
@@ -105,6 +107,7 @@ const LABELS = Object.freeze({
   workOverrides: 'Work mode', snippets: 'snippets', pinnedTools: 'pins',
   selfAware: 'Claude knowing Shellby', suggestions: 'feature suggestions', mutedSuggestions: 'muted suggestions',
   queueKeepAwake: 'staying awake for queued work', externalSessions: 'outside sessions', editor: 'editor',
+  keybindings: 'keyboard shortcuts',
 });
 
 const num = v => (Number.isFinite(v) && v > 0 ? v : 0);

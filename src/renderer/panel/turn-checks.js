@@ -58,6 +58,10 @@
   // A verdict whose turn isn't on screen (trimmed off the top, or a check
   // before bringing home with nothing new since) stands on its own line.
   SB.renderChecks = (tab, item) => {
+    // The latest verdict, for its pane's lane (tab-panes.js paintLane).
+    tab.checkState = item.status === 'pass' ? 'pass' : 'fail';
+    tab.checkRunning = false;
+    SB.refreshPaneHeads?.();
     const block = item.after && blockFor(tab, item.after);
     if (block) return stamp(block, item);
     const v = headline(item);
@@ -69,6 +73,7 @@
   // While a check runs: "Checking…" on the block it's for (or the newest).
   api.onChecksRunning?.(({ tabId, after, running }) => {
     const tab = state.tabs.get(tabId);
+    if (tab) { tab.checkRunning = !!running; SB.refreshPaneHeads?.(); }
     // A check before bringing home (no turn of its own) says so in its toast instead.
     if (!tab || !after) return;
     const block = blockFor(tab, after);

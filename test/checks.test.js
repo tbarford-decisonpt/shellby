@@ -325,3 +325,19 @@ test('runAll carries on past a failing command', async () => {
   assert.equal(r.cancelled, false);
   assert.deepEqual(r.results.map(x => [x.cmd, x.exitCode]), [['npm run test', 1], ['npm run build', 1]]);
 });
+
+test('Problems: lint and typecheck from package.json, else cargo check or go vet', () => {
+  const pkg = JSON.stringify({ scripts: { test: 'node --test', lint: 'eslint .', typecheck: 'tsc -p .' } });
+  assert.deepEqual(C.pickProblemCommands({ pkgText: pkg, files: ['package.json', 'package-lock.json'] }), ['npm run lint', 'npm run typecheck']);
+  assert.deepEqual(C.pickProblemCommands({ pkgText: JSON.stringify({ scripts: { test: 'jest' } }), files: ['package.json'] }), []);
+  assert.deepEqual(C.pickProblemCommands({ files: ['Cargo.toml'] }), ['cargo check --message-format short']);
+  assert.deepEqual(C.pickProblemCommands({ files: ['go.mod'] }), ['go vet ./...']);
+  for (const c of ['cargo check --message-format short', 'go vet ./...']) assert.ok(C.isSafeCommand(c), c);
+});
+
+test('a command\'s verdict keeps the problems its output names', () => {
+  const v = C.buildVerdict([{ cmd: 'npm run typecheck', exitCode: 2, output: "src/a.ts(3,7): error TS2322: Nope.\nFound 1 error." }], { after: 'x', root: 'C:\\r', cwd: 'C:\\r' });
+  assert.deepEqual(v.commands[0].problems, [{ file: 'src/a.ts', line: 3, col: 7, severity: 'error', message: 'Nope.', code: 'TS2322' }]);
+  const clean = C.buildVerdict([{ cmd: 'npm test', exitCode: 0, output: 'ok' }], { after: 'x', root: 'C:\\r' });
+  assert.equal('problems' in clean.commands[0], false);
+});

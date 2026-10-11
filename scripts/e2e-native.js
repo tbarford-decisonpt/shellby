@@ -41,8 +41,10 @@ async function connect(url) {
   const check = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`); if (!ok) fails++; };
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-native-'));
-  // A tide event's "last day of..." would talk over the "plan?" bubble, on whichever day CI runs.
-  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ tideEvents: false }));
+  // Anything he says outranks his "plan?" bubble, and some of it goes by the calendar
+  // (a tide event's "last day of..." is said at boot, whatever the chatter cooldowns),
+  // so events are off and he's quiet, on whichever day CI runs.
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ tideEvents: false, chatter: 'quiet' }));
   // Claude Code's own folder, for its memories: under temp, so the fake CLI writes into it.
   const config = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-native-cfg-')));
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
@@ -131,7 +133,9 @@ async function connect(url) {
     await ev(`[...${card}.querySelectorAll('button')].find(b => b.textContent === 'Send 1 note').click()`);
     await idle();
     const sent = await lastReply();
-    check(/^PLAN SENT BACK: The user read your plan/.test(sent) && /> Add a cache in front of it/.test(sent) && /Skip the cache, it is fast enough\./.test(sent), 'Claude gets the line and the note');
+    // The fake echoes what it got, and the feed renders its "> line" as a quote.
+    const quoted = await ev("[...SB.activeTab().el.querySelectorAll('.msg.assistant:not(.sub)')].pop()?.querySelector('blockquote')?.textContent || ''");
+    check(/^PLAN SENT BACK: The user read your plan/.test(sent) && /Add a cache in front of it/.test(quoted) && /Skip the cache, it is fast enough\./.test(sent), 'Claude gets the line and the note');
     check(/Sent back with 1 note/.test(await ev(`${card}.textContent`)), 'the card says it went back');
     await ev("SB.send('plan')");
     await until(panel, `!${card}.classList.contains('decided')`);

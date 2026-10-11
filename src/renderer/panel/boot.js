@@ -75,7 +75,10 @@
   api.onMcpNeedsAuth(({ tabId, names } = {}) => {
     if (!Array.isArray(names) || !names.length) return;
     const one = names.length === 1 ? names[0] : null;
-    SB.toast(one ? `${one} needs you to sign in before Claude can use it.` : `${names.join(', ')} need you to sign in before Claude can use them.`, {
+    // Plugins can bring dozens of these: name two, count the rest (the Toolbox lists them all).
+    const rest = names.length - 2;
+    const who = rest > 0 ? `${names.slice(0, 2).join(', ')} and ${rest} more` : names.join(' and ');
+    SB.toast(one ? `${one} needs you to sign in before Claude can use it.` : `${who} need you to sign in before Claude can use them.`, {
       ms: 15000,
       action: one ? 'Sign in' : 'Show me',
       onAction: async () => {
@@ -224,14 +227,25 @@
       tab.cancelOpenAsks();
       for (const lane of tab.lanes.values()) if (lane.status === 'running') lane.finish({ ok: true });
     }
+    // The split view as it was left, with the conversations still open. Only a
+    // real split: anything that cleans down to one pane starts as it always has.
+    // Open tabs the layout doesn't mention (one popped out last time, say) join its first pane.
+    state.panesSaved = !!b.paneLayout;
+    const open = [...state.tabs.keys()];
+    const kept = SB.panes.clean(b.paneLayout, open);
+    const grid = kept && SB.panes.settle(kept.grid, open, kept.grid[0][0].id);
+    const saved = grid && SB.panes.count(grid) > 1 ? { grid, sizes: kept.sizes } : null;
+    if (saved) { state.grid = saved.grid; state.paneSizes = saved.sizes; }
     // A conversation the last run cut off mid-turn comes to the front, and the toast says which.
     const cut = (b.cutOff || []).filter(c => state.tabs.has(c.id));
     if (cut.length) SB.activate(cut[0].id);
+    else if (saved) SB.activate(saved.grid[0][0].active);
     else if (state.tabs.size) SB.activate([...state.tabs.keys()].pop());
     else await SB.newTab();
 
     if (b.cutOff?.length) setTimeout(() => SB.toast(window.ShellbyFeedLogic.cutOffToast(b.cutOff), { ms: 9000 }), 1200);
     SB.setView(SB.needsOnboarding() ? 'onboarding' : b.startView || state.view === 'wardrobe' && 'wardrobe' || 'chat');
+    if (saved) SB.growForPanes(); // more room than the panel's own size: it grows, now or once the chat shows
     if (b.claudeTricks && !SB.needsOnboarding()) SB.showClaudeTricks(b.claudeTricks); // Claude Code updated: what it can do now
     performance.mark('shellby:panel-ready'); // booted, tabs back: scripts/perf-budget.js times app-ready to here
   })();

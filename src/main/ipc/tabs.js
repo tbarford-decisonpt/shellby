@@ -7,6 +7,8 @@ const { effectiveAfter } = require('../step-undo');
 const ctx = require('../context');
 const editor = require('../editor');
 const quiz = require('../quiz');
+const problems = require('../problems');
+const panes = require('../../renderer/shared/panes');
 const { run: runCli, skipSettings } = require('../claude/cli');
 
 // The most queued messages that go in at once, and files across all of them (as one task:send).
@@ -14,6 +16,21 @@ const MAX_STEERS = 20;
 const MAX_STEER_FILES = 20;
 // What Claude is told when you say no: a reason, or your notes on its plan.
 const MAX_DENY_MESSAGE = 4000;
+
+/**
+ * The agent's name as Claude Code takes it (--agent): as listed, or a plugin's
+ * one by its own name when only one plugin has it. Before any conversation has
+ * said what it has (listed null), the name is taken as given. -> name | null
+ * @param {string} name
+ * @param {string[] | null | undefined} listed
+ */
+function agentName(name, listed) {
+  if (!/^[\w][\w:.-]{0,119}$/.test(name)) return null;
+  if (!Array.isArray(listed)) return name;
+  if (listed.includes(name)) return name;
+  const plugin = listed.filter(a => a.endsWith(`:${name}`));
+  return plugin.length === 1 ? plugin[0] : null;
+}
 
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
@@ -24,8 +41,15 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.handle('tab:new', (_e, opts = {}) => {
     // A folder is only accepted if it's a project Shellby already tracks (e.g. a nudge's "pick up where you left off").
     const known = d.isStr(opts?.cwd) && d.knownFolder(opts.cwd) && fs.existsSync(opts.cwd);
-    try { return { ok: true, tabId: d.openTab(known ? { cwd: opts.cwd } : {}).id }; } catch (err) { return { ok: false, error: err.message }; }
+    // One of your agents to run it (Toolbox → Chat as), by the name Claude Code lists
+    // it under ("feature-dev:code-reviewer" for a plugin's "code-reviewer").
+    const agent = d.isStr(opts?.agent) ? agentName(opts.agent, d.lastInit?.agents) : null;
+    if (d.isStr(opts?.agent) && !agent) return { ok: false, error: `Claude Code doesn't list an agent called ${opts.agent.slice(0, 80)}.` };
+    if (agent && !d.claudeSupports('--agent')) return { ok: false, error: "This Claude Code can't hand a conversation to an agent. Update it, then try again." };
+    try { return { ok: true, tabId: d.openTab({ ...(known ? { cwd: opts.cwd } : {}), ...(agent ? { agent } : {}) }).id }; } catch (err) { return { ok: false, error: err.message }; }
   });
+  // Safe mode for one conversation (sessions.js setSafeMode), from the tab menu.
+  ipcMain.handle('tab:safe', (_e, { tabId, on } = {}) => (d.isStr(tabId) ? d.manager.setSafeMode(tabId, on === true) : { ok: false, error: 'Which conversation?' }));
   ipcMain.handle('tab:close', (_e, tabId) => {
     if (!d.isStr(tabId)) return false;
     // Its held messages go with it, the way its queue does.
@@ -44,6 +68,7 @@ function registerTabsIpc(ipcMain, d) {
     d.queueWaits.get(tabId)?.({ ok: false, interrupted: true, closed: true });
     d.queueWaits.delete(tabId);
     d.workflows?.onTabClosed(tabId);
+    d.debugMode?.tabClosed(tabId); // its debug receiver stops listening
     d.remote?.settleTab(tabId);
     return true;
   });
@@ -54,6 +79,29 @@ function registerTabsIpc(ipcMain, d) {
   ipcMain.on('tab:seen', (_e, tabId) => { if (d.isStr(tabId)) d.manager.markRead(tabId); });
   // The conversation on screen: the Stream Deck's Stop and Bring it home follow it (deck.js).
   ipcMain.on('tab:shown', (_e, tabId) => { if (d.isStr(tabId) && d.manager.tabs.has(tabId)) d.deckShownTab(tabId); });
+  // The split view as it stands (tab-panes.js), for the next start. Cleaned
+  // here too, against the conversations open: config only ever holds a grid
+  // within the caps, of tabs that exist, and only a split (one pane writes
+  // nothing). Main's tab order becomes each pane's tabs in turn, one pane's
+  // included, so openTabs comes back in that order.
+  ipcMain.on('panes:layout', (e, layout) => {
+    if (d.popoutTabOf(e.sender)) return; // a conversation in its own window has no grid
+    const clean = panes.clean(layout, [...d.manager.tabs.keys()]);
+    if (clean) d.manager.setOrder(panes.tabIds(clean.grid));
+    const keep = clean && panes.count(clean.grid) > 1 ? clean : null;
+    if (JSON.stringify(keep) === JSON.stringify(d.config.get('paneLayout') ?? null)) return;
+    d.config.set({ paneLayout: keep });
+  });
+  // The layouts you saved by name (shapes only, no conversations): the list
+  // as it stands, after saving `list` if one is given. Cleaned on the way in.
+  ipcMain.handle('panes:shapes', (e, list) => {
+    if (d.popoutTabOf(e.sender)) return [];
+    if (list !== undefined) {
+      const keep = panes.cleanShapes(list);
+      if (JSON.stringify(keep) !== JSON.stringify(d.config.get('paneShapes') ?? [])) d.config.set({ paneShapes: keep });
+    }
+    return panes.cleanShapes(d.config.get('paneShapes'));
+  });
   // A conversation in a window of its own (wiring/popouts.js). x, y: where it was
   // dropped, in screen pixels; carry: what was typed in the panel but not sent.
   ipcMain.handle('tab:pop-out', (_e, { tabId, x, y, carry } = {}) => {
@@ -145,7 +193,34 @@ function registerTabsIpc(ipcMain, d) {
   // ---- what a turn changed
   ipcMain.handle('changes:diff', (_e, raw) => {
     const ref = d.changeRef(raw);
-    return ref ? changes.patchFor(ref) : { error: "That isn't a change from this conversation." };
+    if (!ref) return { error: "That isn't a change from this conversation." };
+    // Once part of a file has been taken back, its diff shows what's left.
+    const items = ref.file ? d.history.load(ref.tabId) : [];
+    const partly = items.some(i => i?.kind === 'undone-hunk' && i.after === ref.after && i.before === ref.before && i.file === ref.file);
+    return changes.patchFor(partly ? effectiveAfter(items, ref) : ref);
+  });
+  // Take back one hunk of one file: main re-reads the diff and checks the
+  // hunk's header still matches what the panel showed (changes.undoHunk).
+  ipcMain.handle('changes:undo-hunk', async (_e, raw) => {
+    const ref = d.isStr(raw?.file) ? d.changeRef(raw) : null;
+    if (!ref) return { ok: false, error: "That isn't a file from this conversation's changes." };
+    if (ref.retired) return { ok: false, error: 'That copy has been tidied away, and its work is in your checkout now. Undo it there with git.' };
+    if (ref.status && ref.status !== 'M') return { ok: false, error: 'Only a changed file can be taken back a part at a time.' };
+    const tab = d.manager.tabs.get(ref.tabId);
+    if (d.manager.isBusy(ref.tabId)) return { ok: false, error: 'Let him finish first, then undo.' };
+    if (tab?.undoingStep) return { ok: false, error: 'Already undoing.' };
+    const items = d.history.load(ref.tabId);
+    if (items.some(i => i?.kind === 'undone' && i.after === ref.after)) return { ok: false, error: 'That whole turn has been undone already.' };
+    const turnId = items.find(i => i?.kind === 'changes' && i.after === ref.after && i.before === ref.before)?.turnId;
+    if (tab) tab.undoingStep = true;
+    try {
+      const r = await changes.undoHunk(effectiveAfter(items, ref), { hunk: raw.hunk, header: raw.header });
+      if (!r.ok) return r;
+      d.manager.note(ref.tabId, { kind: 'undone-hunk', ...(turnId ? { turnId } : {}), before: ref.before, after: ref.after, file: ref.file, to: r.to });
+      return { ok: true };
+    } finally {
+      if (tab) tab.undoingStep = false;
+    }
   });
   // "Quiz me" on a turn's changes (quiz.js): Claude writes the questions from the
   // diff, and the answers stay here until each one is picked.
@@ -205,6 +280,24 @@ function registerTabsIpc(ipcMain, d) {
     const ref = d.changeRef(raw);
     if (!ref) return { ok: false, error: "That isn't a change from this conversation." };
     return d.runChecksFor(ref);
+  });
+  // ---- Problems: what this conversation's last checks found, file by file (problems.js)
+  const lastChecks = tabId => [...d.history.load(tabId)].reverse().find(i => i?.kind === 'checks') || null;
+  ipcMain.handle('problems:get', (_e, tabId) => {
+    if (!d.isStr(tabId) || !d.manager.tabs.has(tabId)) return { problems: [] };
+    const v = lastChecks(tabId);
+    if (!v) return { problems: [], never: true };
+    return { at: v.at, status: v.status, problems: problems.ofVerdict(v), commands: (v.commands || []).map(c => ({ cmd: c.cmd, ok: !!c.ok })) };
+  });
+  ipcMain.handle('problems:run', (_e, tabId) => (d.isStr(tabId) && d.manager.tabs.has(tabId) ? d.findProblems(tabId) : { ok: false, error: 'That conversation has closed.' }));
+  // The message that asks Claude to fix some of them, written here from what
+  // main noted, never from text the panel sends (at: which checks they're from).
+  ipcMain.handle('problems:fix', (_e, { tabId, at, picked } = {}) => {
+    const v = d.isStr(tabId) && d.manager.tabs.has(tabId) ? lastChecks(tabId) : null;
+    if (!v || v.at !== at) return { error: 'Those checks have been run again since. Have another look.' };
+    const all = problems.ofVerdict(v);
+    const list = Array.isArray(picked) ? [...new Set(picked)].filter(i => Number.isInteger(i) && all[i]).map(i => all[i]) : all;
+    return list.length ? { text: problems.fixPrompt(list) } : { error: 'Nothing to fix there.' };
   });
   // One file of a turn in VS Code's diff (editor.js): both sides come out of git, never a path from here.
   ipcMain.handle('changes:open-editor', async (_e, raw) => {

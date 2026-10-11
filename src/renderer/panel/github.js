@@ -26,20 +26,18 @@
     }
 
     // Toggles: signed in → the real state; signed out → what to ask for.
-    const claudeOn = signedIn && v.features.claude.on && v.features.claude.granted;
+    const claudeOn = signedIn ? v.features.claude.on && v.features.claude.granted : wanted.has('claude');
     for (const [f, id] of TOGGLES) {
       const el = $(id);
       // ?. : a view from before a feature existed simply has it off.
       el.checked = signedIn ? !!(v.features[f]?.on && v.features[f]?.granted) : wanted.has(f);
       // Pushing workflow files is only meaningful once tasks can push at all.
-      el.disabled = !!v.flow || ((f === 'claude' || f === 'friends' || f === 'profileCard' || f === 'prBadge' || f === 'history') && !signedIn) || (f === 'workflows' && !claudeOn);
+      el.disabled = !!v.flow || (f === 'workflows' && !claudeOn);
     }
-    $('ghClaudeNote').textContent = signedIn
-      ? 'Shellby tabs get your GitHub sign-in (git push, gh). Claude Code in your terminal is unchanged.'
-      : 'Sign in first. Shellby asks again before turning this on.';
+    $('ghClaudeNote').textContent = 'Shellby tabs get your GitHub sign-in (git push, gh). Claude Code in your terminal is unchanged.';
     $('ghWorkflowsNote').textContent = !claudeOn
       ? 'Needs "Let Claude tasks push" first.'
-      : v.features.workflows.on && v.features.workflows.granted
+      : (signedIn ? v.features.workflows.on && v.features.workflows.granted : wanted.has('workflows'))
         ? 'Pushes that touch .github/workflows will go through. A workflow runs with your repository\'s secrets, so keep an eye on tasks that edit one.'
         : 'Without this, GitHub refuses any push that changes a file in .github/workflows — even a one-line fix.';
 
@@ -112,6 +110,7 @@
   $('ghOpenCode').addEventListener('click', () => { api.githubOpenCode(); SB.toast('Code copied. Paste it on GitHub.'); });
   $('ghCancel').addEventListener('click', () => api.githubCancel());
   $('ghSignOut').addEventListener('click', async () => {
+    for (const f of ['claude', 'workflows', 'friends', 'profileCard', 'prBadge', 'history']) wanted.delete(f); // agreed afresh next time
     render(await api.githubSignOut());
     SB.toast('Signed out. To revoke Shellby on GitHub too, use Manage on github.com.', { action: 'Manage', onAction: () => api.githubManage(), ms: 5000 });
   });
@@ -124,7 +123,14 @@
   for (const [f, id] of TOGGLES) {
     $(id).addEventListener('change', async e => {
       const on = e.target.checked;
-      if (!state.github?.signedIn) { on ? wanted.add(f) : wanted.delete(f); return; }
+      if (!state.github?.signedIn) {
+        // Ticked before signing in: any question it has is asked now, so the one sign-in covers it.
+        const r = await api.githubWantFeature(f, on);
+        if (on && r.ok) wanted.add(f);
+        else if (!on) { wanted.delete(f); if (f === 'claude') wanted.delete('workflows'); }
+        render(state.github);
+        return;
+      }
       const r = await api.githubSetFeature(f, on);
       render(r.view);
       if (r.needsApproval && r.ok) SB.toast('GitHub needs your OK for that. Code copied: approve it on the page that opened.', { ms: 6000 });

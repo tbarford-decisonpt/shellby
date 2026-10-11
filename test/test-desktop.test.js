@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { keepPainting, watchesDesktop, isTestRun, SWITCHES } = require('../src/main/test-desktop');
+const { keepPainting, watchesDesktop, ignoresRealMouse, isTestRun, SWITCHES } = require('../src/main/test-desktop');
 
 const fakeApp = isPackaged => { const added = []; return { isPackaged, added, commandLine: { appendSwitch: (...a) => added.push(a) } }; };
 
@@ -37,4 +37,15 @@ test('a run measuring his real cost gets the real desktop, fake CLI or not', () 
   assert.equal(keepPainting(app, env), false);
   assert.deepEqual(app.added, []);
   assert.equal(watchesDesktop(env, false), true);
+});
+
+test('an e2e run\'s windows let a person\'s mouse through, so it can\'t land in a scripted drag', () => {
+  assert.equal(ignoresRealMouse({ SHELLBY_E2E: '1' }, false), true);
+  assert.equal(ignoresRealMouse({ SHELLBY_E2E: '1', SHELLBY_FAKE_CLAUDE: 'fake.js' }, false), true);
+  // A dev run with the fake CLI or motion test is one you click in.
+  assert.equal(ignoresRealMouse({ SHELLBY_FAKE_CLAUDE: 'fake.js' }, false), false);
+  assert.equal(ignoresRealMouse({ SHELLBY_MOTION_TEST: '1' }, false), false);
+  assert.equal(ignoresRealMouse({}, false), false);
+  assert.equal(ignoresRealMouse({ SHELLBY_E2E: '1' }, true), false);
+  assert.equal(ignoresRealMouse({ SHELLBY_E2E: '1', SHELLBY_REAL_DESKTOP: '1' }, false), false);
 });

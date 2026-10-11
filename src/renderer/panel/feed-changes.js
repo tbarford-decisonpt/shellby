@@ -16,7 +16,7 @@
       const files = F.files(item.files.length + (item.more || 0));
       const undo = h('button', { class: 'btn ghost slim-btn', type: 'button' }, 'Undo');
       const note = h('span', { class: 'small muted', text: 'Puts these files back the way they were before this turn.' });
-      const el = h('details', { class: 'changes', dataset: { root: item.root, before: item.before, after: item.after } },
+      const el = h('details', { class: 'changes', dataset: { root: item.root, before: item.before, after: item.after, ...(item.turnId ? { turn: item.turnId } : {}) } },
         h('summary', {},
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '±' }),
           h('span', { class: 'chg-title', text: `${files} changed` }),
@@ -74,19 +74,25 @@
         h('span', { class: `chg-badge s-${f.status}`, text: f.status, title: STATUS_WORDS[f.status] || f.status }),
         h('span', { class: 'chg-path', text: f.path }),
         f.binary ? h('span', { class: 'chg-bin', text: 'binary' }) : [h('span', { class: 'chg-add', text: `+${f.added}` }), h('span', { class: 'chg-del', text: `−${f.removed}` })]);
-      toggle.addEventListener('click', async () => {
+      // Read again after a hunk of it is taken back, to show what's left.
+      const load = async () => {
+        diff.replaceChildren(h('p', { class: 'small muted', text: 'Reading the diff…' }));
+        const r = await read(f.path);
+        if (r?.error) { loaded = false; diff.replaceChildren(h('p', { class: 'small warn', text: r.error })); return; }
+        const shown = reviewable && !f.binary
+          ? SB.reviewDiff(this, r.patch, { file: f.path, ref, binary: f.binary, status: f.status, onChanged: load })
+          : SB.renderDiff(r.patch, { binary: f.binary, file: f.path });
+        // A turn's own file opens in VS Code's diff too (turn-checks.js); a comparison's doesn't.
+        const bar = ref ? SB.editorBar?.(this, ref, f) : null;
+        diff.replaceChildren(...[bar, shown, r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
+      };
+      toggle.addEventListener('click', () => {
         const open = diff.hidden;
         diff.hidden = !open;
         toggle.setAttribute('aria-expanded', String(open));
         if (!open || loaded) return;
         loaded = true;
-        diff.replaceChildren(h('p', { class: 'small muted', text: 'Reading the diff…' }));
-        const r = await read(f.path);
-        if (r?.error) { loaded = false; diff.replaceChildren(h('p', { class: 'small warn', text: r.error })); return; }
-        const shown = reviewable && !f.binary ? SB.reviewDiff(this, r.patch, { file: f.path, ref, binary: f.binary }) : SB.renderDiff(r.patch, { binary: f.binary });
-        // A turn's own file opens in VS Code's diff too (turn-checks.js); a comparison's doesn't.
-        const bar = ref ? SB.editorBar?.(this, ref, f) : null;
-        diff.replaceChildren(...[bar, shown, r.truncated ? h('p', { class: 'small muted', text: 'That is as much of it as fits here.' }) : null].filter(Boolean));
+        load();
       });
       return h('li', {}, toggle, diff);
     }
@@ -209,8 +215,13 @@
   const STATUS_WORDS = { A: 'Added', M: 'Modified', D: 'Deleted', T: 'Type changed' };
 
   // A unified diff as coloured lines. Text only: nothing in a diff is markup.
-  SB.renderDiff = (patch, { binary = false } = {}) => {
-    const rows = F.diffRows(patch).map(r => h('span', { class: `dl ${r.cls}`, text: r.text }));
+  // file: its name, for the language's colours (code.js).
+  SB.renderDiff = (patch, { binary = false, file = null } = {}) => {
+    const paint = file ? SB.diffPainter?.(file) : null;
+    const rows = F.diffRows(patch).map((r) => {
+      const toks = paint && r.cls !== 'meta' ? paint(r.cls, r.text.slice(1)) : null;
+      return toks ? SB.paintTokens(h('span', { class: `dl ${r.cls}` }, r.text[0] || ''), toks) : h('span', { class: `dl ${r.cls}`, text: r.text });
+    });
     if (!rows.length) return h('p', { class: 'small muted', text: binary ? 'A binary file: nothing to show line by line.' : 'No line changes (a mode or line-ending change).' });
     return h('pre', { class: 'diff' }, rows);
   };

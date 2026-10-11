@@ -36,6 +36,7 @@
 
   // The line under who's signed in.
   function planLabel(st) {
+    if (st.lapsed) return 'Claude Code turned the saved sign-in down. Sign in again to carry on.';
     if (!st.loggedIn) return 'Sign in with your Claude account to give Shellby tasks.';
     return st.subscriptionType ? `${capital(st.subscriptionType)} plan` : st.authMethod || 'claude.ai';
   }

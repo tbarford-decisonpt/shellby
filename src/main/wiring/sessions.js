@@ -68,6 +68,10 @@ function wireSessions(d) {
       getEffort: () => d.config.get('effort'),
       getEffortPick: () => d.config.get('effortPick') !== false,
       getOutputStyle: () => outputStyles.clean(d.config.get('outputStyle')),
+      getFallbackModel: () => d.config.get('fallbackModel') || '',
+      getChrome: () => d.config.get('claudeInChrome') === true,
+      // The newer flags go only to a Claude Code whose --help lists them (main.js claudeSupports).
+      supports: flag => d.claudeSupports(flag),
       getEnv: () => d.github?.claudeEnv() || {},
       // A folder on another computer: Claude Code runs there, over ssh (remote/service.js).
       getRemote: cwd => {
@@ -147,6 +151,8 @@ function wireSessions(d) {
       }
       const win = d.tabWindow(tabId); // the panel, or the conversation's own window (wiring/popouts.js)
       d.send(win, 'tab:item', { tabId, item });
+      // The reply as it's written and what you might ask next: only the panel shows them.
+      if (item.kind === 'partial' || item.kind === 'next') return;
       d.workflows?.onTabItem(tabId, item);
       if (item.kind === 'text' && !item.sub) tab.lastReply = item.text;
       if (item.kind === 'decision') d.remote?.settle(item.requestId, item.decision);
@@ -162,6 +168,8 @@ function wireSessions(d) {
       // (Not having a copy of the repo isn't a failed turn: main logs that itself.)
       const failed = item.trouble && item.trouble.kind !== 'no-copy';
       if (failed) d.log.warn(`turn failed (${item.trouble.kind})`, detailOf(item.kind === 'error' ? item.text : item.error));
+      // Signed out on this PC (not on another computer, over ssh): Settings says so too.
+      if (failed && item.trouble.kind === 'signed-out' && !d.remoteService?.placeOf(tab.session?.cwd || '')) d.claudeLapsed?.();
       // Claude Code stopping mid-turn sends no result: a routine's row still has to say it failed
       // (and offer Fix with Claude), not "started 2h ago" for ever.
       if (failed && item.kind === 'error' && d.routineTabs.has(tabId)) d.routineService.updateRoutine(d.routineTabs.get(tabId), { lastStatus: 'error' });

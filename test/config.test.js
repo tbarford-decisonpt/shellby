@@ -103,3 +103,74 @@ test('setting wander yourself is remembered apart from the default', () => {
   c.set({ wander: true });
   assert.equal(new Config(dir).get('wanderChosen'), true);
 });
+
+// A PC switched off at the wall left settings.json the right size and all zero
+// bytes: the rename reached the disk, the data didn't.
+test('a settings file of zeros (a power cut) comes back from the backup', () => {
+  const dir = tempDir();
+  new Config(dir).set({ routines: [{ id: 'r1' }], onboarded: true });
+  const file = path.join(dir, 'settings.json');
+  fs.writeFileSync(file, Buffer.alloc(fs.statSync(file).size));
+  const c = new Config(dir);
+  assert.ok(c.recoveredFrom, 'the zeros are set aside');
+  assert.equal(c.restoredFrom, path.join(dir, 'settings.backup.json'));
+  assert.equal(c.lost, false);
+  assert.deepEqual(c.get('routines'), [{ id: 'r1' }]);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).routines, [{ id: 'r1' }], 'and settings.json is whole again');
+});
+
+test('a missing settings file with a backup beside it is not a fresh profile', () => {
+  const dir = tempDir();
+  new Config(dir).set({ routines: [{ id: 'r1' }] });
+  new Config(dir); // a boot that read them fine leaves the backup
+  fs.rmSync(path.join(dir, 'settings.json'));
+  const c = new Config(dir);
+  assert.equal(c.recoveredFrom, null);
+  assert.ok(c.restoredFrom);
+  assert.deepEqual(c.get('routines'), [{ id: 'r1' }]);
+});
+
+test('settings damaged with no backup are lost, and say so', () => {
+  const dir = tempDir();
+  fs.writeFileSync(path.join(dir, 'settings.json'), Buffer.alloc(64));
+  const c = new Config(dir);
+  assert.equal(c.lost, true);
+  assert.equal(c.restoredFrom, null);
+  assert.equal(new Config(tempDir()).lost, false, 'a fresh profile is not a lost one');
+});
+
+test('the backup is the last copy read fine, refreshed hourly while he runs', () => {
+  const dir = tempDir();
+  const backup = path.join(dir, 'settings.backup.json');
+  new Config(dir).set({ routines: [{ id: 'r1' }] });
+  let now = 1000;
+  const c = new Config(dir, { now: () => now });
+  assert.deepEqual(JSON.parse(fs.readFileSync(backup, 'utf8')).routines, [{ id: 'r1' }]);
+  c.set({ routines: [{ id: 'r2' }] });
+  assert.deepEqual(JSON.parse(fs.readFileSync(backup, 'utf8')).routines, [{ id: 'r1' }], 'not on every save');
+  now += 60 * 60 * 1000;
+  c.set({ routines: [{ id: 'r3' }] });
+  assert.deepEqual(JSON.parse(fs.readFileSync(backup, 'utf8')).routines, [{ id: 'r3' }]);
+});
+
+test('a damaged file never becomes the backup', () => {
+  const dir = tempDir();
+  new Config(dir).set({ routines: [{ id: 'r1' }] });
+  new Config(dir);
+  fs.writeFileSync(path.join(dir, 'settings.json'), '{"routines": [');
+  new Config(dir);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'settings.backup.json'), 'utf8')).routines, [{ id: 'r1' }]);
+});
+
+test('each save is flushed to disk before it replaces settings.json', () => {
+  const dir = tempDir();
+  const c = new Config(dir);
+  const realFsync = fs.fsyncSync;
+  const realRename = fs.renameSync;
+  const order = [];
+  fs.fsyncSync = fd => { order.push('fsync'); return realFsync(fd); };
+  fs.renameSync = (...a) => { order.push('rename'); return realRename(...a); };
+  try { c.set({ mode: 'plan' }); } finally { fs.fsyncSync = realFsync; fs.renameSync = realRename; }
+  assert.deepEqual(order.slice(0, 2), ['fsync', 'rename']);
+  assert.equal(fs.existsSync(path.join(dir, 'settings.json.tmp')), false);
+});

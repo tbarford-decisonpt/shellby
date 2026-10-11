@@ -14,6 +14,8 @@
   // Top-level blocks kept in one conversation's feed. Past this the oldest are
   // dropped (see Tab.trim); the transcript on disk is never touched.
   const MAX_BLOCKS = 400;
+  // How often the reply being written is formatted again as more of it arrives.
+  const LIVE_MS = 120;
 
   // A fork: one line that splits in two (try again from here, in a new tab).
   // Drawn rather than the ⑂ character, which most fonts render tiny and faint.
@@ -68,6 +70,9 @@
       this.jobs = [];             // what it left running in the background, from main's summary (jobs.js)
       this.trimmed = 0;           // blocks dropped off the top (see trim())
       this.trimmedNotice = null;
+      this.live = null;           // Claude's reply while it's being written, until the whole of it arrives
+      this.nextPrompt = null;     // what Claude Code guessed you'll ask next (native-cli.js)
+      this.goal = null;           // the goal Claude checks before it stops (/goal), while it's set
       // Not a live region: every tool step would be read out. The turn's end
       // and permission asks are announced instead (SB.announce).
       this.el = h('section', { class: 'feed', role: 'tabpanel', dataset: { tab: id } });
@@ -84,11 +89,14 @@
       // otherwise read as 'not at the bottom', and the resize below would then leave
       // your prompt's last lines hidden.
       this.stuck = true;
+      this.unseen = false;        // something arrived below while you were scrolled up (the pane's ↓ wears a dot)
       this.lastTop = 0;
       this.el.addEventListener('scroll', () => {
         const near = this.distanceFromEnd() < 40;
+        const was = this.stuck;
         if (near || this.el.scrollTop < this.lastTop) this.stuck = near;
         this.lastTop = this.el.scrollTop;
+        if (this.stuck !== was) { if (this.stuck) this.unseen = false; SB.refreshJump?.(this); }
       }, { passive: true });
       this.resizer = new ResizeObserver(() => { if (this.stuck && this.isShown) this.scrollToEnd(); });
       this.resizer.observe(this.el);
@@ -98,7 +106,10 @@
 
     scrollToEnd() {
       this.el.scrollTop = this.el.scrollHeight;
+      const was = this.stuck && !this.unseen;
       this.stuck = true;
+      this.unseen = false;
+      if (!was) SB.refreshJump?.(this);
     }
 
     // ------------------------------------------------------------ empty state
@@ -132,6 +143,7 @@
       host.append(el);
       if (host === this.el) this.trim();
       if (follow && this.isShown) this.scrollToEnd();
+      else if (!follow && !this.unseen) { this.unseen = true; SB.refreshJump?.(this); }
       return el;
     }
 
@@ -185,17 +197,64 @@
     render(item, { replay = false } = {}) {
       // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it).
       if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item) && this.isActive) SB.renderTodos?.(this);
+      // The reply as it was being written gives way to whatever comes next on
+      // the main thread: the finished words themselves, usually.
+      if (this.live && item.kind !== 'partial' && !item.sub) this.endLive();
       switch (item.kind) {
         case 'user':
           // Something you just sent always comes into view, even if you'd scrolled up.
           if (!replay) { this.stuck = true; this.dropCutOff(); }
+          // What Claude guessed you'd ask next is spent once you've asked something.
+          if (!replay && this.nextPrompt) { this.nextPrompt = null; if (this.isActive) SB.renderNextPrompt?.(this); }
           return this.renderUser(item);
+        // Claude's reply as it's written (--include-partial-messages), formatted
+        // as it goes, so the finished one takes its place without a jump.
+        case 'partial':
+          if (replay) return;
+          if (!this.live) {
+            this.live = this.append(h('div', { class: 'msg assistant live', 'aria-busy': 'true' }));
+            this.liveText = item.text;
+            this.setStatus('Writing…');
+            // The first words show with the bubble, never an empty one.
+            this.paintLive();
+            return;
+          }
+          this.liveText += item.text;
+          // A few times a second at most: a long reply arrives in hundreds of pieces.
+          this.liveTimer ??= setTimeout(() => this.paintLive(), LIVE_MS);
+          return;
+        // What Claude Code thinks you'll ask next (native-cli.js shows it by the box).
+        case 'next':
+          if (replay) return;
+          this.nextPrompt = item.text;
+          if (this.isActive) SB.renderNextPrompt?.(this);
+          return;
+        // A goal Claude checks before it stops (/goal), pinned by the box until it's met or cleared.
+        case 'goal':
+          this.goal = item.text || null;
+          if (this.isActive) SB.renderGoal?.(this);
+          if (item.met && !replay) this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '🎯' }), 'Goal met.'));
+          return;
+        // One of your agents runs this conversation (claude --agent; tabs.js newTabAs).
+        case 'agent':
+          return this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '🤖' }),
+            h('span', {}, 'Your ', h('b', { text: item.name }), " agent runs this conversation: its own instructions, tools and model, from the first message.")));
+        // Safe mode turned on or off for this conversation (sessions.js setSafeMode).
+        case 'safe':
+          return this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: item.on ? '🛟' : '🧩' }),
+            item.on ? 'Safe mode: from the next message, Claude starts without your CLAUDE.md, skills, plugins, hooks, MCP servers or custom agents. Turn it off from the tab menu.'
+              : 'Safe mode off: your CLAUDE.md, skills, plugins, hooks and MCP servers are back from the next message.'));
         case 'text': {
           const el = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text));
           return this.append(el, item.parent);
         }
         case 'thinking':
           if (!replay && !item.sub) this.setStatus('Thinking…');
+          // What it thought, folded away: there to read, never in the way of the reply.
+          if (item.text) {
+            const body = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: 'msg assistant thought-body' }), item.text));
+            return this.append(h('details', { class: 'thought' }, h('summary', { text: 'Thought it through' }), body), item.parent);
+          }
           return;
         case 'tool':
           if (item.agent) return this.renderLane(item, replay);
@@ -217,6 +276,7 @@
         case 'checks': return SB.renderChecks?.(this, item);   // turn-checks.js
         case 'shots': return SB.renderShots?.(this, item);     // turn-checks.js
         case 'tries': return SB.renderTries?.(this, item, replay); // tries.js
+        case 'debug': return SB.renderDebug?.(this, item, replay); // debug-mode.js
         // Shellby's own one-line notes: cleared, moved into a copy, from the phone,
         // brought home, pushed, compacted, started fresh, rewound. /clear empties
         // the screen first, as in the terminal: live or replayed, so a
@@ -262,8 +322,26 @@
       }
     }
 
+    // The words written so far go: the finished reply (or the turn's end) takes their place.
+    paintLive() {
+      this.liveTimer = null;
+      if (!this.live) return;
+      SB.linkifyPaths(SB.renderMarkdownInto(this.live, this.liveText));
+      if (this.stuck && this.isShown) this.scrollToEnd();
+    }
+
+    endLive() {
+      clearTimeout(this.liveTimer);
+      this.liveTimer = null;
+      this.live?.remove();
+      this.live = null;
+    }
+
     // Everything drawn so far goes, and the empty state is back.
     wipe() {
+      clearTimeout(this.liveTimer);
+      this.liveTimer = null;
+      this.live = null;
       for (const el of [...this.el.children]) if (el !== this.empty) el.remove();
       this.tools.clear();
       this.asks.clear();
@@ -291,7 +369,9 @@
     // it's in the log, and Copy details puts it on the clipboard. A transcript
     // from before Shellby said it this way shows the program's words, as it did.
     troubleBlock(trouble, raw) {
-      if (!trouble?.message) return h('div', { class: 'error-block', text: raw });
+      if (!trouble?.message) {
+        return h('div', { class: 'error-block raw' }, h('div', { class: 'error-raw', text: raw }), raw?.trim() ? SB.copyButton(() => raw, 'the error') : null);
+      }
       const act = trouble.action && trouble.action.id !== 'copy'
         ? h('button', { class: 'btn slim-btn', type: 'button', onclick: () => SB.troubleAction(trouble.action.id, this) }, trouble.action.label)
         : null;
@@ -322,7 +402,7 @@
         : turnOf ? h('button', { class: 'msg-rewind', type: 'button', title: steerTip, 'aria-label': steerTip, onclick: () => SB.openRewind(this, turnOf) }) : null;
       const fork = item.turnId ? h('button', { class: 'msg-branch', type: 'button', title: 'Try again from here, in a new tab', 'aria-label': 'Try again from here, in a new tab', onclick: () => SB.openBranch(this, item.turnId, 'before') }, SB.forkIcon()) : null;
       const steered = item.steerId ? h('div', { class: 'routine-tag', title: 'Claude read this between two steps of the turn before it' }, '↪ sent mid-turn') : null;
-      this.append(h('div', { class: 'msg user' }, back, fork, routine || steered, item.text || '',
+      this.append(h('div', { class: 'msg user', dataset: item.turnId ? { turn: item.turnId } : {} }, back, fork, routine || steered, item.text || '',
         item.attachments?.length ? h('div', { class: 'att-list' }, SB.attachmentChips(item.attachments)) : null));
     }
 
@@ -347,7 +427,7 @@
         // then Ctrl+F looks in its text here, and builds it on a match (find.js).
         const build = () => {
           unbuiltDiffs.delete(el);
-          if (!el.querySelector('.ediff')) el.querySelector('summary').after(SB.diffView(edits, { line: item.line }));
+          if (!el.querySelector('.ediff')) el.querySelector('summary').after(SB.diffView(edits, { line: item.line, file: item.filePath }));
         };
         unbuiltDiffs.set(el, { text: edits.map(e => `${e.old || ''}\n${e.new || ''}`).join('\n').toLowerCase(), build });
         el.addEventListener('toggle', () => { if (el.open) build(); });
@@ -375,7 +455,7 @@
       // A message sent, a to-do ticked: what the tool said back is noise unless it went wrong.
       // Its pictures stand in for the "[image]" Claude Code's text has where they were.
       const text = item.pictures?.length ? (item.text || '').replace(/^\[image\]$/gm, '').trim() : item.text;
-      if (text?.trim() && !((el.dataset.edit || el.dataset.quiet) && !item.isError)) el.append(h('pre', { class: 't-result', text }));
+      if (text?.trim() && !((el.dataset.edit || el.dataset.quiet) && !item.isError)) el.append(SB.resultBox(text, { err: !!item.isError }));
       if (item.isError) return;
       const label = el.querySelector('.t-label')?.textContent || 'this step';
       const pictures = [
@@ -481,9 +561,11 @@
     return strip;
   };
 
-  SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: `att${isPicture(f) ? ' pic' : ''}`, title: f },
+  // An @ pick's snapshot (src/main/wiring/mention-context.js) opens to exactly what goes to Claude.
+  const isContext = f => /[\\/]context[\\/][0-9a-f]{8}[\\/][a-z0-9-]+\.txt$/.test(f);
+  SB.attachmentChips = (files, onRemove) => files.map((f, i) => h('span', { class: `att${isPicture(f) ? ' pic' : ''}${isContext(f) ? ' ctx' : ''}`, title: isContext(f) ? 'From Shellby: open it to read exactly what Claude gets' : f },
     isPicture(f) ? thumbImg(f) : null,
-    h('span', { text: SB.basename(f) }),
+    isContext(f) ? SB.fileLink(f, { text: SB.basename(f) }) : h('span', { text: SB.basename(f) }),
     onRemove ? h('button', { type: 'button', 'aria-label': `Remove ${SB.basename(f)}`, onclick: () => onRemove(i) }, '×') : null));
 
   // The next step after something went wrong, by trouble.js's action id. `tab`

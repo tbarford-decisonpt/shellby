@@ -17,7 +17,11 @@ test('assistant content becomes text, thinking and tool items', () => {
     { type: 'text', text: '   ' },
   ] } });
   assert.deepEqual(items.map(i => i.kind), ['thinking', 'text', 'tool']);
+  assert.equal(items[0].text, '...');
   assert.equal(items[1].text, 'Hello');
+  // Claude Code often sends thinking empty, signature only: no text then, so nothing to show.
+  const [empty] = toItems({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: '', signature: 'x' }] } });
+  assert.equal('text' in empty, false);
   assert.equal(items[2].label, 'Ran');
   assert.equal(items[2].detail, 'Get-ChildItem');
 });

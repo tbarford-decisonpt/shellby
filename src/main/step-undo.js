@@ -117,17 +117,24 @@ function createTracker(deps) {
 /** The step-point items of a turn, in order. */
 const pointsOf = (items, turnId) => items.filter(i => i?.kind === 'step-point' && i.turnId === turnId);
 
-/** Where a turn's work stands: the last step it was undone to, else null (its own end). */
+/** The last step a turn was undone to, else null. */
 function lastUndoneStep(items, turnId) {
   return [...items].reverse().find(i => i?.kind === 'undone-step' && i.turnId === turnId) || null;
 }
 
-/** A per-turn change ref with its `after` moved to where an "Undo to here" left that turn. */
+/** Where a turn's work stands: the newest step or hunk of it taken back, else null (its own end). */
+function lastTakenBack(items, turnId, after) {
+  return [...items].reverse().find(i => (i?.kind === 'undone-step' && i.turnId === turnId)
+    || (i?.kind === 'undone-hunk' && i.after === after)) || null;
+}
+
+/** A per-turn change ref with its `after` moved to where an "Undo to here" or a hunk's undo left that turn. */
 function effectiveAfter(items, ref) {
   const list = Array.isArray(items) ? items : [];
   const ch = list.find(i => i?.kind === 'changes' && i.after === ref.after && i.before === ref.before);
-  const step = ch?.turnId ? lastUndoneStep(list, ch.turnId) : null;
-  return step && step.after === ref.after ? { ...ref, after: step.to } : ref;
+  if (!ch) return ref;
+  const last = lastTakenBack(list, ch.turnId ?? null, ref.after);
+  return last && last.after === ref.after ? { ...ref, after: last.to } : ref;
 }
 
 /**
@@ -151,7 +158,9 @@ function planStep(items, turnId, toolId) {
   }
   // A turn whose diff was cut to its own files (changes.scope) undoes only those.
   const paths = changed?.scoped && Array.isArray(changed.files) ? changed.files.map(f => f.path) : undefined;
-  return { ok: true, point, root: point.root, to: point.tree, from: last ? last.to : end.end, after: changed?.after || end.end, ...(paths ? { paths } : {}) };
+  // Where the work stands now: a hunk taken back since the last step counts.
+  const stands = lastTakenBack(list, turnId, changed?.after);
+  return { ok: true, point, root: point.root, to: point.tree, from: stands ? stands.to : end.end, after: changed?.after || end.end, ...(paths ? { paths } : {}) };
 }
 
 module.exports = { MAX_POINTS, readOnlyCommand, classify, createTracker, effectiveAfter, planStep, pointsOf };

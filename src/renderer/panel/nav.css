@@ -239,7 +239,20 @@ body:not([data-view="chat"]) :is(.celebrate-host, .recap-host) { bottom: calc(va
 .keys-group dt { display: flex; flex-wrap: wrap; gap: 3px 0; justify-content: flex-end; text-align: right; }
 .keys-group dd { margin: 0; font-size: var(--fs-12-5); color: var(--sand-dim); }
 .keys-or { font-size: var(--fs-10-5); color: var(--sand-faint); white-space: pre; }
-.keys-foot { margin: 10px 0 0; flex: none; }
+.keys-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 10px 0 0; flex: none; }
+.keys-group dt.changed kbd { border-color: var(--glass); color: var(--glass); }
+.keys-group dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.keys-actions { display: inline-flex; gap: 2px; margin-left: auto; }
+.keys-edit {
+  padding: 0 6px; border: 0; border-radius: 4px; background: none;
+  color: var(--sand-faint); font: var(--fs-11) var(--font-body); cursor: pointer;
+}
+.keys-edit:hover { color: var(--sand); background: var(--reef-3); }
+.keys-edit:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.keys-edit.recording { color: var(--abyss); background: var(--amber); }
+.keys-reset-all { margin: 12px 0 0; text-align: right; }
+.keys-status { margin: 8px 0 0; min-height: 1.2em; flex: none; color: var(--sand); }
+.keys-status:empty { margin: 0; min-height: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .dock-btn, .dock-btn > svg, .dock-crab, .settings-tabs button, .setting-fold > summary::before { transition: none; }

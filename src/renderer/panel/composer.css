@@ -12,6 +12,10 @@
 .pick-item { grid-template-columns: 14px minmax(0, 1fr) auto; }
 .pick-glyph { font: 700 var(--fs-11) var(--font-mono); color: var(--sand-faint); text-align: center; }
 .pick-item .slash-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+/* @ a dev server, a red build, a chat or a note: a label, not a path, so it ends in … */
+.pick-ctx .slash-name { direction: ltr; font-family: inherit; font-weight: 600; }
+.pick-ctx .pick-glyph { color: var(--glass); }
+.pick-ctx .slash-desc { max-width: 22ch; }
 .pick-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-12-5); color: var(--sand); }
 .pick-head, .pick-empty { padding: 5px 9px 6px; font: 600 var(--fs-10-5) var(--font-mono); letter-spacing: .03em; color: var(--sand-faint); }
 .pick-empty { font-weight: 500; }
@@ -233,3 +237,31 @@
 .snip-toggle > span:last-child { display: grid; gap: 2px; }
 .snip-toggle .switch { margin-top: 1px; }
 .snip-foot { display: flex; align-items: center; gap: 8px; }
+
+/* A box in every pane (tab-panes.js): the real one in the focused pane, a
+   stand-in with the draft in the others. */
+.pane-slot > .composer { padding: 6px 8px 8px; background: none; }
+.pane-slot #sendHint { display: none; }
+/* In a pane the box has a ceiling. The feed above it keeps a few lines, and
+   what stacks up over the input row (the .box-extras: the to-do list,
+   background jobs, queued messages and the rest) scrolls instead of pushing
+   the box out of the pane. The Working bar and the input row stay. The box
+   itself never clips: the slash and pick menus open up out of it. Outside a
+   pane the .box-extras are plain blocks, their margins collapsing through. */
+.feeds:not([data-panes="1"]) .feed { min-height: 40px; }
+.pane-slot { display: flex; flex-direction: column; min-height: 0; }
+.pane-slot > .composer { display: flex; flex-direction: column; min-height: 0; }
+.pane-slot > .composer > * { flex: none; }
+.pane-slot .box-extras { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.pane-slot .input-hint { flex: 0 1 auto; min-height: 0; overflow: hidden; }
+.pane-standin {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px;
+  border: 0; border-top: 1px solid var(--line-soft); background: var(--abyss);
+  color: var(--sand-dim); font: inherit; font-size: 12.5px; text-align: left; cursor: text;
+}
+.pane-standin:hover { color: var(--sand); }
+.pane-standin:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.pane-standin.no-draft .standin-text { color: var(--sand-faint); }
+.standin-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standin-meta { flex: none; color: var(--sand-faint); }
+.standin-meta:empty { display: none; }

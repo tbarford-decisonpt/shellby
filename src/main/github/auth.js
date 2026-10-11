@@ -4,6 +4,7 @@
 // turn a feature on. The token is encrypted with the OS (Electron safeStorage:
 // DPAPI on Windows) in its own file, never in settings.json.
 const fs = require('fs');
+const { writeFileDurable } = require('../durable');
 
 // Public identifier of Shellby's GitHub OAuth app (not a secret; device flow
 // needs no secret). Dev/test builds may point at a mock GitHub instead.
@@ -100,17 +101,21 @@ class TokenStore {
 
   get available() { return !!this.crypto?.isEncryptionAvailable?.(); }
 
+  // features: which GitHub features are on, kept beside the token as well as in
+  // settings.json, so losing the settings doesn't lose them (service.js restore).
   save(data) {
     if (!this.available) throw new Error("Windows can't encrypt the sign-in here, so Shellby won't store it.");
-    const blob = this.crypto.encryptString(JSON.stringify({ token: data.token, scopes: data.scopes || [] }));
-    fs.writeFileSync(this.file, blob, { mode: 0o600 });
+    const blob = this.crypto.encryptString(JSON.stringify({ token: data.token, scopes: data.scopes || [], ...(data.features ? { features: data.features } : {}) }));
+    writeFileDurable(this.file, blob, { mode: 0o600 });
   }
 
   load() {
     try {
       if (!this.available || !fs.existsSync(this.file)) return null;
       const d = JSON.parse(this.crypto.decryptString(fs.readFileSync(this.file)));
-      return typeof d?.token === 'string' && d.token ? { token: d.token, scopes: Array.isArray(d.scopes) ? d.scopes : [] } : null;
+      if (typeof d?.token !== 'string' || !d.token) return null;
+      const features = d.features && typeof d.features === 'object' && !Array.isArray(d.features) ? { features: d.features } : {};
+      return { token: d.token, scopes: Array.isArray(d.scopes) ? d.scopes : [], ...features };
     } catch { return null; }
   }
 

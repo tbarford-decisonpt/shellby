@@ -111,6 +111,13 @@ class WorkflowService {
 
   // loadWorkflows, persist and the approvals: approvals.js.
 
+  /** Read them again after a sync changed them in settings (github/sync.js). */
+  reload() {
+    this.workflows = this.loadWorkflows();
+    this.folders.sync(this.workflows);
+    this.pushView();
+  }
+
   get(id) { return this.workflows.find(w => w.id === id) || null; }
 
   byName(name) { return this.workflows.find(w => same(w.name, name)) || null; }

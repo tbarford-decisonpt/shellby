@@ -30,10 +30,11 @@
   }
 
   document.addEventListener('keydown', e => {
-    if (SB.solo || state.view === 'onboarding' || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+    if (state.view === 'onboarding' || e.metaKey) return;
     // A dialog (share card, upsell, outfit code) owns the keyboard until it closes.
     if (document.querySelector('.card-sheet:not([hidden])')) return;
-    if (e.key.toLowerCase() === 'k') { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
+    if (K.matches(e, 'palette')) { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
+    if (SB.solo || !e.ctrlKey || e.altKey || e.shiftKey) return;
     const n = Number(e.key);
     const b = dockButtons()[n - 1] || null;
     if (!b || getComputedStyle(b).display === 'none') return;
@@ -206,6 +207,9 @@
       idle && act('compact', '⇣', 'Compact', 'Claude sums up the conversation so far and carries on in the room it frees', () => SB.compactTab(tab), null, 'context full crowded summarise summarize'),
       idle && act('fresh', '↻', 'Start fresh with a summary', 'Claude writes a handoff note, then a new conversation picks it up in this tab', () => SB.startFresh(tab), null, 'context handoff new summary compact'),
       idle && act('clear', '⌫', 'Clear', 'A new conversation in this tab, with nothing carried over (/clear)', () => SB.clearConversation(tab), null, 'clear reset new context forget wipe'),
+      act('outline', '☰', 'Outline', 'Every message you sent, and the files each turn touched. Pick one to go there', () => SB.openOutline(tab), 'outline', 'go to jump turns messages files symbol navigate'),
+      act('problems', '⚠', 'Problems', 'The errors its checks found, file by file, each with Fix it', () => SB.openProblems(tab), 'problems', 'errors lint typecheck tsc diagnostics warnings failing'),
+      SB.hasClosed?.() && act('reopen', '↺', 'Reopen the conversation you closed', 'Picked up from History, where you left it', () => SB.reopenClosed(), 'reopenTab', 'undo close restore bring back tab'),
       (tab.saved || !tab.isEmpty) && act('close', '×', 'Close this conversation', tab.saved ? 'It stays in History' : 'Nothing’s been sent yet', () => SB.closeTabSafely(tab.id), 'closeTab', 'tab'),
     ].filter(Boolean);
   }
@@ -376,6 +380,27 @@
     }));
   }
 
+  // Claude Code's cloud sessions (wiring/handoff.js openCloud): each opens in a
+  // terminal, where Claude Code shows its own lists and asks what it needs to.
+  function cloudEntries() {
+    if (!claude()) return [];
+    const tabId = state.activeTab;
+    const open = async (kind, value = null) => {
+      const r = await api.openCloud({ kind, value, tabId }).catch(() => null);
+      if (!r?.ok) return SB.toast(r?.error || "Couldn't open a terminal.", { ms: 6000 });
+      SB.toast(r.text, { ms: 6000 });
+    };
+    // What's in the box is what a new cloud session starts on.
+    const typed = () => $('input').value.trim();
+    return [
+      { group: 'Cloud', icon: '☁️', title: 'Pick up a cloud session here', sub: 'claude --teleport, in a terminal: from claude.ai/code or the app', keys: 'teleport cloud web remote session resume', run: () => open('teleport') },
+      { group: 'Cloud', icon: '☁️', title: 'Start a cloud session on what\'s in the box', sub: 'claude --cloud, in a terminal: it keeps going with this PC off', keys: 'cloud web remote session start background',
+        run: () => { if (!typed()) return SB.toast('Type what the cloud session should do in the box first.', { ms: 5000 }); return open('cloud', typed()); } },
+      { group: 'Cloud', icon: '⑂', title: 'Pick up the conversation behind a pull request', sub: 'claude --from-pr, in a terminal. Paste its address in the box first to skip the list', keys: 'pull request pr github from-pr resume review',
+        run: () => open('pr', /^https:\/\/github\.com\/\S+\/pull\/\d+$/.test(typed()) ? typed() : null) },
+    ];
+  }
+
   // The open conversation: carrying it on in a terminal, and reordering the tab
   // strip without a pointer (the drag gesture's keyboard twin, and the only way
   // there is for anyone who can't drag).
@@ -390,7 +415,7 @@
     const here = tab.title;
     return [...handoff, ...[[-1, 'left', 'PageUp'], [1, 'right', 'PageDown']].map(([step, where, key]) => ({
       group: 'Conversations', icon: step < 0 ? '⬅️' : '➡️',
-      title: `Move this conversation ${where}`, sub: `${here} · Ctrl+Shift+${key}`,
+      title: `Move this conversation ${where}`, sub: `${here} · Ctrl+Shift+${key === 'PageUp' ? 'PgUp' : 'PgDn'}`,
       keys: 'tab strip reorder order move drag position',
       run: () => { SB.setView('chat'); SB.nudgeTab(state.activeTab, step); },
     }))];
@@ -401,18 +426,29 @@
   function paneEntries() {
     const tab = state.tabs.get(state.activeTab);
     if (!claude() || !tab) return [];
-    const shown = SB.panes.ids(state.grid);
+    const shown = SB.panes.shownTabs(state.grid);
+    const here = SB.focusedPane();
     const keys = 'pane split side by side grid quad window layout';
     const chat = run => () => { SB.setView('chat'); run(); };
     return [
-      { icon: '◫', title: 'Split: another conversation alongside', sub: 'Side by side, then a 2×2 grid', keys, shortcut: 'splitPane', run: chat(SB.splitPane) },
+      { icon: '◫', title: 'Split: this conversation into a pane of its own', sub: 'Or a new one alongside, if it\'s alone in its pane. Up to twelve', keys, shortcut: 'splitPane', run: chat(SB.splitPane) },
       { icon: '↗', title: 'Open this conversation in its own window', sub: tab.title, keys: `${keys} pop out tear off`, run: () => SB.popOut(tab.id) },
-      shown.length > 1 && { icon: '×', title: 'Close this pane', sub: `${tab.title} keeps its tab`, keys, run: chat(() => SB.closePane(tab.id)) },
+      shown.length > 1 && { icon: '⤢', title: state.zoomPane ? 'Show every pane again' : 'Zoom this pane', sub: state.zoomPane ? 'The others come back as they were' : 'It fills the chat; the others wait', keys: `${keys} zoom maximize fill focus`, shortcut: 'zoomPane', run: chat(SB.toggleZoom) },
+      shown.length > 1 && (() => {
+        // "save review" in the palette names it "review"; otherwise it's Layout N.
+        const name = input.value.trim().match(/^save(?: this)?(?: layout)?(?: as)?\s+(.+)/i)?.[1].trim() || '';
+        return { icon: '💾', title: name ? `Save this layout as "${name}"` : 'Save this layout', sub: 'Its shape and sizes, to use again with whatever is open', keys: `${keys} save layouts preset arrangement ${name}`.trim(), run: () => SB.saveLayout(name) };
+      })(),
+      shown.length > 1 && { icon: '📌', title: `Make this ${SB.projectName(tab)}'s layout`, sub: SB.projectLayout(tab) ? `Replaces its ${SB.shapeSummary(SB.projectLayout(tab))}` : 'Offered when you go to it with the panel in one pane', keys: `${keys} project layouts preset pin save`, run: () => SB.saveProjectLayout() },
+      { icon: '❗', title: 'Go to the next conversation waiting for you', sub: 'Whichever pane it’s in', keys: 'needs asking permission waiting ok allow next pane', shortcut: 'nextNeeds', run: () => SB.goToNeeds() },
+      ...state.paneShapes.map(s => ({ icon: '▦', title: `Use the "${s.name}" layout`, sub: `${SB.shapeSummary(s)} · new conversations for any pane short`, keys: `${keys} layouts preset arrangement use apply ${s.name}`, run: () => SB.useLayout(s) })),
+      ...state.paneShapes.map(s => ({ icon: '🗑', title: `Forget the "${s.name}" layout`, sub: SB.shapeSummary(s), keys: `layouts preset forget delete remove ${s.name}`, run: () => SB.forgetLayout(s.name) })),
+      shown.length > 1 && { icon: '×', title: 'Close this pane', sub: 'Its conversations move to the pane beside it', keys, run: chat(() => SB.closePane(here)) },
       ...shown.filter(id => id !== tab.id && state.tabs.has(id)).map(id => ({
         icon: '◧', title: `Go to the pane with ${state.tabs.get(id).title}`, sub: 'Focus it, so the box talks to it', keys: `${keys} focus`,
         run: chat(() => SB.activate(id)),
       })),
-      { icon: '⛶', title: 'Maximize or restore the panel', sub: 'Room for a 2×2 grid', keys: `${keys} fullscreen full screen bigger`, run: () => api.maximize() },
+      { icon: '⛶', title: 'Maximize or restore the panel', sub: 'Room for more panes', keys: `${keys} fullscreen full screen bigger`, run: () => api.maximize() },
     ].filter(Boolean).map(e => ({ ...e, group: 'Conversations' }));
   }
 
@@ -444,7 +480,7 @@
     const screens = screenEntries();
     const settings = settingEntries();
     const all = [...actions, ...screens, ...focusEntries(), ...projectEntries(), ...claudeEntries(), ...editorEntries(), ...settings, ...modeEntries(),
-      ...routineEntries(), ...snippetEntries(), ...tabEntries(), ...paneEntries(), ...conversationEntries(), ...toolEntries()];
+      ...routineEntries(), ...snippetEntries(), ...tabEntries(), ...cloudEntries(), ...paneEntries(), ...conversationEntries(), ...toolEntries()];
     return K.rank(all, raw, {
       recent, groupRank: GROUP_RANK,
       pinned: state.view === 'chat' ? actions : [],
@@ -541,7 +577,8 @@
     }
     if (e.key === 'Enter') { e.preventDefault(); return runAt(selected); }
     if (e.key === 'Tab') e.preventDefault(); // the input is the only stop in the dialog
-    if (!(e.ctrlKey && /^[k1-8/]$/i.test(e.key))) e.stopPropagation();
+    // The palette's own keys, the shortcut list and the screens go on through to their handlers.
+    if (!(K.matches(e, 'palette') || K.matches(e, 'shortcuts') || (e.ctrlKey && /^[1-8]$/.test(e.key)))) e.stopPropagation();
   });
   sheet.addEventListener('mousedown', e => { if (e.target === sheet) closePalette(); });
   $('paletteBtn').addEventListener('click', openPalette);
@@ -553,18 +590,93 @@
   // back to whatever had it when it closes.
   const keysSheet = $('shortcutsSheet');
   const keysList = $('shortcutsList');
+  const keysStatus = $('shortcutsStatus');
+
+  // Change keys: the list as it always reads, until you ask to change one.
+  let editing = false;
+  const editBtn = $('shortcutsEdit');
 
   function renderShortcuts() {
+    const anyChanged = Object.keys(state.settings.keybindings || {}).length > 0;
+    keysList.classList.toggle('editing', editing);
+    editBtn.textContent = editing ? 'Done' : 'Change keys';
+    editBtn.setAttribute('aria-pressed', String(editing));
     keysList.replaceChildren(...K.grouped().map(({ group, items }) => h('section', { class: 'keys-group' },
       h('h3', { text: group }),
       h('dl', {}, ...items.flatMap(s => [
-        h('dt', {}, ...s.keys.flatMap((k, i) => [i ? h('span', { class: 'keys-or', text: s.keys.length > 2 ? ' ' : ' or ' }) : null, h('kbd', { text: k })]).filter(Boolean)),
-        h('dd', { text: s.what }),
-      ])))));
+        h('dt', { class: s.changed ? 'changed' : null }, ...s.keys.flatMap((k, i) => [i ? h('span', { class: 'keys-or', text: s.keys.length > 2 ? ' ' : ' or ' }) : null, h('kbd', { text: k })]).filter(Boolean)),
+        h('dd', {}, h('span', { text: s.what }), editing && s.changeable ? keyActions(s) : null),
+      ]))),
+    ), editing && anyChanged ? h('p', { class: 'keys-reset-all' }, h('button', { class: 'keys-edit', type: 'button', onclick: () => saveKeys({}, 'Every shortcut is back to how it came.') }, 'Put every shortcut back')) : null);
   }
 
+  // ---- your own keys (shortcuts.js checks them; main keeps them in Settings, and Sync carries them)
+
+  let recording = null; // { id, btn, onKey }
+  const yours = () => ({ ...(state.settings.keybindings || {}) });
+
+  function keyActions(s) {
+    const change = h('button', { class: 'keys-edit', type: 'button', dataset: { id: s.id }, 'aria-label': `Change the keys for: ${s.what}` }, 'Change');
+    change.addEventListener('click', () => record(s, change));
+    const reset = s.changed ? h('button', {
+      class: 'keys-edit', type: 'button', 'aria-label': `Put back the keys for: ${s.what}`,
+      onclick: () => { const map = yours(); delete map[s.id]; saveKeys(map, `Back to ${K.SHORTCUTS.find(x => x.id === s.id).keys.join(' or ')}.`, s.id); },
+    }, 'Reset') : null;
+    return h('span', { class: 'keys-actions' }, change, reset);
+  }
+
+  function stopRecording() {
+    if (!recording) return;
+    document.removeEventListener('keydown', recording.onKey, true);
+    recording.btn.classList.remove('recording');
+    recording.btn.textContent = 'Change';
+    recording = null;
+  }
+
+  // The next keys pressed become this shortcut's, if shortcuts.js says they can.
+  function record(s, btn) {
+    const again = recording?.id === s.id;
+    stopRecording();
+    if (again) { keysStatus.textContent = ''; return; }
+    btn.classList.add('recording');
+    btn.textContent = 'Press the keys…';
+    keysStatus.textContent = `Press the new keys for “${s.what}”. Esc to cancel.`;
+    const onKey = (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // nothing else acts on what you're pressing to record
+      if (e.key === 'Escape') { stopRecording(); keysStatus.textContent = 'Left as it was.'; btn.focus(); return; }
+      const combo = K.comboOf(e);
+      if (!combo) return; // a modifier on its own: wait for the rest
+      const why = K.checkBinding(s.id, combo);
+      if (why) { keysStatus.textContent = why; return; }
+      stopRecording();
+      saveKeys({ ...yours(), [s.id]: [combo] }, `${combo} now does that.`, s.id);
+    };
+    recording = { id: s.id, btn, onKey };
+    document.addEventListener('keydown', onKey, true);
+  }
+
+  async function saveKeys(map, said, id = null) {
+    const r = await api.setSettings({ keybindings: map });
+    if (r?.settings) state.settings = r.settings;
+    renderShortcuts();
+    keysStatus.textContent = said;
+    (id && keysList.querySelector(`.keys-edit[data-id="${id}"]`) || keysList).focus({ preventScroll: true });
+    SB.renderTabStrip?.(); // its × says how to close
+  }
+
+  editBtn.addEventListener('click', () => {
+    stopRecording();
+    editing = !editing;
+    keysStatus.textContent = editing ? 'Press Change beside a shortcut, then the keys you want for it.' : '';
+    renderShortcuts();
+    (editing ? keysList.querySelector('.keys-edit') : editBtn)?.focus({ preventScroll: true });
+  });
+
   let keysBack = null; // what had the keyboard before, unless that was the palette
-  SB.openShortcuts = () => {
+  // edit: straight into changing keys (Settings → Shortcut).
+  SB.openShortcuts = ({ edit = false } = {}) => {
+    editing = !!edit;
     if (state.view === 'onboarding') return;
     const from = sheet.hidden ? document.activeElement : returnFocus;
     keysBack = from && from !== document.body && !from.closest('.palette-sheet, .card-sheet') ? from : null;
@@ -577,6 +689,8 @@
   };
   function closeShortcuts() {
     if (keysSheet.hidden) return;
+    stopRecording();
+    keysStatus.textContent = '';
     keysSheet.hidden = true;
     if (keysBack?.isConnected && keysBack.getClientRects().length) keysBack.focus({ preventScroll: true });
     else { document.activeElement?.blur(); landFocus(); }
@@ -588,11 +702,10 @@
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeShortcuts(); }
   });
 
-  // The keys a VS Code hand reaches for: Ctrl+Shift+P for the palette (Ctrl+K's
-  // own handler is at the top), and Ctrl+= / Ctrl+- / Ctrl+0 for the text size.
+  // The keys a VS Code hand reaches for: Ctrl+= / Ctrl+- / Ctrl+0 for the text
+  // size (the palette's Ctrl+K and Ctrl+Shift+P are at the top).
   document.addEventListener('keydown', e => {
     if (state.view === 'onboarding' || document.querySelector('.card-sheet:not([hidden])')) return;
-    if (K.matches(e, 'palette') && e.shiftKey) { e.preventDefault(); return sheet.hidden ? openPalette() : closePalette(); }
     const zoom = K.matches(e, 'zoomIn') ? 1 : K.matches(e, 'zoomOut') ? -1 : K.matches(e, 'zoomReset') ? 0 : null;
     if (zoom !== null) { e.preventDefault(); SB.zoom(zoom); }
   });

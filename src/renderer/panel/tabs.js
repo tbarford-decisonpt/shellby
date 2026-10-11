@@ -23,6 +23,12 @@
 
 
   SB.activeTab = () => state.tabs.get(state.activeTab) || null;
+  // The tabs of the strip a tab is in, in order: its pane's while split, every
+  // conversation with one pane (tab-strip.js walks it with the arrow keys).
+  SB.stripIds = (tabId = state.activeTab) => {
+    const pane = SB.panes.count(state.grid) > 1 && SB.panes.paneWith(state.grid, tabId);
+    return pane ? pane.tabs : [...state.tabs.keys()];
+  };
 
   SB.ensureTab = (summary) => {
     let tab = state.tabs.get(summary.id);
@@ -50,6 +56,9 @@
       // What it left running in the background (main's jobs.js), and whether Claude is planning.
       jobs: Array.isArray(summary.jobs) ? summary.jobs : tab.jobs || [],
       planning: summary.planning !== undefined ? !!summary.planning : !!tab.planning,
+      // Started without your customizations (safe mode), and the agent that runs it, if one does.
+      safeMode: summary.safeMode !== undefined ? !!summary.safeMode : !!tab.safeMode,
+      agent: summary.agent !== undefined ? summary.agent : tab.agent || null,
     });
     return tab;
   };
@@ -85,6 +94,9 @@
     state.tabs.clear();
     for (const [id, tab] of order) state.tabs.set(id, tab);
   }
+  // The whole order at once (tab-panes.js, a split closing down to one pane):
+  // `ids` first, any tab they leave out after, so none is ever dropped.
+  SB.orderTabs = ids => orderTabs([...new Set([...ids.filter(id => state.tabs.has(id)), ...state.tabs.keys()])]);
 
   // Move a tab in front of `beforeId` (null = the end of the strip). Main keeps
   // the same order and writes it to disk, so a reorder outlives the session.
@@ -98,8 +110,17 @@
     return true;
   };
 
-  // One place left or right, for the keyboard and the palette.
+  // One place left or right, for the keyboard and the palette: along its
+  // pane's strip while split (the layout keeps it, and main's order with it).
   SB.nudgeTab = (tabId, step) => {
+    if (SB.panes.count(state.grid) > 1) {
+      const next = SB.panes.nudge(state.grid, tabId, step);
+      if (next === state.grid) return false;
+      state.grid = next;
+      SB.renderTabStrip();
+      SB.savePanes();
+      return true;
+    }
     const before = L.nudgeBefore([...state.tabs.keys()], tabId, step);
     return before === undefined ? false : SB.moveTab(tabId, before);
   };
@@ -119,7 +140,7 @@
     // mid-drag can't snap the strip back from under the pointer.
     if (!SB.isDraggingTab()) orderTabs([...summaries.map(s => s.id).filter(id => state.tabs.has(id)), ...[...state.tabs.keys()].filter(id => !ids.has(id))]);
     if (!state.tabs.has(state.activeTab)) {
-      const next = [...state.tabs.keys()].pop();
+      const next = SB.nextShown(); // the last tab; split, one its pane would show (tab-panes.js)
       if (next) SB.activate(next); else if (!SB.solo) SB.newTab();
     }
     syncBusyUi();
@@ -148,6 +169,18 @@
     return creating;
   };
 
+  // A fresh conversation that one of your agents runs from its first message
+  // (claude --agent): its own instructions, tools and model.
+  SB.newTabAs = async (agent) => {
+    const r = await api.newTab({ agent });
+    if (!r.ok) return SB.toast(r.error);
+    const tab = SB.ensureTab({ id: r.tabId, title: 'New task', cwd: state.cwd });
+    SB.setView('chat');
+    SB.activate(r.tabId);
+    tab.render({ kind: 'agent', name: agent });
+    input.focus();
+  };
+
   // A fresh tab in a known project (or the usual folder), with a prompt ready to
   // send (from a nudge).
   SB.newTabIn = async ({ cwd, draft } = {}) => {
@@ -167,8 +200,30 @@
     SB.forgetTab(tabId); // and its pane; the next one shown takes the focus (tab-panes.js)
     await api.closeTab(tabId);
     SB.renderTabStrip();
-    if (tab.saved && !quiet) SB.toast('Closed. It is still in History.');
+    if (tab.saved) noteClosed(tabId);
+    if (tab.saved && !quiet) SB.toast(`Closed. It is still in History${SB.solo ? '' : `, and ${SB.shortcuts.primary('reopenTab')} brings it back`}.`);
   };
+
+  // Ctrl+Shift+T: the conversations you closed, newest first, as a browser
+  // keeps them. Only ids: each comes back from History (history.js), so one
+  // deleted since, or already open again, is skipped. Kept across a restart.
+  const CLOSED_KEY = 'shellby.tabs.closed';
+  const MAX_CLOSED = 20;
+  const closedList = () => { try { const l = JSON.parse(SB.pref(CLOSED_KEY, '[]')); return Array.isArray(l) ? l.filter(x => typeof x === 'string') : []; } catch { return []; } };
+  function noteClosed(id) { SB.pref.set(CLOSED_KEY, JSON.stringify([id, ...closedList().filter(x => x !== id)].slice(0, MAX_CLOSED))); }
+
+  SB.reopenClosed = async () => {
+    const list = closedList();
+    const known = new Set((state.sessions || []).map(s => s.id));
+    while (list.length) {
+      const id = list.shift();
+      SB.pref.set(CLOSED_KEY, JSON.stringify(list));
+      if (state.tabs.has(id) || (state.sessions?.length && !known.has(id))) continue;
+      return SB.inChat(() => SB.openHistory(id));
+    }
+    SB.toast('Nothing closed to bring back. Older conversations are in History.');
+  };
+  SB.hasClosed = () => closedList().some(id => !state.tabs.has(id));
 
   // Ctrl+W (and the palette) on a conversation that's still working asks first:
   // a second press within a few seconds stops it and closes it. The × and a
@@ -189,9 +244,9 @@
     SB.closeTab(tabId);
   };
 
-  // One step along the strip, wrapping round at the ends.
+  // One step along the strip, wrapping round at the ends: the focused pane's, while split.
   function stepTab(step) {
-    const to = L.stepTarget([...state.tabs.keys()], state.activeTab, step);
+    const to = L.stepTarget(SB.stripIds(), state.activeTab, step);
     if (to !== undefined) SB.activate(to);
   }
 
@@ -200,16 +255,53 @@
     tryAgain: tab => SB.tryAgain(tab),
     showChanges: tab => SB.showChanges(tab),
     bringHome: tab => (tab.worktree ? SB.bringHome(tab) : SB.toast('This conversation works in your own checkout, so there’s nothing to bring home.')),
+    outline: tab => SB.openOutline?.(tab),     // outline.js
+    problems: tab => SB.openProblems?.(tab),   // problems.js
   };
 
   document.addEventListener('keydown', e => {
     const tab = SB.activeTab();
     const K = SB.shortcuts;
-    if (e.ctrlKey && e.key.toLowerCase() === 'w') { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
+    if (K.matches(e, 'closeTab')) { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
+    if (K.matches(e, 'reopenTab')) { e.preventDefault(); if (!SB.solo) SB.reopenClosed(); return; }
     // A popped-out window has its one conversation: no strip to add to, split or walk along.
-    if (SB.solo && ['newTab', 'splitPane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
+    if (SB.solo && ['newTab', 'splitPane', 'zoomPane', 'swapPane', 'focusPane', 'movePane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
     if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
     if (K.matches(e, 'splitPane')) { e.preventDefault(); SB.splitPane(); return; }
+    if (K.matches(e, 'zoomPane')) {
+      if (e.defaultPrevented || state.view !== 'chat' || SB.overlayOpen()) return;
+      e.preventDefault();
+      SB.toggleZoom();
+      return;
+    }
+    if (K.matches(e, 'nextNeeds')) {
+      if (SB.overlayOpen() || state.view === 'onboarding') return;
+      e.preventDefault();
+      SB.goToNeeds();
+      return;
+    }
+    if (K.matches(e, 'swapPane')) {
+      const dir = SB.paneDir(e.key);
+      if (e.defaultPrevented || !dir || state.view !== 'chat' || SB.panes.count(state.grid) < 2 || SB.overlayOpen()) return;
+      e.preventDefault();
+      const here = SB.focusedPane();
+      const to = SB.panes.neighbor(state.grid, here, dir);
+      if (to) SB.swapPanes(here, to);
+      return;
+    }
+    if (K.matches(e, 'focusPane') || K.matches(e, 'movePane')) {
+      const dir = SB.paneDir(e.key);
+      // Only while split, and never behind the palette, the cheat sheet or a dialog:
+      // otherwise the keys stay the textarea's and the page's.
+      // Nor while a tab's name is being typed: the arrows are the caret's then.
+      // Nor when something the key was pressed in took it already (defaultPrevented).
+      if (e.defaultPrevented || e.target.closest?.('.title-edit') || !dir || !state.activeTab || state.view !== 'chat' || SB.panes.count(state.grid) < 2 || SB.overlayOpen()) return;
+      e.preventDefault();
+      if (K.matches(e, 'movePane')) { SB.movePane(state.activeTab, dir); return; }
+      const to = SB.panes.neighbor(state.grid, SB.focusedPane(), dir);
+      if (to) SB.activate(SB.panes.byId(state.grid, to).active);
+      return;
+    }
     // Reordering from the keyboard, where a browser puts it too — and the only way
     // to do it without a pointer.
     if (K.matches(e, 'moveTab')) {

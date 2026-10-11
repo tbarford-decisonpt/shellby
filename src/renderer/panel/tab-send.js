@@ -28,6 +28,8 @@
     if (tab) $('statusText').textContent = busy ? tab.statusText + (tab.queue.length ? ` · ${tab.queue.length} queued` : '') : '';
     if (tab) syncSteers(tab);
     SB.renderModStatus?.(tab);
+    SB.renderGoal?.(tab); // its goal and what you might ask next (native-cli.js)
+    SB.renderNextPrompt?.(tab);
     SB.renderTodos?.(tab); // Claude's to-do list and its background commands (native-strip.js)
     SB.renderJobs?.(tab);
     tickClock();
@@ -215,11 +217,16 @@
   input.addEventListener('keydown', e => {
     if (SB.pickKeydown?.(e)) return;
     if (slashKeydown(e)) return;
+    if (SB.shortcuts.matches(e, 'zoomPane')) return; // zooms the pane (tabs.js), never sends
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); SB.send(); }
     if (e.key === 'Tab' && e.shiftKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); SB.cycleMode(); return; }
+    // Tab in an empty box takes what Claude guessed you'd ask next, like Claude Code (native-cli.js).
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !input.value && SB.takeNextPrompt?.()) { e.preventDefault(); return; }
     // Up in an empty box pulls back the last queued message, like Claude Code.
+    // Not with Alt or Ctrl held: Alt+Up and Ctrl+Alt+Up are pane keys (tabs.js).
     const tab = SB.activeTab();
-    if (e.key === 'ArrowUp' && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); return; }
+    const bare = !e.altKey && !e.ctrlKey && !e.metaKey;
+    if (e.key === 'ArrowUp' && bare && !input.value && tab?.queue.length) { e.preventDefault(); editQueued(tab, tab.queue.length - 1); return; }
     // Otherwise Up and Down walk back through what you've sent before.
     SB.historyKeydown?.(e);
   });

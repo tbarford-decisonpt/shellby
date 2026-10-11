@@ -53,6 +53,8 @@ const { wireUsagePlan } = require('./wiring/usageplan');
 const { wireChecks } = require('./wiring/checks');
 const { wireLanes } = require('./wiring/lanes');
 const { wireTries } = require('./wiring/tries');
+const { wireMentionContext } = require('./wiring/mention-context');
+const { wireDebugMode } = require('./wiring/debug-mode');
 const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
@@ -189,6 +191,7 @@ const shared = {
   workflows: null,                 // the Automate page's engine (workflows/service.js)
   depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
   claudeUpdates: null,             // the daily look at Claude Code's own version (claude/update.js)
+  claudeLapsed: null,              // a turn failed as signed out: Settings says so (set by ipc/panel.js)
   projects: null,                  // the Projects page (projects/service.js)
   remoteService: null,             // other computers Claude Code runs on, over ssh (remote/service.js)
   devServers: null,                // the dev servers in them (devservers/service.js)
@@ -213,7 +216,9 @@ const shared = {
 
   // ---- as he runs
   claudeStatus: null,
-  lastInit: null,                  // the newest init report from a conversation: its MCP list is refreshed from mcp_status
+  // Does the installed Claude Code take this flag? Its --help says (claude/cli.js helpFlags); the fake CLI takes anything.
+  claudeSupports: flag => !!FAKE_CLI || !!shared.claudeStatus?.flags?.includes(flag),
+  lastInit: null,                 // the newest init report from a conversation: its MCP list is refreshed from mcp_status
   nowPlaying: null,                // { title, artist, app, playing } from the Windows media session
   crewShown: 0,                    // helper slots currently allotted in the critter window
   guestShown: false,               // room allotted for a friend's visiting crab
@@ -337,6 +342,8 @@ share({ usagePlan: wireUsagePlan(shared) });
 share(wireChecks(shared));
 share(wireLanes(shared)); // the board of every conversation, lining copies up, one answer for many prompts
 share({ tries: wireTries(shared) }); // Try it N ways: only ever from tries:start, after asking
+share({ mentionContext: wireMentionContext(shared) }); // @ a dev server, a red build, a chat or a note
+share({ debugMode: wireDebugMode(shared) }); // /debug: hypotheses, logging, you reproduce it, a fix from the evidence
 share(wireShots(shared));
 const { createCorrections } = share(wireCorrections(shared));
 share({ handoff: wireHandoff(shared) });

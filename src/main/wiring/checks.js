@@ -93,8 +93,8 @@ function wireChecks(d) {
    * -> { verdict } | { none: true } | { cancelled: true } | { declined: true }.
    * after: the turn's tree the verdict stamps (null: the folder as it is).
    */
-  async function run(tabId, { cwd, after = null, project, quiet = false, once = false }) {
-    const commands = checks.detect(cwd);
+  async function run(tabId, { cwd, after = null, project, quiet = false, once = false, commands: given = null }) {
+    const commands = given || checks.detect(cwd);
     if (!commands.length) return { none: true };
     if (!await trusted(project || cwd, commands, { quiet, once })) return { declined: true };
     if (d.manager.isBusy(tabId)) return { cancelled: true };
@@ -111,7 +111,7 @@ function wireChecks(d) {
       const { results, cancelled } = await entry.handle.promise;
       if (cancelled || entry.cancelled) return { cancelled: true };
       const tree = snap?.tree || null;
-      const verdict = checks.buildVerdict(results, { after: after || tree, root: snap?.root || cwd, tree });
+      const verdict = checks.buildVerdict(results, { after: after || tree, root: snap?.root || cwd, tree, cwd });
       remember(tabId, verdict);
       return { verdict };
     } finally {
@@ -201,6 +201,26 @@ function wireChecks(d) {
 
   const summaryOf = v => ({ status: v.status, ...checks.failingOf(v), commands: v.commands.map(c => ({ cmd: c.cmd, ok: c.ok, failed: c.failed, timedOut: !!c.timedOut })) });
 
+  /**
+   * "Look for problems" in a conversation's folder (problems.js): its lint and
+   * typecheck, else its tests. Asks once per project, like "Run checks".
+   * -> { ok, status, count } | { ok: false, error, none?, declined? }
+   */
+  async function findProblems(tabId) {
+    const tab = d.manager.tabs.get(tabId);
+    const cwd = tab?.session?.cwd;
+    if (!cwd) return { ok: false, error: 'That conversation has no folder to look in.' };
+    if (d.manager.isBusy(tabId)) return { ok: false, error: 'Let him finish first, then look.' };
+    if (running.has(tabId)) return { ok: false, error: 'Already checking.' };
+    const commands = checks.detectProblems(cwd);
+    if (!commands.length) return { ok: false, none: true, error: "Shellby couldn't find anything to check here (a lint, typecheck or test script, cargo, go or pytest)." };
+    const r = await run(tabId, { cwd, project: tab.worktree?.root || cwd, commands });
+    if (r.declined) return { ok: false, declined: true, error: 'Left alone: its checks weren\'t run.' };
+    if (r.cancelled) return { ok: false, cancelled: true, error: 'Stopped: he started on something new.' };
+    if (!r.verdict) return { ok: false, error: "Couldn't run its checks." };
+    return { ok: true, status: r.verdict.status, count: r.verdict.commands.reduce((n, c) => n + (c.problems?.length || 0), 0) };
+  }
+
   function cancel(tabId) { running.get(tabId)?.cancel(); }
   function cancelAll() { for (const r of running.values()) r.cancel(); }
   // However a tab closes (its ✕, History, a project, branching), its tests stop
@@ -226,7 +246,7 @@ function wireChecks(d) {
     return { status: r.none ? 'none' : r.declined ? 'declined' : 'cancelled' };
   }
 
-  return { checksOn, afterTurnChecks: afterTurn, runChecksFor: runFor, checkTry, gateHome, checkCopy, cancelChecks: cancel, cancelAllChecks: cancelAll };
+  return { checksOn, afterTurnChecks: afterTurn, runChecksFor: runFor, findProblems, checkTry, gateHome, checkCopy, cancelChecks: cancel, cancelAllChecks: cancelAll };
 }
 
 module.exports = { wireChecks };

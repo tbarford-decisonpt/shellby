@@ -153,7 +153,7 @@
 .am-text { display: block; width: 100%; min-height: 90px; font-size: var(--fs-12-5); }
 .am-actions { gap: 6px; margin-top: 6px; align-items: center; }
 .am-actions .muted { margin-right: auto; }
-.btn.danger { color: var(--danger); border-color: rgba(255, 90, 74, .45); }
+.btn.ghost.danger { background: transparent; color: var(--danger); border-color: rgba(255, 90, 74, .45); }
 
 /* ---------------------------------------------------------------- Toolbox: a skill Claude never reaches for */
 .tool-hint { margin: 6px 0 2px; padding: 6px 9px; border-radius: var(--r-sm); border-left: 2px solid var(--amber); background: rgba(255, 193, 94, .07); font-size: var(--fs-12); color: var(--sand-dim); }
@@ -175,3 +175,21 @@
 .cr-run-list li { display: flex; gap: 8px; align-items: center; font-size: var(--fs-12); }
 .cloud-actions { gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .cloud-note { padding: 4px 0; }
+
+/* ---------------------------------------------------------------- goal, next prompt, the reply as it's written (native-cli.js, feed.js) */
+.goal-pin {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 4px 6px 4px 10px; border-radius: var(--r-sm);
+  background: var(--reef); border: 1px solid var(--line); border-left: 2px solid var(--coral);
+  font-size: var(--fs-12); animation: fadein .18s var(--ease-out);
+}
+.goal-pin[hidden], .next-prompt[hidden] { display: none; }
+.goal-icon { flex: none; }
+.goal-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand-dim); }
+.goal-text b { color: var(--sand); font-weight: 600; }
+.goal-clear { flex: none; }
+.next-prompt { margin: 0 0 8px; }
+.next-chip { width: 100%; padding: 6px 10px; font-size: var(--fs-12); color: var(--sand-dim); animation: fadein .18s var(--ease-out); }
+.next-chip:hover, .next-chip:focus-visible { color: var(--sand); }
+.next-key { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--sand-faint); }
+.msg.assistant.live { white-space: pre-wrap; }
+@media (prefers-reduced-motion: reduce) { .goal-pin, .next-chip { animation: none; } }

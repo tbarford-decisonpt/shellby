@@ -239,6 +239,8 @@ function wireTimetrack(d) {
     noted.catch(() => {}).then(() => d.homeTurnEnded?.(tabId)).catch(err => d.log.info(`home line: ${err.message}`));
     // One of "Try it N ways"' tries: its tests, then its row on the card (wiring/tries.js).
     noted.catch(() => {}).then(() => d.tries?.turnEnded(tabId, item)).catch(err => d.log.info(`tries: ${err.message}`));
+    // Debug mode: reproduce it now, or check the logging is gone (wiring/debug-mode.js).
+    Promise.resolve(d.debugMode?.turnEnded(tabId)).catch(err => d.log.info(`debug mode: ${err.message}`));
     // What it cost, for estimates next time (usage/ledger.js). Never worth losing the rest of the turn's end over.
     try { d.usagePlan?.endTurn(tab, item); } catch (err) { d.log.info(`usage plan: ${err.message}`); }
     tab.guardRun = null;
@@ -363,8 +365,8 @@ function wireTimetrack(d) {
     n.show();
   }
 
-  function openTab({ tabId = d.randomUUID(), cwd = d.currentCwd(), historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null, allowedTools = [], mcpConfig = null } = {}) {
-    return d.manager.open({ tabId, cwd, historyEntry, mode, routineId, workflowRunId, title, allowedTools, mcpConfig });
+  function openTab({ tabId = d.randomUUID(), cwd = d.currentCwd(), historyEntry = null, mode = null, routineId = null, workflowRunId = null, title = null, allowedTools = [], mcpConfig = null, agent = null } = {}) {
+    return d.manager.open({ tabId, cwd, historyEntry, mode, routineId, workflowRunId, title, allowedTools, mcpConfig, agent });
   }
 
   // A task started by Shellby himself (e.g. "look into why the GPU is hot"): opens
@@ -487,7 +489,8 @@ function wireTimetrack(d) {
   // Pictures go inline as image blocks; everything attached is listed by path too.
   // See attachments.js.
   const shotsDir = () => path.join(app.getPath('userData'), 'screenshots');
-  const composePrompt = (text, files) => attach.composeContent(text, files, f => attach.loadForClaude(f, { nativeImage }));
+  // An @ context pick goes in the text (wiring/mention-context.js).
+  const composePrompt = (text, files) => attach.composeContent(text, files, f => attach.loadForClaude(f, { nativeImage }), f => d.mentionContext?.readForClaude(f) ?? null);
 
   // The clipboard's picture (a Win+Shift+S snip) as a new task: from the crab's menu.
   // Electron 44's clipboard is the W3C one: no readImage or availableFormats,

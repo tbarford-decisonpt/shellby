@@ -348,6 +348,46 @@ test('push sends what was brought home, and status counts it first', async () =>
   } finally { t.done(); }
 });
 
+test('push after bringing a copy home asks before sending commits the base already had', async () => {
+  const t = setup();
+  try {
+    const o = withRemote(t);
+    fs.writeFileSync(path.join(t.dir, 'mine.txt'), 'mine\n');
+    t.g(t.dir, 'add', '-A');
+    t.g(t.dir, 'commit', '-qm', 'my own local work');
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'Ship it' });
+    fs.writeFileSync(path.join(w.path, 'c.txt'), 'c\n');
+    const before = await worktrees.tipOf(t.dir, 'main');
+    assert.match(before, /^[0-9a-f]{40}$/);
+    await worktrees.bringHome(w, { message: 'Shellby: Ship it' });
+
+    const held = await worktrees.pushBase(t.dir, { base: 'main', before });
+    assert.equal(held.ok, false);
+    assert.deepEqual(held.others, { count: 1, subjects: ['my own local work'] });
+    assert.match(held.error, /1 commit from before that isn't on origin/);
+    assert.doesNotMatch(o.remoteLog(), /Ship it|my own local work/, 'nothing went');
+
+    const r = await worktrees.pushBase(t.dir, { base: 'main', before, others: true });
+    assert.equal(r.ok, true);
+    assert.equal(r.pushed, 2);
+    assert.match(o.remoteLog(), /my own local work/);
+  } finally { t.done(); }
+});
+
+test('push after bringing a copy home goes straight out when the base had nothing unpushed', async () => {
+  const t = setup();
+  try {
+    const o = withRemote(t);
+    const { worktree: w } = await worktrees.create(t.dir, { home: t.home, title: 'Ship it' });
+    fs.writeFileSync(path.join(w.path, 'c.txt'), 'c\n');
+    const before = await worktrees.tipOf(t.dir, 'main');
+    await worktrees.bringHome(w, { message: 'Shellby: Ship it' });
+    assert.deepEqual(await worktrees.pushBase(t.dir, { base: 'main', before }), { ok: true, branch: 'main', remote: 'origin', pushed: 1, pulled: 0 });
+    assert.match(o.remoteLog(), /Shellby: Ship it/);
+    assert.equal(await worktrees.tipOf(t.dir, '--bad'), null, 'nothing that reads as an option');
+  } finally { t.done(); }
+});
+
 test('push takes in what origin has first, with a merge, and never forces', async () => {
   const t = setup();
   try {

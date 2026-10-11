@@ -89,6 +89,8 @@ function registerRepoIpc(ipcMain, d) {
   async function mergeTabHome(tabId, w, { green, firstTry, push }) {
     // It waited its turn: he may have started on something since.
     if (d.manager.isBusy(tabId)) return { ok: false, error: 'He started on something new. Bring it home once he has finished.' };
+    // Where the base was: the push sends this copy's work, and asks about anything older.
+    const before = push ? await worktrees.tipOf(w.root, w.base) : null;
     const merged = { ...await worktrees.bringHome(w, { trailer: d.crabTrailer() }), ...green };
     d.bugdex?.homeResult(tabId, w, merged); // a clash is a Two-Headed Crab; home at last, it's caught
     if (!merged.ok) {
@@ -108,7 +110,7 @@ function registerRepoIpc(ipcMain, d) {
     }
     d.refreshClashes?.(w.root); // its work is in the base now, so it clashes with nothing
     // And on to GitHub, still on this checkout's turn.
-    const pushed = push ? await pushHome(w.root, { base: w.base, tabId }) : null;
+    const pushed = push ? await pushHome(w.root, { base: w.base, tabId, before }) : null;
     return { ...merged, base: w.base, kept: true, push: pushed };
   }
 
@@ -159,15 +161,35 @@ function registerRepoIpc(ipcMain, d) {
   // this push would send (secret-gate.js), asked like every push Shellby makes.
   const secretGate = root => gateSecrets(d, root);
 
+  // Bring it home and push is about that copy's work. When the branch already
+  // had commits the remote doesn't, they'd go too (a push can't leave older
+  // commits behind), so say which and let you choose.
+  async function askOthers(r) {
+    const { count, subjects } = r.others;
+    const more = count - subjects.length;
+    const response = await confirm.ask(d.panel, {
+      ...d.dialogLook(), icon: '⇡',
+      title: `Push ${count} more commit${count === 1 ? '' : 's'} too?`,
+      message: `${r.branch} already had ${count === 1 ? 'a commit' : `${count} commits`} that ${count === 1 ? "isn't" : "aren't"} on ${r.remote} yet. Pushing now sends ${count === 1 ? 'it' : 'them'} along with this work.`,
+      detail: subjects.join('\n') + (more > 0 ? `\n…and ${more} more` : ''),
+      buttons: [{ label: 'Push all of it' }, { label: 'Not now' }], defaultId: 1, cancelId: 1,
+    });
+    return response === 0;
+  }
+
   /**
    * @param {string} root  the checkout to push
-   * @param {{ base?: string, tabId?: string }} [opts]  the branch to push, and the tab to note it in
+   * @param {{ base?: string, tabId?: string, before?: string | null }} [opts]  the branch to push, the tab to note it in, and where the branch was before a copy came home
    */
-  async function pushHome(root, { base, tabId } = {}) {
+  async function pushHome(root, { base, tabId, before = null } = {}) {
     if (busyInCheckout(root)) return { ok: false, error: 'A conversation is working in your checkout. Let it finish first.' };
     const stopped = await secretGate(root);
     if (stopped) return stopped;
-    const r = await worktrees.pushBase(root, { base });
+    let r = await worktrees.pushBase(root, { base, before });
+    if (r.others) {
+      if (!(await askOthers(r))) return { ...r, error: `${r.error} It's all still on this PC: push from the folder menu when you're ready.` };
+      r = await worktrees.pushBase(root, { base, before, others: true });
+    }
     if (r.ok && r.pushed) {
       d.bugdex?.pushedClean(root);
       d.awardXp('ship', { project: path.basename(root) });
@@ -254,6 +276,7 @@ ${r.detail}` });
   });
   // The merges and the push, on this checkout's turn (home-line.js).
   async function homeAll(root, list, busy, gated, opts, tabId) {
+    const before = opts?.push ? await worktrees.tipOf(root, 'HEAD') : null;
     const r = await worktrees.bringAllHome(list.map(c => c.w), { trailer: d.crabTrailer() });
     for (const x of r.results) {
       const c = list.find(l => l.w.branch === x.branch);
@@ -287,7 +310,7 @@ ${r.detail}` });
       stopped: clash ? { branch: clash.w.branch, title: clash.title, tabId: clashTab, base: clash.w.base, error: last.error, conflict: !!last.conflict, fixable: !!last.fixable, root: last.root, detail: last.detail } : null,
       green: gated.green,
     };
-    if (r.ok && opts?.push) out.push = await pushHome(root, { tabId });
+    if (r.ok && opts?.push) out.push = await pushHome(root, { tabId, before });
     return out;
   }
   // Copies that changed the same files (wiring/clashes.js): what the panel shows on load.

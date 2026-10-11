@@ -17,6 +17,7 @@ function everyLaunch() {
   for (const effort of EFFORTS) sessions.push({ mode: 'ask', effort });
   sessions.push({ mode: 'ask', model: 'haiku', outputStyle: 'Explanatory' });
   sessions.push({ mode: 'ask', allowedTools: ['mcp__linear__*'], mcpConfig: { mcpServers: {} } });
+  sessions.push({ mode: 'ask', model: 'opus', fallbackModel: 'sonnet', chrome: true, safeMode: true, agent: 'reviewer', name: () => 'Fix the login' });
   sessions.push({ mode: 'ask', resumeId: 'sess-1' });
   sessions.push({ mode: 'ask', resumeId: 'sess-1', resumeAt: 'uuid-9' });
   return sessions.map(o => new ClaudeSession({ exe: 'x', cwd: os.tmpdir(), ...o }).buildArgs());
@@ -62,6 +63,13 @@ Options:
   --settings <file-or-json>             Path to a settings JSON file
   --strict-mcp-config                   Only use MCP servers from --mcp-config
   --verbose                             Override verbose mode setting
+  --include-partial-messages            Include partial message chunks
+  --forward-subagent-text               Forward subagent text
+  --fallback-model <model>              Fall back when overloaded
+  -n, --name <name>                     Set a display name
+  --agent <agent>                       Agent for the session
+  --safe-mode                           Start with customizations off
+  --chrome                              Enable Claude in Chrome
 `;
 
 test('checkHelp passes a help text with every documented flag, and skips the hidden ones', () => {

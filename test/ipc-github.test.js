@@ -38,3 +38,59 @@ test('sign-out says so when the card could not be taken down', async () => {
   await ipc.invoke('github:sign-out');
   assert.deepEqual(rec.of('send').map(c => c.slice(1)), [['github:error', 'offline']]);
 });
+
+function signInSetup({ yes = true } = {}) {
+  const ipc = createFakeIpc();
+  const rec = recorder();
+  const d = {
+    isStr, panel: null,
+    send: rec.fn('send'),
+    askGitHubFeature: rec.fn('ask', async () => yes),
+    github: { can: () => false, signIn: rec.fn('signIn', async () => ({ ok: true })), signOut: rec.fn('signOut'), view: () => ({ signedIn: false }) },
+    friends: null,
+    profileCard: { isUp: false, takeDown: async () => ({ ok: true }) },
+  };
+  registerGithubIpc(ipc.ipcMain, d);
+  return { ipc, rec };
+}
+
+test('a first sign-in leaves out guarded features nobody agreed to', async () => {
+  const { ipc, rec } = signInSetup();
+  await ipc.invoke('github:sign-in', ['sync', 'claude', 'prBadge']);
+  assert.deepEqual(rec.of('signIn')[0][0], ['sync']);
+});
+
+test('guarded features agreed to before signing in ride on the one sign-in', async () => {
+  const { ipc, rec } = signInSetup();
+  assert.equal((await ipc.invoke('github:want-feature', 'claude', true)).ok, true);
+  assert.equal((await ipc.invoke('github:want-feature', 'workflows', true)).ok, true);
+  await ipc.invoke('github:want-feature', 'prBadge', true);
+  await ipc.invoke('github:sign-in', ['sync', 'claude', 'workflows', 'prBadge']);
+  assert.deepEqual(rec.of('signIn')[0][0], ['sync', 'claude', 'workflows', 'prBadge']);
+  assert.equal(rec.of('ask').length, 3);
+});
+
+test('workflows needs claude agreed first, and unticking claude drops it', async () => {
+  const { ipc, rec } = signInSetup();
+  assert.equal((await ipc.invoke('github:want-feature', 'workflows', true)).ok, false);
+  await ipc.invoke('github:want-feature', 'claude', true);
+  await ipc.invoke('github:want-feature', 'workflows', true);
+  await ipc.invoke('github:want-feature', 'claude', false);
+  await ipc.invoke('github:sign-in', ['claude', 'workflows']);
+  assert.deepEqual(rec.of('signIn')[0][0], []);
+});
+
+test('saying no to the question keeps the feature out of the sign-in', async () => {
+  const { ipc, rec } = signInSetup({ yes: false });
+  assert.equal((await ipc.invoke('github:want-feature', 'friends', true)).canceled, true);
+  await ipc.invoke('github:sign-in', ['friends']);
+  assert.deepEqual(rec.of('signIn')[0][0], []);
+});
+
+test('signing out forgets what was agreed', async () => {
+  const { ipc, rec } = signInSetup();
+  await ipc.invoke('github:want-feature', 'history', true);
+  await ipc.invoke('github:sign-out');
+  await ipc.invoke('github:sign-in', ['history']);
+  assert.deepEqual(rec.of('signIn')[0][0], []);
+});

@@ -22,9 +22,11 @@ function helperTag(c) {
   return c.type && c.type !== c.label ? `${c.label} · ${c.type}` : c.label;
 }
 
-// "📨 check the tests" for a message it got, "→ scout: done" for one it sent.
+// "📨 check the tests" for a message it got, "→ scout: done" for one it sent,
+// "💬 found it" for what it's saying as it works.
 function helperTalk(b) {
-  return b.kind === 'said' ? `→ ${b.to}: ${b.text}` : `📨 ${b.text}`;
+  if (b.kind === 'said') return b.to ? `→ ${b.to}: ${b.text}` : `💬 ${b.text}`;
+  return `📨 ${b.text}`;
 }
 
 function renderCrew(crew, more, ended = []) {

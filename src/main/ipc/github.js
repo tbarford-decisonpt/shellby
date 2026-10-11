@@ -18,11 +18,25 @@ function registerGithubIpc(ipcMain, d) {
   // ---- GitHub
   const FEATURE_NAMES = new Set(['sync', 'history', 'friends', 'profileCard', 'prBadge', 'publish', 'claude', 'ci', 'issues', 'workflows', 'projects']);
   ipcMain.handle('github:get', () => d.github.view());
+  // claude, workflows, friends, the profile card, the PR badge and history each have their own
+  // confirmation. Ticked before signing in, it's asked then and remembered here, so one approval
+  // on GitHub covers everything ticked; the panel's list alone never grants them.
+  const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard', 'prBadge', 'history']);
+  const agreed = new Set();
+  ipcMain.handle('github:want-feature', async (_e, feature, on) => {
+    if (!GUARDED.has(feature)) return { ok: FEATURE_NAMES.has(feature) };
+    if (!on) {
+      agreed.delete(feature);
+      if (feature === 'claude') agreed.delete('workflows');
+      return { ok: true };
+    }
+    if (feature === 'workflows' && !agreed.has('claude')) return { ok: false };
+    if (!(await d.askGitHubFeature(feature))) return { ok: false, canceled: true };
+    agreed.add(feature);
+    return { ok: true };
+  });
   ipcMain.handle('github:sign-in', async (_e, features) => {
-    // claude, workflows, friends, the profile card, the PR badge and history are never granted by a first
-    // sign-in: each has its own confirmation, so they can only be turned on deliberately afterwards.
-    const GUARDED = new Set(['claude', 'workflows', 'friends', 'profileCard', 'prBadge', 'history']);
-    const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && !GUARDED.has(f)) : [];
+    const list = Array.isArray(features) ? features.filter(f => FEATURE_NAMES.has(f) && (!GUARDED.has(f) || agreed.has(f))) : [];
     const r = await d.github.signIn(list);
     return { ...r, view: d.github.view() };
   });
@@ -42,6 +56,7 @@ function registerGithubIpc(ipcMain, d) {
     // Its gist too, even if turning it off earlier couldn't delete it.
     const cardDown = d.github.can('profileCard') || d.profileCard.isUp ? await d.profileCard.takeDown() : { ok: true };
     d.github.signOut();
+    agreed.clear();
     if (!down.ok) d.send(d.panel, 'github:error', down.error);
     if (!cardDown.ok) d.send(d.panel, 'github:error', cardDown.error);
     return d.github.view();

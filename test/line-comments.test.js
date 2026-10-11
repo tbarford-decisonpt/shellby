@@ -139,3 +139,16 @@ test('only well-formed, recent comments survive a reload', () => {
   assert.deepEqual(R.sanitize('nope'), []);
   assert.equal(R.sanitize(Array.from({ length: R.MAX_COMMENTS + 5 }, (_, i) => comment({ id: `n${i}` }))).length, R.MAX_COMMENTS);
 });
+
+test('pairRows sets removed lines beside the added ones after them, unchanged lines on both sides', () => {
+  const rows = R.numberLines('@@ -1,4 +1,4 @@\n a\n-b\n-c\n+B\n d\n+e\n\\ No newline at end of file');
+  assert.deepEqual(R.pairRows(rows), [
+    { full: 0 }, { left: 1, right: 1 }, { left: 2, right: 4 }, { left: 3, right: null }, { left: 5, right: 5 }, { left: null, right: 6 }, { full: 7 },
+  ]);
+});
+
+test('hunkOf counts the @@ rows up to a line', () => {
+  const rows = R.numberLines('@@ -1 +1 @@\n-a\n+b\n@@ -9 +9 @@\n-c\n+d');
+  assert.deepEqual(rows.map((_r, i) => R.hunkOf(rows, i)), [0, 0, 0, 1, 1, 1]);
+  assert.equal(R.hunkOf([{ kind: 'ctx' }], 0), -1);
+});

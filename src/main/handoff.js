@@ -30,6 +30,40 @@ const PS_QUOTES = /['‘’‚‛]/g;
 const TERMINAL_PROMPTS = Object.freeze({ ultraReview: '/code-review ultra' });
 const ALLOWED_PROMPTS = new Set(Object.values(TERMINAL_PROMPTS));
 
+// Claude Code's own ways between this PC and its cloud sessions, which it runs
+// interactively, so each opens in a terminal: teleport (a cloud session picked
+// up here, from its own list), cloud (a new cloud session that starts on what
+// you wrote) and pr (the conversation behind a pull request, from its own list
+// or by the pull request's address).
+const CLOUD_DESCRIPTION_MAX = 2000;
+const PR_URL = /^https:\/\/github\.com\/[\w.-]{1,100}\/[\w.-]{1,100}\/pull\/\d{1,9}$/;
+// What cmd's start line may carry as it is: no spaces, quotes or anything cmd reads as its own.
+const PLAIN_ARG = /^[\w:/.-]{1,300}$/;
+
+/**
+ * The CLI's arguments for one of those, checked. kind: 'teleport' | 'cloud' | 'pr';
+ * value: what the cloud session starts on, or a pull request's address (none:
+ * Claude Code's own list). -> { ok: true, args } | { ok: false, error }
+ */
+function cloudArgs(kind, value = null) {
+  if (kind === 'teleport') return { ok: true, args: ['--teleport'] };
+  if (kind === 'cloud') {
+    // One line, and no double quotes: Windows PowerShell 5.1 splits a native argument at an inner one.
+    const text = typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/"/g, "'").trim() : '';
+    if (!text) return { ok: false, error: 'Say what the cloud session should do first.' };
+    if (text.length > CLOUD_DESCRIPTION_MAX) return { ok: false, error: `That's more than a cloud session starts on (${CLOUD_DESCRIPTION_MAX} characters). Shorten it, then try again.` };
+    // A leading - would be read as a flag of its own.
+    return { ok: true, args: ['--cloud', text.startsWith('-') ? ` ${text}` : text] };
+  }
+  if (kind === 'pr') {
+    if (value == null || value === '') return { ok: true, args: ['--from-pr'] };
+    const url = typeof value === 'string' ? value.trim() : '';
+    if (!PR_URL.test(url)) return { ok: false, error: "That doesn't look like a GitHub pull request's address." };
+    return { ok: true, args: ['--from-pr', url] };
+  }
+  return { ok: false, error: "Shellby won't start a terminal with that." };
+}
+
 // The names the panel uses for each way of opening one.
 const SHELL_NAMES = { wt: 'Windows Terminal', powershell: 'PowerShell', cmd: 'Command Prompt' };
 
@@ -63,13 +97,14 @@ function terminalCwd({ cwd, worktree = null } = {}, exists = () => true) {
  * our own environment, because a Windows Terminal that is already open starts
  * new tabs with its own environment, not ours.
  */
-function resumeScript({ exe, cwd, sessionId, prompt = null, scrub = [] }) {
+function resumeScript({ exe, cwd, sessionId, prompt = null, args = null, scrub = [] }) {
   const drop = ['SHELLBY_OWNED', ...scrub].filter(v => ENV_NAME.test(v));
   return [
     ...[...new Set(drop)].map(v => `Remove-Item -LiteralPath 'Env:${v}' -ErrorAction SilentlyContinue`),
     `Set-Location -LiteralPath ${psQuote(cwd)}`,
-    // A fresh session that starts on one of TERMINAL_PROMPTS, or the conversation resumed.
-    prompt ? `& ${psQuote(exe)} ${psQuote(prompt)}` : `& ${psQuote(exe)} --resume ${sessionId}`,
+    // A fresh session that starts on one of TERMINAL_PROMPTS, one of cloudArgs, or the conversation resumed.
+    args ? `& ${psQuote(exe)} ${args.map(psQuote).join(' ')}`
+      : prompt ? `& ${psQuote(exe)} ${psQuote(prompt)}` : `& ${psQuote(exe)} --resume ${sessionId}`,
   ].join('\n');
 }
 
@@ -117,18 +152,24 @@ function scriptPlans({ script, options, dir = null, wt = null, powershell = null
  * window, already scrubbed (claude/cli.js terminalEnv).
  *   -> { ok: true, plans: [{ shell, file, args, options }] } | { ok: false, error }
  */
-function launchPlans({ exe, cwd, sessionId, prompt = null, scrub = [], env = undefined, wt = null, powershell = null, cmd = null }) {
+function launchPlans({ exe, cwd, sessionId, prompt = null, cloud = null, scrub = [], env = undefined, wt = null, powershell = null, cmd = null }) {
   if (prompt !== null && !ALLOWED_PROMPTS.has(prompt)) return { ok: false, error: "Shellby won't start a terminal with that." };
-  if (prompt === null && !isSessionId(sessionId)) return { ok: false, error: "That conversation's id doesn't look like Claude Code's, so Shellby won't put it on a command line." };
+  // cloud: { kind, value } for cloudArgs, checked again here, where the line is made.
+  const made = cloud ? cloudArgs(cloud.kind, cloud.value) : null;
+  if (made && !made.ok) return made;
+  const args = made?.args || null;
+  if (prompt === null && !args && !isSessionId(sessionId)) return { ok: false, error: "That conversation's id doesn't look like Claude Code's, so Shellby won't put it on a command line." };
   if (!safePath(exe)) return { ok: false, error: 'Shellby can’t find Claude Code to run in the terminal.' };
   if (!safePath(cwd)) return { ok: false, error: "That conversation's folder has a name Shellby can't safely open a terminal in." };
   const options = { cwd, env, detached: true, stdio: 'ignore', windowsHide: false };
-  const script = resumeScript({ exe, cwd, sessionId, prompt, scrub });
+  const script = resumeScript({ exe, cwd, sessionId, prompt, args, scrub });
   const plans = scriptPlans({ script, options, dir: cwd, wt, powershell, cmd });
   // cmd gets no script: the folder is the process's working directory and the
   // environment is already scrubbed, so only the CLI's path and the id are on its line.
   // A prompt is one of TERMINAL_PROMPTS: fixed, and free of anything cmd reads as its own.
-  if (startable(cmd) && startable(exe)) plans.push({ shell: 'cmd', ...viaStart(cmd, cmd, ['/d', '/k', `"${exe}"`, ...(prompt ? [`"${prompt}"`] : ['--resume', sessionId])], options) });
+  // Words of yours (a cloud session's) never go through cmd: only plain arguments do.
+  const plain = !args || args.every(a => PLAIN_ARG.test(a));
+  if (plain && startable(cmd) && startable(exe)) plans.push({ shell: 'cmd', ...viaStart(cmd, cmd, ['/d', '/k', `"${exe}"`, ...(args || (prompt ? [`"${prompt}"`] : ['--resume', sessionId]))], options) });
   return plans.length ? { ok: true, plans } : { ok: false, error: 'Shellby couldn’t find a terminal to open.' };
 }
 
@@ -220,6 +261,6 @@ function titleFor(session) {
 }
 
 module.exports = {
-  isSessionId, safePath, psQuote, terminalCwd, resumeScript, encodeScript, scriptPlans, launchPlans, launch,
+  isSessionId, safePath, psQuote, terminalCwd, cloudArgs, resumeScript, encodeScript, scriptPlans, launchPlans, launch,
   continueCheck, externalFor, bringInCheck, entryFor, titleFor, SHELL_NAMES, TERMINAL_PROMPTS,
 };
