@@ -79,6 +79,18 @@ test('a run still going is red as soon as one of its jobs fails', () => {
   assert.equal(g.checkCiRuns(going, SHA, [job('e2e (2/6)', 'completed', 'cancelled')]).state, 'running', 'a cancelled job alone proves nothing yet');
 });
 
+// ci.yml cancels the rest of a run when a job fails, so the run ends "cancelled".
+test('a run cancelled by its own red job is still red', () => {
+  const job = (name, status, conclusion) => ({ name, status, conclusion });
+  const cut = [run(SHA, 'completed', 'cancelled')];
+  const red = g.checkCiRuns(cut, SHA, [job('e2e (2/6)', 'completed', 'failure'), job('e2e (1/6)', 'completed', 'cancelled')]);
+  assert.equal(red.state, 'failed');
+  assert.equal(red.conclusion, 'failure');
+  assert.match(red.problem, /e2e \(2\/6\) failed on aaaaaaa/);
+  const cancelled = g.checkCiRuns(cut, SHA, [job('e2e (1/6)', 'completed', 'cancelled')]);
+  assert.equal(cancelled.conclusion, 'cancelled', 'cancelled by hand proves nothing');
+});
+
 // The release commit (version, CHANGELOG, change notes) is tested by its parent's CI.
 test('a commit that only cuts a release counts its parent CI', () => {
   const f = (filename, status = 'modified', extra = {}) => ({ filename, status, ...extra });
