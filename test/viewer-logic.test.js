@@ -21,6 +21,12 @@ test('buildTree: a deleted file still in the index is listed once', () => {
   assert.deepEqual(tree.children.map(c => `${c.name}:${c.status}`), ['a.txt:D']);
 });
 
+test('buildTree: a new file the (older) index lacks is listed once, with its status', () => {
+  const tree = V.buildTree(['a.txt'], [{ path: 'b.txt', status: '?' }, { path: 'src/c.js', status: 'A' }, { path: 'a.txt', status: 'M' }]);
+  assert.deepEqual(tree.children.map(c => `${c.name}:${c.status}`), ['src:M', 'a.txt:M', 'b.txt:?']);
+  assert.deepEqual(tree.children[0].children.map(c => `${c.name}:${c.status}`), ['c.js:A']);
+});
+
 test('visibleRows: open folders only, or every match and its folders when filtered', () => {
   const tree = V.buildTree(['src/', 'src/main/', 'src/main/app.js', 'src/b.js', 'top.md'], []);
   assert.deepEqual(V.visibleRows(tree, new Set()).map(r => r.node.path), ['src', 'top.md']);

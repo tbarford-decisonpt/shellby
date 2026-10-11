@@ -32,8 +32,9 @@
       if (e.endsWith('/')) dirOf(e.slice(0, -1));
       else addFile(e);
     }
-    // A deleted file isn't on disk, so it may not be in the list: it still belongs in the tree.
-    for (const f of files || []) if (f.status === 'D') addFile(f.path);
+    // The index can be up to 20 s old, so a file the changes list knows (deleted, or made since) may be
+    // missing from it: every changed file belongs in the tree.
+    for (const f of files || []) addFile(f.path);
     const settle = node => {
       node.children.sort((a, b) => (a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })));
       for (const c of node.children) if (c.dir) { settle(c); if (c.children.some(k => k.status)) c.status = 'M'; }

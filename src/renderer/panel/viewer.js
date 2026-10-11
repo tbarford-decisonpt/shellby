@@ -23,11 +23,15 @@
     let r = await fn(me.id).catch(() => null);
     if (r?.expired) {
       const again = await api.viewerOpen(me.req).catch(() => null);
-      if (!again?.ok) return { ok: false, error: again?.error || "Couldn't open that folder." };
+      if (!again?.ok) {
+        if (again?.gone) me.gone = true;
+        return { ok: false, gone: !!again?.gone, error: again?.error || "Couldn't open that folder." };
+      }
       me.id = again.id;
       if (me.git) await api.viewerChanges(me.id, { uncommittedOnly: me.only }).catch(() => null);
       r = await fn(me.id).catch(() => null);
     }
+    if (r?.gone) me.gone = true; // the folder was deleted while open: draw() says so
     return r || { ok: false, error: "Couldn't read that." };
   }
 
@@ -47,7 +51,8 @@
     draw();
     await Promise.all([loadChanges(), loadTree()]);
     if (cur !== me) return;
-    if (!me.side) me.side = me.files.length ? 'changes' : 'files';
+    if (me.gone) return draw();
+    if (!me.side) me.side = me.files.length || me.note ? 'changes' : 'files'; // a failed look says so, on Changes
     if (me.file) for (const a of ancestors(me.file)) me.open.add(a);
     draw();
     if (me.file) showFile(me.file, { line });
@@ -163,6 +168,7 @@
     const top = main.scrollTop;
     const body = !f || me.whole ? await wholeFile(rel, line) : await diffOf(f);
     if (cur !== me || me.file !== rel) return;
+    if (me.gone) return draw(); // the read found the folder gone: that screen stays
     main.replaceChildren(fileHead(rel, f), body);
     $('viewerEditor').hidden = false;
     if (keep) main.scrollTop = top;
@@ -228,6 +234,7 @@
     await Promise.all([loadChanges(), tree ? loadTree() : null]);
     if (cur !== me) return;
     draw();
+    if (me.gone) return;
     if (me.file && (tree || sig(me.file) !== before)) showFile(me.file, { keep: true }); // no line: Diff or Whole stays as chosen
   }
 

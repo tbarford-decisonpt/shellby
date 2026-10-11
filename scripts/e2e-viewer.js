@@ -118,6 +118,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await until("[...document.querySelectorAll('#viewerList .vw-row')].some(b => b.dataset.path === 'a.txt')");
     await ev("[...document.querySelectorAll('#viewerList .vw-row')].find(b => b.dataset.path === 'a.txt').click()");
     check(await until("[...document.querySelectorAll('#viewerMain .dl.ctx .code')].some(c => c.textContent === 'original')"), 'an unchanged file opens as its text');
+    // the tree comes from an index up to 20 s old; a file made since is still listed on All files
+    check(await ev(`[...document.querySelectorAll('#viewerList .vw-row')].some(b => b.dataset.path === ${JSON.stringify(MADE[1].file)})`), 'All files lists the second edit too');
     await shot('2-whole-file');
 
     // ---- Esc puts the panes back
