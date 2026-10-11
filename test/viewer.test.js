@@ -206,6 +206,9 @@ test('branchOf names the branch, and nothing outside a repo', async () => {
 test("looking at a repo never runs its hooks", async () => {
   const r = repo();
   try {
+    // Pinned here, so a core.hooksPath in the machine's own config can't make this pass by itself
+    // (changes.test.js shows the same hook does run for a turn's snapshot).
+    r.g(r.dir, 'config', 'core.hooksPath', '.git/hooks');
     const marker = path.join(r.base, 'HOOK_RAN').split(path.sep).join('/');
     fs.writeFileSync(path.join(r.dir, '.git', 'hooks', 'post-index-change'), `#!/bin/sh\necho ran > "${marker}"\n`, { mode: 0o755 });
     r.write(r.dir, 'new.txt', 'x\n');

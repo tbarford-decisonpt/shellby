@@ -273,3 +273,31 @@ test('snapshot: an empty index (no commits, or everything un-staged) still lists
   fs.rmSync(fresh.d, { recursive: true, force: true });
   fs.rmSync(committed.d, { recursive: true, force: true });
 });
+
+test('snapshot: a tracked file changed in a subfolder is in the tree, asked from that subfolder', async () => {
+  const r = realRepo();
+  try {
+    r.write('src/deep/x.txt', 'old\n');
+    r.g('add', '-A');
+    r.g('commit', '-qm', 'deep');
+    r.write('src/deep/x.txt', 'new\n');
+    const snap = await snapshot(path.join(r.dir, 'src'), {});
+    assert.ok(snap);
+    assert.equal(r.g('show', `${snap.tree}:src/deep/x.txt`), 'new\n');
+  } finally { r.done(); }
+});
+
+// The other half of viewer.test.js "looking at a repo never runs its hooks": a turn's snapshot,
+// hooks on, does run this one, so that test's hook is one that would fire.
+test("snapshot: a turn's snapshot runs the repo's own post-index-change hook", async () => {
+  const r = realRepo();
+  try {
+    r.g('config', 'core.hooksPath', '.git/hooks');
+    const marker = path.join(r.dir, '..', `${path.basename(r.dir)}-HOOK_RAN`).split(path.sep).join('/');
+    fs.writeFileSync(path.join(r.dir, '.git', 'hooks', 'post-index-change'), `#!/bin/sh\necho ran > "${marker}"\n`, { mode: 0o755 });
+    r.write('new.txt', 'x\n');
+    assert.ok(await snapshot(r.dir, {}));
+    assert.equal(fs.existsSync(marker), true);
+    fs.rmSync(marker, { force: true });
+  } finally { r.done(); }
+});

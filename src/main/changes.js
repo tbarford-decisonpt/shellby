@@ -92,13 +92,10 @@ async function snapshot(dir, info = null, { hooks = true } = {}) {
     try { await fs.promises.copyFile(realIndex, tmp); } catch (e) { if (e.code !== 'ENOENT') throw e; }
     const env = { GIT_INDEX_FILE: tmp };
     const pre = hooks ? [] : noHooks();
-    // add -u fails when the index is empty (a repo with no commits, or every file un-staged): nothing to refresh.
-    const known = await git(root, ['ls-files', '-z'], { env });
-    if (!known.ok) return null;
-    if (known.out) {
-      const tracked = await git(root, [...pre, 'add', '-u', '--', '.'], { env });
-      if (!tracked.ok) return null;
-    }
+    // No pathspec: since git 2.0 add -u covers the whole tree, and on an empty index (a repo with
+    // no commits, or every file un-staged) it does nothing and succeeds, where "-- ." fails to match.
+    const tracked = await git(root, [...pre, 'add', '-u'], { env });
+    if (!tracked.ok) return null;
     const others = await git(root, ['ls-files', '-z', '--others', '--exclude-standard'], { env });
     if (!others.ok) return null;
     const untracked = others.out.split('\0').filter(Boolean);
