@@ -101,14 +101,12 @@ function checkCiRuns(runs, sha, jobs = []) {
   const newest = newestRun(runs, sha);
   if (!newest) return { state: 'missing', problem: `CI hasn't run on ${short}. Push it to main, and tag it once CI is green.` };
   const where = newest.html_url ? ` (${newest.html_url})` : '';
-  // A red job cancels the rest of its run (ci.yml), so a cancelled run may
-  // still hold the failure that decides it.
-  if (newest.status !== 'completed' || newest.conclusion === 'cancelled') {
+  if (newest.status !== 'completed') {
     const red = (jobs || []).filter(j => j?.status === 'completed' && RED.has(j.conclusion));
     if (red.length) {
       return { state: 'failed', conclusion: red[0].conclusion, problem: `${red.map(j => j.name).join(', ')} failed on ${short}${where}, so the release would fail the same way. Fix main first; the fix ships as the next version.` };
     }
-    if (newest.status !== 'completed') return { state: 'running', problem: `CI is still running on ${short}${where}. Tag it once it's green, or run with --wait.` };
+    return { state: 'running', problem: `CI is still running on ${short}${where}. Tag it once it's green, or run with --wait.` };
   }
   if (newest.conclusion !== 'success') {
     const why = RED.has(newest.conclusion)
@@ -277,11 +275,11 @@ async function api(route, sha, { raw = false } = {}) {
 const newestRun = (runs, sha) => (runs || []).filter(r => r && r.head_sha === sha)
   .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
 
-/** CI on one commit, with the jobs of a run still going or cancelled (so a red one counts at once). */
+/** CI on one commit, with the jobs of a run still going (so a red one counts at once). */
 async function ciOnCommit(sha) {
   const runs = (await api(`actions/workflows/ci.yml/runs?head_sha=${sha}&per_page=20`, sha)).workflow_runs || [];
   const ci = checkCiRuns(runs, sha);
-  if (ci.state !== 'running' && ci.conclusion !== 'cancelled') return ci;
+  if (ci.state !== 'running') return ci;
   return checkCiRuns(runs, sha, (await api(`actions/runs/${newestRun(runs, sha).id}/jobs?per_page=100`, sha)).jobs);
 }
 

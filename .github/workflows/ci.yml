@@ -6,7 +6,6 @@ on:
   pull_request:
 
 # Read-only by default: nothing here publishes or writes to the repository.
-# Each job may only cancel its own run when it fails.
 permissions:
   contents: read
 
@@ -19,9 +18,6 @@ concurrency:
 jobs:
   test:
     runs-on: windows-latest
-    permissions:
-      contents: read
-      actions: write # cancel the run when this job fails
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
@@ -35,13 +31,6 @@ jobs:
       # What ships to users, not the dev tooling: a high-severity advisory in a
       # runtime dependency fails the build.
       - run: npm audit --omit=dev --audit-level=high
-      # The first red job cancels the rest of the run: no runner time spent
-      # finishing checks after the answer is already "fix it".
-      - name: Cancel the rest of the run
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # The only automated coverage the renderer and main's wiring get: each check
   # launches the real app and drives it over CDP with the fake Claude CLI. Its
@@ -51,18 +40,16 @@ jobs:
   # The checks run one at a time on a machine (they share hook ports), so they
   # are split across six shards that take about as long, by each check's time
   # in scripts/e2e-times.json (scripts/e2e-ci.js --shard; refresh the times
-  # with scripts/e2e-times.js). Any red job, shard or not, cancels the whole
-  # run (its last step): the failure is the answer, and the rest only burns
-  # runner time before the fix.
+  # with scripts/e2e-times.js). fail-fast on: the first red shard cancels the
+  # others, since the failure is the answer and the rest only burns runner
+  # time before the fix. (A step calling `gh run cancel` instead marked the
+  # red shard itself "cancelled", hiding which one broke.)
   e2e:
     name: e2e (${{ matrix.shard }}/6)
     runs-on: windows-latest
     timeout-minutes: 30
-    permissions:
-      contents: read
-      actions: write # cancel the run when this job fails
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         shard: [1, 2, 3, 4, 5, 6]
     steps:
@@ -77,13 +64,6 @@ jobs:
       # the real app. Idempotent: it exits immediately when the binary is there.
       - run: node node_modules/electron/install.js
       - run: npm run e2e:ci -- --shard=${{ matrix.shard }}/6
-      # The first red job cancels the rest of the run: no runner time spent
-      # finishing checks after the answer is already "fix it".
-      - name: Cancel the rest of the run
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # "Shellby made this slower": cold start, panel open, his share of a reply's
   # latency, idle CPU and memory, each against scripts/perf-budgets.js (~4 min).
@@ -93,9 +73,6 @@ jobs:
   perf:
     runs-on: windows-latest
     timeout-minutes: 15
-    permissions:
-      contents: read
-      actions: write # cancel the run when this job fails
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
@@ -111,10 +88,3 @@ jobs:
           name: perf-result
           path: perf-result.json
           if-no-files-found: warn
-      # The first red job cancels the rest of the run: no runner time spent
-      # finishing checks after the answer is already "fix it".
-      - name: Cancel the rest of the run
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
