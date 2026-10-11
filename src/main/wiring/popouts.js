@@ -93,6 +93,9 @@ function wirePopouts(d) {
     if (!win || win.isDestroyed()) return;
     if (win.isMinimized()) win.restore();
     win.show();
+    // As the panel does (wiring/panel.js): from a notification click, Windows
+    // leaves a window behind the one you're in unless it's moved to the top.
+    win.moveTop();
     win.focus();
   }
 
