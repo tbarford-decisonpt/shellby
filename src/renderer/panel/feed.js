@@ -89,11 +89,14 @@
       // otherwise read as 'not at the bottom', and the resize below would then leave
       // your prompt's last lines hidden.
       this.stuck = true;
+      this.unseen = false;        // something arrived below while you were scrolled up (the pane's ↓ wears a dot)
       this.lastTop = 0;
       this.el.addEventListener('scroll', () => {
         const near = this.distanceFromEnd() < 40;
+        const was = this.stuck;
         if (near || this.el.scrollTop < this.lastTop) this.stuck = near;
         this.lastTop = this.el.scrollTop;
+        if (this.stuck !== was) { if (this.stuck) this.unseen = false; SB.refreshJump?.(this); }
       }, { passive: true });
       this.resizer = new ResizeObserver(() => { if (this.stuck && this.isShown) this.scrollToEnd(); });
       this.resizer.observe(this.el);
@@ -103,7 +106,10 @@
 
     scrollToEnd() {
       this.el.scrollTop = this.el.scrollHeight;
+      const was = this.stuck && !this.unseen;
       this.stuck = true;
+      this.unseen = false;
+      if (!was) SB.refreshJump?.(this);
     }
 
     // ------------------------------------------------------------ empty state
@@ -137,6 +143,7 @@
       host.append(el);
       if (host === this.el) this.trim();
       if (follow && this.isShown) this.scrollToEnd();
+      else if (!follow && !this.unseen) { this.unseen = true; SB.refreshJump?.(this); }
       return el;
     }
 

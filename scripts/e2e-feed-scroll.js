@@ -74,6 +74,16 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await idle(); await wait(300);
     check(await ev('SB.activeTab().el.scrollTop') < 50, 'a reply does not yank you away from history you scrolled up to read');
 
+    // 4b. ...it puts up the pane's ↓ instead, with a dot for what came in, and ↓ takes you there.
+    const jump = "document.querySelector(`.pane[data-tab='${SB.activeTab().id}'] > .pane-jump`)";
+    check(await ev(`!${jump}.hidden && ${jump}.classList.contains('fresh')`), 'scrolled up as a reply arrives, the ↓ shows with a dot');
+    await ev(`${jump}.click()`);
+    for (let i = 0; i < 20 && await ev('SB.activeTab().distanceFromEnd() > 2'); i++) await wait(100);
+    check(await ev(`SB.activeTab().distanceFromEnd() <= 2 && ${jump}.hidden`), '↓ goes to the latest, and puts itself away');
+    await ev('SB.activeTab().el.scrollTop = 0');
+    await wait(200);
+    check(await ev(`!${jump}.hidden && !${jump}.classList.contains('fresh')`), 'scrolled up with nothing new, the ↓ shows without a dot');
+
     // 5. The feed shrinking by more than 40px in the very frame a new message lands (the bar,
     // chips and a warning at once, or a slow machine batching them): the scroll event that
     // message's own scroll-to-end queued must not read as "you scrolled away".

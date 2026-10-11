@@ -51,22 +51,35 @@
     if (!p) {
       const { head, strip } = paneHead(pane.id);
       const slot = h('div', { class: 'pane-slot' });
-      p = { el: h('div', { class: 'pane', dataset: { pane: pane.id, tab: pane.active } }, head, slot), head, strip, slot };
+      // Shows while you're scrolled up from the end of its feed; a dot on it says more came in.
+      const jump = h('button', { class: 'pane-jump', type: 'button', hidden: true, title: 'Jump to the latest', 'aria-label': 'Jump to the latest',
+        onclick: () => { const t = state.tabs.get(p.el.dataset.tab); if (t) { t.el.scrollTo({ top: t.el.scrollHeight, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.stuck = true; t.unseen = false; SB.refreshJump(t); } } }, '↓');
+      p = { el: h('div', { class: 'pane', dataset: { pane: pane.id, tab: pane.active } }, head, jump, slot), head, strip, slot, jump };
       panes.set(pane.id, p);
     }
     const t = state.tabs.get(pane.active);
-    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot && el !== t?.el) { el.hidden = true; $('feeds').append(el); }
-    if (t && t.el.parentElement !== p.el) p.el.insertBefore(t.el, p.slot);
+    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot && el !== p.jump && el !== t?.el) { el.hidden = true; $('feeds').append(el); }
+    if (t && t.el.parentElement !== p.el) p.el.insertBefore(t.el, p.jump);
     p.el.dataset.tab = pane.active;
+    if (t) SB.refreshJump(t);
     return p;
   }
+
+  // The pane showing `t` puts its ↓ up while `t` is scrolled away from the end.
+  SB.refreshJump = (t) => {
+    for (const p of panes.values()) {
+      if (p.el.dataset.tab !== t.id) continue;
+      p.jump.hidden = t.stuck;
+      p.jump.classList.toggle('fresh', !t.stuck && t.unseen);
+    }
+  };
 
   // A pane leaves the screen. Its feed goes back to waiting, hidden, in #feeds.
   function dropPane(id) {
     const p = panes.get(id);
     if (!p) return;
     if (p.slot.contains(box)) home.append(box);
-    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot) { el.hidden = true; $('feeds').append(el); }
+    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot && el !== p.jump) { el.hidden = true; $('feeds').append(el); }
     p.el.remove();
     panes.delete(id);
   }
