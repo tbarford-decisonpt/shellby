@@ -265,9 +265,30 @@
     if (K.matches(e, 'closeTab')) { e.preventDefault(); if (tab) SB.closeTabSafely(tab.id); return; }
     if (K.matches(e, 'reopenTab')) { e.preventDefault(); if (!SB.solo) SB.reopenClosed(); return; }
     // A popped-out window has its one conversation: no strip to add to, split or walk along.
-    if (SB.solo && ['newTab', 'splitPane', 'focusPane', 'movePane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
+    if (SB.solo && ['newTab', 'splitPane', 'zoomPane', 'swapPane', 'focusPane', 'movePane', 'moveTab', 'nextTab', 'prevTab'].some(id => K.matches(e, id))) { e.preventDefault(); return; }
     if (K.matches(e, 'newTab')) { e.preventDefault(); SB.newTab(); return; }
     if (K.matches(e, 'splitPane')) { e.preventDefault(); SB.splitPane(); return; }
+    if (K.matches(e, 'zoomPane')) {
+      if (e.defaultPrevented || state.view !== 'chat' || SB.overlayOpen()) return;
+      e.preventDefault();
+      SB.toggleZoom();
+      return;
+    }
+    if (K.matches(e, 'nextNeeds')) {
+      if (SB.overlayOpen() || state.view === 'onboarding') return;
+      e.preventDefault();
+      SB.goToNeeds();
+      return;
+    }
+    if (K.matches(e, 'swapPane')) {
+      const dir = SB.paneDir(e.key);
+      if (e.defaultPrevented || !dir || state.view !== 'chat' || SB.panes.count(state.grid) < 2 || SB.overlayOpen()) return;
+      e.preventDefault();
+      const here = SB.focusedPane();
+      const to = SB.panes.neighbor(state.grid, here, dir);
+      if (to) SB.swapPanes(here, to);
+      return;
+    }
     if (K.matches(e, 'focusPane') || K.matches(e, 'movePane')) {
       const dir = SB.paneDir(e.key);
       // Only while split, and never behind the palette, the cheat sheet or a dialog:

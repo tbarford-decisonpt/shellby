@@ -217,6 +217,7 @@
   input.addEventListener('keydown', e => {
     if (SB.pickKeydown?.(e)) return;
     if (slashKeydown(e)) return;
+    if (SB.shortcuts.matches(e, 'zoomPane')) return; // zooms the pane (tabs.js), never sends
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); SB.send(); }
     if (e.key === 'Tab' && e.shiftKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); SB.cycleMode(); return; }
     // Tab in an empty box takes what Claude guessed you'd ask next, like Claude Code (native-cli.js).

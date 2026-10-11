@@ -396,13 +396,105 @@
     return { grid, sizes: fitSizes(grid, src) };
   }
 
+  // ------------------------------------------------------------ layouts you name
+
+  // A layout you saved by name is its shape alone, never its conversations:
+  // { name, cols: [{ w, rows: [h, ...] }, ...] }, a column's width and each of
+  // its panes' heights as weights. Using one puts the conversations open now
+  // into it (fromShape).
+  const MAX_SHAPES = 12;
+  const MAX_NAME = 40;
+
+  // The shape of `grid` at `sizes`, named.
+  function shapeOf(grid, sizes, name) {
+    const s = fitSizes(grid, sizes);
+    return { name, cols: grid.map(col => ({ w: s.w[col[0].id], rows: col.map(p => s.h[p.id]) })) };
+  }
+
+  // A saved shape made safe: a name, within the caps, two panes or more, and
+  // weights that are weights (1 for junk). null for anything else.
+  function cleanShape(raw) {
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.cols)) return null;
+    const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, MAX_NAME) : '';
+    if (!name) return null;
+    const cols = [];
+    for (const col of raw.cols.slice(0, MAX_COLS)) {
+      const rows = (Array.isArray(col?.rows) ? col.rows : []).slice(0, MAX_ROWS).map(h => weight(h) ?? 1);
+      if (rows.length) cols.push({ w: weight(col.w) ?? 1, rows });
+    }
+    const n = cols.reduce((a, c) => a + c.rows.length, 0);
+    if (n < 2) return null;
+    // A project's own layout carries its folder (any case, either slash).
+    const project = typeof raw.project === 'string' && raw.project.length <= 400 ? projectKey(raw.project) : '';
+    return project ? { name, cols, project } : { name, cols };
+  }
+
+  // The list as saved: each cleaned, one per name (the first), at most MAX_SHAPES.
+  function cleanShapes(list) {
+    const out = [];
+    for (const raw of Array.isArray(list) ? list : []) {
+      const s = cleanShape(raw);
+      // One per name, and one per project.
+      if (s && !out.some(o => o.name.toLowerCase() === s.name.toLowerCase() || (s.project && o.project === s.project))) out.push(s);
+      if (out.length === MAX_SHAPES) break;
+    }
+    return out;
+  }
+
+  // A folder as a project layout is kept under: either slash, any case, no slash at the end.
+  const projectKey = p => String(p || '').replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
+
+  const slotsOf = shape => shape.cols.reduce((a, c) => a + c.rows.length, 0);
+  // New conversations `grid` needs to fill `shape`: one for each pane it's
+  // short. `lead`, as for fromShape: each takes a pane of its own.
+  function shapeNeeds(shape, grid, lead = []) {
+    let g = grid;
+    const first = lead.filter(id => paneWith(g, id)).slice(0, slotsOf(shape));
+    for (const id of first) g = leave(g, id);
+    return Math.max(0, slotsOf(shape) - first.length - count(g));
+  }
+
+  // The conversations in `grid` put into `shape`: its panes in turn, columns
+  // left to right and each top to bottom, keep their tabs and the tab they
+  // show. Panes past the shape's join its last pane; a pane the grid has no
+  // pane for takes a conversation from `fresh` (made for it, and taken out of
+  // whatever pane it landed in first). `lead`: conversations that take the
+  // first panes, one each, out of whatever pane they're in (a project's own,
+  // for its layout). -> { grid, sizes }, or null when there aren't enough to
+  // go round.
+  function fromShape(shape, grid, fresh = [], lead = []) {
+    let g = grid;
+    const first = lead.filter(id => paneWith(g, id) && !fresh.includes(id)).slice(0, slotsOf(shape));
+    for (const id of [...fresh, ...first]) g = leave(g, id);
+    const groups = [...first.map(id => ({ tabs: [id], active: id })), ...panesOf(g).map(p => ({ tabs: [...p.tabs], active: p.active }))];
+    for (const id of fresh) groups.push({ tabs: [id], active: id });
+    const n = slotsOf(shape);
+    if (groups.length < n) return null;
+    const last = groups[n - 1];
+    for (const extra of groups.splice(n)) last.tabs.push(...extra.tabs);
+    let i = 0;
+    const out = shape.cols.map(col => col.rows.map(() => ({ id: `p${i + 1}`, ...groups[i++] })));
+    const sizes = { w: {}, h: {} };
+    shape.cols.forEach((col, c) => col.rows.forEach((h, r) => { const id = out[c][r].id; sizes.w[id] = col.w; sizes.h[id] = h; }));
+    return { grid: out, sizes };
+  }
+
+  // Two panes trade places: what each holds (its tabs and the tab it shows)
+  // moves, and the sizes stay where they were, with the place.
+  function swap(grid, a, b) {
+    const pa = byId(grid, a), pb = byId(grid, b);
+    if (!pa || !pb || a === b) return grid;
+    return grid.map(col => col.map(p => (p.id === a ? { ...p, tabs: pb.tabs, active: pb.active } : p.id === b ? { ...p, tabs: pa.tabs, active: pa.active } : p)));
+  }
+
   const api = {
-    MAX_COLS, MAX_ROWS, MIN,
+    MAX_COLS, MAX_ROWS, MIN, MAX_SHAPES,
+    shapeOf, cleanShape, cleanShapes, shapeNeeds, fromShape, projectKey,
     paneIds, count, tabIds, shownTabs, byId, paneWith, find, nextId, layoutKey,
     leave, show, join, nudge, merge, settle, follow,
     zones, place, zoneAt, previewRect,
     fitSizes, placeSizes, setWeight, splitPair, even, shares, needs,
-    neighbor, moveToward, clean,
+    neighbor, moveToward, clean, swap,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyPanes = api;

@@ -433,6 +433,16 @@
     return [
       { icon: '◫', title: 'Split: this conversation into a pane of its own', sub: 'Or a new one alongside, if it\'s alone in its pane. Up to twelve', keys, shortcut: 'splitPane', run: chat(SB.splitPane) },
       { icon: '↗', title: 'Open this conversation in its own window', sub: tab.title, keys: `${keys} pop out tear off`, run: () => SB.popOut(tab.id) },
+      shown.length > 1 && { icon: '⤢', title: state.zoomPane ? 'Show every pane again' : 'Zoom this pane', sub: state.zoomPane ? 'The others come back as they were' : 'It fills the chat; the others wait', keys: `${keys} zoom maximize fill focus`, shortcut: 'zoomPane', run: chat(SB.toggleZoom) },
+      shown.length > 1 && (() => {
+        // "save review" in the palette names it "review"; otherwise it's Layout N.
+        const name = input.value.trim().match(/^save(?: this)?(?: layout)?(?: as)?\s+(.+)/i)?.[1].trim() || '';
+        return { icon: '💾', title: name ? `Save this layout as "${name}"` : 'Save this layout', sub: 'Its shape and sizes, to use again with whatever is open', keys: `${keys} save layouts preset arrangement ${name}`.trim(), run: () => SB.saveLayout(name) };
+      })(),
+      shown.length > 1 && { icon: '📌', title: `Make this ${SB.projectName(tab)}'s layout`, sub: SB.projectLayout(tab) ? `Replaces its ${SB.shapeSummary(SB.projectLayout(tab))}` : 'Offered when you go to it with the panel in one pane', keys: `${keys} project layouts preset pin save`, run: () => SB.saveProjectLayout() },
+      { icon: '❗', title: 'Go to the next conversation waiting for you', sub: 'Whichever pane it’s in', keys: 'needs asking permission waiting ok allow next pane', shortcut: 'nextNeeds', run: () => SB.goToNeeds() },
+      ...state.paneShapes.map(s => ({ icon: '▦', title: `Use the "${s.name}" layout`, sub: `${SB.shapeSummary(s)} · new conversations for any pane short`, keys: `${keys} layouts preset arrangement use apply ${s.name}`, run: () => SB.useLayout(s) })),
+      ...state.paneShapes.map(s => ({ icon: '🗑', title: `Forget the "${s.name}" layout`, sub: SB.shapeSummary(s), keys: `layouts preset forget delete remove ${s.name}`, run: () => SB.forgetLayout(s.name) })),
       shown.length > 1 && { icon: '×', title: 'Close this pane', sub: 'Its conversations move to the pane beside it', keys, run: chat(() => SB.closePane(here)) },
       ...shown.filter(id => id !== tab.id && state.tabs.has(id)).map(id => ({
         icon: '◧', title: `Go to the pane with ${state.tabs.get(id).title}`, sub: 'Focus it, so the box talks to it', keys: `${keys} focus`,

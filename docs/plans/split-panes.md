@@ -297,6 +297,31 @@ Details:
   `test` and `e2e:ci`, the tab drag in ui-regressions and e2e-tab-overview
   included.
 
+## Added since
+
+- **Zoom** (Ctrl+Alt+Enter, or the pane header's button): `state.zoomPane`
+  is the focused pane, filling the chat; the rest are hidden by CSS and keep
+  their place. Focusing another pane, a split, a drop, or the grid going down
+  to one pane ends it (`applyZoom` in `refreshPaneHeads`). Not saved.
+- **Layouts you name**: `shapeOf` / `cleanShapes` / `fromShape` in
+  `shared/panes.js`, kept by main as `paneShapes` over `panes:shapes`.
+  Shapes only, never conversations: using one puts the panes open now into it
+  in turn (extras join the last pane, short ones get new conversations).
+- **A project's own layout**: a shape with `project` (`panes.projectKey` of
+  the conversation's folder, its copy's original). Using it, that project's
+  open conversations lead (`fromShape`'s `lead`), one pane each, and new
+  ones open in its folder. Offered once a session, as a toast, when you go to
+  a conversation in that project with the panel in one pane. Zoom and
+  layouts live in `pane-layouts.js`.
+- **A pane's lane**: beside its tabs, the branch of its copy and its last
+  checks (`tab.checkState` / `tab.checkRunning`, set by `turn-checks.js`).
+- **What needs you**: a pane holding a conversation that's asking (`standing`
+  'asking'), other than the one you're in, lights its header; zoomed, the
+  zoomed pane's header names it. Alt+J (`SB.goToNeeds`) goes to the next one.
+- **Swap** (`panes.swap`): two panes trade their tabs, the sizes stay with
+  the place. Drag a header (not a tab or button) onto a pane, or Alt+Shift+arrows.
+- Panes that aren't conversations: planned in [tool-panes.md](tool-panes.md).
+
 ## Out of scope
 
 - A real message box in every pane at once.

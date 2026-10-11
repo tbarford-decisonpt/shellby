@@ -308,3 +308,82 @@ test('the preview shows the half the new pane will take', () => {
   assert.deepEqual(P.previewRect('bottom', pane, view), { left: 0, top: 50, width: 100, height: 50 });
   assert.deepEqual(P.previewRect('center', pane, view), pane);
 });
+
+// ------------------------------------------------------------ layouts you name
+
+test('shapeOf keeps a grid\'s shape and sizes, never its conversations', () => {
+  const g = [[{ id: 'p1', tabs: ['a', 'b'], active: 'a' }, { id: 'p3', tabs: ['d'], active: 'd' }], [{ id: 'p2', tabs: ['c'], active: 'c' }]];
+  const s = P.shapeOf(g, { w: { p1: 2, p2: 1 }, h: { p1: 3, p3: 1 } }, 'Review');
+  assert.deepEqual(s, { name: 'Review', cols: [{ w: 2, rows: [3, 1] }, { w: 1, rows: [1] }] });
+});
+
+test('cleanShape: a name, within the caps, two panes or more, junk weights as 1', () => {
+  assert.equal(P.cleanShape(null), null);
+  assert.equal(P.cleanShape({ name: '  ', cols: [{ w: 1, rows: [1, 1] }] }), null, 'no name');
+  assert.equal(P.cleanShape({ name: 'One', cols: [{ w: 1, rows: [1] }] }), null, 'one pane is no layout');
+  assert.deepEqual(P.cleanShape({ name: ' x ', cols: [{ w: -4, rows: [NaN, 2, 1, 1] }, 'junk', { w: 1, rows: [] }] }),
+    { name: 'x', cols: [{ w: 1, rows: [1, 2, 1] }] }, 'rows capped, junk columns dropped');
+  const wide = P.cleanShape({ name: 'w', cols: Array.from({ length: 6 }, () => ({ w: 1, rows: [1] })) });
+  assert.equal(wide.cols.length, P.MAX_COLS);
+  assert.equal(P.cleanShape({ name: 'n'.repeat(99), cols: [{ w: 1, rows: [1, 1] }] }).name.length, 40);
+});
+
+test('cleanShapes: one per name, whatever its case, and no more than MAX_SHAPES', () => {
+  const two = name => ({ name, cols: [{ w: 1, rows: [1, 1] }] });
+  assert.deepEqual(P.cleanShapes('junk'), []);
+  assert.deepEqual(P.cleanShapes([two('A'), two('a'), null, two('B')]).map(s => s.name), ['A', 'B']);
+  assert.equal(P.cleanShapes(Array.from({ length: 20 }, (_, i) => two(`L${i}`))).length, P.MAX_SHAPES);
+});
+
+test('fromShape puts the panes there are into the shape, in turn', () => {
+  const shape = { name: 'T', cols: [{ w: 2, rows: [1] }, { w: 1, rows: [1, 3] }] };
+  const g = [[{ id: 'p4', tabs: ['a', 'b'], active: 'b' }], [{ id: 'p7', tabs: ['c'], active: 'c' }, { id: 'p9', tabs: ['d'], active: 'd' }]];
+  assert.equal(P.shapeNeeds(shape, g), 0);
+  const r = P.fromShape(shape, g);
+  assert.deepEqual(r.grid, [[{ id: 'p1', tabs: ['a', 'b'], active: 'b' }], [{ id: 'p2', tabs: ['c'], active: 'c' }, { id: 'p3', tabs: ['d'], active: 'd' }]]);
+  assert.deepEqual(r.sizes, { w: { p1: 2, p2: 1, p3: 1 }, h: { p1: 1, p2: 1, p3: 3 } });
+});
+
+test('fromShape: panes past the shape join its last; short ones take the fresh conversations', () => {
+  const two = { name: 'Two', cols: [{ w: 1, rows: [1] }, { w: 1, rows: [1] }] };
+  const three = G([['a'], ['b'], ['c']]);
+  assert.deepEqual(T(P.fromShape(two, three).grid), [[['a']], [['b', 'c']]]);
+  assert.equal(P.fromShape(two, three).grid[1][0].active, 'b');
+
+  const quad = { name: 'Quad', cols: [{ w: 1, rows: [1, 1] }, { w: 1, rows: [1, 1] }] };
+  const one = [[{ id: 'p1', tabs: ['a', 'n1'], active: 'a' }]]; // n1, n2, n3 made for it, landed in a's pane
+  assert.equal(P.shapeNeeds(quad, G([['a']])), 3);
+  assert.equal(P.fromShape(quad, one, ['n1', 'n2']), null, 'not enough to go round');
+  assert.deepEqual(S(P.fromShape(quad, one, ['n1', 'n2', 'n3']).grid), [['a', 'n1'], ['n2', 'n3']]);
+});
+
+test('a project\'s layout: one per project, its folder kept as a key', () => {
+  const two = (name, project) => ({ name, project, cols: [{ w: 1, rows: [1, 1] }] });
+  assert.equal(P.cleanShape(two('x', 'C:/Code/App/')).project, 'c:\\code\\app');
+  assert.equal('project' in P.cleanShape(two('x', 7)), false, 'junk: an ordinary layout');
+  assert.deepEqual(P.cleanShapes([two('App', 'c:\\code\\app'), two('App again', 'C:/code/app'), two('Web', 'c:\\web')]).map(s => s.name), ['App', 'Web']);
+});
+
+test('fromShape with a lead: those conversations take the first panes, one each', () => {
+  const two = { name: 'Two', cols: [{ w: 1, rows: [1] }, { w: 1, rows: [1] }] };
+  const one = [[{ id: 'p1', tabs: ['a', 'b', 'c'], active: 'a' }]];
+  assert.deepEqual(T(P.fromShape(two, one, [], ['c', 'b']).grid), [[['c']], [['b', 'a']]], 'the rest join the last pane');
+  assert.equal(P.fromShape(two, one, [], ['zz']), null, 'an id in no pane leads nothing: one pane is short');
+  assert.deepEqual(T(P.fromShape(two, one, ['n'], ['zz']).grid), [[['a', 'b', 'c']], [['n']]]);
+});
+
+test('swap: two panes trade what they hold; sizes stay with the place', () => {
+  const g = [[{ id: 'p1', tabs: ['a', 'b'], active: 'b' }], [{ id: 'p2', tabs: ['c'], active: 'c' }]];
+  const s = P.swap(g, 'p1', 'p2');
+  assert.deepEqual(s, [[{ id: 'p1', tabs: ['c'], active: 'c' }], [{ id: 'p2', tabs: ['a', 'b'], active: 'b' }]]);
+  assert.equal(P.swap(g, 'p1', 'p1'), g);
+  assert.equal(P.swap(g, 'p1', 'p9'), g);
+});
+
+test('shapeNeeds counts a lead\'s own panes', () => {
+  const quad = { name: 'Quad', cols: [{ w: 1, rows: [1, 1] }, { w: 1, rows: [1, 1] }] };
+  const one = [[{ id: 'p1', tabs: ['a', 'b', 'c'], active: 'a' }]];
+  assert.equal(P.shapeNeeds(quad, one), 3);
+  assert.equal(P.shapeNeeds(quad, one, ['b', 'c']), 1, 'b and c each a pane, a in the third');
+  assert.equal(P.shapeNeeds(quad, one, ['a', 'b', 'c']), 1, 'all three led: one pane short');
+});

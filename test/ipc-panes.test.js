@@ -14,7 +14,8 @@ function setup(open = ['a', 'b', 'c']) {
   const panel = { id: 1 };
   const popout = { id: 2 };
   const ons = new Map();
-  const raw = { handle: () => {}, on: (c, fn) => ons.set(c, fn) };
+  const handles = new Map();
+  const raw = { handle: (c, fn) => handles.set(c, fn), on: (c, fn) => ons.set(c, fn) };
   const ipcMain = guardIpc(raw, windowPolicy(() => ({ panel, isPopout: wc => wc === popout })));
   const config = fakeConfig();
   const orders = [];
@@ -24,7 +25,8 @@ function setup(open = ['a', 'b', 'c']) {
     popoutTabOf: wc => (wc === popout ? 'p1' : null),
   });
   const save = (sender, layout) => ons.get('panes:layout')({ sender }, layout);
-  return { panel, popout, config, save, orders };
+  const shapes = (sender, list) => handles.get('panes:shapes')({ sender }, list);
+  return { panel, popout, config, save, orders, shapes };
 }
 const pane = (id, tabs, active = tabs[0]) => ({ id, tabs, active });
 
@@ -86,4 +88,15 @@ test('ids an object already has (__proto__, constructor) never reach the saved s
     grid: [[pane('p1', ['a'])], [pane('p2', ['b'])]],
     sizes: { w: { p1: 2, p2: 3 }, h: { p1: 1, p2: 1 } },
   });
+});
+
+test('layouts saved by name: cleaned, kept, and never from a pop-out', async () => {
+  const { panel, popout, config, shapes } = setup();
+  assert.deepEqual(await shapes(panel), [], 'none yet');
+  const two = { name: 'Two', cols: [{ w: 1, rows: [1] }, { w: 2, rows: [1] }] };
+  assert.deepEqual(await shapes(panel, [two, { name: 'junk' }, { ...two, name: 'two' }]), [two]);
+  assert.deepEqual(config.get('paneShapes'), [two]);
+  assert.deepEqual(await shapes(popout, []), [], 'a pop-out gets nothing');
+  assert.deepEqual(config.get('paneShapes'), [two], 'and saves nothing');
+  assert.deepEqual(await shapes(panel, []), []);
 });

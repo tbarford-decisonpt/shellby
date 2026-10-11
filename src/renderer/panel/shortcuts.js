@@ -28,6 +28,9 @@
     { id: 'focusPane', fixed: true, group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
     { id: 'movePane', fixed: true, group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation into the pane beside it, with its tabs (at the left or right edge, into a column of its own)' },
     { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'This conversation into a pane of its own, or a new one alongside if it’s alone in its pane (or drag a tab into the chat, or out of the window)' },
+    { id: 'swapPane', fixed: true, group: 'Conversations', keys: ['Alt+Shift+←', 'Alt+Shift+→', 'Alt+Shift+↑', 'Alt+Shift+↓'], what: 'Swap this pane with the one beside it (or drag its header onto another)' },
+    { id: 'nextNeeds', group: 'Conversations', keys: ['Alt+J'], what: 'The next conversation waiting for your OK, whichever pane it’s in' },
+    { id: 'zoomPane', group: 'Conversations', keys: ['Ctrl+Alt+Enter'], what: 'Fill the chat with this pane, and back again, when they’re side by side' },
     { id: 'reopenTab', group: 'Conversations', keys: ['Ctrl+Shift+T'], what: 'Bring back the conversation you closed last (again for the one before)' },
 
     { id: 'stop', fixed: true, group: 'This conversation', keys: ['Esc'], what: 'Stop, while he’s working' },
