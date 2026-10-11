@@ -160,6 +160,13 @@
     }
     if (demo.usage) SB.applyUsage(demo.usage);
     SB.activate(demo.active || demo.tabs[0].id);
+    // demo.grid: columns of tab ids, one pane each (the split-panes shot).
+    if (demo.grid) {
+      let n = 0;
+      state.grid = demo.grid.map(col => col.map(id => ({ id: `demo-p${++n}`, tabs: [id], active: id })));
+      SB.renderPanes();
+      SB.renderTabStrip();
+    }
     SB.refreshEmptyStates();
     SB.clearCelebrations();
     SB.setView(demo.view || 'chat');
