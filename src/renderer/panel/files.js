@@ -55,8 +55,32 @@
       code.replaceWith(a);
       a.append(code);
     }
+    // And in plain prose, outside backticks, but only when it can't be anything
+    // else: a folder in it and an extension code uses (`see src/main/x.js:42`).
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => (n.parentElement.closest('pre, code, a, button') || !/[\\/]/.test(n.nodeValue) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      const text = node.nodeValue;
+      const parts = [];
+      let last = 0;
+      for (const m of text.matchAll(PROSE_PATH)) {
+        const t = m[2].replace(/[.,;:)]+$/, '');
+        const pm = t.match(PATHISH);
+        if (!pm || !/[\\/]/.test(t) || !EXTS.has(pm[1].toLowerCase())) continue;
+        const at = m.index + m[1].length;
+        parts.push(text.slice(last, at), SB.fileLink(t, { line: pm[2] ? Number(pm[2]) : null, text: t }));
+        last = at + t.length;
+      }
+      if (!parts.length) continue;
+      node.replaceWith(...parts, text.slice(last));
+    }
     return el;
   };
+  // A path-shaped word in prose: what's before it (start or a space or bracket), then the word.
+  const PROSE_PATH = /(^|[\s(["'])((?:[A-Za-z]:[\\/]|\.{1,2}[\\/]|~[\\/])?[\w@.+-]+(?:[\\/][\w@.+-]+)+(?::\d+(?::\d+)?)?)/g;
 
   // ------------------------------------------------------------ an edit's diff
 

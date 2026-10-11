@@ -14,6 +14,8 @@
   // Top-level blocks kept in one conversation's feed. Past this the oldest are
   // dropped (see Tab.trim); the transcript on disk is never touched.
   const MAX_BLOCKS = 400;
+  // How often the reply being written is formatted again as more of it arrives.
+  const LIVE_MS = 120;
 
   // A fork: one line that splits in two (try again from here, in a new tab).
   // Drawn rather than the ⑂ character, which most fonts render tiny and faint.
@@ -198,15 +200,18 @@
           // What Claude guessed you'd ask next is spent once you've asked something.
           if (!replay && this.nextPrompt) { this.nextPrompt = null; if (this.isActive) SB.renderNextPrompt?.(this); }
           return this.renderUser(item);
-        // Claude's reply as it's written (--include-partial-messages), plain until it's done.
+        // Claude's reply as it's written (--include-partial-messages), formatted
+        // as it goes, so the finished one takes its place without a jump.
         case 'partial':
           if (replay) return;
           if (!this.live) {
             this.live = this.append(h('div', { class: 'msg assistant live', 'aria-busy': 'true' }));
+            this.liveText = '';
             this.setStatus('Writing…');
           }
-          this.live.append(item.text);
-          if (this.stuck && this.isShown) this.scrollToEnd();
+          this.liveText += item.text;
+          // A few times a second at most: a long reply arrives in hundreds of pieces.
+          this.liveTimer ??= setTimeout(() => this.paintLive(), LIVE_MS);
           return;
         // What Claude Code thinks you'll ask next (native-cli.js shows it by the box).
         case 'next':
@@ -235,6 +240,11 @@
         }
         case 'thinking':
           if (!replay && !item.sub) this.setStatus('Thinking…');
+          // What it thought, folded away: there to read, never in the way of the reply.
+          if (item.text) {
+            const body = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: 'msg assistant thought-body' }), item.text));
+            return this.append(h('details', { class: 'thought' }, h('summary', { text: 'Thought it through' }), body), item.parent);
+          }
           return;
         case 'tool':
           if (item.agent) return this.renderLane(item, replay);
@@ -303,13 +313,24 @@
     }
 
     // The words written so far go: the finished reply (or the turn's end) takes their place.
+    paintLive() {
+      this.liveTimer = null;
+      if (!this.live) return;
+      SB.linkifyPaths(SB.renderMarkdownInto(this.live, this.liveText));
+      if (this.stuck && this.isShown) this.scrollToEnd();
+    }
+
     endLive() {
+      clearTimeout(this.liveTimer);
+      this.liveTimer = null;
       this.live?.remove();
       this.live = null;
     }
 
     // Everything drawn so far goes, and the empty state is back.
     wipe() {
+      clearTimeout(this.liveTimer);
+      this.liveTimer = null;
       this.live = null;
       for (const el of [...this.el.children]) if (el !== this.empty) el.remove();
       this.tools.clear();
@@ -338,7 +359,9 @@
     // it's in the log, and Copy details puts it on the clipboard. A transcript
     // from before Shellby said it this way shows the program's words, as it did.
     troubleBlock(trouble, raw) {
-      if (!trouble?.message) return h('div', { class: 'error-block', text: raw });
+      if (!trouble?.message) {
+        return h('div', { class: 'error-block raw' }, h('div', { class: 'error-raw', text: raw }), raw?.trim() ? SB.copyButton(() => raw, 'the error') : null);
+      }
       const act = trouble.action && trouble.action.id !== 'copy'
         ? h('button', { class: 'btn slim-btn', type: 'button', onclick: () => SB.troubleAction(trouble.action.id, this) }, trouble.action.label)
         : null;
@@ -422,7 +445,7 @@
       // A message sent, a to-do ticked: what the tool said back is noise unless it went wrong.
       // Its pictures stand in for the "[image]" Claude Code's text has where they were.
       const text = item.pictures?.length ? (item.text || '').replace(/^\[image\]$/gm, '').trim() : item.text;
-      if (text?.trim() && !((el.dataset.edit || el.dataset.quiet) && !item.isError)) el.append(h('pre', { class: 't-result', text }));
+      if (text?.trim() && !((el.dataset.edit || el.dataset.quiet) && !item.isError)) el.append(SB.resultBox(text, { err: !!item.isError }));
       if (item.isError) return;
       const label = el.querySelector('.t-label')?.textContent || 'this step';
       const pictures = [

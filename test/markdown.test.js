@@ -113,3 +113,80 @@ test('a table interrupts a paragraph and a list cleanly', () => {
   const list = render('- one\n- two\n\n| A |\n|---|\n| 1 |');
   assert.match(list, /<\/ul><div class="md-table">/);
 });
+
+// ---------------------------------------------------------------- blocks in blocks
+
+test('a quote holds its own blocks, and lazy lines carry on its paragraph', () => {
+  assert.equal(render('> quoted **bold**\n> more\nlazy\n\nafter'), '<blockquote><p>quoted <strong>bold</strong>\nmore\nlazy</p></blockquote><p>after</p>');
+  assert.match(render('> - a\n> - b'), /<blockquote><ul><li>a<\/li><li>b<\/li><\/ul><\/blockquote>/);
+  // Still escaped: a quote is the only thing a > at the start of a line makes.
+  assert.ok(!render('> <b>x</b>').includes('<b>'));
+});
+
+test('lists nest by indentation, ordered and unordered alike', () => {
+  assert.equal(render('- a\n  - b\n    - c\n- d'), '<ul><li>a<ul><li>b<ul><li>c</li></ul></li></ul></li><li>d</li></ul>');
+  assert.equal(render('1. one\n   - sub\n2. two'), '<ol><li>one<ul><li>sub</li></ul></li><li>two</li></ol>');
+});
+
+test('a list item can hold a second paragraph or a code block', () => {
+  assert.equal(render('- one\n\n  more of one\n- two'), '<ul><li><p>one</p><p>more of one</p></li><li><p>two</p></li></ul>');
+  assert.equal(render('- item\n\n  ```js\n  code\n  ```'), '<ul><li><p>item</p><pre><code data-lang="js">code</code></pre></li></ul>');
+});
+
+test('an ordered list keeps the number it starts at', () => {
+  assert.equal(render('3. three\n4. four'), '<ol start="3"><li>three</li><li>four</li></ol>');
+});
+
+test('only "1." starts a list mid-paragraph, so a wrapped sentence stays one', () => {
+  assert.equal(render('Year\n2024. was good'), '<p>Year\n2024. was good</p>');
+  assert.match(render('Steps:\n1. go'), /<p>Steps:<\/p><ol><li>go<\/li><\/ol>/);
+});
+
+test('task lists tick on data-done', () => {
+  assert.equal(render('- [ ] todo\n- [x] done'), '<ul class="md-tasks"><li class="md-task" data-done="0">todo</li><li class="md-task" data-done="1">done</li></ul>');
+});
+
+test('headings go down to ######, and closing hashes drop', () => {
+  assert.equal(render('##### five'), '<h6>five</h6>');
+  assert.equal(render('## Two ##'), '<h4>Two</h4>');
+  assert.ok(!render('#hashtag').includes('<h'));
+});
+
+test('an unclosed fence runs to the end and says so; ~~~ fences work', () => {
+  assert.equal(render('```js\na\n\nb'), '<pre><code data-lang="js" data-open="1">a\n\nb</code></pre>');
+  assert.equal(render('~~~py\nx = 1\n~~~  \nafter'), '<pre><code data-lang="py">x = 1</code></pre><p>after</p>');
+  // A shorter fence inside doesn't close a longer one.
+  assert.equal(render('````md\n```\n````'), '<pre><code data-lang="md">```</code></pre>');
+});
+
+test('thematic breaks: ---, * * * and ___', () => {
+  assert.equal(render('* * *\n___'), '<hr><hr>');
+});
+
+// ---------------------------------------------------------------- inline
+
+test('strikethrough, bold-italic, __bold__ and bold around a star', () => {
+  assert.equal(render('~~gone~~ ***both*** __strong__ **a*b**'), '<p><del>gone</del> <strong><em>both</em></strong> <strong>strong</strong> <strong>a*b</strong></p>');
+  assert.ok(!render('my__dunder__name').includes('<strong>'));
+});
+
+test('double-backtick code spans hold a backtick', () => {
+  assert.equal(render('``a`b`` and ` x `'), '<p><code>a`b</code> and <code>x</code></p>');
+});
+
+const link = u => `<a data-href="${u}" href="#" title="${u}">`;
+
+test('bare and <bracketed> https addresses link, less trailing punctuation', () => {
+  const out = render('see https://ex.com/a_(b). and <https://x.com/q?a=1&b=2>, (https://y.com)');
+  assert.ok(out.includes(`${link('https://ex.com/a_(b)')}https://ex.com/a_(b)</a>.`));
+  assert.ok(out.includes(`${link('https://x.com/q?a=1&amp;b=2')}https://x.com/q?a=1&amp;b=2</a>,`));
+  assert.ok(out.includes(`(${link('https://y.com')}https://y.com</a>)`));
+  // Never inside code, never a second link inside a markdown one, never http.
+  assert.equal(render('`https://a.test`'), '<p><code>https://a.test</code></p>');
+  assert.equal(render('[https://a.test](https://a.test)'), `<p>${link('https://a.test')}https://a.test</a></p>`);
+  assert.ok(!render('http://a.test').includes('<a'));
+});
+
+test('a markdown link keeps one level of parentheses in its URL', () => {
+  assert.ok(render('[wiki](https://en.wikipedia.org/wiki/Crab_(disambiguation))').includes(link('https://en.wikipedia.org/wiki/Crab_(disambiguation)')));
+});

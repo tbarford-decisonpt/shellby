@@ -340,7 +340,8 @@ function toItems(ev) {
         const goal = own && b.type === 'text' ? goalOf(b.text) : null;
         if (goal) out.push(goal);
         if (b.type === 'text' && b.text?.trim()) out.push({ kind: 'text', text: b.text.trim(), ...sub });
-        else if (b.type === 'thinking') out.push({ kind: 'thinking', ...sub });
+        // Its text, when Claude Code passes it on: it often sends the block empty, signature only.
+        else if (b.type === 'thinking') out.push({ kind: 'thinking', ...(b.thinking?.trim() ? { text: b.thinking.trim() } : {}), ...sub });
         else if (b.type === 'tool_use') out.push(toolItem(b, sub));
       }
       return out;

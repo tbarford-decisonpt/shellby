@@ -64,6 +64,38 @@
     }, 'Copy');
   }
 
+  // Long lines scroll sideways by default, which keeps code's shape; this folds them to the panel instead.
+  function wrapButton(pre) {
+    return h('button', {
+      class: 'code-copy code-wrap', type: 'button', title: 'Wrap long lines', 'aria-pressed': 'false',
+      onclick: (e) => {
+        e.stopPropagation();
+        const on = pre.classList.toggle('wrap');
+        e.currentTarget.setAttribute('aria-pressed', String(on));
+      },
+    }, 'Wrap');
+  }
+
+  /**
+   * What a tool said back, with Copy, and a long one opens to its full height
+   * on a click instead of scrolling inside a 240px box. `err` marks a step that failed.
+   */
+  SB.resultBox = (text, { err = false } = {}) => {
+    const pre = h('pre', { class: `t-result${err ? ' err' : ''}`, text });
+    const long = text.length > 1200 || text.split('\n').length > 14;
+    const more = long ? h('button', {
+      class: 'code-copy t-more', type: 'button', 'aria-expanded': 'false',
+      onclick: (e) => {
+        e.stopPropagation();
+        const open = pre.classList.toggle('full');
+        e.currentTarget.setAttribute('aria-expanded', String(open));
+        e.currentTarget.textContent = open ? 'Show less' : 'Show all';
+      },
+    }, 'Show all') : null;
+    return h('div', { class: 't-result-box' }, h('div', { class: 't-result-bar' }, more, copyButton(() => text, 'the output')), pre);
+  };
+  SB.copyButton = copyButton;
+
   function diagram(pre, source) {
     const scene = M.layout(M.parse(source), measure);
     if (!scene) return false;
@@ -113,8 +145,12 @@
       const lang = (code.dataset.lang || '').toLowerCase();
       if (lang === 'mermaid' && M && diagram(pre, source)) continue;
       paint(code, source, S.langOf(lang));
+      // A fence that never closed, in a finished reply: the reply stopped mid-block.
+      const cut = code.dataset.open && !el.classList.contains('live');
       const bar = h('div', { class: 'code-bar' },
         lang ? h('span', { class: 'code-lang', text: lang }) : null,
+        cut ? h('span', { class: 'code-cut', text: 'cut off', title: 'The reply ended before this block was closed' }) : null,
+        source.includes('\n') || source.length > 60 ? wrapButton(pre) : null,
         copyButton(() => source, 'this code'));
       const box = h('div', { class: 'code-block' });
       pre.replaceWith(box);

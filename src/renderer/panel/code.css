@@ -34,6 +34,8 @@
   background: none; color: var(--sand-dim); font: var(--fs-11) var(--font-body); cursor: pointer;
 }
 .code-bar .code-copy + .code-copy { margin-left: 0; }
+.code-wrap[aria-pressed="true"] { color: var(--glass); }
+.code-cut { font: var(--fs-10) var(--font-mono); color: var(--amber); }
 .code-copy:hover { background: var(--reef-3); color: var(--sand); }
 .code-copy:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
 
