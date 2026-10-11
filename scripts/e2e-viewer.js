@@ -154,6 +154,20 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until("document.getElementById('viewerNote').textContent === 'Nothing has changed here.'"), 'and says when nothing has');
     await ev("SB.setView('chat')");
 
+    // ---- the Project page: Browse files, and its worktrees open in the viewer
+    await ev("SB.setView('projects')");
+    const name = path.basename(repo);
+    check(await until(`[...document.querySelectorAll('#pjProjects .pj-row-name b')].some(b => b.textContent === ${JSON.stringify(name)})`), 'the project is on the list');
+    await ev(`[...document.querySelectorAll('#pjProjects .pj-row')].find(b => b.textContent.includes(${JSON.stringify(name)})).click()`);
+    check(await until("[...document.querySelectorAll('#pjDetailScreen .pj-clone-head button')].some(b => b.textContent === 'Browse files')"), 'its clone has Browse files');
+    check(await until("document.querySelectorAll('#pjDetailScreen .pj-copy-open').length === 1", 20000), "and its copy is listed, ready to open");
+    await ev("document.querySelector('#pjDetailScreen .pj-copy-open').click()");
+    check(await until(`SB.state.view === 'viewer' && SB.viewer.current()?.files.length === ${MADE.length}`), "the copy opens in the viewer with what it changed");
+    await ev("SB.setView('projects')");
+    await ev("[...document.querySelectorAll('#pjDetailScreen .pj-clone-head button')].find(b => b.textContent === 'Browse files').click()");
+    check(await until(`SB.state.view === 'viewer' && SB.viewer.current()?.root.toLowerCase() === ${JSON.stringify(repo)}.toLowerCase() && SB.viewer.current().side === 'files' && SB.viewer.current().files.length === 0`), 'Browse files opens the checkout itself, clean, on All files');
+    await shot('3-project-page');
+
     console.log(fails ? `\n${fails} failed` : '\nall passed');
     process.exitCode = fails ? 1 : 0;
   } catch (err) {

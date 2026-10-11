@@ -310,6 +310,10 @@ body[data-view="projects"] .view-projects {
 }
 .pj-copies { margin-top: 8px; }
 .pj-copy-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0 3px 12px; }
+.pj-copy-list li:has(> .pj-copy-open) { padding: 0; }
+.pj-copy-open { display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 4px 3px 12px; border: 0; border-radius: var(--r-sm); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pj-copy-open code { flex: 1; min-width: 0; }
+.pj-copy-open:hover, .pj-copy-open:focus-visible { background: var(--line-soft); }
 .pj-copy-list code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fs-11) var(--font-mono); color: var(--sand-dim); }
 .pj-detail-foot { margin-top: 4px; }
 
