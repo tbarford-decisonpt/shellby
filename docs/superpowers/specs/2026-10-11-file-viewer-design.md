@@ -114,7 +114,7 @@ Snapshots hash the working folder into git, the same work `branch:compare` does.
 
 - `src/main/viewer.js`: handle store, `readInside`, base choice. Pure where possible, covered by node:test.
 - `src/main/ipc/viewer.js`: the channels, registered in `src/main/ipc/index.js`, exposed in `src/preload/preload.js`, and typed for `npm run typecheck`.
-- `src/renderer/shared/filetree.js`: pure flat-list-to-tree with change marks, covered by node:test.
+- `src/renderer/shared/viewer-logic.js`: pure flat-list-to-tree with change marks, numbered diffs and the live state, covered by node:test.
 - Renderer: a new view (`html/viewer.html`, included in `frame.html`, registered in `SB.views`), its script and CSS. It reuses `syntax.js` / `SB.paintTokens` for colour, `F.diffRows` for parsing patches, and the line-number gutter style of `SB.diffView`.
 - `src/renderer/panel/files.js`: the link click routes through `viewer:locate`.
 - `src/renderer/panel/project-page.js`: `copiesList` rows become clickable, plus "Browse files".
@@ -160,7 +160,7 @@ The header's live state comes from what the renderer already knows about the tab
   - Base choice for a copy, another worktree, a plain checkout, and merge-base failing.
   - The handle cap, and diffs refused for paths not on the list.
 - **node:test, IPC:** remote tabs refused, and worktree paths `git worktree list` didn't report refused.
-- **node:test, `filetree.js`:** tree building and change marks.
+- **node:test, `viewer-logic.js`:** tree building, change marks and diff numbering.
 - **Link routing:** click goes to the viewer, Ctrl to the editor, Shift to Explorer, and outside-folder paths fall back to the editor.
 - **e2e, `e2e-viewer.js`, added to `e2e:ci`:**
   - The fake Claude edits a file in a copy, in a two-pane layout.
