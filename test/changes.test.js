@@ -244,3 +244,32 @@ test('mayWrite: file tools and unknown tools could write; reads and results coul
   assert.equal(mayWrite({ kind: 'tool_result', name: 'Edit' }), false);
   assert.equal(mayWrite(null), false);
 });
+
+test('snapshot: an empty index (no commits, or everything un-staged) still lists the files as a tree', async () => {
+  const mk = () => {
+    const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-changes-empty-')));
+    const g = (...a) => execFileSync('git', ['-C', d, ...a], { encoding: 'utf8', windowsHide: true });
+    g('init', '-q');
+    g('config', 'user.email', 't@example.com');
+    g('config', 'user.name', 'T');
+    g('config', 'core.autocrlf', 'false');
+    fs.writeFileSync(path.join(d, 'a.txt'), 'one\n');
+    fs.writeFileSync(path.join(d, 'b.txt'), 'two\n');
+    return { d, g };
+  };
+  const files = async (d, tree) => (await execFileSync('git', ['-C', d, 'ls-tree', '-r', '--name-only', tree], { encoding: 'utf8' })).trim().split('\n').sort();
+  const fresh = mk();
+  const unborn = await snapshot(fresh.d, {}, { hooks: false });
+  assert.ok(unborn, 'no commits, nothing staged');
+  assert.equal(unborn.head, null);
+  assert.deepEqual(await files(fresh.d, unborn.tree), ['a.txt', 'b.txt']);
+  const committed = mk();
+  committed.g('add', '-A');
+  committed.g('commit', '-qm', 'init');
+  committed.g('rm', '-r', '-q', '--cached', '.');
+  const snap = await snapshot(committed.d, {});
+  assert.ok(snap, 'commits, but an empty index');
+  assert.deepEqual(await files(committed.d, snap.tree), ['a.txt', 'b.txt']);
+  fs.rmSync(fresh.d, { recursive: true, force: true });
+  fs.rmSync(committed.d, { recursive: true, force: true });
+});

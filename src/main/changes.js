@@ -92,8 +92,13 @@ async function snapshot(dir, info = null, { hooks = true } = {}) {
     try { await fs.promises.copyFile(realIndex, tmp); } catch (e) { if (e.code !== 'ENOENT') throw e; }
     const env = { GIT_INDEX_FILE: tmp };
     const pre = hooks ? [] : noHooks();
-    const tracked = await git(root, [...pre, 'add', '-u', '--', '.'], { env });
-    if (!tracked.ok) return null;
+    // add -u fails when the index is empty (a repo with no commits, or every file un-staged): nothing to refresh.
+    const known = await git(root, ['ls-files', '-z'], { env });
+    if (!known.ok) return null;
+    if (known.out) {
+      const tracked = await git(root, [...pre, 'add', '-u', '--', '.'], { env });
+      if (!tracked.ok) return null;
+    }
     const others = await git(root, ['ls-files', '-z', '--others', '--exclude-standard'], { env });
     if (!others.ok) return null;
     const untracked = others.out.split('\0').filter(Boolean);
@@ -482,4 +487,4 @@ async function treeWith(root, tree, file) {
   }
 }
 
-module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, MAX_UNTRACKED_BYTES, noHooks, mapLimit, summarize, scope, newTouch, noteTool, mayWrite, patchFor, undo, undoHunk, splitHunks, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
+module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, scope, newTouch, noteTool, mayWrite, patchFor, undo, undoHunk, splitHunks, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };

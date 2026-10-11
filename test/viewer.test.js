@@ -233,6 +233,45 @@ test('a repeat within 2 s is answered from the last look; a different mode looks
   } finally { r.done(); }
 });
 
+test('a nudge while a look is running: the next call looks again, and the old look answers nothing later', async () => {
+  const r = repo();
+  try {
+    const v = createViewer();
+    const h = await v.open({ dir: r.dir });
+    const first = v.changesOf(h.id);        // running...
+    r.write(r.dir, 'late.txt', 'x\n');       // ...a write lands...
+    v.staleFor(r.dir);                       // ...and the folder is nudged
+    const second = await v.changesOf(h.id);
+    assert.ok(second.files.some(f => f.path === 'late.txt'), 'the call after a nudge is not absorbed by the running look');
+    await first;
+    // A look that was running when the nudge came must not be kept as the 2 s answer.
+    const running = v.changesOf(h.id, { uncommittedOnly: true });
+    v.staleFor(r.dir);
+    await running;
+    r.write(r.dir, 'later.txt', 'y\n');
+    const again = await v.changesOf(h.id, { uncommittedOnly: true });
+    assert.ok(again.files.some(f => f.path === 'later.txt'), 'looks again, since a nudge came while the last one ran');
+  } finally { r.done(); }
+});
+
+test('a diff is cut from the list last handed out, whichever mode it was', async () => {
+  const r = repo();
+  try {
+    const wt = worktree(r);                  // a.txt committed on the branch
+    r.write(wt, 'src/keep.js', 'const k = 2;\n'); // keep.js uncommitted
+    const v = createViewer();
+    const h = await v.open({ dir: wt });
+    assert.ok((await v.changesOf(h.id)).files.some(f => f.path === 'a.txt'));
+    assert.equal((await v.changesOf(h.id, { uncommittedOnly: true })).files.some(f => f.path === 'a.txt'), false);
+    assert.equal((await v.diffOf(h.id, 'a.txt')).ok, false, 'the list shown is the uncommitted one: a.txt is not on it');
+    r.write(wt, 'extra.txt', 'z\n');
+    const again = await v.changesOf(h.id);   // within 2 s: the last base look, reused
+    assert.equal(again.files.some(f => f.path === 'extra.txt'), false, 'answered from the earlier base look');
+    assert.equal((await v.diffOf(h.id, 'a.txt')).ok, true, 'now the base list is the one shown');
+    assert.equal((await v.diffOf(h.id, 'extra.txt')).ok, false);
+  } finally { r.done(); }
+});
+
 test('a non-local folder is refused, and a closed tab takes its handles with it', async () => {
   const r = repo();
   try {

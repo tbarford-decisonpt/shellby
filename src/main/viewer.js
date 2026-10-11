@@ -11,7 +11,6 @@
 const { execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const changes = require('./changes');
 const { parseTarget } = require('./filelinks');
@@ -24,13 +23,12 @@ const REFRESH_MS = 2000;             // a look again sooner than this is answere
 const GIT_TIMEOUT_MS = 8000;
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // what a repo with no commits is compared with
 
-function git(cwd, args, { env, input } = {}) {
+function git(cwd, args) {
   return new Promise(resolve => {
-    const child = execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...args], {
+    execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...args], {
       windowsHide: true, timeout: GIT_TIMEOUT_MS, maxBuffer: 8 * 1024 * 1024, encoding: 'utf8',
-      env: { ...process.env, ...env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
     }, (err, out) => resolve(err ? null : String(out)));
-    if (input != null) { child.stdin.on('error', () => {}); child.stdin.end(input); }
   });
 }
 
@@ -96,37 +94,6 @@ async function mainBranchFor(root) {
   return main && !sameDir(main.path, root) ? main.branch || null : null;
 }
 
-// changes.snapshot gives up on a repo with no commits: its `git add -u` finds nothing
-// known to git and fails. Same idea here for that one case: a temporary index holding
-// what is staged, plus every untracked file the snapshot would take. -> { root, tree, head: null } | null
-async function snapshotUnborn(dir, info) {
-  const root = await changes.rootOf(dir);
-  const idx = root ? (await git(root, ['rev-parse', '--git-path', 'index']))?.trim() : null;
-  if (!idx) return null;
-  const tmp = path.join(os.tmpdir(), `shellby-index-${crypto.randomBytes(6).toString('hex')}`);
-  const env = { GIT_INDEX_FILE: tmp, GIT_LITERAL_PATHSPECS: '1' };
-  const pre = changes.noHooks();
-  try {
-    try { await fs.promises.copyFile(path.resolve(root, idx), tmp); } catch (e) { if (e.code !== 'ENOENT') return null; }
-    const staged = await git(root, ['ls-files', '-z'], { env });
-    if (staged === null) return null;
-    if (staged && (await git(root, [...pre, 'add', '-u', '--', '.'], { env })) === null) return null;
-    const others = await git(root, ['ls-files', '-z', '--others', '--exclude-standard'], { env });
-    if (others === null) return null;
-    const untracked = others.split('\0').filter(Boolean);
-    if (untracked.length > changes.MAX_UNTRACKED) { info.skipped = changes.SKIPPED_TOO_MANY; return null; }
-    const fits = await changes.mapLimit(untracked, 16, async f => {
-      try { return (await fs.promises.stat(path.join(root, f))).size <= changes.MAX_UNTRACKED_BYTES; } catch { return false; }
-    });
-    const small = untracked.filter((_f, i) => fits[i]);
-    if (small.length && (await git(root, [...pre, 'add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: small.join('\0') })) === null) return null;
-    const tree = (await git(root, [...pre, 'write-tree'], { env }))?.trim();
-    return tree && /^[0-9a-f]{40}([0-9a-f]{24})?$/.test(tree) ? { root, tree, head: null } : null;
-  } finally {
-    await fs.promises.rm(tmp, { force: true }).catch(() => {});
-  }
-}
-
 /** The branch a folder's repo is on, or null (not a repo, or detached). */
 async function branchOf(dir) {
   const top = await changes.rootOf(dir);
@@ -159,7 +126,10 @@ function writeWatch(nudge) {
 }
 
 function createViewer() {
-  const handles = new Map(); // id -> { id, root, git, branch, base, tabId, files: Map(lower path -> file), ref, pending, last }
+  // id -> { id, root, git, branch, base, tabId, gen, shown, slots, pending, last }, the last four each by mode ('base' | 'head'):
+  // slots[mode] = { files: Map(lower path -> file), ref } (what a diff is cut from), pending[mode] = a look running,
+  // last[mode] = { at, result }; shown = the mode of the list the panel was last handed; gen counts nudges.
+  const handles = new Map();
   let line = Promise.resolve(); // viewer snapshots take turns: eight handles never hash a big repo at once
 
   async function open({ dir, base = null, tabId = null } = {}) {
@@ -172,15 +142,15 @@ function createViewer() {
     const against = top ? (typeof base === 'string' && base ? base : await mainBranchFor(root)) : null;
     const id = crypto.randomBytes(8).toString('hex');
     if (handles.size >= MAX_HANDLES) handles.delete(handles.keys().next().value);
-    handles.set(id, { id, root, git: !!top, branch, base: against, tabId, files: new Map(), ref: null, pending: null, last: null });
+    handles.set(id, { id, root, git: !!top, branch, base: against, tabId, gen: 0, shown: null, slots: {}, pending: {}, last: {} });
     return { ok: true, id, root, name: path.basename(root), branch, base: against, git: !!top };
   }
 
-  async function compute(h, uncommittedOnly) {
+  async function compute(h, key) {
+    const uncommittedOnly = key === 'head';
     if (!longPath(h.root)) return { ok: false, gone: true, error: 'This folder is gone.' };
     const info = {};
-    let snap = await changes.snapshot(h.root, info, { hooks: false });
-    if (!snap && !info.skipped && !(await git(h.root, ['rev-parse', '--verify', '--quiet', 'HEAD']))) snap = await snapshotUnborn(h.root, info);
+    const snap = await changes.snapshot(h.root, info, { hooks: false });
     if (!snap) return info.skipped ? { ok: false, tooManyNew: true, error: 'Too many new files to compare.' } : { ok: false, error: "Couldn't read changes." };
     const fork = !uncommittedOnly && h.base ? (await git(h.root, ['merge-base', h.base, 'HEAD']))?.trim() || null : null;
     const before = fork || snap.head || EMPTY_TREE;
@@ -192,8 +162,7 @@ function createViewer() {
       const fresh = new Set(String(out || '').split('\0').filter(s => s.startsWith('?? ')).map(s => s.slice(3).toLowerCase()));
       for (const f of files) if (f.status === 'A' && fresh.has(f.path.toLowerCase())) f.status = '?';
     }
-    h.ref = { root: snap.root, before, after: snap.tree };
-    h.files = new Map(files.map(f => [f.path.toLowerCase(), f]));
+    h.slots[key] = { ref: { root: snap.root, before, after: snap.tree }, files: new Map(files.map(f => [f.path.toLowerCase(), f])) };
     return { ok: true, files, more: sum?.more || 0, against: fork ? h.base : 'HEAD' };
   }
 
@@ -201,25 +170,31 @@ function createViewer() {
     const h = handles.get(id);
     if (!h) return Promise.resolve({ ok: false, expired: true });
     if (!h.git) return Promise.resolve({ ok: true, noGit: true, files: [], more: 0, against: null });
-    // Asked twice while the first is still hashing the folder, or again within 2 s: one snapshot answers both.
     const key = uncommittedOnly ? 'head' : 'base';
-    if (h.pending?.key === key) return h.pending.p;
-    if (h.last?.key === key && Date.now() - h.last.at < REFRESH_MS) return Promise.resolve(h.last.result);
-    const p = line.then(() => compute(h, uncommittedOnly)).then(result => {
-      if (result.ok) h.last = { key, at: Date.now(), result };
+    // The list handed out is the one a diff is cut from.
+    const shown = result => { if (result.ok) h.shown = key; return result; };
+    // Asked twice while the first is still hashing the folder, or again within 2 s: one snapshot answers both.
+    if (h.pending[key]) return h.pending[key].then(shown);
+    const last = h.last[key];
+    if (last && Date.now() - last.at < REFRESH_MS) return Promise.resolve(shown(last.result));
+    const gen = h.gen;
+    const p = line.then(() => compute(h, key)).then(result => {
+      // A nudge while it ran: this look may predate the write, so it answers no later call.
+      if (result.ok && h.gen === gen) h.last[key] = { at: Date.now(), result };
       return result;
-    }).finally(() => { if (h.pending?.p === p) h.pending = null; });
+    }).finally(() => { if (h.pending[key] === p) delete h.pending[key]; });
     line = p.catch(() => {});
-    h.pending = { key, p };
-    return p;
+    h.pending[key] = p;
+    return p.then(shown);
   }
 
   async function diffOf(id, rel) {
     const h = handles.get(id);
     if (!h) return { ok: false, expired: true };
-    const f = typeof rel === 'string' ? h.files.get(rel.toLowerCase()) : null;
-    if (!f || !h.ref) return { ok: false, error: 'Not a file in these changes.' };
-    const r = await changes.patchFor({ ...h.ref, file: f.path });
+    const slot = h.slots[h.shown];
+    const f = typeof rel === 'string' ? slot?.files.get(rel.toLowerCase()) : null;
+    if (!f) return { ok: false, error: 'Not a file in these changes.' };
+    const r = await changes.patchFor({ ...slot.ref, file: f.path });
     return r.error ? { ok: false, error: r.error } : { ok: true, patch: r.patch, truncated: r.truncated, binary: f.binary };
   }
 
@@ -228,13 +203,14 @@ function createViewer() {
     return h ? readInside(h.root, rel) : { ok: false, expired: true };
   }
 
-  // The handles a changed folder belongs to. Their last look no longer answers a repeat:
+  // The handles a changed folder belongs to. Their last look no longer answers a repeat, and a look
+  // still running no longer answers one either (it may have hashed the folder before the write):
   // the 2 s reuse only absorbs asking twice, never a real change.
   function staleFor(dir) {
     if (typeof dir !== 'string' || !path.isAbsolute(dir)) return [];
     const at = longPath(dir) || path.resolve(dir);
     const hit = [...handles.values()].filter(h => path.relative(h.root, at) === '' || isUnder(h.root, at));
-    for (const h of hit) h.last = null;
+    for (const h of hit) { h.gen++; h.last = {}; h.pending = {}; }
     return hit.map(h => h.id);
   }
 
