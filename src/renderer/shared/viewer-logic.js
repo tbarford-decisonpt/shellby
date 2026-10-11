@@ -73,7 +73,8 @@
     // Everything before a file's first @@ is its header (diff --git, index, ---, +++, modes);
     // after it, a removed "-- note" is "--- note", and that's code.
     let a = 0, b = 0, inHeader = true;
-    for (const line of String(patch || '').replace(/\n$/, '').split('\n')) {
+    for (const raw of String(patch || '').replace(/\n$/, '').split('\n')) {
+      const line = raw.replace(/\r$/, ''); // a CRLF file's lines end in \r in its patch
       if (line.startsWith('diff --git')) inHeader = true;
       const m = HUNK.exec(line);
       if (m) { inHeader = false; a = Number(m[1]); b = Number(m[2]); rows.push({ cls: 'hunk', text: line, oldNo: null, newNo: null }); continue; }
@@ -93,6 +94,25 @@
     return lines;
   }
 
+  /**
+   * The header's "where": name · branch (from base). The list is relative to HEAD instead when
+   * git found no merge-base with the base, and then it says so rather than claim "(from main)".
+   * against: from the last changes answer, null before the first; only: Just uncommitted is on
+   * (relative to HEAD by choice, so the branch is still from its base).
+   */
+  function whereText({ name, branch, base, against, only } = {}) {
+    const from = !branch || !base ? '' : against === 'HEAD' && !only ? ' (since the last commit)' : ` (from ${base})`;
+    return [name, branch && branch + from].filter(Boolean).join(' · ');
+  }
+
+  // A folder the Files button would open that's the home folder or a whole drive. Main refuses
+  // those (and any folder above home, or a dotfiles repo at ~), so the button hides for them.
+  function tooWide(dir, home) {
+    const norm = p => String(p || '').replace(/[\\/]+$/, '').toLowerCase();
+    const d = norm(dir);
+    return !d || /^[a-z]:$/.test(d) || (!!home && d === norm(home));
+  }
+
   /** The conversation's state for the viewer's header, from the panel's tab. */
   function liveState(tab) {
     if (!tab) return null;
@@ -101,7 +121,7 @@
     return { word: 'Done', cls: 'done' };
   }
 
-  const api = { buildTree, visibleRows, numberDiff, splitLines, liveState, statusWord, statusClass, STATUS_WORDS };
+  const api = { buildTree, visibleRows, numberDiff, splitLines, whereText, tooWide, liveState, statusWord, statusClass, STATUS_WORDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyViewer = api;
 })(typeof window !== 'undefined' ? window : globalThis);

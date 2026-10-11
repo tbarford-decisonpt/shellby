@@ -177,7 +177,7 @@
       if (!tab || !SB.viewer?.canOpen(tab)) return;
       return SB.openMenu($('branchMenu'), $('branchChip'), () => [
         h('div', { class: 'menu-label', text: `On branch ${$('branchLabel').textContent}` }),
-        viewChangesItem(tab, 'Files changed since the last commit, with their diffs'),
+        viewChangesItem(tab, 'Files changed here, with their diffs'),
       ]);
     }
     // Other tries at the same thing (branching.js): compare with them, or keep this one.

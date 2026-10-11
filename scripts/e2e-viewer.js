@@ -1,7 +1,7 @@
 // ci: the file viewer: a copy's changes and diffs, whole files, live refresh, Esc back to the panes
 // The file viewer (panel/viewer.js, main's viewer.js) end to end against the
 // fake CLI: a conversation in its own copy edits files, the viewer lists them
-// with diffs and both sides' line numbers, a second edit shows up on its own,
+// with diffs and the new side's line numbers, a second edit shows up on its own,
 // and Esc puts the split panes back as they were.
 //   node scripts/e2e-viewer.js [--shots <dir>]
 const { spawn, execFileSync } = require('child_process');
@@ -167,6 +167,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev("[...document.querySelectorAll('#pjDetailScreen .pj-clone-head button')].find(b => b.textContent === 'Browse files').click()");
     check(await until(`SB.state.view === 'viewer' && SB.viewer.current()?.root.toLowerCase() === ${JSON.stringify(repo)}.toLowerCase() && SB.viewer.current().side === 'files' && SB.viewer.current().files.length === 0`), 'Browse files opens the checkout itself, clean, on All files');
     await shot('3-project-page');
+    await ev("document.getElementById('viewerBack').click()");
+    check(await until("SB.state.view === 'projects'"), 'Back goes to the Project page it was opened from');
 
     console.log(fails ? `\n${fails} failed` : '\nall passed');
     process.exitCode = fails ? 1 : 0;

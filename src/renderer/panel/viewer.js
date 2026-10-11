@@ -41,8 +41,11 @@
     const r = await api.viewerOpen(req).catch(() => null);
     if (!r?.ok) return SB.toast(r?.error || "Couldn't open that folder.");
     if (cur && cur.id !== r.id) api.viewerClose(cur.id);
+    // Back (and Esc) return to where it was opened from: the chat, or the Project page.
+    // Opened again from inside the viewer (a file link in it), it keeps the first.
+    const from = state.view === 'viewer' ? cur?.from || null : state.view;
     const me = cur = {
-      ...r, req, tabId: req.tabId || null, side, only: false, files: [], more: 0, against: null, note: null, gone: false, dirty: false,
+      ...r, req, from, tabId: req.tabId || null, side, only: false, files: [], more: 0, against: null, note: null, gone: false, dirty: false,
       entries: [], open: new Set(), filter: '', file: file || lastFile.get(r.root) || null, line, whole: !!line,
     };
     $('viewerFilter').value = '';
@@ -85,7 +88,7 @@
 
   function draw() {
     if (!cur) return;
-    $('viewerWhere').textContent = [cur.name, cur.branch && (cur.base ? `${cur.branch} (from ${cur.base})` : cur.branch)].filter(Boolean).join(' · ');
+    $('viewerWhere').textContent = V.whereText(cur);
     $('viewerWhere').title = cur.root;
     drawLive();
     if (cur.gone) {
@@ -192,7 +195,7 @@
     if (!r.ok) return note(r.error || "Couldn't read the diff.", true);
     const rows = V.numberDiff(r.patch);
     if (!rows.length) return note('No line changes (a mode or line-ending change).');
-    const paint = SB.diffPainter?.(f.path);
+    const paint = rows.length > MAX_COLOUR_LINES ? null : SB.diffPainter?.(f.path); // plain past the cap, as wholeFile
     const pre = h('pre', { class: 'vw-code diff' }, rows.map(row => {
       const code = h('span', { class: 'code' });
       const toks = paint && row.cls !== 'meta' ? paint(row.cls, row.text) : null;
@@ -252,6 +255,7 @@
   });
   // Shown again (Back to chat, then the Files button, or SB.setView): catch up on what it missed.
   SB.views.viewer = {
+    parent: () => cur?.from || null, // SB.goBack (nav.js)
     render() {
       if (!cur?.dirty) return;
       cur.dirty = false;
@@ -278,7 +282,7 @@
 
   SB.viewer = {
     ICON,
-    canOpen: tab => !!tab?.cwd && !SB.remotePlace(tab.cwd),
+    canOpen: tab => !!tab?.cwd && !SB.remotePlace(tab.cwd) && !V.tooWide(tab.cwd, state.home),
     openTab: (tabId, opts) => (tabId ? start({ tabId }, opts) : null),
     openWorktree: (projectRoot, worktreePath, opts) => start({ projectRoot, worktreePath }, opts),
     // A file link: in the viewer when it's inside the conversation's repo, else your editor as before.

@@ -366,7 +366,7 @@ document.addEventListener('click', e => {
 
 // ------------------------------------------------------------------ views
 
-SB.views = {};  // name -> { render?() }
+SB.views = {};  // name -> { render?(), parent?() (where Back goes, when the view knows) }
 
 // Which navigation item a screen lives under (Trophies, Crew, Council, Stickers, Finds, Tank and Us are
 // tabs of the Shellby screen, Routines sits beside Workflows under Automate), and

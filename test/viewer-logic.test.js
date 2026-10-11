@@ -58,6 +58,38 @@ test('numberDiff: a new file starts its side at 1, and a removed "-- x" line is 
   assert.deepEqual(V.numberDiff(''), []);
 });
 
+test('numberDiff: a CRLF file\'s lines keep no \\r', () => {
+  const patch = 'diff --git a/w.txt b/w.txt\r\n--- a/w.txt\r\n+++ b/w.txt\n@@ -1,2 +1,2 @@\n one\r\n-two\r\n+TWO\r\n';
+  const rows = V.numberDiff(patch);
+  assert.deepEqual(rows.map(r => [r.cls, r.text, r.oldNo, r.newNo]), [
+    ['hunk', '@@ -1,2 +1,2 @@', null, null],
+    ['ctx', 'one', 1, 1],
+    ['del', 'two', 2, null],
+    ['add', 'TWO', null, 2],
+  ]);
+});
+
+test('whereText: "(from base)", unless the list fell back to HEAD with no merge-base', () => {
+  const at = { name: 'proj', branch: 'feat', base: 'main' };
+  assert.equal(V.whereText({ ...at, against: null }), 'proj · feat (from main)', 'before the first look');
+  assert.equal(V.whereText({ ...at, against: 'main' }), 'proj · feat (from main)');
+  assert.equal(V.whereText({ ...at, against: 'HEAD' }), 'proj · feat (since the last commit)', 'no merge-base');
+  assert.equal(V.whereText({ ...at, against: 'HEAD', only: true }), 'proj · feat (from main)', 'Just uncommitted is a choice, not a fallback');
+  assert.equal(V.whereText({ name: 'proj', branch: 'main', base: null, against: 'HEAD' }), 'proj · main');
+  assert.equal(V.whereText({ name: 'notes', branch: null }), 'notes');
+});
+
+test('tooWide: the home folder and a whole drive, any case or trailing slash; a folder in home is fine', () => {
+  const home = 'C:\\Users\\Me';
+  assert.equal(V.tooWide('C:\\Users\\Me', home), true);
+  assert.equal(V.tooWide('c:\\users\\me\\', home), true);
+  assert.equal(V.tooWide('C:\\', home), true);
+  assert.equal(V.tooWide('D:/', home), true);
+  assert.equal(V.tooWide('', home), true);
+  assert.equal(V.tooWide('C:\\Users\\Me\\code\\app', home), false);
+  assert.equal(V.tooWide('C:\\Users\\Me\\code\\app', null), false, 'no home known: main still refuses it');
+});
+
 test('splitLines drops CRLF and the empty line after a final newline', () => {
   assert.deepEqual(V.splitLines('a\r\nb\r\n'), ['a', 'b']);
   assert.deepEqual(V.splitLines('a\nb'), ['a', 'b']);

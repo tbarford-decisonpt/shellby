@@ -8,7 +8,8 @@
 
   // ------------------------------------------------------------ bar + gear
 
-  SB.goBack = () => SB.setView(SB.PARENT_VIEW[state.view] || SB.homeView());
+  // A view may name its own way back (the file viewer: where it was opened from).
+  SB.goBack = () => SB.setView(SB.views[state.view]?.parent?.() || SB.PARENT_VIEW[state.view] || SB.homeView());
 
   const navButtons = [...document.querySelectorAll('[data-view-btn]')];
   // In bar order, which Work mode changes (workmode.js), so Ctrl+1… follow it.
