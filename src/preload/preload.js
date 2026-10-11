@@ -65,6 +65,9 @@ contextBridge.exposeInMainWorld('shellby', {
   openFile: (tabId, target, /** @type {{ line?: number, reveal?: boolean }} */ { line, reveal } = {}) => ipcRenderer.invoke('file:open', { tabId, target, line, reveal }),
   getEditors: invoke('editors:get'),
   zoom: invoke('panel:zoom'),
+  viewerOpen: invoke('viewer:open'), viewerTree: invoke('viewer:tree'), viewerChanges: invoke('viewer:changes'), // the file viewer (main's viewer.js), read-only
+  viewerRead: invoke('viewer:read'), viewerDiff: invoke('viewer:diff'), viewerLocate: invoke('viewer:locate'),
+  viewerBranch: invoke('viewer:branch'), viewerClose: invoke('viewer:close'), onViewerStale: on('viewer:stale'),
   claudeStatus: invoke('claude:status'),
   claudeLogin: invoke('claude:login'),
   claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"

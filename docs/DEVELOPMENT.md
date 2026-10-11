@@ -406,6 +406,7 @@ src/main/        Electron main process
                    detect, lifecycle, cheats, art, lore, battle (the bug battle, in memory only) and portraits/ (the
                    big drawings, one file per habitat; scripts/bugdex-sheet.js draws them to a PNG); wiring/bugdex.js ties it in
   fileindex.js     @ mentions: the files in a conversation's folder and a fuzzy match over them
+  viewer.js        the file viewer: handles on a folder, reads kept inside it, and what changed since its branch began; ipc/viewer.js serves it
   mention-context.js @ what Shellby knows (pure): a dev server, a red build, another chat or a note, ranked for the @ menu and
                    fenced as a block; wiring/mention-context.js lists a tab's own, saves a pick's snapshot and reads it back for composePrompt
   debug-mode.js    Debug mode (pure): the prompts, a reproduction's lines, the marked lines left behind; debug-ingest.js is the
