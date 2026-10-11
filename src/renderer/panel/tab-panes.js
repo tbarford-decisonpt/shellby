@@ -395,6 +395,7 @@
         // Working, asking or done: the same mark the strip shows (tab-strip.js tabIcon).
         stand.querySelector('.standin-meta').replaceChildren(...[SB.tabIcon(t), q ? `${q} queued` : null].filter(Boolean));
       }
+      paintTray(p, id, stand ? t : null);
       paintLane(p.head.querySelector('.pane-lane'), t);
       // A conversation in this pane asking for your OK that you aren't looking at: its header lights up.
       p.head.classList.toggle('needs-you', split && (P.byId(state.grid, id)?.tabs || []).some(x => x !== state.activeTab && asking(x)));
@@ -414,6 +415,22 @@
     // A popped-out window is named for its conversation, on the taskbar too.
     if (SB.solo && tab) document.title = $('winTitle').textContent = SB.shownTitle(tab);
   };
+
+  // The tray over the box (native-strip.js) shows only the focused pane's
+  // conversation; the others keep a line of it above their stand-in, so what
+  // they left running doesn't vanish when you click away. A click on it brings
+  // the box, and the whole tray with its output and Stop, to that pane.
+  function paintTray(p, paneId, t) {
+    const line = t && window.ShellbyTabLogic.paneTray(t.jobs, window.ShellbyTodos.summary(t.todos));
+    let el = p.slot.querySelector('.pane-tray');
+    if (!line) { el?.remove(); return; }
+    if (!el) {
+      el = h('button', { class: 'pane-tray', type: 'button', onclick: () => { const id = activeOf(paneId); if (id) SB.activate(id); } });
+      p.slot.prepend(el);
+    }
+    el.textContent = line.text;
+    el.title = line.title;
+  }
 
   // A pane's lane, beside its tabs: the branch of the copy its conversation
   // works in, and how its last checks went (turn-checks.js keeps them on the tab).

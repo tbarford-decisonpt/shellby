@@ -195,8 +195,12 @@
 
     // ------------------------------------------------------------ items
     render(item, { replay = false } = {}) {
-      // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it).
-      if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item) && this.isActive) SB.renderTodos?.(this);
+      // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it;
+      // an unfocused pane keeps a line of it, tab-panes.js).
+      if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item)) {
+        if (this.isActive) SB.renderTodos?.(this);
+        else if (!replay && this.isShown) SB.refreshPaneHeads?.();
+      }
       // The reply as it was being written gives way to whatever comes next on
       // the main thread: the finished words themselves, usually.
       if (this.live && item.kind !== 'partial' && !item.sub) this.endLive();

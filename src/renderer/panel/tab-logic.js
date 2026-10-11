@@ -136,7 +136,23 @@
     return `${step} · ${when}`;
   }
 
-  const api = { NEW_TITLE, planLine, reorder, nudgeBefore, keyTarget, stepTarget, shownTitle, firstTitle, icon, tabClass, steerPlan, queueBack, queueTag, queueText, slashCandidates };
+  // An unfocused pane's stand-in for the tray over the box (native-strip.js):
+  // what its conversation has running in the background and how far down its
+  // to-do list it is. jobs: main's jobs.js list; todo: shared/todos.js summary.
+  // -> { text, title } or null with nothing to show.
+  function paneTray(jobs, todo) {
+    const running = (jobs || []).filter(j => j.status === 'running');
+    const names = running.map(j => j.description || 'a command');
+    const parts = [];
+    if (running.length) parts.push(`⚙ ${running.length} in the background: ${names.join(', ')}`);
+    if (todo?.total > 0 && todo.done < todo.total) parts.push(`▸ ${todo.done} of ${todo.total} done`);
+    if (!parts.length) return null;
+    const title = [running.length ? `Running in the background:\n${names.map(n => `• ${n}`).join('\n')}` : '',
+      'Click to see it here, with its output and Stop'].filter(Boolean).join('\n\n');
+    return { text: parts.join(' · '), title };
+  }
+
+  const api = { NEW_TITLE, planLine, paneTray,reorder, nudgeBefore, keyTarget, stepTarget, shownTitle, firstTitle, icon, tabClass, steerPlan, queueBack, queueTag, queueText, slashCandidates };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyTabLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);
