@@ -59,7 +59,7 @@ Right side:
 Ways in:
 1. A Files button at the right end of each pane's tab strip (`.pane-head`), or of the main tab strip when there's one pane, where `.pane-head` is hidden. It opens the folder of that pane's active conversation.
 2. File paths in Claude's replies.
-3. A "View changes" entry in the branch chip menu (`tab-git.js`), which opens on Changes.
+3. A "View changes" entry in the branch chip menu (`tab-git.js`), which opens on Changes. The branch chip (`#branchChip`, `tab-chips.js`) shows for every git folder, not only Shellby copies. For a plain checkout it shows the branch name, and its menu offers just "View changes".
 4. The Worktrees list and a "Browse files" button on the Project page.
 
 The Files button is hidden for remote (ssh) tabs and for tabs with no folder yet.
@@ -76,7 +76,9 @@ Limits on purpose:
 - A tab resolves to `tab.session.cwd`. Remote tabs are refused, since their folder is a local stand-in (`src/main/remote/service.js`).
 - A worktree path is accepted only if `git worktree list` for that known project reports it (the list `leaving.js` already reads).
 
-Main resolves the folder's real path once and stores a handle `{root, base, changed}` in a map of at most 8, dropping the oldest first. It returns the handle id plus header details (name, branch, base).
+The handle's root is the git top level of that folder (`changes.rootOf`), or the folder itself when it isn't in a repo. A conversation started in a subfolder still gets the whole repo, so the changes list, the tree, reads and reply links all agree on one root.
+
+Main resolves the root's real path once and stores a handle `{root, base, changed}` in a map of at most 8, dropping the oldest first. It returns the handle id plus header details (name, branch, base).
 
 ### What "changed" is built from
 
@@ -117,7 +119,7 @@ Snapshots hash the working folder into git, the same work `branch:compare` does.
 - `src/renderer/panel/files.js`: the link click routes through `viewer:locate`.
 - `src/renderer/panel/project-page.js`: `copiesList` rows become clickable, plus "Browse files".
 - `src/renderer/panel/tab-panes.js` / `tab-strip.js`: the Files button.
-- `src/renderer/panel/tab-git.js`: "View changes" in the branch menu.
+- `src/renderer/panel/tab-git.js`: "View changes" in the branch menu. `src/renderer/panel/tab-chips.js`: the branch chip shows for every git folder.
 - `docs/THREAT-MODEL.md`: a new "Renderer → main file read" row.
 
 ## Staying fresh
@@ -147,6 +149,7 @@ The header's live state comes from what the renderer already knows about the tab
 | File gone between list and open | "This file is gone". A deleted (D) entry still shows its diff, with Whole file turned off |
 | Handle dropped (cap or reload) | The UI reopens it once, silently |
 | More than 500 changes | "Showing the first 500 of N" |
+| Too many untracked files to snapshot (`snapshot` returns null with `SKIPPED_TOO_MANY`) | "Too many new files to compare". The tree still works |
 | Patch over 400 KB, file over 2 MB, binary | A short note and "Open in editor" |
 
 ## Tests
