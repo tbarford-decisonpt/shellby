@@ -595,8 +595,9 @@ class ClaudeSession extends EventEmitter {
   // decision: 'allow' | 'always' | 'deny'. answers: AskUserQuestion's
   // { [question text]: chosen label(s) or the user's own words }. via: 'phone'
   // when it was answered from a notification (replies.js), 'deck' from a Stream
-  // Deck key (deck.js), so the card says so.
-  respond(requestId, decision, message, answers, via) {
+  // Deck key (deck.js), so the card says so. afterPlan: the mode an approved
+  // plan's work goes on in (a note's Plan, sessions.js), else Claude Code's default.
+  respond(requestId, decision, message, answers, via, afterPlan = null) {
     const item = this.pending.get(requestId);
     if (!item) return false;
     this.pending.delete(requestId);
@@ -614,6 +615,11 @@ class ClaudeSession extends EventEmitter {
       }
       if (decision === 'always' && item.suggestions.length) response.updatedPermissions = item.suggestions;
       if (item.toolName === 'ExitPlanMode') this.setPlanning(false); // the plan's approved: on to the work
+      // As Claude Code's own "Yes, and auto-accept edits" does: the mode rides on the approval.
+      if (item.toolName === 'ExitPlanMode' && afterPlan && afterPlan !== 'plan' && CLI_MODE[afterPlan]) {
+        response.updatedPermissions = [...(response.updatedPermissions || []), { type: 'setMode', mode: CLI_MODE[afterPlan], destination: 'session' }];
+        this.mode = afterPlan;
+      }
     }
     this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
     this.emitItem({ kind: 'decision', requestId, decision, toolName: item.toolName, ...(via === 'phone' || via === 'deck' ? { via } : {}) });
