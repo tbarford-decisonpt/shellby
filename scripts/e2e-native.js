@@ -133,7 +133,9 @@ async function connect(url) {
     await ev(`[...${card}.querySelectorAll('button')].find(b => b.textContent === 'Send 1 note').click()`);
     await idle();
     const sent = await lastReply();
-    check(/^PLAN SENT BACK: The user read your plan/.test(sent) && /> Add a cache in front of it/.test(sent) && /Skip the cache, it is fast enough\./.test(sent), 'Claude gets the line and the note');
+    // The fake echoes what it got, and the feed renders its "> line" as a quote.
+    const quoted = await ev("[...SB.activeTab().el.querySelectorAll('.msg.assistant:not(.sub)')].pop()?.querySelector('blockquote')?.textContent || ''");
+    check(/^PLAN SENT BACK: The user read your plan/.test(sent) && /Add a cache in front of it/.test(quoted) && /Skip the cache, it is fast enough\./.test(sent), 'Claude gets the line and the note');
     check(/Sent back with 1 note/.test(await ev(`${card}.textContent`)), 'the card says it went back');
     await ev("SB.send('plan')");
     await until(panel, `!${card}.classList.contains('decided')`);

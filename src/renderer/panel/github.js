@@ -37,7 +37,7 @@
     $('ghClaudeNote').textContent = 'Shellby tabs get your GitHub sign-in (git push, gh). Claude Code in your terminal is unchanged.';
     $('ghWorkflowsNote').textContent = !claudeOn
       ? 'Needs "Let Claude tasks push" first.'
-      : signedIn ? v.features.workflows.on && v.features.workflows.granted : wanted.has('workflows')
+      : (signedIn ? v.features.workflows.on && v.features.workflows.granted : wanted.has('workflows'))
         ? 'Pushes that touch .github/workflows will go through. A workflow runs with your repository\'s secrets, so keep an eye on tasks that edit one.'
         : 'Without this, GitHub refuses any push that changes a file in .github/workflows — even a one-line fix.';
 

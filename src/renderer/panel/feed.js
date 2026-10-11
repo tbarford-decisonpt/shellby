@@ -213,8 +213,11 @@
           if (replay) return;
           if (!this.live) {
             this.live = this.append(h('div', { class: 'msg assistant live', 'aria-busy': 'true' }));
-            this.liveText = '';
+            this.liveText = item.text;
             this.setStatus('Writing…');
+            // The first words show with the bubble, never an empty one.
+            this.paintLive();
+            return;
           }
           this.liveText += item.text;
           // A few times a second at most: a long reply arrives in hundreds of pieces.
