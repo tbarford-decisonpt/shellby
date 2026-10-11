@@ -8,7 +8,7 @@
   // be matched as a single press ("Esc Esc", "Ctrl+1…8") are only ever shown;
   // their handlers live where they always did. fixed: can't be changed in the
   // list (Ctrl+/), because what it does depends on the very key (Esc, Enter, a
-  // typed /, PgUp for left and PgDn for right).
+  // typed /, PgUp for left and PgDn for right, an arrow for its direction).
   const SHORTCUTS = [
     { id: 'palette', group: 'Anywhere', keys: ['Ctrl+K', 'Ctrl+Shift+P'], what: 'Jump anywhere, or run an action on this conversation' },
     { id: 'shortcuts', fixed: true, group: 'Anywhere', keys: ['Ctrl+/', '?'], what: 'This list of shortcuts (? when you’re not typing)' },
@@ -25,8 +25,8 @@
     { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right along its strip' },
     { id: 'tabList', group: 'Conversations', keys: ['Ctrl+Shift+A'], what: 'Every open conversation, grouped by what it needs from you' },
     { id: 'renameTab', fixed: true, group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
-    { id: 'focusPane', group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
-    { id: 'movePane', group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation into the pane beside it, with its tabs (at the left or right edge, into a column of its own)' },
+    { id: 'focusPane', fixed: true, group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
+    { id: 'movePane', fixed: true, group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation into the pane beside it, with its tabs (at the left or right edge, into a column of its own)' },
     { id: 'splitPane', group: 'Conversations', keys: ['Ctrl+\\'], what: 'This conversation into a pane of its own, or a new one alongside if it’s alone in its pane (or drag a tab into the chat, or out of the window)' },
     { id: 'reopenTab', group: 'Conversations', keys: ['Ctrl+Shift+T'], what: 'Bring back the conversation you closed last (again for the one before)' },
 

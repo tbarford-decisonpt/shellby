@@ -192,4 +192,7 @@ test('Alt+arrows go to the next pane; Ctrl+Alt+arrows move the conversation', ()
     assert.ok(!K.matches(key(k, { altKey: true, ctrlKey: true }), 'focusPane'), `${k}: Ctrl+Alt isn't Alt`);
     assert.ok(!K.matches(key(k), 'focusPane'), `${k} alone moves the caret`);
   }
+
+  // The handler takes the direction from the arrow itself, so another key can't stand in.
+  for (const id of ['focusPane', 'movePane']) assert.ok(K.SHORTCUTS.find(x => x.id === id).fixed, `${id} can't be rebound`);
 });
