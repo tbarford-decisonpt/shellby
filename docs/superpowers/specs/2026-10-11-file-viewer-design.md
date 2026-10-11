@@ -54,7 +54,7 @@ Left side:
 
 Right side:
 - A changed file opens as a unified diff with old and new line numbers. "Whole file" switches to the full text.
-- An unchanged file opens as its full text with line numbers and colour. A link with `:42` scrolls to that line and highlights it.
+- An unchanged file opens as its full text with line numbers and colour. A link with `:42` opens the whole file, changed or not, scrolled to that line and highlighted; Diff is a click away.
 
 Ways in:
 1. A Files button at the right end of each pane's tab strip (`.pane-head`), or of the main tab strip when there's one pane, where `.pane-head` is hidden. It opens the folder of that pane's active conversation.
@@ -82,6 +82,8 @@ Main resolves the root's real path once and stores a handle `{root, base, change
 
 ### What "changed" is built from
 
+The viewer's snapshots run with the repo's hooks off (`core.hooksPath` at an empty Shellby folder): `git add` into the temporary index would otherwise run `post-index-change` in a repo you are only looking at.
+
 All of it is existing code in `src/main/changes.js`.
 - `snapshot(root)` writes the working folder, untracked files included, as a git tree.
 - The base commit:
@@ -107,6 +109,8 @@ Snapshots hash the working folder into git, the same work `branch:compare` does.
 | `viewer:stale` (event, main to UI) | A handle's folder changed |
 
 ### Read rules
+
+A path with a drive, a stream (`a.txt:x`), a network or rooted start, or a `..` segment is refused before anything touches the disk. A file outside the root answers exactly as a missing one does, so the panel learns nothing about other files.
 
 `viewer:read` resolves `rel` against the root and resolves the real path. It refuses anything outside the root. The comparison ignores case and expands 8.3 short names, so a junction or symlink pointing out of the folder fails. Over 2 MB returns `{tooBig}`. A NUL byte in the first 8 KB returns `{binary}`. Text is decoded as UTF-8, with any BOM stripped.
 

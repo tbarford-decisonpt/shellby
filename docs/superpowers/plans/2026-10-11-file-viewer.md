@@ -516,7 +516,8 @@ test('a repeat within 2 s is answered from the last look; a different mode looks
     assert.deepEqual((await v.changesOf(h.id, { uncommittedOnly: true })).files.map(f => f.path).sort(), ['a.txt', 'b.txt']);
     r.write(r.dir, 'c.txt', 'z\n');
     v.staleFor(r.dir); // a nudge: something there changed
-    assert.deepEqual((await v.changesOf(h.id)).files.map(f => f.path).sort(), ['a.txt', 'b.txt', 'c.txt'], 'a nudge always looks again');
+    // Same mode as the call just before, inside 2 s: only the nudge can make it look again.
+    assert.deepEqual((await v.changesOf(h.id, { uncommittedOnly: true })).files.map(f => f.path).sort(), ['a.txt', 'b.txt', 'c.txt'], 'a nudge always looks again');
   } finally { r.done(); }
 });
 
@@ -580,18 +581,25 @@ In `src/main/changes.js`, below `const MAX_PATCH = ...`, add:
 ```js
 // A snapshot taken only to look (the file viewer) runs none of the repo's own
 // hooks: git add writes the temporary index, and post-index-change would fire.
+// A -c before the subcommand, so any git takes it (GIT_CONFIG_COUNT would need 2.31).
 let noHooksDir = null;
 const noHooks = () => {
-  try { noHooksDir = noHooksDir && fs.existsSync(noHooksDir) ? noHooksDir : fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-no-hooks-')); } catch { /* git falls back to none found */ }
-  return { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.hooksPath', GIT_CONFIG_VALUE_0: noHooksDir || path.join(os.tmpdir(), 'shellby-no-hooks') };
+  try { noHooksDir = noHooksDir && fs.existsSync(noHooksDir) ? noHooksDir : fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-no-hooks-')); } catch { /* git finds no hooks in a folder that isn't there either */ }
+  return ['-c', `core.hooksPath=${noHooksDir || path.join(os.tmpdir(), 'shellby-no-hooks')}`];
 };
 ```
 
-Change `async function snapshot(dir, info = null) {` to `async function snapshot(dir, info = null, { hooks = true } = {}) {`, and its line `const env = { GIT_INDEX_FILE: tmp };` (line 83, inside `snapshot`, not the one at line 459) to:
+Change `async function snapshot(dir, info = null) {` to `async function snapshot(dir, info = null, { hooks = true } = {}) {`. Inside `snapshot`, directly after its `const env = { GIT_INDEX_FILE: tmp };` line (line 83, not the one at line 459), add `const pre = hooks ? [] : noHooks();`, then prefix the two `git add` calls with it:
 
 ```js
-    const env = { GIT_INDEX_FILE: tmp, ...(hooks ? {} : noHooks()) };
+    const tracked = await git(root, [...pre, 'add', '-u', '--', '.'], { env });
 ```
+
+```js
+      const added = await git(root, [...pre, 'add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: small.join('\0') });
+```
+
+(`git()` puts its own `-c` options after `-C <dir>`, and `git -C d -c a -c b add …` is valid; `ls-files` and `write-tree` write no index and run no hooks.)
 
 Update the doc comment above `snapshot` with one line: ` * opts.hooks: false for a look only (the file viewer): the repo's hooks don't run.`
 
@@ -1836,7 +1844,7 @@ Create `src/renderer/panel/viewer.js`:
       f ? counts(f) : null,
       f ? h('button', {
         type: 'button', class: 'btn ghost slim-btn', text: cur.whole ? 'Diff' : 'Whole file',
-        disabled: f.status === 'D' && !cur.whole, onclick: () => { cur.whole = !cur.whole; showFile(rel); },
+        disabled: f.status === 'D' && !cur.whole, onclick: () => { cur.whole = !cur.whole; cur.line = null; showFile(rel); },
       }) : null);
   }
 
@@ -1888,7 +1896,7 @@ Create `src/renderer/panel/viewer.js`:
     await Promise.all([loadChanges(), tree ? loadTree() : null]);
     if (cur !== me) return;
     draw();
-    if (me.file && (tree || sig(me.file) !== before)) showFile(me.file, { line: me.line, keep: true });
+    if (me.file && (tree || sig(me.file) !== before)) showFile(me.file, { keep: true }); // no line: Diff or Whole stays as chosen
   }
 
   // Main's nudge: something in the folder may have changed. One look, at most every 2 s, only on
