@@ -56,6 +56,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await ev("!!document.querySelector('#ccCrabs .cc-crab.is-chair .cc-throne')"), 'Shellby sits on the chair at the head');
     // The advisors sit round the far side: every crab is above the table's middle line or beside it.
     check(await ev(`(() => { const t = document.querySelector('.cc-table').getBoundingClientRect(); return [...document.querySelectorAll('#ccCrabs .cc-crab')].every(c => c.getBoundingClientRect().top < t.top + t.height / 2); })()`), 'the crabs sit round the table, not in a row in front of it');
+    // A wide panel once squashed the hall flat: its max-height held while the width grew, and the crabs dwarfed the table.
+    check(await ev(`(() => { const v = document.getElementById('councilView'); v.style.width = '2400px'; const r = document.getElementById('ccChamber').getBoundingClientRect(); v.style.width = ''; return Math.abs(r.width / r.height - 16 / 9.5) < 0.05; })()`), 'a wide panel keeps the hall in proportion');
     check(await ev("document.getElementById('ccHint').textContent.includes('1 call')"), 'Quick says it makes one call');
     await shot('council-empty');
 
