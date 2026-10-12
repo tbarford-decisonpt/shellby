@@ -231,7 +231,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev("[...document.querySelectorAll('#viewerList .vw-row')].find(b => b.dataset.path === 'multi.txt').click()");
     check(await until("document.querySelectorAll('#viewerMain .dl.hunk').length === 2"), 'its diff has two hunks');
     const edges = await ev("[...document.querySelectorAll('#viewerMain .dl.hunk')].map(d => { const c = getComputedStyle(d); return { top: c.borderTopWidth, line: c.borderTopColor, bar: c.backgroundColor }; })");
-    check(edges[0].top === '0px' && edges[1].top === '1px' && edges[1].line !== edges[1].bar, `the second hunk has a border of its own colour, the first none (${edges[1].line} on ${edges[1].bar})`);
+    // A 1px border computes to a fraction of a pixel at display scales above 100% (0.8px at 125%).
+    check(parseFloat(edges[0].top) === 0 && parseFloat(edges[1].top) > 0 && edges[1].line !== edges[1].bar, `the second hunk has a border of its own colour, the first none (${edges[1].top} ${edges[1].line} on ${edges[1].bar})`);
     await shot('1d-two-hunks');
     await ev("SB.setView('projects')");
     await ev("[...document.querySelectorAll('#pjDetailScreen .pj-clone-head button')].find(b => b.textContent === 'Browse files').click()");
