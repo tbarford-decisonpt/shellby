@@ -202,7 +202,9 @@
         else if (!replay && this.isShown) SB.refreshPaneHeads?.();
       }
       // The reply as it was being written gives way to whatever comes next on
-      // the main thread: the finished words themselves, usually.
+      // the main thread: the finished words themselves, usually. Those keep the
+      // Wrap, Show all and scroll their code blocks had while being written.
+      const liveView = this.live && item.kind === 'text' && !item.sub ? SB.codeView?.([this.live]) : null;
       if (this.live && item.kind !== 'partial' && !item.sub) this.endLive();
       switch (item.kind) {
         case 'user':
@@ -250,7 +252,12 @@
               : 'Safe mode off: your CLAUDE.md, skills, plugins, hooks and MCP servers are back from the next message.'));
         case 'text': {
           const el = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text));
-          return this.append(el, item.parent);
+          // Before append, so its height is final when the feed follows it down;
+          // again after, as a block's scroll only holds once it's on the page.
+          SB.restoreCodeView?.([el], liveView);
+          this.append(el, item.parent);
+          SB.restoreCodeView?.([el], liveView);
+          return el;
         }
         case 'thinking':
           if (!replay && !item.sub) this.setStatus('Thinking…');
@@ -330,7 +337,7 @@
     paintLive() {
       this.liveTimer = null;
       if (!this.live) return;
-      SB.linkifyPaths(SB.renderMarkdownInto(this.live, this.liveText));
+      SB.linkifyPaths(SB.patchMarkdownInto(this.live, this.liveText));
       if (this.stuck && this.isShown) this.scrollToEnd();
     }
 
