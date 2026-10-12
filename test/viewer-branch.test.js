@@ -7,7 +7,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { createViewer, MAX_BYTES } = require('../src/main/viewer');
+const { createViewer, MAX_BYTES, TREE_MAX } = require('../src/main/viewer');
 
 const FEAT = 'refs/heads/feat';
 
@@ -324,5 +324,31 @@ test('nothing is fetched while looking: a repo that says it is a partial clone r
     assert.deepEqual(await v.changesOf(f.id), { ok: false, error: "Couldn't read changes." }, "a worktree's changes since main (snapshot, merge-base, diff)");
     assert.equal(fs.existsSync(marker), false, "the repo's program never ran");
     assert.deepEqual(packs(), before, 'and no pack was fetched');
+  } finally { r.done(); }
+});
+
+test('a branch with more paths than All files lists still reads every one of them in Whole file', async () => {
+  const r = repo();
+  try {
+    // A tree of TREE_MAX + 1 paths under p/ and one after them (zz/), made without writing files: one blob per
+    // content, an index fed to update-index, write-tree, commit-tree and update-ref.
+    const run = (args, input, env) => execFileSync('git', ['-C', r.dir, ...args], { encoding: 'utf8', input, env: { ...process.env, ...env }, timeout: 30000, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }).trim();
+    const filler = run(['hash-object', '-w', '--stdin'], 'filler\n');
+    const last = run(['hash-object', '-w', '--stdin'], 'the last one\n');
+    const lines = [];
+    for (let i = 0; i <= TREE_MAX; i++) lines.push(`100644 ${filler}\tp/${String(i).padStart(6, '0')}.txt`);
+    lines.push(`100644 ${last}\tzz/last.txt`);
+    const env = { GIT_INDEX_FILE: path.join(r.base, 'big-index') };
+    run(['update-index', '--add', '--index-info'], `${lines.join('\n')}\n`, env);
+    const tree = run(['write-tree'], undefined, env);
+    const commit = run(['commit-tree', tree, '-p', 'main', '-m', 'big']);
+    run(['update-ref', 'refs/heads/big', commit]);
+    const v = createViewer();
+    const b = await v.openBranch({ root: r.dir, ref: 'refs/heads/big', base: 'main' });
+    assert.equal(b.ok, true);
+    const t = await v.treeOf(b.id);
+    assert.ok(t.entries.includes('p/000000.txt'), 'All files lists the first paths');
+    assert.ok(!t.entries.includes('zz/last.txt'), 'and stops at the cap: the path past it is not listed');
+    assert.deepEqual(await v.read(b.id, 'zz/last.txt'), { ok: true, text: 'the last one\n', size: 13 }, 'but Whole file reads it');
   } finally { r.done(); }
 });

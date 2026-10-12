@@ -329,8 +329,9 @@ function createViewer({ home = os.homedir() } = {}) {
     if (h.tree?.commit !== commit) {
       const p = git(h.root, ['ls-tree', '-r', '-z', '--name-only', commit], { maxBuffer: 32 * 1024 * 1024 }).then(out => {
         if (out === null) return null;
-        const list = out.split('\0').filter(Boolean).slice(0, TREE_MAX);
-        return { commit, list, set: new Set(list) };
+        // All files lists at most TREE_MAX; Whole file reads any path the tree has.
+        const all = out.split('\0').filter(Boolean);
+        return { commit, list: all.slice(0, TREE_MAX), set: new Set(all) };
       });
       h.tree = { commit, p };
     }
