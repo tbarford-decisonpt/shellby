@@ -49,6 +49,16 @@ function setup() {
   return { base, repo, wt, stranger, ipc, sent, d, listeners, g, done: () => fs.rmSync(base, { recursive: true, force: true }) };
 }
 
+// A branch with one commit main lacks and nothing checking it out.
+function sideBranch(s) {
+  const wt = path.join(s.base, 'side-wt');
+  s.g(s.repo, 'worktree', 'add', '-q', '-b', 'side', wt);
+  fs.writeFileSync(path.join(wt, 's.txt'), 's\n');
+  s.g(wt, 'add', '-A');
+  s.g(wt, 'commit', '-qm', 'side');
+  s.g(s.repo, 'worktree', 'remove', '--force', wt);
+}
+
 test("a conversation's folder opens, with its copy's base", async () => {
   const s = setup();
   try {
@@ -156,5 +166,50 @@ test('a conversation in the home folder (the default when none was picked) is re
     assert.match(r.error, /whole home folder/);
     assert.deepEqual(await s.ipc.invoke('viewer:locate', 'home', path.join(os.homedir(), '.gitconfig')), { inside: false });
     assert.deepEqual(await s.ipc.invoke('viewer:branch', 'home'), { branch: null });
+  } finally { s.done(); }
+});
+
+test('the header menu: places, and a pick only by a key main issued for that handle', async () => {
+  const s = setup();
+  try {
+    sideBranch(s);
+    const h = await s.ipc.invoke('viewer:open', { tabId: 't1' });
+    const r = await s.ipc.invoke('viewer:places', h.id);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.places.filter(p => p.kind === 'branch').map(p => p.label), ['side']);
+    assert.ok(r.places.every(p => !('path' in p) && !('ref' in p)), 'a key, never a path or a ref');
+    const side = r.places.find(p => p.label === 'side');
+    const b = await s.ipc.invoke('viewer:switch', h.id, side.key);
+    assert.equal(b.kind, 'branch');
+    assert.equal(b.branch, 'side');
+    assert.ok((await s.ipc.invoke('viewer:tree', b.id)).entries.includes('s.txt'), "All files is the branch's tree");
+    assert.equal((await s.ipc.invoke('viewer:read', b.id, 's.txt')).text, 's\n');
+    assert.equal((await s.ipc.invoke('viewer:switch', b.id, side.key)).ok, false, "another handle's key");
+    assert.equal((await s.ipc.invoke('viewer:switch', h.id, 'f00d')).ok, false, 'a made-up key');
+    await assert.rejects(() => s.ipc.invokeAs(s.ipc.senders.critter, 'viewer:places', h.id));
+    await assert.rejects(() => s.ipc.invokeAs(s.ipc.senders.critter, 'viewer:switch', h.id, side.key));
+    assert.ok(s.ipc.refused.includes('viewer:places') && s.ipc.refused.includes('viewer:switch'));
+  } finally { s.done(); }
+});
+
+test('a branch is nudged when a turn ends, never by each tool result; a worktree inside the folder by both', async () => {
+  const s = setup();
+  try {
+    sideBranch(s);
+    const agent = path.join(s.wt, '.claude', 'worktrees', 'agent-1');
+    s.g(s.wt, 'worktree', 'add', '-q', '-b', 'agent-1', agent);
+    const h = await s.ipc.invoke('viewer:open', { tabId: 't1' });
+    const r = await s.ipc.invoke('viewer:places', h.id);
+    const b = await s.ipc.invoke('viewer:switch', h.id, r.places.find(p => p.label === 'side').key);
+    const a = await s.ipc.invoke('viewer:switch', h.id, r.places.find(p => p.label === 'agent-1').key);
+    const ids = () => s.sent.at(-1).payload.ids.slice().sort();
+    s.d.viewerWrites({ kind: 'tool', id: 'w1', name: 'Write' }, s.wt);
+    s.d.viewerWrites({ kind: 'tool_result', id: 'w1' }, s.wt);
+    assert.deepEqual(ids(), [h.id, a.id].sort(), "a tool's result: the folder, and the agent's worktree inside it");
+    fileIndex.forget(s.wt);
+    assert.deepEqual(ids(), [h.id, a.id, b.id].sort(), 'a turn end: the branch as well');
+    const before = s.sent.length;
+    fileIndex.forget(os.homedir());
+    assert.equal(s.sent.length, before, 'a conversation in the home folder nudges none of them');
   } finally { s.done(); }
 });

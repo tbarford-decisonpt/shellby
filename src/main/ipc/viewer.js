@@ -1,5 +1,5 @@
 // The file viewer's channels (viewer.js): open a handle on a conversation's
-// folder, or on a worktree of a project the Project page showed, then read
+// folder, or on a worktree of a project the Project page showed (or a place picked from its header's menu), then read
 // inside it. Read-only. Kept out of main.js, which only wires it up.
 const changes = require('../changes');
 const fileIndex = require('../fileindex');
@@ -45,10 +45,7 @@ function registerViewerIpc(ipcMain, d) {
     }
     return { ok: false, error: 'Open what?' };
   });
-  ipcMain.handle('viewer:tree', async (_e, id) => {
-    const h = viewer.get(id);
-    return h ? { ok: true, entries: await fileIndex.list(h.root) } : { ok: false, expired: true };
-  });
+  ipcMain.handle('viewer:tree', (_e, id) => viewer.treeOf(id)); // a folder's index, or a branch's own tree
   ipcMain.handle('viewer:changes', (_e, id, opts) => viewer.changesOf(id, { uncommittedOnly: !!opts?.uncommittedOnly }));
   ipcMain.handle('viewer:read', (_e, id, rel) => viewer.read(id, rel));
   ipcMain.handle('viewer:diff', (_e, id, rel) => viewer.diffOf(id, rel));
@@ -61,13 +58,19 @@ function registerViewerIpc(ipcMain, d) {
     return { branch: f.error ? null : await branchOf(f.cwd) };
   });
   ipcMain.handle('viewer:close', (_e, id) => { viewer.close(id); return true; });
-  // Something in a folder may have changed: a nudge for each viewer open on it.
-  const nudge = d.viewerNudge = dir => {
-    const ids = viewer.staleFor(dir);
+  // The header's menu: the repo's worktrees and unmerged branches, each under a key main issued;
+  // a pick names only a key, and main checks it again before it opens (viewer.js switchTo).
+  ipcMain.handle('viewer:places', (_e, id) => viewer.placesOf(id));
+  ipcMain.handle('viewer:switch', (_e, id, key) => viewer.switchTo(id, key));
+  // Something in a folder may have changed: a nudge for each viewer open on it. commits: a turn
+  // ended, a step was undone or a ! command ran, where a commit may have landed, so viewers on the
+  // repo's branches look again too; each tool's result leaves them be.
+  const nudge = d.viewerNudge = (dir, opts = {}) => {
+    const ids = viewer.staleFor(dir, opts);
     if (ids.length && d.panel && !d.panel.isDestroyed()) d.send(d.panel, 'viewer:stale', { ids });
   };
-  fileIndex.onForget(nudge);                      // turn ends, ! commands, step undo
-  d.viewerWrites = writeWatch(nudge);             // each tool that could have written (wiring/sessions.js)
+  fileIndex.onForget(dir => nudge(dir, { commits: true })); // turn ends, ! commands, step undo
+  d.viewerWrites = writeWatch(dir => nudge(dir));            // each tool that could have written (wiring/sessions.js)
   d.manager.on?.('tabs', summary => viewer.keepTabs(new Set(summary.map(t => t.id))));
   return viewer;
 }

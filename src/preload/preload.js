@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld('shellby', {
   zoom: invoke('panel:zoom'),
   viewerOpen: invoke('viewer:open'), viewerTree: invoke('viewer:tree'), viewerChanges: invoke('viewer:changes'), // the file viewer (main's viewer.js), read-only
   viewerRead: invoke('viewer:read'), viewerDiff: invoke('viewer:diff'), viewerLocate: invoke('viewer:locate'),
-  viewerBranch: invoke('viewer:branch'), viewerClose: invoke('viewer:close'), onViewerStale: on('viewer:stale'),
+  viewerBranch: invoke('viewer:branch'), viewerClose: invoke('viewer:close'), viewerPlaces: invoke('viewer:places'), viewerSwitch: invoke('viewer:switch'), onViewerStale: on('viewer:stale'),
   claudeStatus: invoke('claude:status'),
   claudeLogin: invoke('claude:login'),
   claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"
