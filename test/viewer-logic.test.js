@@ -79,6 +79,66 @@ test('whereText: "(from base)", unless the list fell back to HEAD with no merge-
   assert.equal(V.whereText({ name: 'notes', branch: null }), 'notes');
 });
 
+test('whereText: a branch says so, and where it came from', () => {
+  assert.equal(V.whereText({ kind: 'branch', name: 'proj', branch: 'feature-x', base: 'main', against: 'main' }), 'feature-x · branch (from main)');
+  assert.equal(V.whereText({ kind: 'branch', name: 'proj', branch: 'feature-x', base: null, against: null }), 'feature-x · branch');
+  assert.equal(V.whereText({ kind: 'folder', name: 'proj', branch: 'feat', base: 'main', against: 'main' }), 'proj · feat (from main)');
+});
+
+test("placeSub: a worktree's branch and count, a branch's lead and age", () => {
+  const ago = t => `at ${t}`;
+  assert.equal(V.placeSub({ kind: 'worktree', branch: 'feat', changed: 3 }, ago), 'feat · 3 changed');
+  assert.equal(V.placeSub({ kind: 'worktree', branch: 'main', changed: 0 }, ago), 'main · 0 changed');
+  assert.equal(V.placeSub({ kind: 'worktree', branch: 'detached' }, ago), 'detached', 'no count: git status timed out');
+  assert.equal(V.placeSub({ kind: 'branch', branch: 'x', ahead: 2, when: 5 }, ago), '2 ahead · at 5');
+  assert.equal(V.placeSub({ kind: 'branch', branch: 'x', ahead: 1, when: 0 }, ago), '1 ahead');
+});
+
+test('findPlace: the same pick in a list made since, by what the panel was shown of it', () => {
+  const list = [
+    { key: 'k1', kind: 'worktree', label: 'proj', branch: 'main' },
+    { key: 'k2', kind: 'worktree', label: 'proj', branch: 'shellby/abc' },
+    { key: 'k3', kind: 'branch', label: 'feature-x', branch: 'feature-x' },
+  ];
+  assert.equal(V.findPlace(list, { kind: 'worktree', label: 'proj', branch: 'shellby/abc' }).key, 'k2');
+  assert.equal(V.findPlace(list, { kind: 'branch', label: 'feature-x', branch: 'feature-x' }).key, 'k3');
+  assert.equal(V.findPlace(list, { kind: 'branch', label: 'gone', branch: 'gone' }), null);
+  assert.equal(V.findPlace(null, { kind: 'branch', label: 'x', branch: 'x' }), null);
+  assert.equal(V.findPlace(list, null), null);
+});
+
+test('placeKey: a branch and the folder it was picked from remember their files apart', () => {
+  const folder = V.placeKey({ kind: 'folder', root: 'C:\\code\\proj', branch: 'main' });
+  assert.equal(folder, V.placeKey({ kind: 'folder', root: 'c:\\CODE\\proj', branch: 'main' }), 'any case');
+  assert.notEqual(V.placeKey({ kind: 'branch', root: 'C:\\code\\proj', branch: 'feature-x' }), folder);
+  assert.notEqual(V.placeKey({ kind: 'branch', root: 'C:\\code\\proj', branch: 'feature-x' }), V.placeKey({ kind: 'branch', root: 'C:\\code\\proj', branch: 'other' }));
+});
+
+test('tabAt: a conversation in the place or holding it, never one left in the home folder', () => {
+  const home = 'C:\\Users\\Me';
+  const inHome = { id: 'h', cwd: 'C:\\Users\\Me' };
+  const copy = { id: 'c', cwd: 'C:\\Users\\Me\\AppData\\Roaming\\Shellby\\worktrees\\1\\proj' };
+  const sub = { id: 's', cwd: 'C:\\code\\proj\\src' };
+  const tabs = [inHome, copy, sub];
+  assert.equal(V.tabAt(tabs, 'c:/users/me/appdata/roaming/shellby/worktrees/1/proj/', home), copy, 'its own folder, any case or slash');
+  assert.equal(V.tabAt(tabs, `${copy.cwd}\\.claude\\worktrees\\agent-x`, home), copy, 'a worktree inside a conversation\'s folder');
+  assert.equal(V.tabAt(tabs, 'C:\\code\\proj', home), sub, 'a conversation started in a subfolder of the place');
+  assert.equal(V.tabAt(tabs, 'C:\\Users\\Me\\code\\other', home), null, 'the home folder holds it, but that tab is too wide to count');
+  assert.equal(V.tabAt(tabs, 'C:\\code\\proj2', home), null, 'a name that only starts the same');
+  assert.equal(V.tabAt(new Map([['c', copy]]).values(), copy.cwd, home), copy, 'any iterable, as state.tabs.values()');
+  assert.equal(V.tabAt(tabs, '', home), null);
+});
+
+test('keepFile: a pick keeps the file you were on if the new place has it, else opens the one last open there', () => {
+  const has = rel => ['a.txt', 'src/b.js'].includes(rel);
+  assert.equal(V.keepFile('a.txt', 'src/b.js', has), 'a.txt', 'the file you were on wins');
+  assert.equal(V.keepFile('feature.txt', 'src/b.js', has), 'src/b.js', 'the place remembers its own');
+  assert.equal(V.keepFile('feature.txt', 'gone.txt', has), null, 'neither is there: the placeholder');
+  assert.equal(V.keepFile(null, 'a.txt', has), 'a.txt');
+  assert.equal(V.keepFile('', null, has), null);
+  assert.equal(V.keepFile(null, null, has), null);
+});
+
 test('tooWide: the home folder and a whole drive, any case or trailing slash; a folder in home is fine', () => {
   const home = 'C:\\Users\\Me';
   assert.equal(V.tooWide('C:\\Users\\Me', home), true);

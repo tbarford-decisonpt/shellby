@@ -100,7 +100,9 @@
    * against: from the last changes answer, null before the first; only: Just uncommitted is on
    * (relative to HEAD by choice, so the branch is still from its base).
    */
-  function whereText({ name, branch, base, against, only } = {}) {
+  function whereText({ name, branch, base, against, only, kind } = {}) {
+    // A branch picked from the header's menu: no folder of its own, and always from its base.
+    if (kind === 'branch') return `${branch} · branch${base ? ` (from ${base})` : ''}`;
     const from = !branch || !base ? '' : against === 'HEAD' && !only ? ' (since the last commit)' : ` (from ${base})`;
     return [name, branch && branch + from].filter(Boolean).join(' · ');
   }
@@ -142,7 +144,51 @@
     return [count, lines].filter(Boolean).join(' · ');
   }
 
-  const api = { buildTree, visibleRows, numberDiff, splitLines, whereText, tooWide, liveState, totals, totalsText, statusWord, statusClass, STATUS_WORDS };
+  /** A row's second line in the header's menu (main's viewer.js placesOf). ago: SB.relTime in the panel. */
+  function placeSub(p, ago = () => '') {
+    if (p?.kind === 'branch') return [`${p.ahead} ahead`, p.when ? ago(p.when) : ''].filter(Boolean).join(' · ');
+    return [p?.branch || 'detached', Number.isInteger(p?.changed) ? `${p.changed} changed` : ''].filter(Boolean).join(' · ');
+  }
+
+  /**
+   * The same place in a list made since (keys are new each time): by what the panel was shown of
+   * it, since it is never told a path or a ref.
+   */
+  function findPlace(places, place) {
+    if (!place) return null;
+    return (places || []).find(p => p.kind === place.kind && p.label === place.label && p.branch === place.branch) || null;
+  }
+
+  /** What the viewer remembers a place's last file by: a branch apart from the folder it was picked from. */
+  function placeKey({ kind, root, branch } = {}) {
+    const at = String(root || '').toLowerCase();
+    return kind === 'branch' ? `branch|${at}|${branch}` : at;
+  }
+
+  /**
+   * The open conversation a place belongs to, for the header's live state: one whose folder is the
+   * place or inside it, else one whose folder holds it (an agent's worktree in the conversation's
+   * folder). A conversation in the home folder or a whole drive holds everything, so it never counts.
+   */
+  function tabAt(tabs, root, home) {
+    const norm = p => String(p || '').replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase();
+    const at = norm(root);
+    if (!at) return null;
+    const inside = (a, b) => a === b || a.startsWith(`${b}/`);
+    const open = [...(tabs || [])].filter(t => t?.cwd && !tooWide(t.cwd, home));
+    return open.find(t => inside(norm(t.cwd), at)) || open.find(t => inside(at, norm(t.cwd))) || null;
+  }
+
+  /**
+   * The file a pick from the header's menu opens: the one you were on when the new place has it too,
+   * else the one last open there (lastFile) when it still has that, else none (the placeholder).
+   * has(rel): on the new place's changes list or in its tree.
+   */
+  function keepFile(open, remembered, has) {
+    return [open, remembered].find(f => typeof f === 'string' && f && has(f)) || null;
+  }
+
+  const api = { buildTree, visibleRows, numberDiff, splitLines, whereText, tooWide, liveState, totals, totalsText, statusWord, statusClass, placeSub, findPlace, placeKey, tabAt, keepFile, STATUS_WORDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyViewer = api;
 })(typeof window !== 'undefined' ? window : globalThis);
