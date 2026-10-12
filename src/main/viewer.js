@@ -31,6 +31,10 @@ const REFRESH_MS = 2000;             // a look again sooner than this is answere
 const GIT_TIMEOUT_MS = 8000;
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // what a repo with no commits is compared with
 const TREE_MAX = 30000;              // All files on a branch, at most (fileindex.js lists a folder to the same)
+const MAX_PLACE_TREES = 20;          // worktrees in the header's menu
+const MAX_PLACE_BRANCHES = 30;       // branches checked for commits of their own, newest first
+const PLACES_MS = 10000;             // the menu's list is reused this long, per repo
+const AT_ONCE = 4;                   // the menu's git status, rev-list and rev-parse runs at a time, across the whole viewer
 
 // buffer: the output as bytes (a blob, sniffed for NUL before it's decoded). env: added to git's own.
 // exit: answer { code, out } (code: git's exit code, null when it didn't run or timed out) rather than
@@ -138,6 +142,50 @@ async function treesOf(root, home) {
   const listed = parseWorktrees(await git(root, ['worktree', 'list', '--porcelain']))
     .filter(w => okDir(w.path) && !tooWide(w.path, home)).map(w => longPath(w.path)).filter(Boolean);
   return listed.length ? listed : [root];
+}
+
+/** `git status --porcelain -z` -> how many files it names. A rename or copy carries its old path as one more field. */
+function countStatus(out) {
+  const recs = String(out || '').split('\0');
+  let n = 0;
+  for (let i = 0; i < recs.length; i++) {
+    if (recs[i].length < 4) continue; // "XY " and at least one letter of a name
+    n++;
+    if (/^[RC]|^.[RC]/.test(recs[i])) i++;
+  }
+  return n;
+}
+
+/**
+ * The branch the main checkout is on, from `git worktree list --porcelain` (its first entry), or null
+ * when the repo is bare or the checkout detached: then there is nothing to compare branches with.
+ */
+function checkoutBranch(out) {
+  const first = String(out || '').replace(/\r/g, '').split('\n\n')[0].split('\n');
+  if (first.includes('bare')) return null;
+  const b = first.find(l => l.startsWith(`branch ${HEADS}`));
+  return b ? b.slice(`branch ${HEADS}`.length) : null;
+}
+
+/** At most n of the jobs handed to it run at once, whoever hands them over; the rest wait their turn, in order. */
+function limiter(n) {
+  let running = 0;
+  const queue = [];
+  const pump = () => {
+    while (running < n && queue.length) {
+      const { job, resolve, reject } = queue.shift();
+      running++;
+      Promise.resolve().then(job).then(resolve, reject).finally(() => { running--; pump(); });
+    }
+  };
+  return job => new Promise((resolve, reject) => { queue.push({ job, resolve, reject }); pump(); });
+}
+
+// The repo a folder belongs to, as its git common dir resolved and lower-cased (as changes.sameRepo
+// compares them), or null. A checkout and its worktrees share one; a folder of another repo doesn't.
+async function commonDirOf(dir) {
+  const out = (await git(dir, ['rev-parse', '--git-common-dir']))?.trim();
+  return out ? path.resolve(dir, out).toLowerCase() : null;
 }
 
 /** The branch a folder's repo is on, or null (not a repo, detached, or a folder too wide to browse). */
@@ -377,6 +425,123 @@ function createViewer({ home = os.homedir() } = {}) {
     return { ok: true, entries: t ? fileIndex.withFolders(t.list) : [] };
   }
 
+  // ---- the header's menu (panel/viewer.js): the repo's worktrees, and its branches still in flight.
+  // Built once per repo (its git common dir) and reused for 10 s by every handle on it, however many
+  // ask at once. Each handle then keeps its own copy under random keys; a pick names a key, never a
+  // path or a ref.
+  const lists = new Map();       // git common dir -> { at: when built (null while building), p: Promise<built | null> }
+  const slot = limiter(AT_ONCE); // the menu's git status, rev-list and rev-parse runs, across every handle and build
+
+  // The repo's rows, without keys or a current mark (those are each handle's own). -> { base, rows } | null
+  async function buildPlaces(root, common) {
+    const out = await git(root, ['worktree', 'list', '--porcelain']);
+    if (out === null) return null;
+    // Local folders only, never the home folder or above (open() would refuse them anyway), and only
+    // folders of this repo: a record in .git/worktrees can name any folder, and git status there would
+    // run that repo's own filters.
+    const listed = parseWorktrees(out).filter(w => okDir(w.path) && !tooWide(w.path, home)).slice(0, MAX_PLACE_TREES);
+    const ours = await Promise.all(listed.map(w => slot(() => commonDirOf(w.path))));
+    const trees = listed.filter((_w, i) => ours[i] === common);
+    // A count that timed out (8 s) is left off rather than guessed.
+    const changed = await Promise.all(trees.map(w => slot(async () => {
+      const st = await git(w.path, ['status', '--porcelain', '-z', '--untracked-files=all']);
+      return st === null ? null : countStatus(st);
+    })));
+    const rows = trees.map((w, i) => ({
+      kind: 'worktree', label: path.basename(w.path), branch: w.branch || 'detached',
+      ...(changed[i] === null ? {} : { changed: changed[i] }), path: w.path,
+    }));
+    // Branches with commits the main checkout's branch lacks. One out in a listed worktree shows
+    // there instead. Full refs/heads/ names throughout, so none reaches git as an option.
+    const base = checkoutBranch(out);
+    if (base) {
+      const taken = new Set(trees.filter(w => w.branch).map(w => `${HEADS}${w.branch}`));
+      const refs = await git(root, ['for-each-ref', '--sort=-committerdate', '--format=%(refname)%00%(committerdate:unix)', 'refs/heads']);
+      const newest = String(refs || '').split('\n').map(l => l.replace(/\r$/, '').split('\0'))
+        .filter(([ref]) => HEAD_REF.test(ref || '') && !taken.has(ref)).slice(0, MAX_PLACE_BRANCHES);
+      const ahead = await Promise.all(newest.map(([ref]) => slot(async () =>
+        Number((await git(root, ['rev-list', '--count', `${HEADS}${base}..${ref}`]))?.trim()) || 0)));
+      newest.forEach(([ref, at], i) => {
+        if (ahead[i] <= 0) return;
+        const name = ref.slice(HEADS.length);
+        rows.push({ kind: 'branch', label: name, branch: name, ahead: ahead[i], when: Number(at) * 1000 || 0, ref });
+      });
+    }
+    return { base, rows };
+  }
+
+  // The repo's rows, shared: one build at a time per repo, reused for 10 s from when it finished.
+  // A failed build isn't kept, so the next ask tries again. -> Promise<{ at, base, rows } | null>
+  function listFor(root, common) {
+    const now = Date.now();
+    for (const [k, e] of lists) if (e.at !== null && now - e.at >= PLACES_MS) lists.delete(k);
+    const had = lists.get(common);
+    if (had) return had.p;
+    const e = { at: null, p: null };
+    e.p = buildPlaces(root, common).catch(() => null).then(built => {
+      if (!built) { if (lists.get(common) === e) lists.delete(common); return null; }
+      e.at = Date.now();
+      return { ...built, at: e.at };
+    });
+    lists.set(common, e);
+    return e.p;
+  }
+
+  /** The menu's list for a handle's repo, under this handle's own keys; built when asked, reused for 10 s. */
+  async function placesOf(id) {
+    const h = handles.get(id);
+    if (!h) return { ok: false, expired: true };
+    if (!h.git) return { ok: false, error: "Couldn't list worktrees." };
+    if (!h.places || Date.now() - h.places.at >= PLACES_MS) {
+      // Two asks at once on one handle wait for the same list, so neither's keys go stale under the other.
+      h.placing ||= (async () => {
+        const common = await commonDirOf(h.root);
+        const built = common ? await listFor(h.root, common) : null;
+        if (!built) return false;
+        const current = r => (r.kind === 'worktree' ? h.kind === 'folder' && sameDir(r.path, h.root) : h.kind === 'branch' && h.ref === r.ref);
+        h.places = {
+          at: built.at, base: built.base, common,
+          list: built.rows.map(r => ({ key: crypto.randomBytes(8).toString('hex'), ...r, current: current(r) })),
+        };
+        return true;
+      })().finally(() => { h.placing = null; });
+      if (!(await h.placing)) return { ok: false, error: "Couldn't list worktrees." };
+    }
+    return { ok: true, places: h.places.list.map(({ path: _path, ref: _ref, ...shown }) => shown) };
+  }
+
+  const GONE = { ok: false, gone: true, error: 'That worktree or branch is gone.' };
+
+  // A pick that went stale: the list it came from is dropped, here and for the repo, so the menu's
+  // next open builds it again rather than offering the same dead entry for the rest of the 10 s.
+  function stale(h) {
+    if (h.places) lists.delete(h.places.common);
+    h.places = null;
+    return { ...GONE };
+  }
+
+  /**
+   * A pick from that handle's own list, checked again before it opens: a worktree must still be
+   * listed, local, not too wide and of the same repo; a branch must still resolve. -> open()'s or
+   * openBranch()'s answer, or GONE for one that went stale since the list was made.
+   */
+  async function switchTo(id, key) {
+    const h = handles.get(id);
+    if (!h) return { ok: false, expired: true };
+    const e = typeof key === 'string' ? h.places?.list.find(x => x.key === key) : null;
+    if (!e) return { ok: false, error: "That isn't on this list. Open the menu again." };
+    if (e.kind === 'worktree') {
+      if (!okDir(e.path) || tooWide(e.path, home)) return stale(h);
+      const listed = parseWorktrees(await git(h.root, ['worktree', 'list', '--porcelain']));
+      if (!listed.some(w => okDir(w.path) && sameDir(w.path, e.path))) return stale(h);
+      if (!(await changes.sameRepo(h.root, e.path))) return stale(h);
+      const r = await open({ dir: e.path, origin: h.origin });
+      return r.ok || !r.gone ? r : stale(h);
+    }
+    const r = await openBranch({ root: h.root, ref: e.ref, base: h.places.base, origin: h.origin });
+    return r.ok || !r.gone ? r : stale(h);
+  }
+
   // The handles a changed folder belongs to. Their last look no longer answers a repeat, and a look
   // still running no longer answers one either (it may have hashed the folder before the write):
   // the 2 s reuse only absorbs asking twice, never a real change.
@@ -405,8 +570,11 @@ function createViewer({ home = os.homedir() } = {}) {
 
   return {
     open, openBranch, get: id => handles.get(id) || null, changesOf, diffOf, read, treeOf,
-    close: id => { handles.delete(id); }, staleFor, keepTabs,
+    placesOf, switchTo, close: id => { handles.delete(id); }, staleFor, keepTabs,
   };
 }
 
-module.exports = { readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, branchOf, writeWatch, MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE, TREE_MAX, HEAD_REF };
+module.exports = {
+  readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, branchOf, writeWatch, countStatus, checkoutBranch, limiter,
+  MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE, TREE_MAX, HEAD_REF, MAX_PLACE_TREES, MAX_PLACE_BRANCHES, PLACES_MS,
+};
