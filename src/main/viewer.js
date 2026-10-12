@@ -88,6 +88,13 @@ const plainRel = rel => typeof rel === 'string' && !!rel && rel.length <= 1000 &
 // Outside the folder and not there at all answer alike: the panel learns nothing about other files.
 const NOT_HERE = { ok: false, missing: true };
 
+// changes.patchFor's own answers (checkRef's, a moved root, objects tidied away, a diff with no
+// stderr). Any other error is git's stderr, which never reaches the panel.
+const PATCH_SAID = new Set([
+  'Not a project folder.', 'Not a snapshot.', 'Not a file in this change.', 'That project has moved.',
+  'Those changes have been tidied away by git since.', "Couldn't read the diff.",
+]);
+
 /** A file under root, as text. rel: as git names it (forward slashes) or the OS does. */
 async function readInside(root, rel) {
   const top = typeof root === 'string' ? longPath(root) : null;
@@ -144,12 +151,21 @@ async function treesOf(root, home) {
   return listed.length ? listed : [root];
 }
 
-/** `git status --porcelain -z` -> how many files it names. A rename or copy carries its old path as one more field. */
-function countStatus(out) {
+/**
+ * `git status --porcelain -z` -> how many files it names. A rename or copy carries its old path as one more field.
+ * skip: folders (relative, forward slashes) whose untracked entries aren't counted: other worktrees nested in this one.
+ */
+function countStatus(out, skip = []) {
+  const keys = skip.map(s => String(s).replace(/\/+$/, '').toLowerCase()).filter(Boolean);
+  const nested = name => {
+    const n = name.replace(/\/+$/, '').toLowerCase();
+    return keys.some(k => n === k || n.startsWith(`${k}/`));
+  };
   const recs = String(out || '').split('\0');
   let n = 0;
   for (let i = 0; i < recs.length; i++) {
     if (recs[i].length < 4) continue; // "XY " and at least one letter of a name
+    if (recs[i].startsWith('?? ') && nested(recs[i].slice(3))) continue;
     n++;
     if (/^[RC]|^.[RC]/.test(recs[i])) i++;
   }
@@ -223,7 +239,8 @@ function writeWatch(nudge) {
 
 /** opts.home: the home folder, never browsed (tests give their own). */
 function createViewer({ home = os.homedir() } = {}) {
-  // id -> { id, kind, root, git, branch, base, tabId, origin, gen, shown, slots, pending, last, places, placing }.
+  // id -> { id, kind, root, git, common, branch, base, tabId, origin, gen, shown, slots, pending, last, places, placing }.
+  // common: the repo's git common dir (commonDirOf), so a folder to fall back on is known to be of it (liveRoot).
   // kind 'folder' reads its folder; kind 'branch' reads git alone and adds { ref, commit, trees, tree }
   // (tree = { commit, p }: the one ls-tree for that commit, running or done, failed or not).
   // slots, pending and last are each by mode ('base' | 'head'; a branch has only 'base'):
@@ -256,9 +273,9 @@ function createViewer({ home = os.homedir() } = {}) {
     const given = typeof base === 'string' && base ? base : null;
     const from = tabId ? { tabId, root, base: given } : origin;
     const own = !!from && sameDir(from.root, root);
-    const branch = top ? await branchOf(root, { home }) : null;
+    const [branch, common] = top ? await Promise.all([branchOf(root, { home }), commonDirOf(root)]) : [null, null];
     const against = top ? given || (own ? from.base : null) || await mainBranchFor(root) : null;
-    const h = add({ kind: 'folder', root, git: !!top, branch, base: against, tabId: own ? from.tabId : null, origin: from });
+    const h = add({ kind: 'folder', root, git: !!top, common, branch, base: against, tabId: own ? from.tabId : null, origin: from });
     return { ok: true, id: h.id, root, name: path.basename(root), branch, base: against, git: !!top, kind: 'folder' };
   }
 
@@ -274,8 +291,23 @@ function createViewer({ home = os.homedir() } = {}) {
     if (!commit) return { ok: false, gone: true, error: 'That worktree or branch is gone.' };
     const branch = ref.slice(HEADS.length);
     const against = typeof base === 'string' && base ? base : null;
-    const h = add({ kind: 'branch', root: top, git: true, ref, commit, branch, base: against, tabId: null, origin, trees: await treesOf(top, home), tree: null });
+    const [trees, common] = await Promise.all([treesOf(top, home), commonDirOf(top)]);
+    const h = add({ kind: 'branch', root: top, git: true, common, ref, commit, branch, base: against, tabId: null, origin, trees, tree: null });
     return { ok: true, id: h.id, root: top, name: path.basename(top), branch, base: against, git: true, kind: 'branch' };
+  }
+
+  // Where git runs for a handle: its own folder while it is there. Once that is gone (a worktree
+  // removed), a branch is still all in the repo, and a menu can still switch away: then another live
+  // folder of the same repo (same git common dir), one of a branch's worktrees or the folder the first
+  // handle was opened on, never one too wide to browse or of another repo. -> a resolved folder | null
+  async function liveRoot(h) {
+    if (longPath(h.root)) return h.root;
+    if (!h.common) return null;
+    for (const dir of [...(h.trees || []), h.origin?.root]) {
+      const at = okDir(dir) ? longPath(dir) : null;
+      if (at && !tooWide(at, home) && await commonDirOf(at) === h.common) return at;
+    }
+    return null;
   }
 
   async function computeFolder(h, key) {
@@ -307,31 +339,32 @@ function createViewer({ home = os.homedir() } = {}) {
   // A branch's changes: its own commits since it left base, or all of it (from the empty tree) when
   // they share no history. The tip is read again each time, so new commits show.
   async function computeBranch(h) {
-    const commit = await tipOf(h.root, h.ref);
+    const at = await liveRoot(h);
+    if (!at) return { ok: false, gone: true, error: 'This folder is gone.' };
+    const commit = await tipOf(at, h.ref);
     if (!commit) {
-      if (!longPath(h.root)) return { ok: false, gone: true, error: 'This folder is gone.' };
       // rev-parse answers null for a missing ref and for a git that didn't run: ask git something else.
-      const alive = await git(h.root, ['rev-parse', '--git-dir']);
+      const alive = await git(at, ['rev-parse', '--git-dir']);
       return alive === null ? { ok: false, error: "Couldn't read changes." } : { ok: false, branchGone: true, error: 'This branch is gone.' };
     }
     h.commit = commit;
-    h.trees = await treesOf(h.root, home);
+    h.trees = await treesOf(at, home);
     // merge-base exits 1 when the two share no history: then all of the branch is new, from the empty
     // tree. Any other failure (a timeout, a base that no longer resolves) is said, with Retry, rather
     // than shown as the whole branch added "(from main)".
     let before = EMPTY_TREE;
     if (h.base) {
-      const mb = await git(h.root, ['merge-base', `${HEADS}${h.base}`, commit], { exit: true });
+      const mb = await git(at, ['merge-base', `${HEADS}${h.base}`, commit], { exit: true });
       const fork = mb.code === 0 ? mb.out.trim() : '';
       if (TREE.test(fork)) before = fork;
       else if (mb.code !== 1) return { ok: false, error: "Couldn't read changes." };
     }
     const diff = {};
-    const sum = await changes.summarize({ root: h.root, tree: before }, { root: h.root, tree: commit }, { noFetch: true, info: diff });
+    const sum = await changes.summarize({ root: at, tree: before }, { root: at, tree: commit }, { noFetch: true, info: diff });
     if (diff.failed) return { ok: false, error: "Couldn't read changes." }; // a missing object, a timeout: not "nothing changed"
     const files = sum?.files || [];
     // Git's own spelling: a branch can hold A.txt and a.txt, and nothing on disk folds them.
-    h.slots.base = { ref: { root: h.root, before, after: commit }, files: new Map(files.map(f => [f.path, f])) };
+    h.slots.base = { ref: { root: at, before, after: commit }, files: new Map(files.map(f => [f.path, f])) };
     return { ok: true, files, more: sum?.more || 0, against: h.base };
   }
 
@@ -366,16 +399,22 @@ function createViewer({ home = os.homedir() } = {}) {
     const slot = h.slots[h.shown];
     const f = typeof rel === 'string' ? slot?.files.get(h.kind === 'branch' ? rel : rel.toLowerCase()) : null;
     if (!f) return { ok: false, error: 'Not a file in these changes.' };
-    const r = await changes.patchFor({ ...slot.ref, file: f.path }, { noFetch: true });
-    return r.error ? { ok: false, error: r.error } : { ok: true, patch: r.patch, truncated: r.truncated, binary: f.binary };
+    // A branch's diff is commit to commit: any live folder of the repo makes it, not only the one the
+    // list was taken in, which may have gone since.
+    const root = h.kind === 'branch' ? await liveRoot(h) : slot.ref.root;
+    if (!root) return { ok: false, gone: true, error: 'This folder is gone.' };
+    const r = await changes.patchFor({ ...slot.ref, root, file: f.path }, { noFetch: true });
+    // patchFor's own words stand; anything else is git's stderr (a blob it lacks: "fatal: unable to read ...").
+    if (r.error) return { ok: false, error: PATCH_SAID.has(r.error) ? r.error : "Couldn't read that." };
+    return { ok: true, patch: r.patch, truncated: r.truncated, binary: f.binary };
   }
 
   // The paths in a branch's tree at a commit: one ls-tree per commit, shared by every ask while it runs,
   // and a failure (a timeout, a listing over 32 MB, a tree git can't read) kept for that commit rather
-  // than run again on each read. -> Promise<{ commit, list, set } | null>
-  function pathsAt(h, commit) {
+  // than run again on each read. at: a live folder of the repo (liveRoot). -> Promise<{ commit, list, set } | null>
+  function pathsAt(h, commit, at) {
     if (h.tree?.commit !== commit) {
-      const p = git(h.root, ['ls-tree', '-r', '-z', '--name-only', commit], { maxBuffer: 32 * 1024 * 1024 }).then(out => {
+      const p = git(at, ['ls-tree', '-r', '-z', '--name-only', commit], { maxBuffer: 32 * 1024 * 1024 }).then(out => {
         if (out === null) return null;
         // All files lists at most TREE_MAX; Whole file reads any path the tree has.
         const all = out.split('\0').filter(Boolean);
@@ -390,15 +429,17 @@ function createViewer({ home = os.homedir() } = {}) {
   // and all): cat-file would answer for a folder or another revision too. Size first, so a huge blob is never read.
   async function readBlob(h, rel) {
     if (typeof rel !== 'string' || !rel) return { ...NOT_HERE };
-    const t = await pathsAt(h, h.commit);
+    const root = await liveRoot(h);
+    if (!root) return { ok: false, gone: true };
+    const t = await pathsAt(h, h.commit, root);
     if (!t) return { ok: false, error: "Couldn't read that." };
     if (!t.set.has(rel)) return { ...NOT_HERE };
     const at = `${t.commit}:${rel}`;
-    const size = Number((await git(h.root, ['cat-file', '-s', at]))?.trim());
+    const size = Number((await git(root, ['cat-file', '-s', at]))?.trim());
     if (!Number.isFinite(size)) return { ok: false, error: "Couldn't read that." };
     if (size > MAX_BYTES) return { ok: false, tooBig: true, size };
     // cat-file blob runs no clean or smudge filter: the bytes as committed.
-    const buf = await git(h.root, ['cat-file', 'blob', at], { buffer: true, env: { GIT_LITERAL_PATHSPECS: '1' }, maxBuffer: MAX_BYTES + 1024 });
+    const buf = await git(root, ['cat-file', 'blob', at], { buffer: true, env: { GIT_LITERAL_PATHSPECS: '1' }, maxBuffer: MAX_BYTES + 1024 });
     if (!buf) return { ok: false, error: "Couldn't read that." };
     if (buf.subarray(0, SNIFF_BYTES).includes(0)) return { ok: false, binary: true, size };
     let text = buf.toString('utf8');
@@ -419,9 +460,11 @@ function createViewer({ home = os.homedir() } = {}) {
     if (h.kind !== 'branch') return { ok: true, entries: await fileIndex.list(h.root) };
     // The tip as it is now, not where the last changes look left it: Refresh asks for both at once, and
     // computeBranch moves h.commit only after its own rev-parse. A branch gone since keeps its last tree.
-    const tip = await tipOf(h.root, h.ref);
+    const at = await liveRoot(h);
+    if (!at) return { ok: true, entries: [] }; // as a folder gone answers: Changes says it is gone
+    const tip = await tipOf(at, h.ref);
     if (tip) h.commit = tip;
-    const t = await pathsAt(h, h.commit);
+    const t = await pathsAt(h, h.commit, at);
     return { ok: true, entries: t ? fileIndex.withFolders(t.list) : [] };
   }
 
@@ -439,13 +482,21 @@ function createViewer({ home = os.homedir() } = {}) {
     // Local folders only, never the home folder or above (open() would refuse them anyway), and only
     // folders of this repo: a record in .git/worktrees can name any folder, and git status there would
     // run that repo's own filters.
-    const listed = parseWorktrees(out).filter(w => okDir(w.path) && !tooWide(w.path, home)).slice(0, MAX_PLACE_TREES);
+    const all = parseWorktrees(out).filter(w => okDir(w.path));
+    const listed = all.filter(w => !tooWide(w.path, home)).slice(0, MAX_PLACE_TREES);
     const ours = await Promise.all(listed.map(w => slot(() => commonDirOf(w.path))));
     const trees = listed.filter((_w, i) => ours[i] === common);
+    // Another worktree inside this one (an agent's, under .claude/worktrees) is a place of its own, not
+    // an untracked folder of this one, whether or not the repo ignores it.
+    const folders = all.map(w => longPath(w.path)).filter(Boolean);
+    const inside = dir => {
+      const at = longPath(dir);
+      return at ? folders.filter(f => isUnder(at, f)).map(f => path.relative(at, f).split(path.sep).join('/')) : [];
+    };
     // A count that timed out (8 s) is left off rather than guessed.
     const changed = await Promise.all(trees.map(w => slot(async () => {
       const st = await git(w.path, ['status', '--porcelain', '-z', '--untracked-files=all']);
-      return st === null ? null : countStatus(st);
+      return st === null ? null : countStatus(st, inside(w.path));
     })));
     const rows = trees.map((w, i) => ({
       kind: 'worktree', label: path.basename(w.path), branch: w.branch || 'detached',
@@ -495,8 +546,11 @@ function createViewer({ home = os.homedir() } = {}) {
     if (!h.places || Date.now() - h.places.at >= PLACES_MS) {
       // Two asks at once on one handle wait for the same list, so neither's keys go stale under the other.
       h.placing ||= (async () => {
-        const common = await commonDirOf(h.root);
-        const built = common ? await listFor(h.root, common) : null;
+        // A handle whose folder went (a worktree removed) lists from a live one of the same repo, so
+        // its gone screen can still switch away.
+        const from = await liveRoot(h);
+        const common = from ? await commonDirOf(from) : null;
+        const built = common ? await listFor(from, common) : null;
         if (!built) return false;
         const current = r => (r.kind === 'worktree' ? h.kind === 'folder' && sameDir(r.path, h.root) : h.kind === 'branch' && h.ref === r.ref);
         h.places = {
@@ -530,15 +584,17 @@ function createViewer({ home = os.homedir() } = {}) {
     if (!h) return { ok: false, expired: true };
     const e = typeof key === 'string' ? h.places?.list.find(x => x.key === key) : null;
     if (!e) return { ok: false, error: "That isn't on this list. Open the menu again." };
+    const from = await liveRoot(h); // as placesOf listed from
+    if (!from) return stale(h);
     if (e.kind === 'worktree') {
       if (!okDir(e.path) || tooWide(e.path, home)) return stale(h);
-      const listed = parseWorktrees(await git(h.root, ['worktree', 'list', '--porcelain']));
+      const listed = parseWorktrees(await git(from, ['worktree', 'list', '--porcelain']));
       if (!listed.some(w => okDir(w.path) && sameDir(w.path, e.path))) return stale(h);
-      if (!(await changes.sameRepo(h.root, e.path))) return stale(h);
+      if (!(await changes.sameRepo(from, e.path))) return stale(h);
       const r = await open({ dir: e.path, origin: h.origin });
       return r.ok || !r.gone ? r : stale(h);
     }
-    const r = await openBranch({ root: h.root, ref: e.ref, base: h.places.base, origin: h.origin });
+    const r = await openBranch({ root: from, ref: e.ref, base: h.places.base, origin: h.origin });
     return r.ok || !r.gone ? r : stale(h);
   }
 

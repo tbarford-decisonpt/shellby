@@ -316,7 +316,7 @@ test('nothing is fetched while looking: a repo that says it is a partial clone r
     ]) r.g(r.dir, 'config', key, value);
     const packs = () => fs.readdirSync(path.join(r.dir, '.git', 'objects', 'pack')).sort();
     const before = packs();
-    assert.equal((await v.diffOf(b.id, 'a.txt')).ok, false, "a diff that needs main's a.txt");
+    assert.deepEqual(await v.diffOf(b.id, 'a.txt'), { ok: false, error: "Couldn't read that." }, "a diff that needs main's a.txt: never git's own words");
     assert.deepEqual(await v.read(b.id, 'far.txt'), { ok: false, error: "Couldn't read that." }, 'Whole file of a blob it lacks');
     v.staleFor(r.dir, { commits: true });
     assert.deepEqual(await v.changesOf(b.id), { ok: false, error: "Couldn't read changes." }, "the branch's changes, told apart from nothing changed");

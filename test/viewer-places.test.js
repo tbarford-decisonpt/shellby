@@ -300,6 +300,84 @@ test('countStatus: one per file, a rename or copy counted once', () => {
   assert.equal(countStatus('?? a\0'), 1, 'a one-letter name');
 });
 
+test("countStatus: an untracked entry that is another worktree's folder, or inside one, isn't counted", () => {
+  const out = '?? .claude/worktrees/agent-1/\0?? .Claude/Worktrees/agent-2/x.txt\0?? .claude/worktrees/agent-10\0 M .claude/worktrees/agent-1/t.txt\0?? n.txt\0';
+  assert.equal(countStatus(out), 5);
+  assert.equal(countStatus(out, ['.claude/worktrees/agent-1', '.claude/worktrees/agent-2']), 3, 'agent-10 is no folder of agent-1; a tracked change still counts');
+  assert.equal(countStatus(out, []), 5);
+});
+
+test("a worktree nested in the checkout isn't one of the checkout's changes, in a repo that doesn't ignore it", async () => {
+  const r = repo();
+  try {
+    const exclude = path.join(r.dir, '.git', 'info', 'exclude');
+    fs.writeFileSync(exclude, fs.readFileSync(exclude, 'utf8').replace('.claude/worktrees/\n', ''));
+    const nested = path.join(r.dir, '.claude', 'worktrees', 'x');
+    r.g(r.dir, 'worktree', 'add', '-q', '-b', 'x', nested);
+    assert.match(r.g(r.dir, 'status', '--porcelain', '--untracked-files=all'), /^\?\? \.claude\/worktrees\/x\/$/m, 'git status names it in the checkout');
+    const v = createViewer();
+    const p = await v.placesOf((await v.open({ dir: r.dir })).id);
+    const rows = Object.fromEntries(p.places.filter(x => x.kind === 'worktree').map(x => [x.label, x.changed]));
+    assert.deepEqual(rows, { proj: 0, x: 0 });
+  } finally { r.done(); }
+});
+
+test('a removed worktree: a branch picked from it reads on from a live folder of the repo, and its gone screen still lists', async () => {
+  const r = repo();
+  try {
+    r.branch('feat');
+    const wt = path.join(r.base, 'wt');
+    r.g(r.dir, 'worktree', 'add', '-q', '-b', 'wt', wt);
+    const v = createViewer();
+    const key = (list, label) => list.places.find(x => x.label === label).key;
+    const h = await v.open({ dir: r.dir, tabId: 't' });
+    const w = await v.switchTo(h.id, key(await v.placesOf(h.id), 'wt'));
+    assert.equal(w.ok, true);
+    const b = await v.switchTo(w.id, key(await v.placesOf(w.id), 'feat'));
+    assert.equal(b.ok, true);
+    assert.equal(b.root.toLowerCase(), wt.toLowerCase(), 'picked from the worktree');
+    assert.deepEqual((await v.changesOf(b.id)).files.map(f => f.path), ['feat-0.txt']);
+    r.g(r.dir, 'worktree', 'remove', '--force', wt);
+    assert.equal(fs.existsSync(wt), false);
+    // The diff of a list taken while the worktree was there.
+    assert.match((await v.diffOf(b.id, 'feat-0.txt')).patch || '', /^\+0$/m, 'a diff from the list taken before');
+    v.staleFor(r.dir, { commits: true });
+    const c = await v.changesOf(b.id);
+    assert.equal(c.ok, true, JSON.stringify(c));
+    assert.deepEqual(c.files.map(f => f.path), ['feat-0.txt'], 'a look after it went');
+    assert.match((await v.diffOf(b.id, 'feat-0.txt')).patch || '', /^\+0$/m);
+    assert.deepEqual(await v.read(b.id, 'feat-0.txt'), { ok: true, text: '0\n', size: 2 });
+    assert.ok((await v.treeOf(b.id)).entries.includes('feat-0.txt'));
+    const q = await v.placesOf(b.id);
+    assert.equal(q.ok, true, JSON.stringify(q));
+    assert.ok(q.places.find(x => x.label === 'feat').current);
+    // The worktree's own handle shows the gone screen; its menu lists from the conversation's checkout.
+    assert.equal((await v.changesOf(w.id)).gone, true);
+    const g = await v.placesOf(w.id);
+    assert.equal(g.ok, true, JSON.stringify(g));
+    const back = await v.switchTo(w.id, key(g, 'proj'));
+    assert.equal(back.ok, true);
+    assert.equal(v.get(back.id).tabId, 't', "back in the conversation's own folder");
+    assert.equal((await v.switchTo(w.id, key(g, 'feat'))).ok, true, 'and a branch opens from there too');
+  } finally { r.done(); }
+});
+
+test("a removed worktree with no live folder of its repo to fall back on doesn't list from another repo's", async () => {
+  const r = repo();
+  try {
+    const wt = path.join(r.base, 'wt');
+    r.g(r.dir, 'worktree', 'add', '-q', '-b', 'wt', wt);
+    const other = path.join(r.base, 'other');
+    fs.mkdirSync(other);
+    r.g(other, 'init', '-q', '-b', 'main');
+    const v = createViewer();
+    // A handle carried from a conversation in another repo (as no pick makes, but open() takes one).
+    const w = await v.open({ dir: wt, origin: { tabId: 't', root: other, base: null } });
+    r.g(r.dir, 'worktree', 'remove', '--force', wt);
+    assert.deepEqual(await v.placesOf(w.id), { ok: false, error: "Couldn't list worktrees." });
+  } finally { r.done(); }
+});
+
 test("checkoutBranch: the main checkout's branch, or none when it is bare or detached", () => {
   assert.equal(checkoutBranch('worktree C:/r\nHEAD abc\nbranch refs/heads/main\n\nworktree C:/w\nHEAD abc\nbranch refs/heads/x\n'), 'main');
   assert.equal(checkoutBranch('worktree C:/r\r\nHEAD abc\r\nbranch refs/heads/-x\r\n'), '-x');
