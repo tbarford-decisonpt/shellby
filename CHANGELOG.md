@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.81.0: Marks past 99, zoomed panes and named layouts
+
+### New
+- Claude's replies format as they're written, instead of arriving as raw text and jumping into shape at the end.
+- Replies show quotes, nested lists, to-do lists with their boxes ticked, strikethrough, and lists that start at the number Claude gave them.
+- Plain `https://` addresses and file paths like src/main/x.js:42 are links even outside backticks.
+- A step's output has a Copy button, and a long one opens to its full height with Show all. Failed output is tinted red.
+- Code blocks have a Wrap button for long lines, and say "cut off" when a reply ended mid-block.
+- When Claude Code passes on what Claude thought, it sits folded above the reply.
+- **Long code blocks fold.** A code block in a reply that runs past 30 lines shows about two dozen of them and scrolls, so it no longer takes over the conversation. **Show all** in its bar opens it to its full height.
+- Scrolled up in a conversation, a ↓ button in the corner takes you back to the latest, and wears a dot when something new has come in below.
+- **LibreHardwareMonitor updates.** LHM never updates itself, so the copy Shellby set up for your CPU temperature stayed on whatever version it started with. **Sensors** in Health now shows which version you have and says when a newer one is out. **Update it** fills in a Claude task that keeps your LHM settings, updates it and starts it again.
+- **Marks past level 99.** XP keeps counting after the top level: the first mark (★) takes 5,000 XP more, and each one after costs 500 more than the last. The badge shows them as 99★3, the Trophies card counts down to the next, and each one gets a celebration on your desktop and in the panel.
+- **Zoom a pane.** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Enter</kbd>, or the new button on a pane's header, fills the chat with the pane you're in while the others wait, as they were. Press it again, or go to another pane, and they're all back.
+- **Layouts you name.** Split the way you like it, then **Save this layout** from <kbd>Ctrl</kbd>+<kbd>K</kbd> (type "save review" to call it "review"). **Use the "review" layout** puts whatever you have open into that shape, sizes and all, with a new conversation for any pane it's short. Up to twelve.
+- **A project's own layout.** **Make this <project>'s layout** keeps one per project. Go back to that project with the panel in one pane and it's offered: its conversations take a pane each, with new ones in its folder for the rest.
+- **Each pane says how it's doing.** Its header shows the branch its copy is on and how its last checks went, ✓ or ✗, or … while they run.
+- **See what needs you, even twelve panes in.** A pane holding a conversation that wants your OK lights up amber. Zoomed in, the header names it. <kbd>Alt</kbd>+<kbd>J</kbd> goes to the next one waiting, whichever pane it's in.
+- **Swap two panes.** Drag a pane's header onto another pane, or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+arrows, and they trade places. The sizes stay where they were.
+
+### Fixed
+- A note's Ask that you go on to have change things now moves into its own copy on a new branch, like any other conversation, instead of editing your checkout.
+- **Code blocks in a reply that's still being written answer every click.** Copy or Wrap pressed while Claude was still writing could do nothing, because the block was drawn again a few times a second. Finished blocks now stay put, and a block's Wrap, Show all and scroll carry on into the finished reply.
+- **A note's Ask or Plan no longer asks about everything afterwards.** Ask still starts in Ask first, and Plan in Plan only. Once Ask has answered, or once you approve the plan, the conversation goes back to your own mode, so Autonomous really is autonomous. Before, the rest of that chat stayed in the starting mode and asked about every step.
+- With conversations side by side, clicking into another pane no longer hides what the first one left running: each pane you're not typing in keeps a line of its background commands and to-do progress, and a click on it brings back the full list with Output and Stop.
+- Signed in to GitHub, the note under "Let Claude tasks push workflows" read "true" or "false" instead of saying what the setting does.
+- A reply being written shows its first words with its bubble again, instead of an empty bubble for a moment.
+- GitHub asks for your OK once. Every GitHub feature can be ticked before you sign in, including letting Claude tasks push, CI workflows, history sync, visiting crabs, the profile card and the PR badge; each still asks its own question when you tick it, and then one approval on github.com covers them all, instead of a fresh code for each one turned on afterwards.
+- **Notifications open conversations in their own window.** Clicking one for a conversation you'd popped out of the panel now brings that window to the front, instead of leaving it behind whatever you were in.
+- **Older notifications still work.** Clicking one later from the Windows notification centre opens what it's about, rather than sometimes doing nothing.
+- **Ctrl+Alt+Enter in the message box no longer sends.** It zooms the pane now.
+- The suggestion above the box (what you might ask next) no longer flashes while other conversations work, and stays hovered: it's only drawn again when Claude Code guesses something new.
+- Suggestions don't slip out from under the pointer when you hover near their edge. The › steps forward instead of the whole button.
+- The start screen's suggestions stay the same while you look at them, instead of reshuffling whenever his look changed (a new song, a sticker, a new shell).
+
+### Changed
+- **Your beach is on the Us page now.** Us opens on your beach, with him sitting beside the newest castle, so his screen has one tab fewer. Click him for a pet, feed him and he chomps right there, and as you get closer he holds up his favourite find and draws hearts in the sand in front of him. Everything the Beach tab had is still there: castles rising as you watch, the strip to look along it, Share a snapshot, and how it grows further down the page.
+- Heading levels in a reply look different from each other, and an opened step shows its whole command.
+- An error the app has no plain words for gets a Copy button.
+- **Moving around in Settings is tidier.** Climbing onto your windows and up the screen's edges now sit under the stroll switch they depend on, and they fade back when strolling is off. Every dropdown lines up in one column. The note about Windows' animation effects only shows when they're actually off and he's staying put.
+- **Notes look tidier.** Your notes sit on one page with a round tick for each, instead of a stack of separate boxes. Long notes wrap at a comfortable width on a wide panel, and Add sits inside the box you type in.
+- **Levels come a little slower.** A finished task now earns 5 XP instead of 10, and passing tests 15 instead of 25. Those two came by the dozen on a busy day and made up most of the XP, so the bigger moments (tricks, deploys, fixes, pushes) count for more of it now. Nobody loses a level they already have.
+- **Dependency health, flaky tests and dependency watch now live under Projects.** They're about how your projects' code is doing, so they sit under your project list instead of under Routines, which is now only about things that run on a schedule. His "flaked 2 times this week" bubble and the dependency watch notification take you straight there.
+
 ## 0.80.0: Twelve panes, each with its own tabs
 
 ### New
