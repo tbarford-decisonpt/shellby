@@ -94,7 +94,9 @@ fs.mkdirSync(claudeConfig);
     const input = () => ev("document.getElementById('input').value");
     const clearInput = () => ev("(() => { const i = document.getElementById('input'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); })()");
 
-    check(await until('window.SB && SB.state && SB.state.settings && typeof SB.toggleTrail === "function"', 30000), 'the panel booted with the trail in it');
+    // Booted, not just past trail.js: the scripts after it (crabonly.js's
+    // SB.isCrabOnly, which the shortcut checks) are still loading until boot.js marks it.
+    check(await until("performance.getEntriesByName('shellby:panel-ready').length > 0 && typeof SB.toggleTrail === 'function'", 30000), 'the panel booted with the trail in it');
     await ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
     await ev(`shellby.setFolder(${JSON.stringify(repo)}).then(SB.folderChanged)`);
     await ev('SB.newTab()');
