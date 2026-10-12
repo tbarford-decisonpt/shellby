@@ -151,12 +151,17 @@
 
   // Climbing onto windows lives under strolling: with strolling off he stays
   // put, so the choice is shown but can't be changed. Same for the screen's edges.
+  // Reads the switch rather than the setting: with Windows' animation effects off
+  // and nothing chosen yet, he stays put while the setting is still unset.
   function renderPerch() {
     const s = state.settings;
+    const strolls = $('wanderToggle').checked;
+    $('wanderNote').hidden = strolls || !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $('wanderOptions').classList.toggle('off', !strolls);
     $('perchSelect').value = ['off', 'sometimes', 'often'].includes(s.perch) ? s.perch : 'sometimes';
-    $('perchSelect').disabled = s.wander === false;
+    $('perchSelect').disabled = !strolls;
     $('climbSelect').value = ['off', 'sometimes', 'often'].includes(s.climb) ? s.climb : 'sometimes';
-    $('climbSelect').disabled = s.wander === false;
+    $('climbSelect').disabled = !strolls;
     $('colonySelect').value = String(Number.isInteger(s.colony) ? s.colony : 0);
     renderMischief();
     const ignored = Array.isArray(s.perchIgnore) ? s.perchIgnore : [];
