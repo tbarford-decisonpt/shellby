@@ -109,3 +109,18 @@ test('status words and classes', () => {
   assert.equal(V.statusClass('?'), 'u');
   assert.equal(V.statusClass('D'), 'd');
 });
+
+test('totals and totalsText: files, lines added and removed; a binary file counts as a file only', () => {
+  const files = [
+    { path: 'a.js', status: 'M', added: 20, removed: 50 },
+    { path: 'b.js', status: '?', added: 10, removed: 0 },
+    { path: 'logo.png', status: 'M', binary: true, added: 0, removed: 0 },
+    { path: 'gone.js', status: 'D', added: 0, removed: 2 },
+  ];
+  assert.deepEqual(V.totals(files), { files: 4, added: 30, removed: 52 });
+  assert.equal(V.totalsText(files), '4 files · +30 −52');
+  assert.equal(V.totalsText([files[1]]), '1 file · +10', 'one file, and no −0');
+  assert.equal(V.totalsText([files[2]]), '1 file', 'binary: no lines to count');
+  assert.deepEqual(V.totals(null), { files: 0, added: 0, removed: 0 });
+  assert.equal(V.totalsText([]), '', 'nothing changed: nothing to say');
+});

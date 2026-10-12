@@ -11,6 +11,8 @@
   const S = window.ShellbySyntax;
   const MAX_COLOUR_LINES = 4000;   // past this, plain text
   const REFRESH_MS = 2000;         // at most one look again in this long
+  const WRAP_KEY = 'shellby.viewer.wrap'; // '0' once you turn Wrap off; lines wrap until then
+  const wrapOn = () => SB.pref(WRAP_KEY) !== '0';
   const ICON = 'M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6.1c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z';
   const lastFile = new Map(); // root -> the file last open there, while Shellby runs
   let cur = null;             // what's open: the handle, the lists and the file on screen
@@ -59,7 +61,9 @@
     if (me.file) for (const a of ancestors(me.file)) me.open.add(a);
     draw();
     if (me.file) showFile(me.file, { line });
-    else $('viewerMain').replaceChildren(h('p', { class: 'muted vw-empty', text: me.files.length ? 'Pick a file to see what changed.' : 'Pick a file to read it.' }));
+    else $('viewerMain').replaceChildren(h('div', { class: 'vw-empty' },
+      h('p', { class: 'muted', text: me.files.length ? 'Pick a file to see what changed.' : 'Pick a file to read it.' }),
+      me.files.length ? h('p', { class: 'small muted vw-totals', text: V.totalsText(me.files) }) : null));
   }
 
   async function loadChanges() {
@@ -94,6 +98,7 @@
     if (cur.gone) {
       $('viewerSide').hidden = true;
       $('viewerEditor').hidden = true;
+      $('viewerFoot').hidden = true;
       $('viewerMain').replaceChildren(h('div', { class: 'vw-gone' },
         h('p', { text: 'This folder is gone.' }),
         h('button', { type: 'button', class: 'btn slim-btn', text: 'Back', onclick: () => SB.goBack() })));
@@ -116,6 +121,10 @@
     $('viewerNote').replaceChildren(said, ...(cur.side === 'changes' && cur.note?.retry
       ? [' ', h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Retry', onclick: () => refresh() })] : []));
     $('viewerList').replaceChildren(...(cur.side === 'changes' ? changeRows() : treeRows()));
+    const sums = cur.git ? V.totalsText(cur.files) : '';
+    $('viewerFoot').hidden = !sums;
+    $('viewerFoot').textContent = sums;
+    for (const el of document.querySelectorAll('#viewerMain .vw-totals')) el.textContent = sums;
   }
 
   const counts = f => (f.binary ? h('span', { class: 'vw-n muted', text: 'binary' })
@@ -168,25 +177,43 @@
     for (const b of document.querySelectorAll('#viewerList .vw-row')) b.classList.toggle('on', b.dataset.path === rel);
     const f = me.files.find(x => x.path === rel) || null;
     const main = $('viewerMain');
-    const top = main.scrollTop;
+    const top = main.querySelector('.vw-scroll')?.scrollTop || 0;
     const body = !f || me.whole ? await wholeFile(rel, line) : await diffOf(f);
     if (cur !== me || me.file !== rel) return;
     if (me.gone) return draw(); // the read found the folder gone: that screen stays
-    main.replaceChildren(fileHead(rel, f), body);
+    const scroll = h('div', { class: 'vw-scroll' }, body);
+    main.replaceChildren(fileHead(rel, f, body), scroll);
     $('viewerEditor').hidden = false;
-    if (keep) main.scrollTop = top;
-    else main.querySelector('.hit')?.scrollIntoView({ block: 'center' });
+    if (keep) scroll.scrollTop = top;
+    else scroll.querySelector('.hit')?.scrollIntoView({ block: 'center' });
   }
 
-  function fileHead(rel, f) {
+  // The title bar across the top of the right panel; the code scrolls under it. Wrap only
+  // where the code is rows (a note has none, and the plain view past the cap can't wrap).
+  function fileHead(rel, f, body) {
+    const rows = body.matches('.vw-code.diff') || !!body.querySelector('.vw-code.diff');
+    const big = body.matches('.vw-big');
     return h('div', { class: 'vw-file-head' },
       h('code', { class: 'vw-file', text: rel, title: rel }),
       f ? h('span', { class: `vw-st st-${V.statusClass(f.status)}`, text: f.status, title: V.statusWord(f.status) }) : null,
       f ? counts(f) : null,
-      f ? h('button', {
-        type: 'button', class: 'btn ghost slim-btn', text: cur.whole ? 'Diff' : 'Whole file',
-        disabled: f.status === 'D' && !cur.whole, onclick: () => { cur.whole = !cur.whole; cur.line = null; showFile(rel); },
-      }) : null);
+      h('span', { class: 'vw-tools' },
+        f ? h('button', {
+          type: 'button', class: 'btn ghost slim-btn', text: cur.whole ? 'Diff' : 'Whole file',
+          disabled: f.status === 'D' && !cur.whole, onclick: () => { cur.whole = !cur.whole; cur.line = null; showFile(rel); },
+        }) : null,
+        rows || big ? h('button', {
+          type: 'button', class: 'btn ghost slim-btn vw-wrap', text: 'Wrap', disabled: big,
+          'aria-pressed': String(rows && wrapOn()),
+          title: big ? "Long files show as plain text, which can't wrap." : 'Wrap long lines',
+          onclick: e => setWrap(e.currentTarget, !wrapOn()),
+        }) : null));
+  }
+
+  function setWrap(btn, on) {
+    SB.pref.set(WRAP_KEY, on ? '1' : '0');
+    btn.setAttribute('aria-pressed', String(on));
+    for (const c of document.querySelectorAll('#viewerMain .vw-code.diff')) c.classList.toggle('nowrap', !on);
   }
 
   async function diffOf(f) {
@@ -196,7 +223,7 @@
     const rows = V.numberDiff(r.patch);
     if (!rows.length) return note('No line changes (a mode or line-ending change).');
     const paint = rows.length > MAX_COLOUR_LINES ? null : SB.diffPainter?.(f.path); // plain past the cap, as wholeFile
-    const pre = h('pre', { class: 'vw-code diff' }, rows.map(row => {
+    const pre = h('pre', { class: `vw-code diff${wrapOn() ? '' : ' nowrap'}` }, rows.map(row => {
       const code = h('span', { class: 'code' });
       const toks = paint && row.cls !== 'meta' ? paint(row.cls, row.text) : null;
       if (toks) SB.paintTokens(code, toks); else code.textContent = row.text;
@@ -219,11 +246,17 @@
     if (lines.length > MAX_COLOUR_LINES) {
       // Plain past the cap: two blocks of text instead of a row per line.
       const text = h('pre', { class: 'vw-plain', text: lines.join('\n') });
-      if (line) requestAnimationFrame(() => { const lh = parseFloat(getComputedStyle(text).lineHeight) || 18; $('viewerMain').scrollTop = Math.max(0, (line - 5) * lh); });
+      if (line) {
+        requestAnimationFrame(() => {
+          const lh = parseFloat(getComputedStyle(text).lineHeight) || 18;
+          const scroller = $('viewerMain').querySelector('.vw-scroll');
+          if (scroller) scroller.scrollTop = Math.max(0, (line - 5) * lh);
+        });
+      }
       return h('div', { class: 'vw-code vw-big' }, h('pre', { class: 'vw-gutter', text: lines.map((_l, i) => i + 1).join('\n') }), text);
     }
     const tk = S.lineTokenizer(S.langFromPath(rel));
-    return h('pre', { class: 'vw-code diff' }, lines.map((l, i) => h('span', { class: `dl ctx${line === i + 1 ? ' hit' : ''}` },
+    return h('pre', { class: `vw-code diff${wrapOn() ? '' : ' nowrap'}` }, lines.map((l, i) => h('span', { class: `dl ctx${line === i + 1 ? ' hit' : ''}` },
       h('span', { class: 'vw-ln', text: i + 1 }),
       SB.paintTokens(h('span', { class: 'code' }), tk.line(l)))));
   }

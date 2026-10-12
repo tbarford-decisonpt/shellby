@@ -121,7 +121,22 @@
     return { word: 'Done', cls: 'done' };
   }
 
-  const api = { buildTree, visibleRows, numberDiff, splitLines, whereText, tooWide, liveState, statusWord, statusClass, STATUS_WORDS };
+  /** The changes list in sums: files (a binary one counts as a file), lines added, lines removed. */
+  function totals(files) {
+    const sum = { files: 0, added: 0, removed: 0 };
+    for (const f of files || []) { sum.files++; sum.added += f.added || 0; sum.removed += f.removed || 0; }
+    return sum;
+  }
+
+  /** The sums as the left panel's footer says them: "4 files · +30 −52". Empty when nothing changed. */
+  function totalsText(files) {
+    const t = totals(files);
+    if (!t.files) return '';
+    const lines = [t.added ? `+${t.added}` : '', t.removed ? `−${t.removed}` : ''].filter(Boolean).join(' ');
+    return [`${t.files} ${t.files === 1 ? 'file' : 'files'}`, lines].filter(Boolean).join(' · ');
+  }
+
+  const api = { buildTree, visibleRows, numberDiff, splitLines, whereText, tooWide, liveState, totals, totalsText, statusWord, statusClass, STATUS_WORDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyViewer = api;
 })(typeof window !== 'undefined' ? window : globalThis);

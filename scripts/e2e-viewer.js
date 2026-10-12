@@ -35,7 +35,14 @@ fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify({ onboarde
 fs.writeFileSync(path.join(base, 'outside.txt'), 'not in the project\n');
 
 // What the turns write, and so what the viewer must list: counts come from here.
-const MADE = [{ file: 'b.txt', words: 'made in the copy' }, { file: 'c.txt', words: 'second change' }];
+// The last one is a single long line (300 characters or so), wider than any panel, to see wrapping.
+const MADE = [
+  { file: 'b.txt', words: 'made in the copy' },
+  { file: 'c.txt', words: 'second change' },
+  { file: 'long.txt', words: 'a long line that must wrap in a narrow panel '.repeat(7).trim() },
+];
+const ADDED = MADE.reduce((n, m) => n + m.words.split('\n').length, 0); // each turn writes its words as lines
+const FOOT = `${MADE.length} files · +${ADDED}`;
 
 const targets = async () => { try { return await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json(); } catch { return []; } };
 
@@ -95,19 +102,45 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     const rows = await ev("[...document.querySelectorAll('#viewerList .vw-row')].map(b => b.dataset.path + ':' + b.querySelector('.vw-st').textContent)");
     check(JSON.stringify(rows) === JSON.stringify([`${MADE[0].file}:?`]), `Changes lists the new file as untracked (${rows})`);
     check(/\(from main\)/.test(await ev("document.getElementById('viewerWhere').textContent")), 'the header names the base');
+    check(await until(`document.querySelector('#viewerMain .vw-empty p')?.textContent === 'Pick a file to see what changed.' && document.querySelector('#viewerMain .vw-totals')?.textContent === ${JSON.stringify(`1 file · +${MADE[0].words.split('\n').length}`)}`), 'with no file picked, the right panel says so and totals the changes');
+    await shot('0-pick-a-file');
     await ev(`[...document.querySelectorAll('#viewerList .vw-row')].find(b => b.dataset.path === ${JSON.stringify(MADE[0].file)}).click()`);
     check(await until(`[...document.querySelectorAll('#viewerMain .dl.add .code')].some(c => c.textContent === ${JSON.stringify(MADE[0].words)})`), 'its diff shows the line coming');
     check(await ev("document.querySelector('#viewerMain .dl.add .vw-ln:nth-child(2)').textContent") === '1', 'with the new side numbered');
     await shot('1-changes');
+    check(await ev("document.querySelector('#viewerMain .vw-file-head .vw-wrap')?.getAttribute('aria-pressed')") === 'true', 'the file header has a Wrap button, on by default');
 
     // ---- a second edit shows up on its own. SB.send goes back to the chat (tab-send.js), so the
     // viewer hears the nudge while hidden and catches up when it's shown again.
-    await ev(`SB.send(${JSON.stringify(`edit ${MADE[1].file} ${MADE[1].words}`)})`);
-    await idle();
+    for (const m of MADE.slice(1)) {
+      await ev(`SB.send(${JSON.stringify(`edit ${m.file} ${m.words}`)})`);
+      await idle();
+    }
     check(await ev("SB.state.view === 'chat' && SB.viewer.current() !== null"), 'sending went back to the chat, the viewer kept its place');
     await ev("SB.setView('viewer')");
-    check(await until(`document.querySelectorAll('#viewerList .vw-row').length === ${MADE.length}`), 'shown again, it lists the second edit');
+    check(await until(`document.querySelectorAll('#viewerList .vw-row').length === ${MADE.length}`), 'shown again, it lists the later edits');
     check(await ev(`SB.viewer.current().file === ${JSON.stringify(MADE[0].file)}`), 'and still has the file you were on');
+    check(await until(`document.getElementById('viewerFoot').textContent === ${JSON.stringify(FOOT)}`), `the left panel's footer totals the changes (${FOOT})`);
+    check(await ev("!document.getElementById('viewerFoot').hidden"), 'and shows');
+
+    // ---- long lines wrap, and Wrap turns it off: the code scrolls sideways inside its own area
+    const scrollerFits = "(() => { const s = document.querySelector('#viewerMain .vw-scroll'); return s.scrollWidth <= s.clientWidth + 1; })()";
+    const open = file => ev(`[...document.querySelectorAll('#viewerList .vw-row')].find(b => b.dataset.path === ${JSON.stringify(file)}).click()`);
+    const longWords = JSON.stringify(MADE[2].words);
+    await open(MADE[2].file);
+    check(await until(`[...document.querySelectorAll('#viewerMain .dl.add .code')].some(c => c.textContent === ${longWords})`), 'the long line is in its diff');
+    check(await ev("!document.querySelector('#viewerMain .vw-code').classList.contains('nowrap')") && await ev(scrollerFits), 'wrapped, it has no sideways overflow');
+    await shot('1b-wrapped');
+    await ev("document.querySelector('#viewerMain .vw-wrap').click()");
+    check(await ev("document.querySelector('#viewerMain .vw-code').classList.contains('nowrap') && document.querySelector('#viewerMain .vw-wrap').getAttribute('aria-pressed') === 'false'"), 'Wrap off marks the code block and the button');
+    check(!(await ev(scrollerFits)), 'unwrapped, the long line runs past the edge and scrolls');
+    await shot('1c-unwrapped');
+    await open(MADE[0].file);
+    check(await until(`[...document.querySelectorAll('#viewerMain .dl.add .code')].some(c => c.textContent === ${JSON.stringify(MADE[0].words)})`), 'another file opens');
+    check(await ev("document.querySelector('#viewerMain .vw-code').classList.contains('nowrap') && document.querySelector('#viewerMain .vw-wrap').getAttribute('aria-pressed') === 'false'"), 'and the choice carries over to it');
+    check(await ev("window.localStorage.getItem('shellby.viewer.wrap')") === '0', 'and is remembered');
+    await ev("document.querySelector('#viewerMain .vw-wrap').click()");
+    check(await ev("!document.querySelector('#viewerMain .vw-code').classList.contains('nowrap') && window.localStorage.getItem('shellby.viewer.wrap') === '1'"), 'Wrap on again puts it back');
 
     // ---- Whole file on a changed file, and back to its diff
     await ev("[...document.querySelectorAll('#viewerMain .vw-file-head button')].find(b => b.textContent === 'Whole file').click()");
