@@ -22,6 +22,8 @@ tab manager (`src/main/sessions.js`) and the tests.
 
 ## What it does
 
+- **One ping at a time.** Due tabs are pinged in turn, never together, and a
+  tab whose cache a ping just read isn't pinged again within 5 minutes.
 - **One press covers every conversation.** While it's on, Shellby looks at
   every open tab every 30 seconds. A tab gets pinged when its cache is warm,
   lasts an hour, and is due within 5 minutes. A tab you're actively using is
@@ -41,7 +43,9 @@ tab manager (`src/main/sessions.js`) and the tests.
     one reading of 2 minutes or more since you pressed the button. These are
     the same readings and threshold that "While you were away" uses
     (`recap.js` `IDLE_MS`).
-  - **You send a real message in any tab.**
+  - **You send a message from the panel, in any tab.** A routine, a workflow,
+    the reset queue or your phone sending one doesn't count: you aren't back
+    at the PC.
   - **3 hours** after you pressed it (`MAX_MS`). A button you forgot can't ping
     all night.
   - **You press it again**, or Shellby quits. Nothing is saved across a
@@ -62,11 +66,11 @@ One fixed message, sent through the tab's own running Claude process:
 - **Not through `manager.send`.** A ping skips History, the effort picker,
   the note preamble, `decorate`, `prepareTurn`, steering and
   `history.markTurn`, so a power cut mid-ping doesn't mark the conversation
-  unfinished. It goes through a new `manager.ping(tabId, text)` that sets
-  `turnFrom = { keepwarm: true }` and `turnText` for the ledger, then calls
+  unfinished. It goes through a new `manager.ping(tabId, text)` that calls
   `session.send` directly. Effort matters most here: a change in effort or
   thinking settings breaks the messages cache, so a ping must never change
-  either.
+  either. While a ping runs, `takeSteers` hands over nothing: a message you
+  queue then waits for the ping to end and goes as a turn of its own.
 - **Out of the conversation feed.** While a tab has a ping in flight
   (`tab.pinging`), `onItem` drops that turn's replayed user message, its text
   and its result. They are neither saved nor sent to the panel, and they don't
@@ -78,12 +82,14 @@ One fixed message, sent through the tab's own running Claude process:
 
   The panel learns a turn has ended only from its `result` item (`boot.js`
   `onTabItem` clears `tab.busy`). So the `keepwarm` item also ends the turn
-  there: it clears `busy` and calls `syncBusyUi`, but skips `unread` and
-  `onTurnEnded`. The swallowed items go nowhere else either, so the recap
-  (`noteRecap`) and the crab never hear about a ping.
-- **Its cost shows.** The ping's usage goes into spend and the usage ledger
-  like any turn's, as its own "Keep warm" category, so the Lean tab shows what
-  keeping warm cost.
+  there: it clears `busy`, sends anything you queued meanwhile
+  (`onTurnEnded`, which only drains the queue) and calls `syncBusyUi`, but
+  leaves `unread` alone. The swallowed items go nowhere else either, so the
+  recap (`noteRecap`) and the crab never hear about a ping.
+- **Its cost shows.** The ping's calls go into spend (usage by project) and
+  Lean's cache figures like any call's, and its receipt line says what it
+  read. It has no row in the per-turn ledger, which counts only turns that go
+  through `prepareTurn`.
 - **Claude still sees it.** Each ping and its one-word reply add about 30
   tokens to Claude Code's own transcript, because they go through the real
   conversation.
@@ -137,7 +143,8 @@ SVG of a mug with steam.
   `Design step · its cache only lasts 5 minutes`, or
   `Docs · stopped: the ping found it cold`.
 - **Always visible.** It covers every tab, so unlike Files it stays when
-  there's more than one pane.
+  there's more than one pane. Split, the top strip hides, and the mug moves
+  to the bar under it with the review and list buttons (`tab-overview.js`).
 
 ## Pieces
 
@@ -145,7 +152,9 @@ SVG of a mug with steam.
 |---|---|
 | `src/main/keepwarm.js` | Pure. `plan(tabs, state, now)`: which tabs to ping, skip or drop, and why. `receipt(tokens)`: warm, or the reason to drop. `back(state, reading)`: has the user returned. Constants `LEAD_MS`, `MAX_MS`, `TICK_MS`. No Electron. |
 | `src/main/keepwarm-service.js` | Arms and disarms, runs the 30-second tick, calls `manager.ping`, reads each ping's result, adds the receipt items, holds the power blocker, and pushes `keepwarm` state to the panel. Takes its dependencies as `d`, as `away-service.js` does. |
-| `src/main/sessions.js` | `ping(tabId, text)`, the `tab.pinging` branch in `onItem`, and `keep` in `stopIdle`. Two other things reach the service through a callback: a real `send` disarms it, and so does an idle reading that says you're back (`away-service` `checkAway`). |
+| `src/main/sessions.js` | `ping(tabId, text)`, the `tab.pinging` branch in `onItem`, and `keep` in `stopIdle`. A pinging tab is left out of `aggregate`, so the crab, the tray and the Multitasker trophy never count a ping. `wiring/timetrack.js` `claudeAt` leaves it out too. The summary still says `busy`, so a message typed during a ping queues. |
+| `src/main/history.js` | `'keepwarm'` joins `PERSISTED`, so receipts come back when a conversation is reopened or synced. |
+| Disarming | `ipc/tabs.js` `task:send` calls `userSent()`, and `away-service` `checkAway` hands each idle reading to `reading()`. |
 | `src/main/ipc/*.js`, `src/preload/preload.js` | `keepwarm:set(on)` (handle) and the `keepwarm` push. The preload is at 800 lines, so it has to give up a line first. |
 | `src/renderer/panel/keepwarm.js` | The button, its countdown, its tooltip, and drawing `keepwarm` items. |
 | `changes/keep-warm.md` | The change note. |
