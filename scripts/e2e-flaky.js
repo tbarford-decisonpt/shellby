@@ -91,8 +91,8 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     check(rows[0]?.framework === 'jest', 'the runner is known from its output');
     check(!/flaked/.test(await said()), 'one flake is not worth a word');
 
-    await panel.ev("SB.setView('routines')");
-    check(await until(panel, "!document.getElementById('flakyTests').hidden && document.querySelectorAll('#flakyList li').length === 1"), 'the Routines page lists it');
+    await panel.ev("SB.setView('projects')");
+    check(await until(panel, "!document.getElementById('flakyTests').hidden && document.querySelectorAll('#flakyList li').length === 1"), 'the Projects page lists it');
     check(/flaked once this week/.test(await panel.ev("document.getElementById('flakyList').textContent")), 'with how often this week');
     check(await panel.ev("[...document.querySelectorAll('#flakyList button')].map(b => b.textContent).join(',')") === 'Fix it,Quarantine,Not flaky', 'and what can be done about it');
     await panel.ev("SB.setView('chat')");
@@ -117,7 +117,7 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     // ---- 4. a click on that bubble opens the list
     await panel.ev("SB.setView('chat')");
     await critter.ev('shellby.critter.click()');
-    check(await until(panel, "SB.state.view === 'routines'", 4000), 'clicking him while he says it opens the Routines page');
+    check(await until(panel, "SB.state.view === 'projects' && document.activeElement?.id === 'flakyTitle'", 4000), 'clicking him while he says it opens the flaky list on the Projects page');
 
     // ---- 5. Fix it: a task in a copy of the repository, and the test is being fixed
     const fixed = await panel.ev(`shellby.flakyAct({ key: ${JSON.stringify(rows[0].key)}, id: ${JSON.stringify(rows[0].id)}, action: 'fix' })`);

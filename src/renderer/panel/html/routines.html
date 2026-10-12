@@ -121,32 +121,4 @@
         <p class="rq-phone" id="resetQueuePhone"></p>
       </div>
     </section>
-    <section class="rt-section deps-health" id="depsHealth" aria-labelledby="depsTitle" hidden>
-      <div class="deps-head">
-        <h3 id="depsTitle">Dependency health</h3>
-        <span class="deps-summary" id="depsSummary"></span>
-      </div>
-      <p class="view-lede">What the last <code>npm audit</code>, <code>pip-audit</code>, <code>cargo outdated</code> and the like found in each project. A clean audit keeps a project 🧼 fresh for 30 days.</p>
-      <ul class="deps-list" id="depsList"></ul>
-    </section>
-
-    <section class="rt-section deps-health flaky-tests" id="flakyTests" aria-labelledby="flakyTitle" hidden>
-      <div class="deps-head">
-        <h3 id="flakyTitle">Flaky tests</h3>
-        <span class="deps-summary" id="flakySummary"></span>
-      </div>
-      <p class="view-lede">Tests that failed and then passed with the code exactly the same, in Shellby's tabs. Fixing or quarantining one happens in a copy of the repository, on its own branch.</p>
-      <ul class="deps-list" id="flakyList"></ul>
-      <button type="button" class="btn ghost slim-btn flaky-forget" id="flakyForget">Forget all of this</button>
-    </section>
-
-    <section class="rt-section dep-watch" id="depWatch" aria-labelledby="depWatchTitle">
-      <div class="dw-head">
-        <h3 id="depWatchTitle">Dependency watch</h3>
-        <button type="button" class="btn slim-btn" id="depWatchCheck" hidden>Check now</button>
-      </div>
-      <label class="toggle"><input type="checkbox" id="depWatchToggle"><span class="switch"></span>Check my projects' packages every week</label>
-      <p class="dw-sum" id="depWatchSum" aria-live="polite">Shellby asks each project's own package manager what's outdated and vulnerable (npm, pnpm and Yarn, <code>pip-audit</code>, <code>cargo-audit</code>, Go and <code>govulncheck</code>), which asks their registries about its packages. If something needs doing, he offers to bump it, run the tests and open a pull request.</p>
-      <ul class="dw-list" id="depWatchList"></ul>
-    </section>
   </main>

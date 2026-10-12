@@ -4,7 +4,7 @@
 // exited: `pip list --outdated` exits 0 with a page of updates, and
 // `npm audit | tail` exits 0 whatever it found. A clean audit earns XP and the
 // project's 🧼 Fresh mark (stickers.js); every result lands in a small per-
-// project ledger the Routines page shows. Pure: no I/O, no clock (callers pass
+// project ledger the Projects page shows. Pure: no I/O, no clock (callers pass
 // `now`). See test/checkup.test.js.
 const os = require('os');
 const path = require('path');
@@ -249,7 +249,7 @@ function recordCheckup(stateIn, key, name, check, result, now) {
   return { state: normalizeCheckups({ projects: { ...s.projects, [key]: entry } }), entry, clean, patched, pays };
 }
 
-/** For the Routines page: every project checked, newest first. */
+/** For the Projects page: every project checked, newest first. */
 function checkupsView(stateIn, now) {
   const s = normalizeCheckups(stateIn);
   return Object.entries(s.projects).map(([key, p]) => ({

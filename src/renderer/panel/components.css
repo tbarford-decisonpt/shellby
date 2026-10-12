@@ -581,8 +581,9 @@ button.r-pill.held:hover, button.r-pill.held:focus-visible { text-decoration: li
 .routine-model-suggest { margin: 0; font-size: var(--fs-12); color: var(--sand); }
 .routine-model-suggest[hidden] { display: none; }
 
-/* The tools below your routines (reset queue, dependency health, flaky tests,
-   dependency watch): one quiet look, so the routines above stay the page. */
+/* The tools below a page's own list (the reset queue under Routines; dependency
+   health, flaky tests and dependency watch under Projects): one quiet look, so
+   the list above stays the page. */
 .rt-section { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
 .rt-section h3 { margin: 0; font: 600 var(--fs-15) var(--font-pixel); color: var(--sand); }
 

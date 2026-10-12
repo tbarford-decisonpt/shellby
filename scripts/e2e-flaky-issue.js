@@ -95,7 +95,7 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({
     const act = () => panel.ev(`shellby.flakyAct({ key: ${JSON.stringify(KEY)}, id: ${JSON.stringify(TEST)}, action: 'issue' })`);
 
     // ---- 1. signed out: no button, and the action says why
-    await panel.ev("SB.setView('routines')");
+    await panel.ev("SB.setView('projects')");
     check(await until(panel, "document.querySelectorAll('#flakyList li').length === 1"), 'the seeded flaky test is listed');
     check(await buttons() === 'Fix it,Quarantine,Not flaky', `no "File an issue" without GitHub (${await buttons()})`);
     check(/Let Claude tasks push/.test((await act())?.error || ''), 'filing anyway says what to turn on');
@@ -107,7 +107,7 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({
     check(/Let Claude tasks use your GitHub/.test((await answer('Allow'))?.title || ''), 'Claude access asks first');
     check(await until(panel, "shellby.getGitHub().then(v => v.features.claude.on && v.features.claude.granted)", 15000), 'Claude access on');
     await panel.ev("SB.setView('chat')");
-    await panel.ev("SB.setView('routines')");
+    await panel.ev("SB.setView('projects')");
     await panel.ev('SB.refreshFlaky()');
     check(await until(panel, "[...document.querySelectorAll('#flakyList button')].some(b => b.textContent === 'File an issue')"), `"File an issue" once GitHub can take it (${await buttons()})`);
 

@@ -216,7 +216,7 @@ function wireProgress(d) {
   // ---- dependency checkups (checkup.js)
   //
   // Claude ran `npm audit`, `cargo outdated` or the like. Each project's latest
-  // result is kept for the Routines page; a clean audit pays XP (once a day per
+  // result is kept for the Projects page; a clean audit pays XP (once a day per
   // project) and earns the project's sticker its 🧼 Fresh mark.
 
   async function checkedUp(dir, check, result) {
@@ -272,7 +272,7 @@ function wireProgress(d) {
   }
 
   // Check one project's dependencies now, in a tab of its own (from the Sticker
-  // Book or the Routines page's dependency list).
+  // Book or the dependency list under Projects).
   function runCheckup(dir) {
     if (d.config.get('crabOnly')) return { ok: false, error: 'Checkups need Claude Code: Shellby is in just-the-crab mode.' };
     if (!d.isStr(dir) || !d.isFolder(dir)) return { ok: false, error: "That project's folder isn't there any more." };
@@ -357,11 +357,11 @@ function wireProgress(d) {
     }
   }
 
-  /** The panel, on the flaky list. */
+  /** The panel, on the flaky list under Projects. */
   function showFlaky() {
     d.showPanel({ focusInput: false });
-    d.send(d.panel, 'panel:view', 'routines');
-    d.send(d.panel, 'flaky:focus');
+    d.send(d.panel, 'panel:view', 'projects');
+    d.send(d.panel, 'code-health:focus', 'flaky');
   }
 
   const FLAKY_ACTIONS = {
