@@ -79,3 +79,15 @@ test('what is not one tab\'s (the usage meter, the outlook) reaches the panel an
   p.sendEveryWindow('outlook', {});
   assert.equal(sent.length, 2);
 });
+
+test('a notification for a popped-out conversation brings its window up from behind or minimized', () => {
+  const { p } = wired();
+  p.popOut('t1');
+  const win = p.tabWindow('t1');
+  win.minimized = true;
+  p.showPopout('t1');
+  assert.equal(win.minimized, false);
+  assert.equal(win.visible, true);
+  assert.equal(win.onTop, true, 'focus() alone leaves it behind on Windows');
+  assert.equal(win.focused, true);
+});

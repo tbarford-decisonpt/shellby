@@ -44,8 +44,11 @@ class FakeBrowserWindow extends EventEmitter {
   isVisible() { return this.visible; }
   isDestroyed() { return this.destroyed; }
   isMaximized() { return !!this.maximized; }
+  isMinimized() { return !!this.minimized; }
+  restore() { this.minimized = false; }
   show() { this.visible = true; }
-  focus() {}
+  moveTop() { this.onTop = true; }
+  focus() { this.focused = true; }
   close() { if (this.destroyed) return; this.destroyed = true; this.emit('closed'); }
 }
 FakeBrowserWindow.all = [];

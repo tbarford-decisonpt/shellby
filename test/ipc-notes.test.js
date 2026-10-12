@@ -19,6 +19,7 @@ function setup({ copy = 'ok', offered = [KEY, OTHER_KEY] } = {}) {
   const handlers = new Map();
   const store = { notes: null };
   const started = [];
+  const startsIn = [];
   let n = 0;
   const known = { [KEY]: { name: 'test', root: ROOT }, [OTHER_KEY]: { name: 'fixtures', root: OTHER } };
   registerNotesIpc({ handle: (c, fn) => handlers.set(c, fn), on: () => {} }, {
@@ -30,6 +31,7 @@ function setup({ copy = 'ok', offered = [KEY, OTHER_KEY] } = {}) {
     knownNoteProject: async key => (offered.includes(key) ? known[key] : null),
     currentCwd: () => OTHER,
     showPanel: () => {},
+    manager: { modeToStart: tabId => startsIn.push(tabId) },
     startTaskInCopy: async (dir, title, promptFor, opts) => {
       if (copy === 'notRepo') return { ok: false, noCopy: true, notRepo: true, error: "That folder isn't in a git repository." };
       if (copy === 'fails') return { ok: false, noCopy: true, error: 'git worktree add failed' };
@@ -44,16 +46,18 @@ function setup({ copy = 'ok', offered = [KEY, OTHER_KEY] } = {}) {
     store.notes = notes.add(store.notes, scope, text, { id: `n${++n}`, now: 1, project: known[scope], ...extra }).state;
     return `n${n}`;
   };
-  return { call, store, started, add };
+  return { call, store, started, startsIn, add };
 }
 
 test('Plan and Build run in a copy; Ask reads in place', async () => {
-  const { call, add, started } = setup();
+  const { call, add, started, startsIn } = setup();
   const id = await add(KEY, 'add a dark mode');
   assert.equal((await call('notes:run', { scope: KEY, id, kind: 'build' })).copy, true);
   assert.equal((await call('notes:run', { scope: KEY, id, kind: 'plan' })).ok, true);
   assert.equal((await call('notes:run', { scope: KEY, id, kind: 'ask' })).ok, true);
   assert.deepEqual(started.map(s => [s.how, s.mode]), [['copy', null], ['copy', 'plan'], ['task', 'ask']]);
+  assert.deepEqual(startsIn, ['tab2', 'tab3'], 'Plan and Ask only start in their mode; Build is in yours already');
+  assert.equal(started[2].copyLater, true, 'an Ask that goes on to change things still moves into a copy');
   assert.equal(started[0].dir, ROOT);
   assert.equal(started[0].prompt, 'add a dark mode');
   assert.equal(started[0].draft, false);

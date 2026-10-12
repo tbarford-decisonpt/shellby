@@ -167,3 +167,20 @@ test('slashCandidates shows at most eight', () => {
   assert.equal(hits.length, 8);
   assert.equal(hits[0].name, 's00');
 });
+
+test('paneTray lists what an unfocused pane has running, and its unfinished to-dos', () => {
+  const jobs = [
+    { status: 'running', description: 'npm test' },
+    { status: 'done', description: 'lint' },
+    { status: 'running', description: 'dev server' },
+  ];
+  const line = L.paneTray(jobs, { total: 7, done: 3 });
+  assert.equal(line.text, '⚙ 2 in the background: npm test, dev server · ▸ 3 of 7 done');
+  assert.match(line.title, /• npm test\n• dev server/);
+});
+
+test('paneTray shows nothing once the jobs are done and the to-dos ticked off', () => {
+  assert.equal(L.paneTray([{ status: 'done', description: 'lint' }], { total: 2, done: 2 }), null);
+  assert.equal(L.paneTray(undefined, null), null);
+  assert.equal(L.paneTray([], { total: 3, done: 1 }).text, '▸ 1 of 3 done');
+});

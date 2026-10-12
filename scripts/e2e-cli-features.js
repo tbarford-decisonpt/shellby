@@ -84,6 +84,27 @@ async function connect(url) {
     check(await ev("document.getElementById('nextPrompt').hidden && !SB.activeTab().busy"), 'and nothing was sent');
     await ev("document.getElementById('input').value = ''; SB.autosize()");
 
+    // ---- 2b. a code block while the reply around it is still being written
+    // The fake CLI sends a piece per space every 40 ms: the block stays open for
+    // about 6 s, and the words after it run on for about 6 s more.
+    await fresh();
+    const code = Array.from({ length: 40 }, (_, i) => `const v${i} = ${i};`).join('\n');
+    const after = Array.from({ length: 150 }, (_, i) => `more${i}`).join(' ');
+    await ev(`SB.send(${JSON.stringify(`stream \`\`\`js\n${code}\n\`\`\`\n\n${after}`)})`);
+    const LIVE = "SB.activeTab().el.querySelector('.msg.assistant.live')";
+    check(await until(panel, `!!${LIVE}?.querySelector('.code-block code[data-open]') && /v3\\b/.test(${LIVE}.textContent)`, 5000), 'a code block shows while it is written');
+    await ev(`${LIVE}.querySelector('.code-wrap').click()`);
+    check(await until(panel, `/v20\\b/.test(${LIVE}?.textContent || '')`, 8000), 'and grows');
+    check(await ev(`!!${LIVE}.querySelector('.code-block > pre.wrap > code[data-open]')`), 'keeping Wrap, pressed while it was being written');
+    check(await until(panel, `/more2\\b/.test(${LIVE}?.textContent || '')`, 8000), 'the words after it arrive');
+    await ev(`window.__block = ${LIVE}.querySelector('.code-block')`);
+    check(await until(panel, `/more20\\b/.test(${LIVE}?.textContent || '')`, 5000), 'and keep coming');
+    check(await ev("window.__block.isConnected && !!window.__block.closest('.live')"), 'the finished block is the same one, not drawn again with each word');
+    check(await ev("window.__block.querySelector(':scope > pre').classList.contains('wrap')"), 'so Wrap stays on');
+    await until(panel, `!${LIVE}`, 12000);
+    await idle();
+    check(await ev("!!SB.activeTab().el.querySelector('.msg.assistant:not(.live) .code-block > pre.wrap')"), 'and the finished reply keeps it');
+
     // ---- 3. /goal
     await fresh();
     await ev("SB.send('/goal the tests pass')");

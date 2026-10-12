@@ -333,6 +333,30 @@ SB.renderMarkdownInto = (el, text) => {
   return el;
 };
 
+// A reply still being written, painted again a few times a second. Only the
+// blocks whose markdown changed are redrawn: the rest keep their nodes, so a
+// click on a finished block's Copy isn't lost to the next paint, and the block
+// being written keeps its Wrap, Show all and scroll.
+SB.patchMarkdownInto = (el, text) => {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = SB.md.render(text); // md escapes all input first; see shared/markdown.js
+  const fresh = [...tpl.content.childNodes];
+  const parts = fresh.map(n => (n.nodeType === 1 ? n.outerHTML : n.nodeValue));
+  // A block maps to one child (markdown.js joins them with nothing, enhanceCode swaps
+  // a <pre> for its box); if that ever stops holding, everything is redrawn.
+  const was = el.childNodes.length === el.mdParts?.length ? el.mdParts : [];
+  let same = 0;
+  while (same < parts.length && parts[same] === was[same]) same++;
+  const gone = [...el.childNodes].slice(same);
+  const views = SB.codeView?.(gone);
+  for (const n of gone) n.remove();
+  el.append(...fresh.slice(same));
+  SB.enhanceCode?.(el);
+  el.mdParts = parts;
+  SB.restoreCodeView?.([...el.childNodes].slice(same), views);
+  return el;
+};
+
 // Links are inert <a data-href> (the window blocks navigation and popups), in
 // rendered markdown and in panel.html alike; main only opens https.
 document.addEventListener('click', e => {

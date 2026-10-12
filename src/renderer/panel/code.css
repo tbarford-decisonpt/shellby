@@ -38,6 +38,8 @@
 .code-cut { font: var(--fs-10) var(--font-mono); color: var(--amber); }
 .code-copy:hover { background: var(--reef-3); color: var(--sand); }
 .code-copy:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+/* A long block (code.js FOLD_LINES) shows about 24 of its lines and scrolls until Show all. */
+.code-block > pre.fold:not(.full) { max-height: calc(24 * 1.6 * var(--fs-11-5) + 20px); overflow-y: auto; }
 
 /* ---------- a Mermaid diagram */
 .mm-wrap { margin: .4em 0 .8em; }
