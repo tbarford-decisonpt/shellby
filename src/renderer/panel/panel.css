@@ -852,6 +852,18 @@ select.field option { background: var(--reef); }
 /* apps he's been told to stay off: one pill each, ✕ to let him back on */
 .perch-ignore { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; }
 .perch-ignore #perchIgnoreList { display: contents; }
+/* A label and its dropdown per row, the dropdowns lined up in one column. */
+.field-grid { display: grid; grid-template-columns: var(--field-label-w, max-content) auto; justify-content: start; align-items: center; gap: 6px 20px; padding: 4px 0; font-size: var(--fs-13-5); }
+.field-grid .field.slim { min-width: 120px; }
+.field-grid .perch-ignore { grid-column: 1 / -1; margin: 0 0 2px; }
+.sub-toggles.field-grid { padding: 2px 0 2px 10px; margin-top: 2px; }
+/* Wide enough for "Climbing the edges of the screen" under strolling's indent
+   (22px margin, 2px rule, 10px padding), so Pals' dropdown lines up with those. */
+#moveGroup { --field-label-w: 17.5em; }
+#moveGroup .sub-toggles.field-grid { grid-template-columns: calc(var(--field-label-w) - 34px) auto; }
+/* Climbing hangs off strolling: with strolling off the choices stay but go quiet. */
+.sub-toggles.off > label, .sub-toggles.off > select { opacity: .5; }
+.setting-group .move-tip { margin-top: 12px; }
 /* Mischief: its folded line says On in coral once you've let him loose, so it's
    easy to see at a glance that he's allowed to misbehave. */
 .mischief-group.on .fold-state { color: var(--coral); }
