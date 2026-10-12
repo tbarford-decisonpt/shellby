@@ -5,7 +5,11 @@
 // and saves nothing. The conversation itself never sees the question or the
 // answer, and it can be asked while Claude is still working.
 //
+// A conversation on another computer has its transcript there, so its side
+// question is asked there too, over ssh (remoteCommand).
+//
 // Pure apart from ask(), which runs the CLI it's handed.
+const remoteSsh = require('./remote/ssh');
 
 const MAX_QUESTION = 4000;
 const TIMEOUT_MS = 120000;
@@ -55,14 +59,32 @@ function parse(stdout) {
   return text ? { ok: true, answer: text } : { ok: false, error: "Claude didn't answer. Try asking another way." };
 }
 
+/**
+ * The ssh command that asks on the conversation's own computer.
+ * remote: the session's launch (remote/service.js launch()); args: from args().
+ */
+function remoteCommand(remote, cliArgs) {
+  const script = remoteSsh.sessionScript({ dir: remote.dir, args: cliArgs, env: { SHELLBY_OWNED: '1' } });
+  return { exe: remote.exe, args: [...(remote.argsPrefix || []), ...remoteSsh.sshArgs(remote.host, script, { extra: remote.extra || [] })] };
+}
+
+/** No answer at all: what Claude Code or ssh said, as a sentence. */
+function silence(detail) {
+  if (/No conversation found/i.test(detail)) return "Claude Code couldn't find this conversation to ask about. Send it a message, then try again.";
+  return remoteSsh.troubleOf(detail)?.message || "Claude Code didn't answer. Check it's signed in, in Settings.";
+}
+
 /** run(args, timeoutMs, { cwd, input }) -> the CLI's { stdout, stderr, timedOut }. */
 async function ask({ question, sessionId, resumeAt, model, cwd, lean }, run) {
   const q = cleanQuestion(question);
   if (!q) return { ok: false, error: 'Ask something after /btw, like: /btw what was that file called?' };
   const res = await run(args({ sessionId, resumeAt, model, lean }), TIMEOUT_MS, { cwd, input: q });
   if (res.timedOut) return { ok: false, error: 'Claude took too long to answer. Try again.' };
-  if (!String(res.stdout || '').trim()) return { ok: false, error: "Claude Code didn't answer. Check it's signed in, in Settings.", detail: String(res.stderr || res.err?.message || '').trim().split('\n').slice(-3).join(' ') };
+  if (!String(res.stdout || '').trim()) {
+    const detail = String(res.stderr || res.err?.message || '').trim().split('\n').slice(-3).join(' ');
+    return { ok: false, error: silence(detail), detail };
+  }
   return parse(res.stdout);
 }
 
-module.exports = { args, parse, ask, cleanQuestion, NOTE, MAX_QUESTION, TIMEOUT_MS };
+module.exports = { args, parse, ask, remoteCommand, cleanQuestion, NOTE, MAX_QUESTION, TIMEOUT_MS };

@@ -133,17 +133,27 @@ function register(deps) {
 
   // ---- /btw: a side question, answered from a fork of the conversation (btw.js)
   // The tab's own CLI (the fake one in tests), in its folder, so --resume finds it.
+  // A conversation on another computer is asked there, where its transcript is,
+  // and with that computer's settings (this PC's say nothing about its sign-in).
+  function btwRun(s, remote) {
+    if (!remote) return (args, timeout, opts) => runCli(s.exePath(), [...(s.argsPrefix || []), ...args], timeout, opts);
+    return (args, timeout, { input }) => {
+      const c = btw.remoteCommand(remote, args);
+      return runCli(c.exe, c.args, timeout, { cwd: os.homedir(), input, env: { ...process.env, ...remote.env } });
+    };
+  }
   ipcMain.handle('btw:ask', async (_e, { tabId, question } = {}) => {
     const tab = tabOf(tabId);
     if (!tab) return { ok: false, error: 'That conversation is closed.' };
     if (tab.btwAsking) return { ok: false, error: 'One side question at a time: the last one is still being answered.' };
     const s = tab.session;
+    const remote = s.remote?.() || null;
     tab.btwAsking = true;
     let r;
     try {
       r = await btw.ask({
-        question, sessionId: s.sessionId, resumeAt: s.resumeAt, model: s.model, cwd: s.cwd, lean: skipSettings(os.homedir()),
-      }, (args, timeout, opts) => runCli(s.exePath(), [...(s.argsPrefix || []), ...args], timeout, opts));
+        question, sessionId: s.sessionId, resumeAt: s.resumeAt, model: s.model, cwd: s.cwd, lean: remote ? [] : skipSettings(os.homedir()),
+      }, btwRun(s, remote));
     } finally { tab.btwAsking = false; }
     if (r.detail) deps.log?.warn?.(`btw: ${r.detail}`);
     if (r.ok) deps.stat('btw');
