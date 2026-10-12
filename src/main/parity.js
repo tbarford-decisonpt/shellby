@@ -15,6 +15,7 @@ const fileIndex = require('./fileindex');
 const shellCmd = require('./shellcmd');
 const rewind = require('./rewind');
 const { outline } = require('./outline');
+const trail = require('../renderer/shared/trail');
 const exporter = require('./exporter');
 const claudeSetup = require('./claude/setup');
 const mcpAdmin = require('./mcpadmin');
@@ -28,6 +29,9 @@ const { run: runCli, skipSettings } = require('./claude/cli');
 const MAX_PROMPTS = 100;
 const MAX_PROMPT_CHARS = 4000;
 const MCP_TIMEOUT_MS = 60000;
+// The trail asks after this many changed files at most, each a relative path.
+const TRAIL_FILES = 60;
+const TRAIL_PATH = 1000;
 // After the sign-in page opens: look for "connected" every 3 s for 5 minutes.
 const SIGNIN_POLL_MS = 3000;
 const SIGNIN_POLLS = 100;
@@ -180,6 +184,17 @@ function register(deps) {
   ipcMain.handle('outline:get', (_e, tabId) => {
     const tab = tabOf(tabId);
     return { turns: tab?.saved ? outline(history.load(tab.id)) : [] };
+  });
+
+  // The trail's untested check: the tests named after each changed file, among
+  // the files in the conversation's folder (what git knows, as for @ mentions).
+  ipcMain.handle('trail:tests', async (_e, { tabId, files } = {}) => {
+    const wanted = (Array.isArray(files) ? files : []).filter(f => isStr(f) && f.length < TRAIL_PATH).slice(0, TRAIL_FILES);
+    if (!wanted.length) return { tests: {} };
+    try {
+      const index = trail.testIndex(await fileIndex.list(cwdOf(tabId))); // one pass, however many changed
+      return { tests: Object.fromEntries(wanted.map(f => [f, trail.testsFor(f, index)]).filter(([, t]) => t.length)) };
+    } catch { return { tests: {} }; }
   });
 
   ipcMain.handle('rewind:run', async (_e, { tabId, turnId, conversation = true, code = true } = {}) => {

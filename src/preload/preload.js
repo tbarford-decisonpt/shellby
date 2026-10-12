@@ -103,7 +103,7 @@ contextBridge.exposeInMainWorld('shellby', {
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
   askBtw: (tabId, question) => ipcRenderer.invoke('btw:ask', { tabId, question }),
   rewindPoints: invoke('rewind:points'),
-  outline: invoke('outline:get'),             // every message and the files its turn touched (outline.js)
+  outline: invoke('outline:get'), trailTests: (tabId, files) => ipcRenderer.invoke('trail:tests', { tabId, files }), // every message and the files its turn touched (outline.js); the tests named after changed files (shared/trail.js)
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
   clearTab: invoke('tab:clear'), // /clear: a new conversation in this tab (not clearSessions, which empties History)
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),

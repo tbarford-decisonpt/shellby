@@ -208,6 +208,7 @@
       idle && act('fresh', '↻', 'Start fresh with a summary', 'Claude writes a handoff note, then a new conversation picks it up in this tab', () => SB.startFresh(tab), null, 'context handoff new summary compact'),
       idle && act('clear', '⌫', 'Clear', 'A new conversation in this tab, with nothing carried over (/clear)', () => SB.clearConversation(tab), null, 'clear reset new context forget wipe'),
       act('outline', '☰', 'Outline', 'Every message you sent, and the files each turn touched. Pick one to go there', () => SB.openOutline(tab), 'outline', 'go to jump turns messages files symbol navigate'),
+      act('trail', '⋰', SB.trailOpen?.() ? 'Close the trail' : 'Trail', 'The files Claude has read, searched and changed, with him walking it, and a replay of every step', () => SB.toggleTrail(undefined, { focus: true }), 'trail', 'explorer files tree sidebar map where footprints walk replay'),
       act('problems', '⚠', 'Problems', 'The errors its checks found, file by file, each with Fix it', () => SB.openProblems(tab), 'problems', 'errors lint typecheck tsc diagnostics warnings failing'),
       SB.hasClosed?.() && act('reopen', '↺', 'Reopen the conversation you closed', 'Picked up from History, where you left it', () => SB.reopenClosed(), 'reopenTab', 'undo close restore bring back tab'),
       (tab.saved || !tab.isEmpty) && act('close', '×', 'Close this conversation', tab.saved ? 'It stays in History' : 'Nothing’s been sent yet', () => SB.closeTabSafely(tab.id), 'closeTab', 'tab'),

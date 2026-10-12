@@ -203,6 +203,7 @@
 
     // ------------------------------------------------------------ items
     render(item, { replay = false } = {}) {
+      SB.trailTake?.(this, item, replay); // where he's been in the files (trail.js)
       // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it;
       // an unfocused pane keeps a line of it, tab-panes.js).
       if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item)) {
@@ -367,6 +368,8 @@
       this.lanes.clear();
       this.taskLane.clear();
       this.todos = T.create();
+      this.trail = null; // taken in again from what's replayed next (rewind), or starts over (/clear)
+      SB.trailReset?.(this);
       this.trimmed = 0;
       this.trimmedNotice = null;
       this.shellPending = null;

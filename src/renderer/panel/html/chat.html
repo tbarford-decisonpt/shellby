@@ -1,6 +1,34 @@
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
     <div class="feeds" id="feeds" data-panes="1"></div>
+    <!-- The trail (Ctrl+Shift+E): where Claude has been in your files, and him on it (trail.js) -->
+    <aside class="trail" id="trail" aria-labelledby="trailTitle" hidden>
+      <header class="trail-head">
+        <h2 class="trail-title" id="trailTitle">Trail</h2>
+        <div class="trail-scope" role="group" aria-label="Show">
+          <button type="button" data-scope="turn" aria-pressed="false" title="Only the files the last message's turn touched">This turn</button>
+          <button type="button" data-scope="all" aria-pressed="true" title="The whole conversation; earlier turns are paler">All</button>
+        </div>
+        <button type="button" class="icon-btn" id="trailClose" title="Close (Ctrl+Shift+E)" aria-label="Close the trail">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </header>
+      <div class="trail-signals" id="trailSignals" role="status" aria-live="polite"></div>
+      <div class="trail-map" id="trailMap" role="tree" tabindex="0" aria-label="Files Claude touched">
+        <div class="trail-rows" id="trailRows"></div>
+        <div class="trail-crabs" id="trailCrabs" aria-hidden="true"></div>
+      </div>
+      <footer class="trail-foot">
+        <div class="trail-replay">
+          <button type="button" class="trail-play" id="trailPlay" title="Watch this conversation's steps again (Space when the trail has the keyboard)" aria-label="Replay">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path class="i-play" d="M5 3.5v9l7-4.5z" fill="currentColor"/><path class="i-pause" d="M5 3.5v9M11 3.5v9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <input type="range" class="trail-scrub" id="trailScrub" min="0" max="0" value="0" step="1" aria-label="Step">
+          <button type="button" class="trail-live" id="trailLive" title="Back to now">Live</button>
+        </div>
+        <p class="trail-counts" id="trailCounts"></p>
+      </footer>
+    </aside>
     <div class="findbar" id="findBar" role="search" hidden>
       <input id="findInput" class="field" type="text" placeholder="Find in conversation" aria-label="Find in this conversation" spellcheck="false">
       <span class="find-count" id="findCount" aria-live="polite"></span>
