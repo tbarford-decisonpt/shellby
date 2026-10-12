@@ -25,6 +25,9 @@ git('config', 'user.email', 't@example.com');
 git('config', 'user.name', 'T');
 git('config', 'core.autocrlf', 'false');
 fs.writeFileSync(path.join(repo, 'a.txt'), 'original\n');
+// Forty committed lines: a copy that changes two far apart gets a diff of two hunks.
+const MULTI = Array.from({ length: 40 }, (_v, i) => `line ${i + 1}`);
+fs.writeFileSync(path.join(repo, 'multi.txt'), `${MULTI.join('\n')}\n`);
 git('add', '-A');
 git('commit', '-qm', 'init');
 const claudeConfig = path.join(base, 'claude');
@@ -136,6 +139,11 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev("document.querySelector('#viewerMain .vw-wrap').click()");
     check(await ev("document.querySelector('#viewerMain .vw-code').classList.contains('nowrap') && document.querySelector('#viewerMain .vw-wrap').getAttribute('aria-pressed') === 'false'"), 'Wrap off marks the code block and the button');
     check(!(await ev(scrollerFits)), 'unwrapped, the long line runs past the edge and scrolls');
+    // a look again keeps where you had scrolled to, sideways too
+    await ev("(() => { const s = document.querySelector('#viewerMain .vw-scroll'); window.__scroller = s; s.scrollLeft = 40; })()");
+    await ev("document.getElementById('viewerRefresh').click()");
+    check(await until("document.querySelector('#viewerMain .vw-scroll') && document.querySelector('#viewerMain .vw-scroll') !== window.__scroller"), 'a refresh redraws the file');
+    check(await ev("document.querySelector('#viewerMain .vw-scroll').scrollLeft") === 40, 'and keeps it scrolled sideways');
     await shot('1c-unwrapped');
     await open(MADE[0].file);
     check(await until(`[...document.querySelectorAll('#viewerMain .dl.add .code')].some(c => c.textContent === ${JSON.stringify(MADE[0].words)})`), 'another file opens');
@@ -152,6 +160,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
 
     // ---- a file that didn't change, read whole
     await ev("document.getElementById('viewerTabFiles').click()");
+    check(await ev("document.getElementById('viewerFoot').hidden"), "the footer's totals are for Changes, so All files hides them");
     await until("[...document.querySelectorAll('#viewerList .vw-row')].some(b => b.dataset.path === 'a.txt')");
     await ev("[...document.querySelectorAll('#viewerList .vw-row')].find(b => b.dataset.path === 'a.txt').click()");
     check(await until("[...document.querySelectorAll('#viewerMain .dl.ctx .code')].some(c => c.textContent === 'original')"), 'an unchanged file opens as its text');
@@ -198,6 +207,19 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until("document.querySelectorAll('#pjDetailScreen .pj-copy-open').length === 1", 20000), "and its copy is listed, ready to open");
     await ev("document.querySelector('#pjDetailScreen .pj-copy-open').click()");
     check(await until(`SB.state.view === 'viewer' && SB.viewer.current()?.files.length === ${MADE.length}`), "the copy opens in the viewer with what it changed");
+
+    // ---- a diff of two hunks: the second is set off from the first by a line you can see
+    const multiAt = path.join(await ev('SB.viewer.current().root'), 'multi.txt');
+    const edited = [...MULTI]; edited[1] = 'line 2 changed'; edited[37] = 'line 38 changed';
+    fs.writeFileSync(multiAt, `${edited.join('\n')}\n`);
+    await wait(2200); // main answers a look again within 2 s of the last one from that one
+    await ev("document.getElementById('viewerRefresh').click()");
+    check(await until("[...document.querySelectorAll('#viewerList .vw-row')].some(b => b.dataset.path === 'multi.txt')"), 'a file changed in two places shows up in the changes');
+    await ev("[...document.querySelectorAll('#viewerList .vw-row')].find(b => b.dataset.path === 'multi.txt').click()");
+    check(await until("document.querySelectorAll('#viewerMain .dl.hunk').length === 2"), 'its diff has two hunks');
+    const edges = await ev("[...document.querySelectorAll('#viewerMain .dl.hunk')].map(d => { const c = getComputedStyle(d); return { top: c.borderTopWidth, line: c.borderTopColor, bar: c.backgroundColor }; })");
+    check(edges[0].top === '0px' && edges[1].top === '1px' && edges[1].line !== edges[1].bar, `the second hunk has a border of its own colour, the first none (${edges[1].line} on ${edges[1].bar})`);
+    await shot('1d-two-hunks');
     await ev("SB.setView('projects')");
     await ev("[...document.querySelectorAll('#pjDetailScreen .pj-clone-head button')].find(b => b.textContent === 'Browse files').click()");
     check(await until(`SB.state.view === 'viewer' && SB.viewer.current()?.root.toLowerCase() === ${JSON.stringify(repo)}.toLowerCase() && SB.viewer.current().side === 'files' && SB.viewer.current().files.length === 0`), 'Browse files opens the checkout itself, clean, on All files');

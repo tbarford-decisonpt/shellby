@@ -63,7 +63,7 @@
     if (me.file) showFile(me.file, { line });
     else $('viewerMain').replaceChildren(h('div', { class: 'vw-empty' },
       h('p', { class: 'muted', text: me.files.length ? 'Pick a file to see what changed.' : 'Pick a file to read it.' }),
-      me.files.length ? h('p', { class: 'small muted vw-totals', text: V.totalsText(me.files) }) : null));
+      me.files.length ? h('p', { class: 'small muted vw-totals', text: V.totalsText(me.files, me.more) }) : null));
   }
 
   async function loadChanges() {
@@ -121,8 +121,8 @@
     $('viewerNote').replaceChildren(said, ...(cur.side === 'changes' && cur.note?.retry
       ? [' ', h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Retry', onclick: () => refresh() })] : []));
     $('viewerList').replaceChildren(...(cur.side === 'changes' ? changeRows() : treeRows()));
-    const sums = cur.git ? V.totalsText(cur.files) : '';
-    $('viewerFoot').hidden = !sums;
+    const sums = cur.git ? V.totalsText(cur.files, cur.more) : '';
+    $('viewerFoot').hidden = !sums || cur.side !== 'changes'; // the totals belong to the Changes list
     $('viewerFoot').textContent = sums;
     for (const el of document.querySelectorAll('#viewerMain .vw-totals')) el.textContent = sums;
   }
@@ -177,14 +177,15 @@
     for (const b of document.querySelectorAll('#viewerList .vw-row')) b.classList.toggle('on', b.dataset.path === rel);
     const f = me.files.find(x => x.path === rel) || null;
     const main = $('viewerMain');
-    const top = main.querySelector('.vw-scroll')?.scrollTop || 0;
+    const was = main.querySelector('.vw-scroll');
+    const top = was?.scrollTop || 0, left = was?.scrollLeft || 0;
     const body = !f || me.whole ? await wholeFile(rel, line) : await diffOf(f);
     if (cur !== me || me.file !== rel) return;
     if (me.gone) return draw(); // the read found the folder gone: that screen stays
     const scroll = h('div', { class: 'vw-scroll' }, body);
     main.replaceChildren(fileHead(rel, f, body), scroll);
     $('viewerEditor').hidden = false;
-    if (keep) scroll.scrollTop = top;
+    if (keep) { scroll.scrollTop = top; scroll.scrollLeft = left; }
     else scroll.querySelector('.hit')?.scrollIntoView({ block: 'center' });
   }
 
@@ -203,10 +204,13 @@
           disabled: f.status === 'D' && !cur.whole, onclick: () => { cur.whole = !cur.whole; cur.line = null; showFile(rel); },
         }) : null,
         rows || big ? h('button', {
-          type: 'button', class: 'btn ghost slim-btn vw-wrap', text: 'Wrap', disabled: big,
+          type: 'button', class: 'btn ghost slim-btn vw-wrap', text: 'Wrap',
           'aria-pressed': String(rows && wrapOn()),
+          // Not disabled, so a keyboard or screen reader reaches it and hears why it does nothing.
+          'aria-disabled': big ? 'true' : null,
+          'aria-label': big ? "Wrap, unavailable: long files show as plain text, which can't wrap" : null,
           title: big ? "Long files show as plain text, which can't wrap." : 'Wrap long lines',
-          onclick: e => setWrap(e.currentTarget, !wrapOn()),
+          onclick: e => { if (!big) setWrap(e.currentTarget, !wrapOn()); },
         }) : null));
   }
 

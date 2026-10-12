@@ -123,4 +123,6 @@ test('totals and totalsText: files, lines added and removed; a binary file count
   assert.equal(V.totalsText([files[2]]), '1 file', 'binary: no lines to count');
   assert.deepEqual(V.totals(null), { files: 0, added: 0, removed: 0 });
   assert.equal(V.totalsText([]), '', 'nothing changed: nothing to say');
+  assert.equal(V.totalsText(files, 8), '4 of 12 files · +30 −52', 'a capped list says how many it shows, and the sums are of those');
+  assert.equal(V.totalsText(files, 0), '4 files · +30 −52');
 });

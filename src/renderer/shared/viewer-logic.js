@@ -128,12 +128,18 @@
     return sum;
   }
 
-  /** The sums as the left panel's footer says them: "4 files · +30 −52". Empty when nothing changed. */
-  function totalsText(files) {
+  /**
+   * The sums as the left panel's footer says them: "4 files · +30 −52". Empty when nothing changed.
+   * `more` is how many changed files the list left out (it is capped): then "500 of 612 files", and
+   * the lines are those of the listed files.
+   */
+  function totalsText(files, more = 0) {
     const t = totals(files);
     if (!t.files) return '';
     const lines = [t.added ? `+${t.added}` : '', t.removed ? `−${t.removed}` : ''].filter(Boolean).join(' ');
-    return [`${t.files} ${t.files === 1 ? 'file' : 'files'}`, lines].filter(Boolean).join(' · ');
+    const all = t.files + (more > 0 ? more : 0);
+    const count = more > 0 ? `${t.files} of ${all} files` : `${t.files} ${t.files === 1 ? 'file' : 'files'}`;
+    return [count, lines].filter(Boolean).join(' · ');
   }
 
   const api = { buildTree, visibleRows, numberDiff, splitLines, whereText, tooWide, liveState, totals, totalsText, statusWord, statusClass, STATUS_WORDS };
