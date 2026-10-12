@@ -41,7 +41,7 @@ function bar(progress, n = 5) {
 
 /**
  * One status line.
- *   s: { state, busy, crew, background, health: { mood, text, id }|null, xp: { level, title, progress }|null,
+ *   s: { state, busy, crew, background, health: { mood, text, id }|null, xp: { level, marks?, title, progress }|null,
  *        lastXp: { amount, at }|null, now }
  */
 function formatStatus(s) {
@@ -54,7 +54,7 @@ function formatStatus(s) {
   else if (state === 'sleeping') head += ` ${C.dim}napping${C.reset}`;
   if (s.crew > 0) head += ` ${C.glass}+${s.crew} 🦀${C.reset}`;
   parts.push(head);
-  if (s.xp) parts.push(`${C.gold}Lv ${s.xp.level}${C.reset} ${s.xp.title} ${bar(s.xp.progress)}`);
+  if (s.xp) parts.push(`${C.gold}Lv ${s.xp.level}${s.xp.marks > 0 ? ` ★${s.xp.marks}` : ''}${C.reset} ${s.xp.title} ${bar(s.xp.progress)}`);
   if (s.streak >= 2) parts.push(`${C.coral}🔥 ${s.streak}d${C.reset}`);
   if (s.health && HEALTH[s.health.mood]) {
     const h = HEALTH[s.health.mood];
@@ -86,7 +86,7 @@ function formatPlain(s) {
   const parts = [head];
   if (s.xp) {
     const full = Math.round(Math.max(0, Math.min(1, Number(s.xp.progress) || 0)) * 5);
-    parts.push(`${C.gold}Lv ${s.xp.level}${C.reset} ${s.xp.title} [${'#'.repeat(full)}${'-'.repeat(5 - full)}]`);
+    parts.push(`${C.gold}Lv ${s.xp.level}${s.xp.marks > 0 ? ` *${s.xp.marks}` : ''}${C.reset} ${s.xp.title} [${'#'.repeat(full)}${'-'.repeat(5 - full)}]`);
   }
   if (s.streak >= 2) parts.push(`streak ${s.streak}d`);
   if (s.health && PLAIN_HEALTH[s.health.mood]) parts.push(`${C.amber}${healthLabel(s.health).replace(/°/g, '')} ${PLAIN_HEALTH[s.health.mood]}${C.reset}`);

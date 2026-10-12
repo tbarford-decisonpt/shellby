@@ -292,9 +292,9 @@ function demoWeek(now, xp) {
   const streakDays = [0, 1, 2, 3, 4, ...Array.from({ length: 21 }, (_, i) => 30 + i)].map(key); // 5 now, 21 longest
   // The XP log under the chart, newest first.
   const log = [
-    [12, 'ship', 40, 'Pushed code', 'shellby'], [35, 'tests', 25, 'Tests passed', 'shellby'],
+    [12, 'ship', 40, 'Pushed code', 'shellby'], [35, 'tests', 15, 'Tests passed', 'shellby'],
     [70, 'trophy', 20, 'Earned a trophy', null], [130, 'deploy', 50, 'Deployed', '3d-rack'],
-    [190, 'fixed', 40, 'Tests green again', '3d-rack'], [260, 'task', 10, 'Finished a task', 'shellby'],
+    [190, 'fixed', 40, 'Tests green again', '3d-rack'], [260, 'task', 5, 'Finished a task', 'shellby'],
     [330, 'trick', 150, 'Wrote himself a new trick', null], [420, 'flakefix', 40, 'Fixed a flaky test', 'rack-builder'],
   ].map(([m, kind, gained, label, project]) => ({ at: now - m * MIN, kind, xp: gained, label, project }));
   // What the plan bought: Claude's hours each day, and four fixes, one undone by a later red.

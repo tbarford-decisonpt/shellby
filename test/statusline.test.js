@@ -35,6 +35,13 @@ test('plain twin: ASCII only, for consoles without emoji (cmd.exe)', () => {
   assert.equal(plain(formatPlain({ state: 'idle', now: 0 })), 'Shellby');
 });
 
+test('past level 99 the line shows his marks, as * in the plain twin', () => {
+  const top = { level: 99, marks: 3, title: 'Shellby Supreme', progress: 0.2 };
+  assert.equal(plain(formatStatus({ state: 'idle', xp: top, now: 0 })), '🦀 Shellby · Lv 99 ★3 Shellby Supreme ▰▱▱▱▱');
+  assert.equal(plain(formatPlain({ state: 'idle', xp: top, now: 0 })), 'Shellby | Lv 99 *3 Shellby Supreme [#----]');
+  assert.equal(plain(formatStatus({ state: 'idle', xp: { ...top, marks: 0 }, now: 0 })), '🦀 Shellby · Lv 99 Shellby Supreme ▰▱▱▱▱', 'no marks yet, no star');
+});
+
 test('the command picks the plain line in the classic Windows console, emoji elsewhere', () => {
   const bash = ['C:\\Program Files\\Git\\bin\\bash.exe'].find(b => fs.existsSync(b)) || 'bash';
   const dir = tmp();
