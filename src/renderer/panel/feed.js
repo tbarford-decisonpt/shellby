@@ -120,13 +120,21 @@
       e.querySelector('.hotkey-hint').textContent = SB.prettyAccel(state.settings.hotkey) || 'The tray icon';
       // A quest card takes the third suggestion's room.
       // A new install's first tasks lead with a tour of a project, until it's opened once.
+      // Shuffled once per conversation. This runs again whenever his look changes
+      // (a new track, a sticker, a molt): reshuffled each time, the chips swapped
+      // and rose again under the pointer. They're rebuilt only when what they say changes.
       const tour = state.settings.firstTour && !SB.isCrabOnly();
-      const picks = [...SUGGESTIONS].sort(() => Math.random() - 0.5).slice(0, (SB.questCardShows?.() ? 2 : 3) - (tour ? 1 : 0));
-      const chip = (text, onclick, i) => h('button', { class: 'suggestion', type: 'button', style: `animation-delay:${i * 60}ms`, onclick },
-        h('span', { class: 'glyph', text: '›' }), text);
-      e.querySelector('.suggestions').replaceChildren(
-        ...(tour ? [chip('Show me around a project: what it is, how to run it, where to start', firstTour, 0)] : []),
-        ...picks.map((s, i) => chip(s, () => SB.send(s), i + (tour ? 1 : 0))));
+      this.shuffled ||= [...SUGGESTIONS].sort(() => Math.random() - 0.5);
+      const picks = this.shuffled.slice(0, (SB.questCardShows?.() ? 2 : 3) - (tour ? 1 : 0));
+      const shown = JSON.stringify([tour, picks]);
+      if (shown !== this.shownSuggestions) {
+        this.shownSuggestions = shown;
+        const chip = (text, onclick, i) => h('button', { class: 'suggestion', type: 'button', style: `animation-delay:${i * 60}ms`, onclick },
+          h('span', { class: 'glyph', text: '›' }), text);
+        e.querySelector('.suggestions').replaceChildren(
+          ...(tour ? [chip('Show me around a project: what it is, how to run it, where to start', firstTour, 0)] : []),
+          ...picks.map((s, i) => chip(s, () => SB.send(s), i + (tour ? 1 : 0))));
+      }
       SB.renderQuestCard?.(e.querySelector('.quest-card'));
       const pinned = state.pinned || [];
       e.querySelector('.pinned-row').hidden = !pinned.length;

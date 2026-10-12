@@ -63,6 +63,11 @@ async function connect(url) {
     await wait(3000);
     await ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
 
+    // ---- 0. the start screen's suggestions hold still when his look changes
+    const startChips = "[...SB.activeTab().empty.querySelectorAll('.suggestion')]";
+    await ev(`window.__chips = ${startChips}; SB.refreshEmptyStates(); SB.refreshEmptyStates()`);
+    check(await ev(`window.__chips.length > 0 && ${startChips}.every((c, i) => c === window.__chips[i])`), 'a redraw keeps the same suggestions, not a fresh shuffle');
+
     // ---- 1. the reply as it's written
     const words = Array.from({ length: 40 }, (_, i) => `word${i}`).join(' ');
     await ev(`SB.send(${JSON.stringify(`stream ${words}`)})`);
@@ -79,6 +84,8 @@ async function connect(url) {
     // ---- 2. what you might ask next
     check(await until(panel, "!document.getElementById('nextPrompt').hidden && /Now add a test for it/.test(document.getElementById('nextPrompt').textContent)", 4000), 'what you might ask next shows by the box');
     await panel.shot('2-next');
+    await ev("window.__next = document.querySelector('#nextPrompt .next-chip'); SB.syncBusyUi(); SB.syncBusyUi()");
+    check(await ev("document.querySelector('#nextPrompt .next-chip') === window.__next"), 'the busy line redrawing leaves the chip be (no flash, the hover stays)');
     await ev("document.getElementById('input').focus(); document.getElementById('input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))");
     check(await ev("document.getElementById('input').value === 'Now add a test for it'"), 'Tab puts it in the box');
     check(await ev("document.getElementById('nextPrompt').hidden && !SB.activeTab().busy"), 'and nothing was sent');
