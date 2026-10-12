@@ -131,6 +131,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until(`[...document.querySelectorAll('#viewerMain .dl.add .code')].some(c => c.textContent === ${longWords})`), 'the long line is in its diff');
     check(await ev("!document.querySelector('#viewerMain .vw-code').classList.contains('nowrap')") && await ev(scrollerFits), 'wrapped, it has no sideways overflow');
     await shot('1b-wrapped');
+    const lefts = await ev("(() => { const c = [...document.querySelectorAll('#viewerMain .dl.add .code')].find(x => x.textContent.length > 200); const r = document.createRange(); r.selectNodeContents(c); return [...r.getClientRects()].map(x => Math.round(x.left)); })()");
+    check(lefts.length > 2 && Math.min(...lefts.slice(1)) > lefts[0], `a wrapped line's continuation rows are indented (first row at ${lefts[0]}, the others from ${Math.min(...lefts.slice(1))})`);
     await ev("document.querySelector('#viewerMain .vw-wrap').click()");
     check(await ev("document.querySelector('#viewerMain .vw-code').classList.contains('nowrap') && document.querySelector('#viewerMain .vw-wrap').getAttribute('aria-pressed') === 'false'"), 'Wrap off marks the code block and the button');
     check(!(await ev(scrollerFits)), 'unwrapped, the long line runs past the edge and scrolls');
