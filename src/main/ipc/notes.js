@@ -95,7 +95,7 @@ function registerNotesIpc(ipcMain, d) {
     const draft = note.from === 'claude';
     const mode = NOTE_MODE[kind];
     let r = kind === 'ask' ? null : await d.startTaskInCopy(dir.cwd, title, () => prompt, { mode, draft });
-    if (!r || (!r.ok && r.notRepo)) r = draft ? d.startDraft(dir.cwd, title, prompt, { mode }) : d.startTask(prompt, title, { mode, cwd: dir.cwd });
+    if (!r || (!r.ok && r.notRepo)) r = draft ? d.startDraft(dir.cwd, title, prompt, { mode }) : d.startTask(prompt, title, { mode, cwd: dir.cwd, copyLater: true });
     if (!r.ok) return r;
     if (mode) d.manager.modeToStart(r.tabId);
     const view = await d.saveNotes(notes.markRun(d.config.get('notes'), scope, id, { kind, tabId: r.tabId, at: Date.now() }));
