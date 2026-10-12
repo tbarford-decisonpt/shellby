@@ -18,6 +18,11 @@ body.trail-open:not(.trail-over) .view-chat { padding-right: var(--trail-w); }
 body.trail-over .trail { box-shadow: -18px 0 36px rgba(0, 0, 0, .5); }
 .trail[hidden] { display: none; }
 
+/* The line on its left edge: drag it, or arrow keys on it, for a wider or narrower trail (trail.js). */
+.trail-grip { position: absolute; top: 0; bottom: 0; left: -3px; width: 6px; z-index: 3; cursor: col-resize; border-radius: 3px; outline: none; }
+.trail-grip:hover, .trail-grip:focus-visible, body.resizing-trail .trail-grip { background: color-mix(in srgb, var(--glass) 35%, transparent); }
+body.resizing-trail { user-select: none; cursor: col-resize; }
+
 /* ---------- head */
 .trail-head { display: flex; align-items: center; gap: 8px; padding: 8px 6px 6px 12px; border-bottom: 1px solid var(--line-soft); }
 .trail-title { margin: 0; font: 600 var(--fs-15) var(--font-pixel); color: var(--sand); letter-spacing: .02em; }

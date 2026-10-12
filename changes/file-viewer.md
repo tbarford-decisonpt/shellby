@@ -2,3 +2,6 @@
 - **See what a worktree changed, without leaving Shellby.** The Files button on each pane opens that conversation's folder. It lists what changed since its branch began, shows each file's diff with line numbers, and shows any file in colour. The list keeps up while Claude works. Long lines wrap, and a Wrap button in the file's title bar turns that off. The list and the file each sit in their own framed panel, and the list ends with a total of the files and lines changed. The branch chip and the Project page open it too, for your own checkouts and every worktree of a project.
 - **Every worktree and branch, from the viewer's header.** Click the folder's name at the top of the viewer to list the repo's worktrees, with how many files each has changed, and the branches that have work main doesn't. Pick a branch to see what it changed since it left main, each diff, and any file in it. Shellby reads all of it from git and checks nothing out.
 - **File links open in Shellby.** Click a file Claude mentions and it opens in the viewer at that line. Ctrl+click opens your editor, as before.
+
+### Fixed
+- **You can resize the trail.** Drag the line on its left edge, or use the arrow keys on it, and double-click it to go back to the usual width. Shellby remembers the width you leave it at.
