@@ -41,12 +41,22 @@ const noHooks = () => {
   return ['-c', `core.hooksPath=${noHooksDir || path.join(os.tmpdir(), 'shellby-no-hooks')}`];
 };
 
-function git(cwd, args, { env, input, timeout = SNAPSHOT_TIMEOUT_MS, maxBuffer = 8 * 1024 * 1024 } = {}) {
+// A look only (the file viewer) fetches nothing. In a partial clone, or a repo whose own config says
+// it is one, reading an object it lacks makes git fetch it from the promisor remote: that runs the
+// program the config names to get there (core.sshCommand, an ext:: url) and writes a pack into .git.
+// GIT_NO_LAZY_FETCH stops the fetch on a git that knows it; protocol.allow=never refuses every
+// transport on any git. A missing object is then an error, as a timeout is. Claude's turns don't pass
+// it: their snapshots and diffs fetch as git always has.
+const NO_FETCH_ARGS = ['-c', 'protocol.allow=never'];
+const NO_FETCH_ENV = { GIT_NO_LAZY_FETCH: '1' };
+
+// noFetch: a look only (NO_FETCH_ARGS above). The -c goes before the subcommand, as git wants it.
+function git(cwd, args, { env, input, timeout = SNAPSHOT_TIMEOUT_MS, maxBuffer = 8 * 1024 * 1024, noFetch = false } = {}) {
   return new Promise(resolve => {
-    const child = execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...args], {
+    const child = execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...(noFetch ? NO_FETCH_ARGS : []), ...args], {
       windowsHide: true, timeout, maxBuffer, encoding: 'utf8',
       // Literal pathspecs: a file a turn named "*.js" or ":(top)x" means that file, not every match.
-      env: { ...process.env, ...env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' },
+      env: { ...process.env, ...env, ...(noFetch ? NO_FETCH_ENV : null), GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' },
     }, (err, stdout, stderr) => resolve(err ? { ok: false, error: String(stderr || err.message).trim().split('\n').pop() } : { ok: true, out: stdout }));
     if (input != null) { child.stdin.on('error', () => {}); child.stdin.end(input); }
   });
@@ -75,13 +85,14 @@ const sameRoot = (root, dir) => !!root && longPath(root).toLowerCase() === longP
  * info: optional; given a skipped reason (SKIPPED_TOO_MANY) when the folder is
  * one it won't snapshot, so the turn can say why it has no diff.
  * opts.hooks: false for a look only (the file viewer): the repo's hooks don't run.
+ * opts.noFetch: true for a look only, too: git fetches no object the repo lacks (NO_FETCH_ARGS).
  */
-async function snapshot(dir, info = null, { hooks = true } = {}) {
+async function snapshot(dir, info = null, { hooks = true, noFetch = false } = {}) {
   const root = await rootOf(dir);
   if (!root) return null;
   const [idx, at] = await Promise.all([
-    git(root, ['rev-parse', '--git-path', 'index'], { timeout: 5000 }),
-    git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeout: 5000 }),
+    git(root, ['rev-parse', '--git-path', 'index'], { timeout: 5000, noFetch }),
+    git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeout: 5000, noFetch }),
   ]);
   if (!idx.ok) return null;
   const head = at.ok && TREE.test(at.out.trim()) ? at.out.trim() : null;
@@ -94,9 +105,9 @@ async function snapshot(dir, info = null, { hooks = true } = {}) {
     const pre = hooks ? [] : noHooks();
     // No pathspec: since git 2.0 add -u covers the whole tree, and on an empty index (a repo with
     // no commits, or every file un-staged) it does nothing and succeeds, where "-- ." fails to match.
-    const tracked = await git(root, [...pre, 'add', '-u'], { env });
+    const tracked = await git(root, [...pre, 'add', '-u'], { env, noFetch });
     if (!tracked.ok) return null;
-    const others = await git(root, ['ls-files', '-z', '--others', '--exclude-standard'], { env });
+    const others = await git(root, ['ls-files', '-z', '--others', '--exclude-standard'], { env, noFetch });
     if (!others.ok) return null;
     const untracked = others.out.split('\0').filter(Boolean);
     if (untracked.length > MAX_UNTRACKED) { if (info) info.skipped = SKIPPED_TOO_MANY; return null; }
@@ -105,10 +116,10 @@ async function snapshot(dir, info = null, { hooks = true } = {}) {
     });
     const small = untracked.filter((_f, i) => fits[i]);
     if (small.length) {
-      const added = await git(root, [...pre, 'add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: small.join('\0') });
+      const added = await git(root, [...pre, 'add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: small.join('\0'), noFetch });
       if (!added.ok) return null;
     }
-    const tree = await git(root, [...pre, 'write-tree'], { env });
+    const tree = await git(root, [...pre, 'write-tree'], { env, noFetch });
     const t = tree.ok && tree.out.trim();
     return t && TREE.test(t) ? { root, tree: t, head } : null;
   } catch {
@@ -156,11 +167,11 @@ function parseDiffSummary(numstat, nameStatus) {
   return files;
 }
 
-async function changedFiles(root, before, after) {
+async function changedFiles(root, before, after, { noFetch = false } = {}) {
   const base = ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '-z'];
   const [num, names] = await Promise.all([
-    git(root, [...base, '--numstat', before, after]),
-    git(root, [...base, '--name-status', before, after]),
+    git(root, [...base, '--numstat', before, after], { noFetch }),
+    git(root, [...base, '--name-status', before, after], { noFetch }),
   ]);
   if (!num.ok || !names.ok) return null;
   return parseDiffSummary(num.out, names.out);
@@ -169,11 +180,14 @@ async function changedFiles(root, before, after) {
 /**
  * What changed between two snapshots of the same repo.
  *   -> { root, before, after, files, added, removed, more } | null (nothing changed)
+ * opts.noFetch: a look only (NO_FETCH_ARGS). opts.info: given failed = true when git couldn't make
+ * the diff at all (a missing object, a timeout), which null alone doesn't tell from "nothing changed".
  */
-async function summarize(start, end) {
+async function summarize(start, end, { noFetch = false, info = null } = {}) {
   if (!start || !end || start.root !== end.root || start.tree === end.tree) return null;
-  const files = await changedFiles(start.root, start.tree, end.tree);
-  if (!files?.length) return null;
+  const files = await changedFiles(start.root, start.tree, end.tree, { noFetch });
+  if (!files) { if (info) info.failed = true; return null; }
+  if (!files.length) return null;
   return {
     root: start.root, before: start.tree, after: end.tree,
     files: files.slice(0, MAX_FILES), more: Math.max(0, files.length - MAX_FILES),
@@ -262,13 +276,13 @@ function checkRef({ root, before, after, file, paths } = {}) {
   return null;
 }
 
-/** One file's diff for a turn, as unified-diff text. -> { patch, truncated } | { error } */
-async function patchFor(ref) {
+/** One file's diff for a turn, as unified-diff text. opts.noFetch: a look only. -> { patch, truncated } | { error } */
+async function patchFor(ref, { noFetch = false } = {}) {
   const bad = checkRef(ref);
   if (bad) return { error: bad };
   const root = await rootOf(ref.root);
   if (!sameRoot(root, ref.root)) return { error: 'That project has moved.' };
-  const r = await git(root, ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color', '-U3', ref.before, ref.after, '--', ...(ref.file ? [ref.file] : ref.paths || [])], { maxBuffer: 16 * 1024 * 1024 });
+  const r = await git(root, ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color', '-U3', ref.before, ref.after, '--', ...(ref.file ? [ref.file] : ref.paths || [])], { maxBuffer: 16 * 1024 * 1024, noFetch });
   if (!r.ok) return { error: /bad object|not a tree|unknown revision/i.test(r.error) ? 'Those changes have been tidied away by git since.' : r.error || "Couldn't read the diff." };
   return r.out.length > MAX_PATCH ? { patch: r.out.slice(0, MAX_PATCH), truncated: true } : { patch: r.out, truncated: false };
 }

@@ -183,6 +183,40 @@ test('staleFor finds the handles a changed folder belongs to', async () => {
   } finally { r.done(); }
 });
 
+test('staleFor: a worktree inside the changed folder too, but never everything under a folder too wide', async () => {
+  const r = repo();
+  try {
+    const agent = path.join(r.dir, '.claude', 'worktrees', 'agent-1');
+    r.g(r.dir, 'worktree', 'add', '-q', '-b', 'agent-1', agent);
+    const v = createViewer({ home: r.base });
+    const a = await v.open({ dir: agent });
+    assert.deepEqual(v.staleFor(r.dir), [a.id], "a write in the conversation's folder nudges the agent's worktree under it");
+    assert.deepEqual(v.staleFor(r.base), [], 'the home folder (r.base here) is too wide to nudge all it holds');
+  } finally { r.done(); }
+});
+
+test('a base named like an option reaches merge-base as refs/heads/--fork-point, never as an option', async () => {
+  const r = repo();
+  try {
+    // git branch refuses such a name; update-ref and symbolic-ref make it anyway, as a hostile repo could.
+    const init = r.g(r.dir, 'rev-parse', 'HEAD').trim();
+    r.g(r.dir, 'update-ref', 'refs/heads/--fork-point', init);
+    r.g(r.dir, 'symbolic-ref', 'HEAD', 'refs/heads/--fork-point');
+    const copy = path.join(r.base, 'copy');
+    r.g(r.dir, 'worktree', 'add', '-q', '-b', 'copy', copy, init);
+    r.write(copy, 'mine.txt', 'mine\n');
+    r.g(copy, 'add', '-A');
+    r.g(copy, 'commit', '-qm', 'mine');
+    const v = createViewer();
+    const h = await v.open({ dir: copy });
+    assert.equal(h.base, '--fork-point', "the main checkout's branch, as git lists it");
+    const c = await v.changesOf(h.id);
+    assert.equal(c.against, '--fork-point');
+    // As an option, `merge-base --fork-point HEAD` answers the copy's own HEAD and its commit drops off.
+    assert.deepEqual(c.files.map(f => f.path), ['mine.txt'], "the copy's own commit, since it left the checkout's branch");
+  } finally { r.done(); }
+});
+
 test('locate: a link relative to a subfolder, absolute inside, outside, and missing', async () => {
   const r = repo();
   try {
