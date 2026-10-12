@@ -43,6 +43,7 @@ body.crab-only [data-goto="council"] { display: none; }
   opacity: .85;
 }
 .cc-corner { position: absolute; z-index: 50; inset: 8px 8px auto; display: flex; justify-content: space-between; pointer-events: none; }
+.cc-corner-end { display: flex; gap: 6px; }
 .cc-corner-btn {
   pointer-events: auto; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line);
   background: rgba(7, 16, 18, .72); color: var(--sand-dim); font-size: var(--fs-11); font-weight: 700; cursor: pointer;

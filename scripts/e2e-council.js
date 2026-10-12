@@ -81,6 +81,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await ev("document.querySelector('#ccHistoryList .cc-history-item:last-child .cc-history-open').click()");
     check(await until("document.querySelector('.cc-eyebrow').textContent.includes('SQLite')"), 'an old sitting opens from the minutes, with no call');
 
+    await ev("document.querySelector('.cc-actions .btn.ghost').click()");
+    check(await ev("!document.getElementById('ccNewBtn').hidden && document.getElementById('ccQuestion').placeholder.startsWith('A follow-up')"), 'a follow-up offers a new session');
+    await ev("document.getElementById('ccNewBtn').click()");
+    check(await until("document.getElementById('ccMinutes').hidden && document.getElementById('ccNewBtn').hidden && document.getElementById('ccScrollText').textContent.includes('waiting for a question') && !document.getElementById('ccQuestion').placeholder.startsWith('A follow-up')"), 'New session clears the table and the follow-up');
+    check(await count('#ccSeats .cc-seat[data-state="spoke"]') === 0, 'no seat has spoken at a fresh table');
+
     await ev("document.getElementById('ccSeatsBtn').click()");
     await until("document.querySelectorAll('#ccSeatList li').length > 0");
     await ev("document.getElementById('ccCustomName').value = 'Accountant'; document.getElementById('ccCustomBrief').value = 'Count the cost.'; document.getElementById('ccCustomForm').requestSubmit()");
