@@ -74,6 +74,8 @@ async function connect(url) {
     check(await until(panel, "!!SB.activeTab().el.querySelector('.msg.assistant.live')", 5000), 'the reply shows while Claude is still writing it');
     const midway = await ev("SB.activeTab().el.querySelector('.msg.assistant.live')?.textContent || ''");
     check(midway.startsWith('word0') && midway.length < words.length, `part of it, not yet all (${midway.length} of ${words.length} characters)`);
+    // Laid out as the finished reply is: a line break in the markdown isn't one on screen.
+    check(await ev("getComputedStyle(SB.activeTab().el.querySelector('.msg.assistant.live')).whiteSpace === 'normal'"), 'formatted as it is written, not as plain text');
     check(await until(panel, "document.getElementById('statusText').textContent === 'Writing…'", 2000), 'the Working bar says Claude is writing');
     await panel.shot('1-streaming');
     await idle();
