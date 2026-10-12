@@ -2,7 +2,12 @@
    sidebar and its editor: the list on the left, the file or its diff on the right. */
 body[data-view="viewer"] .view-viewer { display: flex; flex-direction: column; padding: 10px 12px 12px; gap: 8px; animation: fadein .18s var(--ease-out); }
 .vw-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.vw-where { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand); font-size: var(--fs-13); }
+.vw-where { flex: 0 1 auto; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border: 0; border-radius: var(--r-sm); background: none; color: var(--sand); font: inherit; font-size: var(--fs-13); text-align: left; cursor: pointer; }
+.vw-where:hover:not(:disabled), .vw-where:focus-visible, .vw-where[aria-expanded="true"] { background: var(--line-soft); }
+.vw-where:disabled { cursor: default; color: var(--sand); opacity: 1; }
+.vw-where-caret { color: var(--sand-dim); }
+.vw-menu { min-width: 240px; }
+.vw-menu-note { margin: 0; padding: 2px 9px 6px; }
 .vw-live { font-size: var(--fs-12); padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-soft); color: var(--sand-dim); }
 .vw-live.busy { color: var(--glass); }
 .vw-live.needs { color: #ffc9bb; }

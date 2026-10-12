@@ -157,6 +157,7 @@
   <div class="popover" id="snipMenu" role="menu" hidden></div>
   <div class="popover text-menu" id="textMenu" role="menu" aria-label="Text" hidden></div>
   <div class="popover" id="noteMenu" role="menu" hidden></div>
+  <div class="popover vw-menu" id="viewerMenu" role="menu" aria-label="Worktrees and branches" hidden></div>
 
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
@@ -2402,7 +2403,7 @@
   <main class="view view-viewer" id="viewerView" aria-label="Files">
     <div class="vw-head">
       <button type="button" class="back-btn" id="viewerBack">← Back</button>
-      <span class="vw-where" id="viewerWhere"></span>
+      <button type="button" class="vw-where" id="viewerWhere" aria-haspopup="menu" aria-expanded="false"></button>
       <span class="vw-live" id="viewerLive" hidden></span>
       <button type="button" class="btn ghost slim-btn" id="viewerRefresh" title="Look again" aria-label="Refresh">⟳</button>
       <button type="button" class="btn ghost slim-btn" id="viewerEditor" hidden>Open in editor</button>

@@ -3,7 +3,8 @@
    file in colour, and each change as a diff with both sides' line numbers.
    Read-only: main hands over a handle and keeps every read inside it (main's
    viewer.js). Opened from a pane's Files button, file links, the branch chip
-   and the Project page. */
+   and the Project page. Its header's menu switches to another worktree of the
+   repo, or to a branch nothing has checked out, read from git alone. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -14,7 +15,7 @@
   const WRAP_KEY = 'shellby.viewer.wrap'; // '0' once you turn Wrap off; lines wrap until then
   const wrapOn = () => SB.pref(WRAP_KEY) !== '0';
   const ICON = 'M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6.1c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z';
-  const lastFile = new Map(); // root -> the file last open there, while Shellby runs
+  const lastFile = new Map(); // a place (V.placeKey) -> the file last open there, while Shellby runs
   let cur = null;             // what's open: the handle, the lists and the file on screen
   let shownAt = 0, timer = null;
 
@@ -24,7 +25,7 @@
     const me = cur;
     let r = await fn(me.id).catch(() => null);
     if (r?.expired) {
-      const again = await api.viewerOpen(me.req).catch(() => null);
+      const again = await reopen(me);
       if (!again?.ok) {
         if (again?.gone) me.gone = true;
         return { ok: false, gone: !!again?.gone, error: again?.error || "Couldn't open that folder." };
@@ -37,18 +38,36 @@
     return r || { ok: false, error: "Couldn't read that." };
   }
 
+  // A place picked from the header's menu has no open request of its own (main hands out keys, not
+  // paths): open the first place again, and make the same pick from its menu.
+  async function reopen(me) {
+    const first = await api.viewerOpen(me.req).catch(() => null);
+    if (!first?.ok || !me.place) return first;
+    const list = await api.viewerPlaces(first.id).catch(() => null);
+    const p = list?.ok ? V.findPlace(list.places, me.place) : null;
+    const r = p ? await api.viewerSwitch(first.id, p.key).catch(() => null) : null;
+    api.viewerClose(first.id);
+    return r?.ok ? r : { ok: false, gone: true, error: 'That worktree or branch is gone.' };
+  }
+
   const ancestors = rel => rel.split('/').slice(0, -1).map((_s, i, parts) => parts.slice(0, i + 1).join('/'));
 
-  async function start(req, { file = null, line = null, side = null } = {}) {
-    const r = await api.viewerOpen(req).catch(() => null);
+  // opts.handle: one main has opened already (a pick from the header's menu), and opts.place which
+  // pick, so call() can make it again. A pick keeps the file you were on when the new place has it
+  // too (on its changes list or in its tree), else opens the one last open there when it still has
+  // that, else shows the placeholder (V.keepFile).
+  async function start(req, { file = null, line = null, side = null, handle = null, place = null } = {}) {
+    const r = handle || await api.viewerOpen(req).catch(() => null);
     if (!r?.ok) return SB.toast(r?.error || "Couldn't open that folder.");
     if (cur && cur.id !== r.id) api.viewerClose(cur.id);
     // Back (and Esc) return to where it was opened from: the chat, or the Project page.
-    // Opened again from inside the viewer (a file link in it), it keeps the first.
+    // Opened again from inside the viewer (a file link in it, a pick from its menu), it keeps the first.
     const from = state.view === 'viewer' ? cur?.from || null : state.view;
+    const remembered = lastFile.get(V.placeKey(r)) || null;
     const me = cur = {
-      ...r, req, from, tabId: req.tabId || null, side, only: false, files: [], more: 0, against: null, note: null, gone: false, dirty: false,
-      entries: [], open: new Set(), filter: '', file: file || lastFile.get(r.root) || null, line, whole: !!line,
+      ...r, req, from, place, tabId: place ? null : req.tabId || null, side, only: false, files: [], more: 0, against: null, note: null,
+      gone: false, branchGone: false, dirty: false, entries: [], open: new Set(), filter: '',
+      file: file || remembered, line, whole: !!line,
     };
     $('viewerFilter').value = '';
     $('viewerMain').replaceChildren();
@@ -57,6 +76,7 @@
     await Promise.all([loadChanges(), loadTree()]);
     if (cur !== me) return;
     if (me.gone) return draw();
+    if (place) me.file = V.keepFile(file, remembered, rel => me.files.some(f => f.path === rel) || me.entries.includes(rel));
     if (!me.side) me.side = me.files.length || me.note ? 'changes' : 'files'; // a failed look says so, on Changes
     if (me.file) for (const a of ancestors(me.file)) me.open.add(a);
     draw();
@@ -72,6 +92,7 @@
     if (cur !== me) return;
     shownAt = Date.now();
     me.note = null;
+    if (r.branchGone) { me.gone = true; me.branchGone = true; me.files = []; return; }
     if (r.gone) { me.gone = true; me.files = []; return; }
     if (r.noGit) { me.git = false; me.files = []; return; }
     if (!r.ok) { me.files = []; me.note = { text: r.tooManyNew ? 'Too many new files to compare.' : "Couldn't read changes.", retry: !r.tooManyNew }; return; }
@@ -84,33 +105,39 @@
     if (cur === me) me.entries = r.ok ? r.entries : [];
   }
 
+  // The conversation's state in the header: the one it was opened from, or (a pick from the menu, the
+  // Project page) one whose folder this is or holds it. A branch is nobody's folder.
   function drawLive() {
-    const live = cur?.tabId ? V.liveState(state.tabs.get(cur.tabId)) : null;
+    const tab = !cur || cur.kind === 'branch' ? null : cur.tabId ? state.tabs.get(cur.tabId) : V.tabAt(state.tabs.values(), cur.root, state.home);
+    const live = V.liveState(tab || null);
     $('viewerLive').hidden = !live;
     if (live) { $('viewerLive').textContent = live.word; $('viewerLive').className = `vw-live ${live.cls}`; }
   }
 
   function draw() {
     if (!cur) return;
-    $('viewerWhere').textContent = V.whereText(cur);
-    $('viewerWhere').title = cur.root;
+    const where = $('viewerWhere');
+    where.replaceChildren(V.whereText(cur), ...(cur.git ? [h('span', { class: 'vw-where-caret', 'aria-hidden': 'true', text: ' ▾' })] : []));
+    where.title = cur.root;
+    where.disabled = !cur.git; // a folder that isn't a repo has nothing to switch to: plain text, as before
     drawLive();
     if (cur.gone) {
       $('viewerSide').hidden = true;
       $('viewerEditor').hidden = true;
       $('viewerFoot').hidden = true;
       $('viewerMain').replaceChildren(h('div', { class: 'vw-gone' },
-        h('p', { text: 'This folder is gone.' }),
+        h('p', { text: cur.branchGone ? 'This branch is gone.' : 'This folder is gone.' }),
         h('button', { type: 'button', class: 'btn slim-btn', text: 'Back', onclick: () => SB.goBack() })));
       return;
     }
     $('viewerSide').hidden = false;
+    if (cur.kind === 'branch') $('viewerEditor').hidden = true; // read from git: no file on disk to open
     if (!cur.git) cur.side = 'files';
     $('viewerTabChanges').hidden = !cur.git;
     $('viewerTabChanges').setAttribute('aria-selected', String(cur.side === 'changes'));
     $('viewerTabFiles').setAttribute('aria-selected', String(cur.side === 'files'));
     $('viewerCount').textContent = cur.files.length ? String(cur.files.length + cur.more) : '';
-    $('viewerOnlyRow').hidden = cur.side !== 'changes' || !cur.base;
+    $('viewerOnlyRow').hidden = cur.side !== 'changes' || !cur.base || cur.kind === 'branch'; // a branch is all commits
     $('viewerOnly').checked = cur.only;
     $('viewerFilter').hidden = cur.side !== 'files';
     const said = cur.side !== 'changes' ? ''
@@ -161,7 +188,7 @@
 
   const note = (text, editor = false) => h('div', { class: 'vw-note-box' },
     h('p', { class: 'muted', text }),
-    editor ? h('button', { type: 'button', class: 'btn slim-btn', text: 'Open in editor', onclick: openInEditor }) : null);
+    editor && cur?.kind !== 'branch' ? h('button', { type: 'button', class: 'btn slim-btn', text: 'Open in editor', onclick: openInEditor }) : null);
 
   function openInEditor() {
     if (!cur?.file) return;
@@ -173,7 +200,7 @@
     const me = cur;
     if (me.file !== rel || line) me.whole = !!line;
     me.file = rel; me.line = line;
-    lastFile.set(me.root, rel);
+    lastFile.set(V.placeKey(me), rel);
     for (const b of document.querySelectorAll('#viewerList .vw-row')) b.classList.toggle('on', b.dataset.path === rel);
     const f = me.files.find(x => x.path === rel) || null;
     const main = $('viewerMain');
@@ -184,7 +211,7 @@
     if (me.gone) return draw(); // the read found the folder gone: that screen stays
     const scroll = h('div', { class: 'vw-scroll' }, body);
     main.replaceChildren(fileHead(rel, f, body), scroll);
-    $('viewerEditor').hidden = false;
+    $('viewerEditor').hidden = me.kind === 'branch';
     if (keep) { scroll.scrollTop = top; scroll.scrollLeft = left; }
     else scroll.querySelector('.hit')?.scrollIntoView({ block: 'center' });
   }
@@ -278,6 +305,42 @@
     if (me.file && (tree || sig(me.file) !== before)) showFile(me.file, { keep: true }); // no line: Diff or Whole stays as chosen
   }
 
+  // The header's menu: every worktree of the repo, and each branch with commits main lacks. It opens
+  // at once and fills in when main has looked (a git status in each worktree can take a moment).
+  async function openPlaces() {
+    const me = cur;
+    const menu = $('viewerMenu');
+    const anchor = $('viewerWhere');
+    if (!me?.git || !menu.hidden) return SB.closeMenus({ refocus: true });
+    SB.openMenu(menu, anchor, () => [h('div', { class: 'menu-label', text: 'Looking…' })]);
+    const r = await call(id => api.viewerPlaces(id));
+    if (cur !== me || menu.hidden) return;
+    SB.closeMenus();
+    SB.openMenu(menu, anchor, () => placeRows(r));
+  }
+
+  function placeRows(r) {
+    if (!r?.ok) return [h('div', { class: 'menu-label', text: 'Worktrees' }), h('p', { class: 'small muted vw-menu-note', text: "Couldn't list worktrees." })];
+    const row = p => SB.menuItem(p.label, V.placeSub(p, SB.relTime), () => pick(p), { glyph: p.current ? '✓' : '' });
+    const trees = r.places.filter(p => p.kind === 'worktree');
+    const branches = r.places.filter(p => p.kind === 'branch');
+    return [
+      h('div', { class: 'menu-label', text: 'Worktrees' }), ...trees.map(row),
+      ...(branches.length ? [h('div', { class: 'menu-sep' }), h('div', { class: 'menu-label', text: 'Branches' }), ...branches.map(row)] : []),
+    ];
+  }
+
+  // A pick: main checks it again and opens it. Straight to main rather than through call(), whose
+  // "gone" means this screen's folder: here it means the pick went stale since the menu opened.
+  async function pick(p) {
+    const me = cur;
+    if (!me) return;
+    const r = await api.viewerSwitch(me.id, p.key).catch(() => null);
+    if (cur !== me) return;
+    if (!r?.ok) return SB.toast(r?.gone || r?.expired ? 'That worktree or branch is gone.' : r?.error || "Couldn't open that.");
+    start(me.req, { handle: r, place: { kind: p.kind, label: p.label, branch: p.branch }, file: me.file });
+  }
+
   // Main's nudge: something in the folder may have changed. One look, at most every 2 s, only on
   // Changes and only while showing; otherwise the viewer remembers, and looks when it's shown again.
   const showing = () => state.view === 'viewer' && cur?.side === 'changes';
@@ -303,6 +366,7 @@
   $('filesBtn').addEventListener('click', () => SB.viewer.openTab(state.activeTab));
   $('viewerBack').addEventListener('click', () => SB.goBack());
   $('viewerRefresh').addEventListener('click', () => refresh());
+  $('viewerWhere').addEventListener('click', openPlaces);
   $('viewerEditor').addEventListener('click', openInEditor);
   $('viewerTabChanges').addEventListener('click', async () => { if (!cur) return; cur.side = 'changes'; cur.dirty = false; draw(); await loadChanges(); draw(); });
   $('viewerTabFiles').addEventListener('click', () => { if (!cur) return; cur.side = 'files'; draw(); });
@@ -338,6 +402,6 @@
       }
       if (cur && state.view === 'viewer') drawLive();
     },
-    current: () => (cur ? { id: cur.id, root: cur.root, file: cur.file, side: cur.side, files: cur.files } : null),
+    current: () => (cur ? { id: cur.id, root: cur.root, file: cur.file, side: cur.side, files: cur.files, kind: cur.kind, branch: cur.branch, gone: cur.gone } : null),
   };
 })();
