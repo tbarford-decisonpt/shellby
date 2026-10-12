@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.82.0: The trail
+
+### New
+- The Council has a New session button by Past sessions. It clears the table and drops a follow-up, so the next question starts fresh. The last sitting stays in Past sessions.
+- **Suggest an idea from Shellby.** Right-click him → Send feedback now has *Suggest an idea…* next to *Report a problem…*, and both are under Settings → About too. Each one opens a GitHub draft with your version filled in. Nothing is sent until you press submit.
+- **He asks for an idea once.** The first time you two become Buddies, he asks what he should do next. He never asks again.
+- **The trail: watch him crawl through your files.** Press Ctrl+Shift+E (or the footprints in the bar above the chat) and a map opens beside the conversation. It shows only the files Claude has touched. Files he read get footprints, files he changed are dug over with their +/−, and files a search found give off a glint. He walks to each file as he works there, holding his book, pencil or magnifying glass, and his helpers walk their own trails in their lane's colour.
+- **The trail points out what's worth a look.** It tells you when he keeps going back to the same file, when a file changed and the test named after it never ran (Run it), and when he opened a file that can hold passwords, like `.env`. Files outside the project get a section of their own. A change waiting for your OK says so on its row.
+- **Click a file on the trail to see where he did it.** The step lights up in the conversation, with an edit's diff open. Shift+Enter opens the file in your editor, and @ puts it in your message.
+- **Replay every step.** Press play or drag the slider under the trail and he walks the conversation again, one step at a time, with each step lit in the chat as he reaches it. Live brings you back to now. *This turn* shows only what your last message touched, and *All* keeps earlier turns, paler.
+
+### Fixed
+- /btw works in a conversation on another computer. It used to ask this PC's Claude Code, which had never seen that conversation, and said "Claude Code didn't answer". It now asks on the computer the conversation runs on.
+- When /btw can't answer, it says why: a conversation Claude Code can't find, or another computer it can't reach, instead of always suggesting you sign in.
+- The Council no longer squashes flat on a wide panel, with the advisors towering over the table. The hall keeps its shape and sits in the middle.
+- **Replies look right while they're written.** A reply being written kept every line break from its markdown, so it read like plain text and then jumped into shape when it finished. It's laid out as the finished reply is from the first words.
+- **Drawings in a reply line up.** Boxes, trees and mockups Claude draws in box characters now use a font that has every box glyph, and their vertical lines meet. An emoji or symbol inside one takes the columns a terminal would give it, so the right edge stays straight.
+
+### Changed
+- **/bug and /feedback ask "Shellby or Claude Code?"** Before, they always went to Claude Code's issue page.
+
 ## 0.81.0: Marks past 99, zoomed panes and named layouts
 
 ### New
