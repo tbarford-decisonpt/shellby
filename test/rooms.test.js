@@ -25,12 +25,12 @@ test('an undecided value (null) shows everything rather than hiding screens', ()
 test('finished tasks open rooms in order and report each one once', () => {
   let s = fresh();
   const opened = [];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 7; i++) {
     const r = rooms.taskDone(s);
     s = r.state;
     opened.push(r.opened.map(x => x.id));
   }
-  assert.deepEqual(opened, [['history', 'projects', 'notes', 'trophies'], ['finds', 'stickers'], ['health', 'toolbox', 'crew'], ['bugdex', 'council'], ['workflows', 'us'], ['tank'], [], ['beach'], []]);
+  assert.deepEqual(opened, [['history', 'projects', 'notes', 'trophies'], ['finds', 'stickers'], ['health', 'toolbox', 'crew'], ['bugdex', 'council'], ['workflows', 'us'], ['tank'], []]);
   assert.equal(rooms.roomsView(s).all, true);
 });
 
@@ -59,7 +59,13 @@ test('openAll opens everything and stops counting toward rooms', () => {
 test('the next room counts down the tasks still to go', () => {
   assert.deepEqual(rooms.roomsView(after(1)).next, { id: 'finds', name: 'Finds', tasksToGo: 1, in: 'wardrobe' });
   assert.deepEqual(rooms.roomsView(after(4)).next, { id: 'workflows', name: 'Automate', tasksToGo: 1 });
-  assert.deepEqual(rooms.roomsView(after(6)).next, { id: 'beach', name: 'Beach', tasksToGo: 2, in: 'wardrobe' });
+  assert.deepEqual(rooms.roomsView(after(5)).next, { id: 'tank', name: 'Tank', tasksToGo: 1, in: 'wardrobe' });
+  assert.equal(rooms.roomsView(after(6)).next, null);
+});
+
+test('the beach is part of Us, not a room of its own', () => {
+  assert.ok(!rooms.ROOMS.some(r => r.id === 'beach'));
+  assert.deepEqual(rooms.normalizeRooms({ tasks: 3, open: ['beach', 'us'] }).open, ['us'], 'a stored Beach door is dropped');
 });
 
 test('rooms open in the order they are listed, so "next" is always the soonest', () => {

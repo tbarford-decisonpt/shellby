@@ -78,15 +78,9 @@
     if (r?.life) SB.applyLife(r.life);
     if (!r?.ok) return SB.toast(r?.error || 'He can\'t right now.');
     SB.toast(DONE[kind]);
-    if (kind === 'feed') {
-      const crab = $('usCrab');
-      crab.classList.remove('munching');
-      void crab.offsetWidth; // restart the chomp
-      crab.classList.add('munching');
-    }
+    if (kind === 'feed') SB.beachScene?.munch(); // he chomps on the beach up top
   }
   document.querySelectorAll('[data-care]').forEach(b => b.addEventListener('click', () => care(b.dataset.care)));
-  $('usCrab').addEventListener('animationend', e => { if (e.animationName === 'us-munch') $('usCrab').classList.remove('munching'); });
 
   $('usNeedsGotIt').addEventListener('click', () => { api.needs.introSeen(); $('usNeedsIntro').hidden = true; });
   $('usNeedsOff').addEventListener('click', async () => {

@@ -1,0 +1,2 @@
+### Changed
+- **Your beach is on the Us page now.** Us opens on your beach, with him sitting beside the newest castle, so his screen has one tab fewer. Click him for a pet, feed him and he chomps right there, and as you get closer he holds up his favourite find and draws hearts in the sand in front of him. Everything the Beach tab had is still there: castles rising as you watch, the strip to look along it, Share a snapshot, and how it grows further down the page.
