@@ -53,6 +53,8 @@ const FOOT = `${MADE.length} files · +${ADDED}`;
 // The copy's changed files once the two-hunk check has edited multi.txt in it: what its menu row counts.
 const COPY_CHANGED = MADE.length + 1;
 // A branch nothing has checked out, with commits main lacks (made late in the run): the menu lists it.
+// A second branch at the same commit: shown with its handle dropped, then deleted.
+const BRANCH2 = 'feature-y';
 const BRANCH = { name: 'feature-x', file: 'feature.txt', words: 'made on a branch', commits: 1 };
 // A worktree an agent makes inside the conversation's copy, and the copy's turn that nudges it.
 const AGENT = { name: 'agent-x', file: 'agent.txt', words: 'made by an agent' };
@@ -244,6 +246,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     fs.writeFileSync(path.join(featureWt, BRANCH.file), `${BRANCH.words}\n`);
     execFileSync('git', ['-C', featureWt, 'add', '-A'], { windowsHide: true });
     execFileSync('git', ['-C', featureWt, 'commit', '-qm', 'feature work'], { windowsHide: true });
+    git('branch', BRANCH2, BRANCH.name);
     git('worktree', 'remove', featureWt); // the branch stays, and nothing has it checked out
     await ev(`SB.viewer.openTab(${JSON.stringify(copyTab)})`);
     check(await until(`SB.state.view === 'viewer' && SB.viewer.current()?.files.length === ${COPY_CHANGED}`), 'the viewer is on the copy again');
@@ -298,6 +301,19 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until(`SB.viewer.current()?.kind === 'folder' && SB.viewer.current().branch === ${JSON.stringify(copyBranch)} && SB.viewer.current().files.length === ${COPY_CHANGED}`), 'picking the copy goes back to it, with what it changed');
     check(await until(`SB.viewer.current()?.file === ${JSON.stringify(keptFile)}`), `the copy has no ${BRANCH.file}, so the file last open there (${keptFile}) opens again`);
 
+    // ---- a branch shown after main dropped its handle, then deleted: the screen reopens it, and says so
+    await openMenu();
+    check(await until("document.querySelectorAll('#viewerMenu .menu-item').length > 0", 20000), 'the menu opens on the copy again');
+    await menuRow('.mi-title', BRANCH2);
+    check(await until(`SB.viewer.current()?.kind === 'branch' && SB.viewer.current().files.length === 1`), 'a second branch shows');
+    await ev('shellby.viewerClose(SB.viewer.current().id)'); // as eight others opened since would
+    git('branch', '-D', BRANCH2);
+    await wait(2200);
+    await ev("document.getElementById('viewerRefresh').click()");
+    check(await until("document.querySelector('#viewerMain .vw-gone p')?.textContent === 'This branch is gone.'"), 'a branch deleted after its handle was dropped says so, not that the folder is');
+    await ev(`SB.viewer.openTab(${JSON.stringify(copyTab)})`); // nothing to switch from there: its handle is gone, so the menu can't list
+    check(await until(`SB.viewer.current()?.kind === 'folder' && SB.viewer.current().files.length === ${COPY_CHANGED}`), 'the copy opens again');
+
     // ---- a worktree an agent made inside the copy: the copy's turn nudges a viewer on it
     const copyRoot = await ev('SB.viewer.current().root');
     const agentAt = path.join(copyRoot, '.claude', 'worktrees', AGENT.name);
@@ -310,6 +326,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until("!document.getElementById('viewerLive').hidden"), "the live state is the copy's conversation, which holds it");
     await ev("document.getElementById('viewerTabChanges').click()");
     check(await until("document.getElementById('viewerNote').textContent === 'Nothing has changed here.'"), 'its Changes say nothing has changed');
+    // The note above is drawn before the first look has answered; let that look finish, or it may read the file written next.
+    await wait(1500);
     fs.writeFileSync(path.join(agentAt, AGENT.file), `${AGENT.words}\n`);
     await wait(400);
     check(await ev('SB.viewer.current().files.length === 0'), 'a file the agent writes waits for a look');

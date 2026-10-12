@@ -27,7 +27,7 @@
     if (r?.expired) {
       const again = await reopen(me);
       if (!again?.ok) {
-        if (again?.gone) me.gone = true;
+        if (again?.gone) { me.gone = true; me.branchGone = me.kind === 'branch'; }
         return { ok: false, gone: !!again?.gone, error: again?.error || "Couldn't open that folder." };
       }
       me.id = again.id;
@@ -39,15 +39,19 @@
   }
 
   // A place picked from the header's menu has no open request of its own (main hands out keys, not
-  // paths): open the first place again, and make the same pick from its menu.
+  // paths): open the first place again, and make the same pick from its menu. Gone only when the list
+  // came back without it or main says so; a git hiccup (a timeout) is an error that Retry can answer.
   async function reopen(me) {
     const first = await api.viewerOpen(me.req).catch(() => null);
     if (!first?.ok || !me.place) return first;
+    const GONE = { ok: false, gone: true, error: 'That worktree or branch is gone.' };
     const list = await api.viewerPlaces(first.id).catch(() => null);
     const p = list?.ok ? V.findPlace(list.places, me.place) : null;
     const r = p ? await api.viewerSwitch(first.id, p.key).catch(() => null) : null;
     api.viewerClose(first.id);
-    return r?.ok ? r : { ok: false, gone: true, error: 'That worktree or branch is gone.' };
+    if (r?.ok) return r;
+    if (list?.ok && (!p || r?.gone)) return GONE;
+    return { ok: false, error: r?.error || list?.error || "Couldn't read changes." };
   }
 
   const ancestors = rel => rel.split('/').slice(0, -1).map((_s, i, parts) => parts.slice(0, i + 1).join('/'));
