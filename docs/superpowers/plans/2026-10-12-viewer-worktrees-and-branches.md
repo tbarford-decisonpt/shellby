@@ -4,7 +4,7 @@
 
 **Goal:** The file viewer's header opens a menu of every worktree of the repo and every unmerged local branch, and picking one shows it: a worktree as a folder, as today, and a branch nothing has checked out read from git alone, with its changes since it left main, each diff, its tree and any file in it.
 
-**Architecture:** `src/main/viewer.js` gains a second kind of handle, `kind: 'branch'`, read only with `rev-parse`, `merge-base`, `diff`, `ls-tree` and `cat-file`, plus `placesOf(id)` and `switchTo(id, key)`, which list the repo's places under random keys kept on the handle and open a pick only after checking it again. `src/main/ipc/viewer.js` exposes `viewer:places` and `viewer:switch`, serves `viewer:tree` through the new `treeOf`, and nudges branch handles only on the forgets where commits land (turn end, step undo, `!` commands). The panel turns `#viewerWhere` into a menu button and learns branch mode, keeping the file you were on when the new place has it.
+**Architecture:** `src/main/viewer.js` gains a second kind of handle, `kind: 'branch'`, read only with `rev-parse`, `merge-base`, `diff`, `ls-tree` and `cat-file`, plus `placesOf(id)` and `switchTo(id, key)`, which list the repo's places under random keys kept on the handle and open a pick only after checking it again. Every git call the viewer makes, including the `changes.js` ones it asks for, runs with lazy fetch and every transport off, so a repo that says it is a partial clone can't make git run a program to fetch a missing object. `src/main/ipc/viewer.js` exposes `viewer:places` and `viewer:switch`, serves `viewer:tree` through the new `treeOf`, and nudges branch handles only on the forgets where commits land (turn end, step undo, `!` commands). The panel turns `#viewerWhere` into a menu button and learns branch mode, keeping the file you were on when the new place has it.
 
 **Tech Stack:** Electron 44, plain JS (no renderer framework, no new dependencies), git via `execFile`, node:test against real temp repos, CDP e2e scripts.
 
@@ -15,11 +15,11 @@
 - Work in `C:\RAD\shellby\.claude\worktrees\file-viewer` on branch `file-viewer` (head 4ca88f4e when this plan was written). Run every command from there.
 - Plain HTML/CSS/JS in the renderer. No new runtime or dev dependencies.
 - CSP is `default-src 'none'; script-src 'self'; style-src 'self'`: no inline `style`, no inline script. Build DOM with `SB.h` and `textContent`; attributes are fixed words or numbers only.
-- git runs through `execFile` with fixed arguments, `-c core.fsmonitor=false`, `GIT_OPTIONAL_LOCKS=0`, a timeout, and never throws to its caller.
-- A ref reaches git only as a full `refs/heads/...` name taken from `for-each-ref` (or `refs/heads/<base>` for the main checkout's branch). Never a short name, never one from the panel.
+- git runs through `execFile` with fixed arguments, `-c core.fsmonitor=false`, `-c protocol.allow=never`, `GIT_OPTIONAL_LOCKS=0`, `GIT_NO_LAZY_FETCH=1`, a timeout, and never throws to its caller. The `changes.js` calls the viewer makes (`snapshot`, `summarize`, `patchFor`) pass `{ noFetch: true }`, which adds the same two. Claude's turn snapshots and turn diffs pass nothing and stay exactly as today (a later spec changes those, with a per-repo opt-in for partial clones). A missing object answers "Couldn't read changes." or "Couldn't read that.", never a fetch.
+- A ref reaches git only as a full `refs/heads/...` name taken from `for-each-ref`, or `refs/heads/<base>` for the main checkout's branch, in both handle kinds: a folder handle's `merge-base` (`computeFolder`) included. Never a short name, never one from the panel.
 - Branch reads never write: no snapshot, no temporary index, no `git add`, no checkout, no hook. `cat-file blob` runs with `GIT_LITERAL_PATHSPECS=1`.
-- Caps (exact): 20 worktrees listed; 30 branches checked (newest first); 10 s list reuse; 4 `git status` (and `rev-list`) runs at a time; 8 s timeout per git call; 2 MB per file read; NUL in the first 8 KB means binary; 500 files per changes list (`changes.js` MAX_FILES); 400 KB per patch (`changes.js` MAX_PATCH); 2 s refresh reuse (`REFRESH_MS`); 8 handles (`MAX_HANDLES`); 30,000 paths in a branch's All files (as `fileindex.js` lists a folder).
-- User-facing strings, exact: "This branch is gone." (with Back); toast "That worktree or branch is gone."; main's stale-pick error `'That worktree or branch is gone.'`; "Couldn't list worktrees."; "Couldn't read changes." (with Retry); "This folder is gone."; header on a branch "feature-x · branch (from main)"; menu group labels "Worktrees" and "Branches"; worktree row "<branch> · N changed"; branch row "N ahead · <SB.relTime>".
+- Caps (exact): 20 worktrees listed; 30 branches checked (newest first); 10 s list reuse, per repo (its git common dir) across every handle on it, with one build at a time however many callers ask; 4 of the menu's `git status`, `rev-list` and `rev-parse --git-common-dir` runs at a time across the whole viewer (one `limiter`, not one per build); one `ls-tree` per branch commit, its failure remembered for that commit; 8 s timeout per git call; 2 MB per file read; NUL in the first 8 KB means binary; 500 files per changes list (`changes.js` MAX_FILES); 400 KB per patch (`changes.js` MAX_PATCH); 2 s refresh reuse (`REFRESH_MS`); 8 handles (`MAX_HANDLES`); 30,000 paths in a branch's All files (as `fileindex.js` lists a folder).
+- User-facing strings, exact: "This branch is gone." (with Back); toast "That worktree or branch is gone."; main's stale-pick error `'That worktree or branch is gone.'`; "Couldn't list worktrees."; "Couldn't read changes." (with Retry; also for a `merge-base` that fails other than with exit 1 and for a diff git couldn't make, never shown as "Nothing has changed here."); "Couldn't read that." (a blob git lacks); "This folder is gone."; header on a branch "feature-x · branch (from main)"; menu group labels "Worktrees" and "Branches"; worktree row "<branch> · N changed"; branch row "N ahead · <SB.relTime>".
 - On a branch "Just uncommitted" and "Open in editor" are hidden, including the notes' "Open in editor" buttons.
 - Line endings are LF. Edit with the Edit tool, the Write tool or Node `fs`; never Python text mode.
 - Temp dirs in tests: `fs.realpathSync.native(fs.mkdtempSync(...))`.
@@ -34,11 +34,13 @@
 
 Most likely to break first:
 
-1. **A branch named like an option.** `git branch -x` is refused, but `git update-ref refs/heads/-x <sha>` makes one, and `for-each-ref` lists it. Short names would reach git as `-x`; every call here passes `refs/heads/-x`, which git reads as a revision. Pinned in Task 1 (`a ref is only ever a full refs/heads/ name`) and Task 2 (`a branch named like an option is listed and opens`).
+1. **A branch named like an option.** `git branch -x` is refused, but `git update-ref refs/heads/-x <sha>` makes one, and `for-each-ref` lists it. Short names would reach git as `-x`; every call here passes `refs/heads/-x`, which git reads as a revision. The base goes the same way: a main checkout on `refs/heads/--fork-point` (`symbolic-ref` takes it) made today's `merge-base <base> HEAD` run `merge-base --fork-point HEAD`, so `computeFolder` now passes `refs/heads/<base>` too. Pinned in Task 1 (`a ref is only ever a full refs/heads/ name`, and `a base named like an option reaches merge-base as refs/heads/--fork-point`) and Task 2 (`a branch named like an option is listed and opens`).
 2. **A folder or a revision path reaching `cat-file`.** `git cat-file -s <commit>:<folder>` exits 0 with the tree's size (probe below), so the check that a path is in the commit's own `ls-tree` list is what keeps Whole file to files of that commit. Pinned in Task 1 (`All files is the commit's tree; Whole file reads only a path in it`: `src`, `docs/`, `A.TXT`, `../proj/a.txt`, `HEAD:a.txt`, a backslash path, an untracked and an ignored file of the checkout).
 3. **A conversation left in the home folder**, which is where Shellby starts one by default. The widened `staleFor` (a handle inside the changed folder) and the panel's live badge (a tab whose folder holds the place) would light up every viewer under `~` on every write. Both skip a folder too wide to browse. Pinned in Task 1 (`staleFor: a worktree inside the changed folder too...`), Task 3 (`fileIndex.forget(os.homedir())` sends nothing) and Task 4 (`tabAt` ignores a tab in home).
 4. **A rename in a worktree's `git status -z`.** The probe shows `R  b.txt\0a.txt\0`: the old path is a field of its own, so counting NUL-separated fields counts a rename twice. Pinned in Task 2 (`countStatus`, and a staged rename in the `.claude/worktrees` worktree counting 1).
 5. **A picked handle dropped by main** (the 8-handle cap, a closed tab, a panel reload). `call()` replays the first open request, so without care the header would read "feature-x · branch" over the conversation's own files. The panel re-opens the first place and makes the same pick from its new menu (`reopen`, matched by `V.findPlace`). Pinned in Task 4 (`findPlace`) and wired in Task 5.
+6. **A repo that says it is a partial clone.** With `extensions.partialClone` and a promisor remote in its own `.git/config`, any read of a blob it lacks (a diff's `--numstat`, `cat-file -s`) makes git fetch it, which runs the program the config names (`core.sshCommand`) and would write a pack. Lazy fetch off (`GIT_NO_LAZY_FETCH=1`) plus no transport (`-c protocol.allow=never`) on every viewer call, threaded through `changes.js` as `{ noFetch: true }` for the viewer's own calls only. Pinned in Task 1 (`nothing is fetched while looking`: no marker, no new pack, both handle kinds).
+7. **The menu asked for many times at once, or a worktree record that names another folder.** One build per repo at a time, shared by every caller and handle for 10 s, behind one viewer-wide limit of 4; `git status` runs only in a listed folder that is not too wide and shares the repo's git common dir (a hand-made `.git/worktrees/x/gitdir` can name the home folder or another repo, whose own filters `git status` would run). Pinned in Task 2 (`asked at once, or from a second handle...`, `a worktree record naming another repo's folder...`, `limiter`) and Task 1 (`a branch is never nudged from a folder too wide to browse...`).
 
 Verified with throwaway probes in `%TEMP%` (git 2.53.0.windows.2, deleted after):
 - `git ls-tree -r -z --name-only <commit>` gives files only, NUL-separated, spaces and `é` unquoted (`a.txt\0d/sp ace/é.md\0`).
@@ -50,33 +52,45 @@ Verified with throwaway probes in `%TEMP%` (git 2.53.0.windows.2, deleted after)
 - `rev-parse --verify --quiet` of a missing ref exits 1 with no output.
 - With `GIT_OPTIONAL_LOCKS=0`, a run of `rev-parse`, `merge-base`, `diff`, `ls-tree`, `cat-file -s`, `cat-file blob`, `for-each-ref`, `rev-list --count` and `status --porcelain -z --untracked-files=all` left `.git/index`'s mtime unchanged and a `post-index-change` hook unfired.
 - `git status --porcelain -z --untracked-files=all` after `git mv a.txt b.txt`: `R  b.txt\0a.txt\0?? new.txt\0?? u/v/w.txt\0`.
+- A repo with `core.repositoryformatversion=1`, `extensions.partialClone=origin`, `remote.origin.url=ssh://evil.invalid/x`, `remote.origin.promisor=true`, two deleted loose blobs and `core.sshCommand` set to `echo ran > "<marker>"; exit 1`: a plain `diff --numstat` across a missing blob writes the marker. With `GIT_NO_LAZY_FETCH=1` and `-c protocol.allow=never`, `diff --numstat`, `diff -U3`, `cat-file -s` (exit 128, "unable to read <sha>" / "could not get object info"), and `ls-tree -r`, a worktree snapshot (`add -u`, `ls-files`, `write-tree` through a temporary index) and `status` (exit 0) leave no marker, and `.git/objects/pack` stays empty.
+- `GIT_TRACE=<file>` logs one line per git command as `trace: built-in: git <subcommand> <args>`, with `-C` and `-c` already taken off.
+- A hand-made `.git/worktrees/<x>/` (`gitdir` naming `<folder>/.git`, which exists, plus `HEAD` and `commondir`) is listed by `git worktree list --porcelain` as `worktree <folder>`, without `prunable`, for an empty `<folder>/.git` and for another repo's `.git` alike; that other repo's `rev-parse --git-common-dir` answers its own `.git`.
+- `update-ref refs/heads/--fork-point <sha>` and `symbolic-ref HEAD refs/heads/--fork-point` both succeed; `worktree list` then reports `branch refs/heads/--fork-point`. In a worktree with one commit of its own, `merge-base --fork-point HEAD` exits 0 with the worktree's own HEAD (so its commit drops off the list), while `merge-base refs/heads/--fork-point HEAD` answers the real fork. `merge-base refs/heads/HEAD HEAD` exits 128.
+- `ls-tree -r` of a commit whose subfolder's tree object was deleted exits 1 ("Could not read <sha>"); `rev-parse --verify` of the commit still works.
 
-Accepted residuals: `git status` in each listed worktree runs clean filters (git-lfs), as the Project page's status reads already do. A submodule (gitlink) path in a branch's tree is listed under All files, but reading it answers "Couldn't read that.". A branch tree past 30,000 paths lists and reads only the first 30,000. A key from a list that a second menu open rebuilt after 10 s is refused with an error toast; opening the menu again gives fresh keys. `EMPTY_TREE` is the sha1 empty tree, as today. A folder handle's `merge-base <base> HEAD` (`computeFolder`, today's `compute`, unchanged) still passes the short base name: it comes from Shellby's own `tab.worktree.base` or `parseWorktrees`, and a main checkout on a branch named `-x` would make git fail there and the list fall back to HEAD, as the existing "a base that git cannot find" test shows.
+Accepted residuals: `git status` in each listed worktree runs clean filters (git-lfs), as the Project page's status reads already do; only for folders of the same repo, not too wide. A submodule (gitlink) path in a branch's tree is listed under All files, but reading it answers "Couldn't read that.". A branch tree past 30,000 paths lists and reads only the first 30,000; one whose listing fails (over 32 MB, a damaged tree) shows no files and is not listed again until the branch moves. A key from a list that a second menu open rebuilt after 10 s is refused with an error toast; opening the menu again gives fresh keys. Within 10 s a second handle on the same repo shows the counts the first one's build saw. `EMPTY_TREE` is the sha1 empty tree, as today. With lazy fetch off, a genuine partial clone (`--filter=blob:none`) shows "Couldn't read changes." for a worktree or branch whose diff needs a blob it hasn't fetched, and "Couldn't read that." for such a file's Whole file. Claude's own per-turn change cards use the same `changes.js` calls without `noFetch` and can still lazy-fetch in a partial clone; turning that off is a later spec's, with a per-repo opt-in. `changes.rootOf`, `changes.sameRepo` and `fileIndex.list` (All files on a folder) still run git without the two flags: they read refs, the index and the disk (`rev-parse --show-toplevel`, `--git-common-dir`, `ls-files`), never an object. A `base` of `HEAD` (the Project page's `base: 'HEAD'` copies, `wiring/projects.js`) no longer resolves as `refs/heads/HEAD`, so its `merge-base` fails and the list compares with HEAD: the same tree and the same "(since the last commit)" as `merge-base HEAD HEAD` gave.
 
-Where the code says something the suggested breakdown didn't: places and switch stay in `src/main/viewer.js` (about 450 lines after both tasks, under the 800 cap), since they share `tooWide`, `sameDir`, `git` and the handle map with `open`; and the renderer is two tasks (pure logic with unit tests, then the screen with its e2e), as in the previous plan.
+Where the code says something the suggested breakdown didn't: places and switch stay in `src/main/viewer.js` (about 580 lines after both tasks, under the 800 cap), since they share `tooWide`, `sameDir`, `git` and the handle map with `open`; and the renderer is two tasks (pure logic with unit tests, then the screen with its e2e), as in the previous plan.
 
 ---
 
 ### Task 1: Branch handles in main
 
 **Files:**
+- Modify: `src/main/changes.js` (a no-fetch option after `noHooks` at lines 35-42, `git()` at 44-53, `snapshot` at 79-119, `changedFiles` at 159-167, `summarize` at 169-182, `patchFor` at 265-274)
 - Modify: `src/main/viewer.js` (requires and constants at lines 11-25, `git()` at 27-34, new helpers after `mainBranchFor` at 104-109, `createViewer` at 144-242 replaced, `module.exports` at 244)
-- Test: create `test/viewer-branch.test.js`; add one test to `test/viewer.test.js`
+- Test: create `test/viewer-branch.test.js`; add two tests to `test/viewer.test.js`
 
 **Interfaces:**
-- Consumes: `changes.summarize`, `changes.patchFor`, `changes.TREE`, `changes.rootOf`, `changes.snapshot`; `fileIndex.list`, `fileIndex.withFolders`; `leaving.parseWorktrees`, `leaving.okDir`; this file's `tooWide`, `sameDir`, `isUnder`, `longPath`, `readInside`, `mainBranchFor`, `branchOf`.
-- Produces:
-  - `git(cwd, args, { buffer?: boolean, env?: object, maxBuffer?: number }) -> Promise<string | Buffer | null>` (module-private)
-  - `tipOf(root, ref) -> Promise<sha | null>`, `treesOf(root) -> Promise<string[]>` (module-private)
+- Consumes: `changes.summarize`, `changes.patchFor`, `changes.snapshot` (each with the options below), `changes.TREE`, `changes.rootOf`; `fileIndex.list`, `fileIndex.withFolders`; `leaving.parseWorktrees`, `leaving.okDir`; this file's `tooWide`, `sameDir`, `isUnder`, `longPath`, `readInside`, `mainBranchFor`, `branchOf`.
+- Produces in `src/main/changes.js` (every new option defaults to today's behaviour, so the turn callers in `wiring/` don't change):
+  - `NO_FETCH_ARGS = ['-c', 'protocol.allow=never']`, `NO_FETCH_ENV = { GIT_NO_LAZY_FETCH: '1' }` (module-private); `git(cwd, args, { env?, input?, timeout?, maxBuffer?, noFetch?: boolean })` adds both when `noFetch`
+  - `snapshot(dir, info?, { hooks?: boolean, noFetch?: boolean }) -> { root, tree, head } | null`
+  - `changedFiles(root, before, after, { noFetch?: boolean }) -> files | null` (module-private)
+  - `summarize(start, end, { noFetch?: boolean, info?: object }) -> summary | null`; a diff git couldn't make sets `info.failed = true` (null alone still means "nothing changed" to the turn callers)
+  - `patchFor(ref, { noFetch?: boolean }) -> { patch, truncated } | { error }`
+- Produces in `src/main/viewer.js`:
+  - `git(cwd, args, { buffer?: boolean, env?: object, maxBuffer?: number, exit?: boolean }) -> Promise<string | Buffer | null>`, or with `exit: true` `Promise<{ code: number | null, out }>` (module-private; `-c protocol.allow=never` and `GIT_NO_LAZY_FETCH=1` on every call)
+  - `tipOf(root, ref) -> Promise<sha | null>`, `treesOf(root, home) -> Promise<string[]>` (module-private; `treesOf` leaves out a folder too wide to browse)
   - constants `HEADS = 'refs/heads/'`, `HEAD_REF` (regex), `TREE_MAX = 30000`
   - `createViewer({ home }) -> { open, openBranch, get, changesOf, diffOf, read, treeOf, close, staleFor, keepTabs }`
   - `open({ dir, base?, tabId?, origin? }) -> Promise<{ ok: true, id, root, name, branch, base, git, kind: 'folder' } | { ok: false, gone?, error }>`; the handle stores `origin = { tabId, root, base } | null` and `tabId` only while its root is `origin.root`
   - `openBranch({ root, ref: 'refs/heads/...', base: string|null, origin? }) -> Promise<{ ok: true, id, root, name, branch, base, git: true, kind: 'branch' } | { ok: false, gone: true, error: 'That worktree or branch is gone.' } | { ok: false, error }>`
-  - `changesOf(id)` on a branch handle -> `{ ok: true, files, more, against: base } | { ok: false, branchGone: true, error: 'This branch is gone.' } | { ok: false, gone: true, error } | { ok: false, error: "Couldn't read changes." }`; `uncommittedOnly` is ignored
-  - `treeOf(id) -> Promise<{ ok: true, entries: string[] } | { ok: false, expired: true }>` (folder: `fileIndex.list(root)`; branch: `ls-tree` with folders added)
-  - `read(id, rel)` on a branch handle -> `readInside`'s shapes (`{ ok: true, text, size }`, `{ ok: false, missing: true }`, `{ ok: false, tooBig: true, size }`, `{ ok: false, binary: true, size }`, `{ ok: false, error }`)
+  - `changesOf(id)` on a branch handle -> `{ ok: true, files, more, against: base } | { ok: false, branchGone: true, error: 'This branch is gone.' } | { ok: false, gone: true, error } | { ok: false, error: "Couldn't read changes." }` (the last also for a `merge-base` exit other than 0 or 1, and for a diff git couldn't make; on a folder handle too); `uncommittedOnly` is ignored
+  - `treeOf(id) -> Promise<{ ok: true, entries: string[] } | { ok: false, expired: true }>` (folder: `fileIndex.list(root)`; branch: `ls-tree` at the tip resolved then, with folders added; `entries: []` when git couldn't list it)
+  - `read(id, rel)` on a branch handle -> `readInside`'s shapes (`{ ok: true, text, size }`, `{ ok: false, missing: true }`, `{ ok: false, tooBig: true, size }`, `{ ok: false, binary: true, size }`, `{ ok: false, error: "Couldn't read that." }`)
   - `staleFor(dir, { commits?: boolean }) -> string[]`
-  - every handle has `{ id, kind, root, git, branch, base, tabId, origin, gen, shown, slots, pending, last, places }`; a branch handle also `{ ref, commit, trees, tree }`
+  - every handle has `{ id, kind, root, git, branch, base, tabId, origin, gen, shown, slots, pending, last, places, placing }`; a branch handle also `{ ref, commit, trees, tree }`, where `tree = { commit, p: Promise<{ commit, list, set } | null> }` (one listing per commit, a failure kept)
 
 - [ ] **Step 1: Install dependencies in the worktree (once)**
 
@@ -102,6 +116,33 @@ const path = require('path');
 const { createViewer, MAX_BYTES } = require('../src/main/viewer');
 
 const FEAT = 'refs/heads/feat';
+
+// The git commands run while fn does, as GIT_TRACE logs them ("ls-tree -r -z ...", "status ..."):
+// git() hands the viewer's calls process.env as it is at the call.
+async function gitRuns(dir, fn) {
+  const log = path.join(dir, `trace-${process.hrtime.bigint()}.log`);
+  const had = process.env.GIT_TRACE;
+  process.env.GIT_TRACE = log;
+  try { await fn(); } finally { if (had === undefined) delete process.env.GIT_TRACE; else process.env.GIT_TRACE = had; }
+  const said = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+  return said.split('\n').map(l => /trace: built-in: git (.*?)\r?$/.exec(l)?.[1]).filter(Boolean);
+}
+
+// A worktree record made by hand, as a hostile repo could: git lists `folder` as one of its worktrees
+// (its gitdir names folder/.git, which must exist for git not to call it prunable).
+function plant(r, name, folder) {
+  const rec = path.join(r.dir, '.git', 'worktrees', name);
+  fs.mkdirSync(rec, { recursive: true });
+  fs.writeFileSync(path.join(rec, 'gitdir'), `${path.join(folder, '.git').split(path.sep).join('/')}\n`);
+  fs.writeFileSync(path.join(rec, 'HEAD'), 'ref: refs/heads/main\n');
+  fs.writeFileSync(path.join(rec, 'commondir'), '../..\n');
+}
+
+// A loose object deleted, as a damaged repo or a partial clone lacks it. spec: anything rev-parse takes.
+function dropObject(r, spec) {
+  const sha = r.g(r.dir, 'rev-parse', spec).trim();
+  fs.rmSync(path.join(r.dir, '.git', 'objects', sha.slice(0, 2), sha.slice(2)));
+}
 
 function repo() {
   const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-viewer-branch-')));
@@ -218,20 +259,24 @@ test('a branch with no history in common with main is compared with the empty tr
   } finally { r.done(); }
 });
 
-test('new commits show once a turn ends, and a deleted branch answers branchGone', async () => {
+test('new commits show once a turn ends, and a deleted branch answers branchGone', async t => {
   const r = repo();
   try {
     r.branch('feat', { 'one.txt': '1\n' });
     const v = createViewer();
     const b = await v.openBranch({ root: r.dir, ref: FEAT, base: 'main' });
+    // The clock stands still from here, so "within 2 s" holds however long the commit below takes on a busy runner.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     assert.deepEqual((await v.changesOf(b.id)).files.map(f => f.path), ['one.txt']);
     r.commitOn('feat', { 'two.txt': '2\n' });
     assert.deepEqual(v.staleFor(r.dir), [], "a tool's result never nudges a branch");
     assert.deepEqual((await v.changesOf(b.id)).files.map(f => f.path), ['one.txt'], 'within 2 s the last look answers');
     assert.deepEqual(v.staleFor(r.base, { commits: true }), [], 'a folder above the repo is none of its worktrees');
     assert.deepEqual(v.staleFor(path.join(r.dir, 'src'), { commits: true }), [b.id], 'a turn end in the repo does');
-    assert.deepEqual((await v.changesOf(b.id)).files.map(f => f.path).sort(), ['one.txt', 'two.txt']);
-    assert.ok((await v.treeOf(b.id)).entries.includes('two.txt'), 'and its tree is read at the new tip');
+    // Asked together, as Refresh asks: All files is read at the tip as it is now, not where the last look left it.
+    const [c, tree] = await Promise.all([v.changesOf(b.id), v.treeOf(b.id)]);
+    assert.deepEqual(c.files.map(f => f.path).sort(), ['one.txt', 'two.txt']);
+    assert.ok(tree.entries.includes('two.txt'), 'and its tree is read at the new tip');
     assert.equal((await v.read(b.id, 'two.txt')).text, '2\n');
     r.g(r.dir, 'branch', '-D', 'feat');
     v.staleFor(r.dir, { commits: true });
@@ -278,6 +323,115 @@ test('a ref is only ever a full refs/heads/ name: a branch called -x opens, a sh
     assert.deepEqual(await v.openBranch({ root: r.dir, ref: 'refs/heads/nope', base: 'main' }), { ok: false, gone: true, error: 'That worktree or branch is gone.' });
   } finally { r.done(); }
 });
+
+test('a path with spaces and é: in the changes, its diff, All files and Whole file', async () => {
+  const r = repo();
+  try {
+    const odd = 'd/sp ace/é.md';
+    r.branch('feat', { [odd]: '# é\n', 'a.txt': 'one\nTWO\n' });
+    const v = createViewer();
+    const b = await v.openBranch({ root: r.dir, ref: FEAT, base: 'main' });
+    const c = await v.changesOf(b.id);
+    assert.deepEqual(Object.fromEntries(c.files.map(f => [f.path, f.status])), { 'a.txt': 'M', [odd]: 'A' });
+    const d = await v.diffOf(b.id, odd);
+    assert.equal(d.ok, true);
+    assert.match(d.patch, /^\+# é$/m);
+    const t = await v.treeOf(b.id);
+    assert.ok(t.entries.includes(odd) && t.entries.includes('d/sp ace/'), 'listed, with its folders');
+    assert.deepEqual(await v.read(b.id, odd), { ok: true, text: '# é\n', size: Buffer.byteLength('# é\n') });
+  } finally { r.done(); }
+});
+
+test("no shared history compares with the empty tree; a base git can't find, or a diff it can't make, says so", async () => {
+  const r = repo();
+  try {
+    r.branch('feat', { 'x.txt': 'x\n' });
+    r.g(r.dir, 'branch', 'same'); // at main: nothing of its own
+    const v = createViewer();
+    const same = await v.openBranch({ root: r.dir, ref: 'refs/heads/same', base: 'main' });
+    assert.deepEqual(await v.changesOf(same.id), { ok: true, files: [], more: 0, against: 'main' }, 'nothing changed is no error');
+    // merge-base exits 128 here, not 1: the branch isn't shown as all of it added "from no-such-base".
+    const lost = await v.openBranch({ root: r.dir, ref: FEAT, base: 'no-such-base' });
+    assert.deepEqual(await v.changesOf(lost.id), { ok: false, error: "Couldn't read changes." });
+    dropObject(r, `${FEAT}:x.txt`); // --numstat needs the blob
+    const b = await v.openBranch({ root: r.dir, ref: FEAT, base: 'main' });
+    assert.deepEqual(await v.changesOf(b.id), { ok: false, error: "Couldn't read changes." }, 'a diff git could not make is not "nothing changed"');
+  } finally { r.done(); }
+});
+
+test("a branch's tree is listed once per commit, and a listing git couldn't make isn't run again on each read", async () => {
+  const r = repo();
+  try {
+    r.branch('feat', { 'docs/new.md': '# new\n' });
+    r.branch('broken', { 'deep/x.txt': 'x\n' });
+    const v = createViewer();
+    const b = await v.openBranch({ root: r.dir, ref: FEAT, base: 'main' });
+    let at;
+    const once = await gitRuns(r.base, async () => { at = await Promise.all([v.treeOf(b.id), v.treeOf(b.id), v.read(b.id, 'a.txt')]); });
+    assert.ok(at[0].entries.includes('docs/new.md') && at[1].entries.includes('docs/new.md'));
+    assert.equal(at[2].text, 'one\ntwo\n');
+    assert.equal(once.filter(l => l.startsWith('ls-tree')).length, 1, 'three asks at once, one ls-tree');
+    // A tree object git can't read (a damaged repo): ls-tree -r exits 1, and that is kept for the commit.
+    dropObject(r, 'refs/heads/broken:deep');
+    const k = await v.openBranch({ root: r.dir, ref: 'refs/heads/broken', base: 'main' });
+    const failed = await gitRuns(r.base, async () => {
+      assert.deepEqual(await v.treeOf(k.id), { ok: true, entries: [] });
+      assert.deepEqual(await v.treeOf(k.id), { ok: true, entries: [] });
+      assert.deepEqual(await v.read(k.id, 'a.txt'), { ok: false, error: "Couldn't read that." });
+    });
+    assert.equal(failed.filter(l => l.startsWith('ls-tree')).length, 1, 'tried once for that commit');
+  } finally { r.done(); }
+});
+
+test('a branch is never nudged from a folder too wide to browse, even one a planted worktree record names', async () => {
+  const r = repo();
+  try {
+    r.branch('feat', { 'x.txt': 'x\n' });
+    const home = path.join(r.base, 'home');
+    fs.mkdirSync(path.join(home, '.git'), { recursive: true });
+    plant(r, 'h', home);
+    assert.match(r.g(r.dir, 'worktree', 'list', '--porcelain'), /^worktree .*\/home$/m, 'git lists it as a worktree');
+    const v = createViewer({ home });
+    const b = await v.openBranch({ root: r.dir, ref: FEAT, base: 'main' });
+    // What fileIndex.forget(home) asks when a turn ends in a conversation left in the home folder.
+    assert.deepEqual(v.staleFor(home, { commits: true }), [], 'a turn end in the home folder nudges nothing');
+    assert.deepEqual(v.staleFor(path.join(home, 'code'), { commits: true }), [], 'nor one in a folder under it: the record is no worktree of ours');
+    assert.deepEqual(v.staleFor(r.dir, { commits: true }), [b.id], "a turn end in the repo's own checkout still does");
+  } finally { r.done(); }
+});
+
+test('nothing is fetched while looking: a repo that says it is a partial clone runs no program and gains no pack', async () => {
+  const r = repo();
+  try {
+    r.branch('feat', { 'a.txt': 'one\nTWO\n', 'far.txt': 'far\n' });
+    const side = path.join(r.base, 'side');
+    r.g(r.dir, 'worktree', 'add', '-q', '-b', 'side', side, 'main');
+    r.write(side, 'a.txt', 'changed in side\n');
+    const v = createViewer();
+    const b = await v.openBranch({ root: r.dir, ref: FEAT, base: 'main' });
+    assert.equal((await v.changesOf(b.id)).ok, true, 'read while every object is here');
+    // Then two blobs go missing, and the repo's own config names a promisor remote whose "ssh" is a
+    // program of its choosing: a lazy fetch would run it. Each read of a missing blob must fail instead.
+    dropObject(r, 'main:a.txt');
+    dropObject(r, `${FEAT}:far.txt`);
+    const marker = path.join(r.base, 'FETCHED').split(path.sep).join('/');
+    for (const [key, value] of [
+      ['core.repositoryformatversion', '1'], ['extensions.partialClone', 'origin'],
+      ['remote.origin.url', 'ssh://evil.invalid/x'], ['remote.origin.promisor', 'true'],
+      ['core.sshCommand', `echo ran > "${marker}"; exit 1`],
+    ]) r.g(r.dir, 'config', key, value);
+    const packs = () => fs.readdirSync(path.join(r.dir, '.git', 'objects', 'pack')).sort();
+    const before = packs();
+    assert.equal((await v.diffOf(b.id, 'a.txt')).ok, false, "a diff that needs main's a.txt");
+    assert.deepEqual(await v.read(b.id, 'far.txt'), { ok: false, error: "Couldn't read that." }, 'Whole file of a blob it lacks');
+    v.staleFor(r.dir, { commits: true });
+    assert.deepEqual(await v.changesOf(b.id), { ok: false, error: "Couldn't read changes." }, "the branch's changes, told apart from nothing changed");
+    const f = await v.open({ dir: side });
+    assert.deepEqual(await v.changesOf(f.id), { ok: false, error: "Couldn't read changes." }, "a worktree's changes since main (snapshot, merge-base, diff)");
+    assert.equal(fs.existsSync(marker), false, "the repo's program never ran");
+    assert.deepEqual(packs(), before, 'and no pack was fetched');
+  } finally { r.done(); }
+});
 ```
 
 In `test/viewer.test.js`, directly after the `staleFor finds the handles a changed folder belongs to` test (ends at line 184), add:
@@ -294,14 +448,196 @@ test('staleFor: a worktree inside the changed folder too, but never everything u
     assert.deepEqual(v.staleFor(r.base), [], 'the home folder (r.base here) is too wide to nudge all it holds');
   } finally { r.done(); }
 });
+
+test('a base named like an option reaches merge-base as refs/heads/--fork-point, never as an option', async () => {
+  const r = repo();
+  try {
+    // git branch refuses such a name; update-ref and symbolic-ref make it anyway, as a hostile repo could.
+    const init = r.g(r.dir, 'rev-parse', 'HEAD').trim();
+    r.g(r.dir, 'update-ref', 'refs/heads/--fork-point', init);
+    r.g(r.dir, 'symbolic-ref', 'HEAD', 'refs/heads/--fork-point');
+    const copy = path.join(r.base, 'copy');
+    r.g(r.dir, 'worktree', 'add', '-q', '-b', 'copy', copy, init);
+    r.write(copy, 'mine.txt', 'mine\n');
+    r.g(copy, 'add', '-A');
+    r.g(copy, 'commit', '-qm', 'mine');
+    const v = createViewer();
+    const h = await v.open({ dir: copy });
+    assert.equal(h.base, '--fork-point', "the main checkout's branch, as git lists it");
+    const c = await v.changesOf(h.id);
+    assert.equal(c.against, '--fork-point');
+    // As an option, `merge-base --fork-point HEAD` answers the copy's own HEAD and its commit drops off.
+    assert.deepEqual(c.files.map(f => f.path), ['mine.txt'], "the copy's own commit, since it left the checkout's branch");
+  } finally { r.done(); }
+});
 ```
 
 - [ ] **Step 3: Run them to make sure they fail**
 
 Run: `node --test test/viewer-branch.test.js test/viewer.test.js`
-Expected: FAIL. viewer-branch.test.js with `TypeError: v.openBranch is not a function`; the new viewer.test.js test with `[]` where `[a.id]` was expected.
+Expected: FAIL. viewer-branch.test.js with `TypeError: v.openBranch is not a function` (the partial-clone test included: it fails on `openBranch` before the promisor config is written, so no marker appears yet); the `staleFor: a worktree inside...` test with `[]` where `[a.id]` was expected; the `--fork-point` test with `[]` where `['mine.txt']` was expected.
 
-- [ ] **Step 4: Requires, constants and the git helper**
+- [ ] **Step 4: A no-fetch option in changes.js, for the viewer's calls only**
+
+In `src/main/changes.js`, after the `noHooks` arrow function (lines 39-42, `const noHooks = () => {` to its `};`), add:
+
+```js
+
+// A look only (the file viewer) fetches nothing. In a partial clone, or a repo whose own config says
+// it is one, reading an object it lacks makes git fetch it from the promisor remote: that runs the
+// program the config names to get there (core.sshCommand, an ext:: url) and writes a pack into .git.
+// GIT_NO_LAZY_FETCH stops the fetch on a git that knows it; protocol.allow=never refuses every
+// transport on any git. A missing object is then an error, as a timeout is. Claude's turns don't pass
+// it: their snapshots and diffs fetch as git always has.
+const NO_FETCH_ARGS = ['-c', 'protocol.allow=never'];
+const NO_FETCH_ENV = { GIT_NO_LAZY_FETCH: '1' };
+```
+
+Replace the whole `git` function:
+
+```js
+function git(cwd, args, { env, input, timeout = SNAPSHOT_TIMEOUT_MS, maxBuffer = 8 * 1024 * 1024 } = {}) {
+  return new Promise(resolve => {
+    const child = execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...args], {
+      windowsHide: true, timeout, maxBuffer, encoding: 'utf8',
+      // Literal pathspecs: a file a turn named "*.js" or ":(top)x" means that file, not every match.
+      env: { ...process.env, ...env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' },
+    }, (err, stdout, stderr) => resolve(err ? { ok: false, error: String(stderr || err.message).trim().split('\n').pop() } : { ok: true, out: stdout }));
+    if (input != null) { child.stdin.on('error', () => {}); child.stdin.end(input); }
+  });
+}
+```
+
+with:
+
+```js
+// noFetch: a look only (NO_FETCH_ARGS above). The -c goes before the subcommand, as git wants it.
+function git(cwd, args, { env, input, timeout = SNAPSHOT_TIMEOUT_MS, maxBuffer = 8 * 1024 * 1024, noFetch = false } = {}) {
+  return new Promise(resolve => {
+    const child = execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...(noFetch ? NO_FETCH_ARGS : []), ...args], {
+      windowsHide: true, timeout, maxBuffer, encoding: 'utf8',
+      // Literal pathspecs: a file a turn named "*.js" or ":(top)x" means that file, not every match.
+      env: { ...process.env, ...env, ...(noFetch ? NO_FETCH_ENV : null), GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_LITERAL_PATHSPECS: '1' },
+    }, (err, stdout, stderr) => resolve(err ? { ok: false, error: String(stderr || err.message).trim().split('\n').pop() } : { ok: true, out: stdout }));
+    if (input != null) { child.stdin.on('error', () => {}); child.stdin.end(input); }
+  });
+}
+```
+
+In `snapshot`'s doc comment, replace the line ` * opts.hooks: false for a look only (the file viewer): the repo's hooks don't run.` with:
+
+```js
+ * opts.hooks: false for a look only (the file viewer): the repo's hooks don't run.
+ * opts.noFetch: true for a look only, too: git fetches no object the repo lacks (NO_FETCH_ARGS).
+```
+
+Then replace the whole `snapshot` function, from `async function snapshot(dir, info = null, { hooks = true } = {}) {` down to its closing `}` (the line after `await fs.promises.rm(tmp, { force: true }).catch(() => { /* temp dir */ });` and `  }`), with:
+
+```js
+async function snapshot(dir, info = null, { hooks = true, noFetch = false } = {}) {
+  const root = await rootOf(dir);
+  if (!root) return null;
+  const [idx, at] = await Promise.all([
+    git(root, ['rev-parse', '--git-path', 'index'], { timeout: 5000, noFetch }),
+    git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeout: 5000, noFetch }),
+  ]);
+  if (!idx.ok) return null;
+  const head = at.ok && TREE.test(at.out.trim()) ? at.out.trim() : null;
+  const realIndex = path.resolve(root, idx.out.trim());
+  const tmp = path.join(os.tmpdir(), `shellby-index-${crypto.randomBytes(6).toString('hex')}`);
+  try {
+    // A fresh repo has no index yet; an empty temp one is the same thing.
+    try { await fs.promises.copyFile(realIndex, tmp); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    const env = { GIT_INDEX_FILE: tmp };
+    const pre = hooks ? [] : noHooks();
+    // No pathspec: since git 2.0 add -u covers the whole tree, and on an empty index (a repo with
+    // no commits, or every file un-staged) it does nothing and succeeds, where "-- ." fails to match.
+    const tracked = await git(root, [...pre, 'add', '-u'], { env, noFetch });
+    if (!tracked.ok) return null;
+    const others = await git(root, ['ls-files', '-z', '--others', '--exclude-standard'], { env, noFetch });
+    if (!others.ok) return null;
+    const untracked = others.out.split('\0').filter(Boolean);
+    if (untracked.length > MAX_UNTRACKED) { if (info) info.skipped = SKIPPED_TOO_MANY; return null; }
+    const fits = await mapLimit(untracked, STAT_AT_ONCE, async f => {
+      try { return (await fs.promises.stat(path.join(root, f))).size <= MAX_UNTRACKED_BYTES; } catch { return false; }
+    });
+    const small = untracked.filter((_f, i) => fits[i]);
+    if (small.length) {
+      const added = await git(root, [...pre, 'add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: small.join('\0'), noFetch });
+      if (!added.ok) return null;
+    }
+    const tree = await git(root, [...pre, 'write-tree'], { env, noFetch });
+    const t = tree.ok && tree.out.trim();
+    return t && TREE.test(t) ? { root, tree: t, head } : null;
+  } catch {
+    return null;
+  } finally {
+    await fs.promises.rm(tmp, { force: true }).catch(() => { /* temp dir */ });
+  }
+}
+```
+
+Replace `changedFiles` and `summarize` (from `async function changedFiles(root, before, after) {` down to the closing `}` of `summarize`) with:
+
+```js
+async function changedFiles(root, before, after, { noFetch = false } = {}) {
+  const base = ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '-z'];
+  const [num, names] = await Promise.all([
+    git(root, [...base, '--numstat', before, after], { noFetch }),
+    git(root, [...base, '--name-status', before, after], { noFetch }),
+  ]);
+  if (!num.ok || !names.ok) return null;
+  return parseDiffSummary(num.out, names.out);
+}
+
+/**
+ * What changed between two snapshots of the same repo.
+ *   -> { root, before, after, files, added, removed, more } | null (nothing changed)
+ * opts.noFetch: a look only (NO_FETCH_ARGS). opts.info: given failed = true when git couldn't make
+ * the diff at all (a missing object, a timeout), which null alone doesn't tell from "nothing changed".
+ */
+async function summarize(start, end, { noFetch = false, info = null } = {}) {
+  if (!start || !end || start.root !== end.root || start.tree === end.tree) return null;
+  const files = await changedFiles(start.root, start.tree, end.tree, { noFetch });
+  if (!files) { if (info) info.failed = true; return null; }
+  if (!files.length) return null;
+  return {
+    root: start.root, before: start.tree, after: end.tree,
+    files: files.slice(0, MAX_FILES), more: Math.max(0, files.length - MAX_FILES),
+    added: files.reduce((n, f) => n + f.added, 0), removed: files.reduce((n, f) => n + f.removed, 0),
+  };
+}
+```
+
+In `patchFor`, replace:
+
+```js
+/** One file's diff for a turn, as unified-diff text. -> { patch, truncated } | { error } */
+async function patchFor(ref) {
+```
+
+with:
+
+```js
+/** One file's diff for a turn, as unified-diff text. opts.noFetch: a look only. -> { patch, truncated } | { error } */
+async function patchFor(ref, { noFetch = false } = {}) {
+```
+
+and, further down in `patchFor`, replace:
+
+```js
+  const r = await git(root, ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color', '-U3', ref.before, ref.after, '--', ...(ref.file ? [ref.file] : ref.paths || [])], { maxBuffer: 16 * 1024 * 1024 });
+```
+
+with:
+
+```js
+  const r = await git(root, ['diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--no-color', '-U3', ref.before, ref.after, '--', ...(ref.file ? [ref.file] : ref.paths || [])], { maxBuffer: 16 * 1024 * 1024, noFetch });
+```
+
+`undo`, `restoreTo`, `undoHunk` and the turn's own `summarize`/`patchFor`/`snapshot` calls in `wiring/` pass no options and run exactly as before. `rootOf` and `sameRepo` keep no option: `rev-parse --show-toplevel` and `--git-common-dir` read no object.
+
+- [ ] **Step 5: Requires, constants and the git helper**
 
 In `src/main/viewer.js`, replace the comment block at lines 1-10 with:
 
@@ -364,17 +700,24 @@ with:
 
 ```js
 // buffer: the output as bytes (a blob, sniffed for NUL before it's decoded). env: added to git's own.
-function git(cwd, args, { buffer = false, env = null, maxBuffer = 8 * 1024 * 1024 } = {}) {
+// exit: answer { code, out } (code: git's exit code, null when it didn't run or timed out) rather than
+// the output or null, for a caller that tells one failure from another.
+// Nothing is ever fetched (changes.js NO_FETCH_ARGS says why): lazy fetch off, and no transport at all,
+// so a repo that says it is a partial clone can't make git run the program its config names.
+function git(cwd, args, { buffer = false, env = null, maxBuffer = 8 * 1024 * 1024, exit = false } = {}) {
   return new Promise(resolve => {
-    execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', ...args], {
+    execFile('git', ['-C', cwd, '-c', 'core.quotepath=off', '-c', 'core.fsmonitor=false', '-c', 'protocol.allow=never', ...args], {
       windowsHide: true, timeout: GIT_TIMEOUT_MS, maxBuffer, encoding: buffer ? 'buffer' : 'utf8',
-      env: { ...process.env, ...env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
-    }, (err, out) => resolve(err ? null : buffer ? out : String(out)));
+      env: { ...process.env, ...env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' },
+    }, (err, out) => {
+      const said = err ? null : buffer ? out : String(out);
+      resolve(!exit ? said : { code: !err ? 0 : Number.isInteger(err.code) ? err.code : null, out: said ?? '' });
+    });
   });
 }
 ```
 
-- [ ] **Step 5: Two git helpers for branches**
+- [ ] **Step 6: Two git helpers for branches**
 
 After the `mainBranchFor` function (ends at the line `return main && !sameDir(main.path, root) ? main.branch || null : null;` and its closing `}`), add:
 
@@ -387,35 +730,39 @@ async function tipOf(root, ref) {
   return out && TREE.test(out) ? out : null;
 }
 
-// The repo's worktree folders, local ones only, resolved: where a branch's next commit is made.
-async function treesOf(root) {
+// The repo's worktree folders, resolved: where a branch's next commit is made. Local ones only, and
+// none too wide to browse: a record in .git/worktrees can name any folder, the home folder included,
+// and a turn ending anywhere under it would then nudge every viewer on the repo's branches.
+async function treesOf(root, home) {
   const listed = parseWorktrees(await git(root, ['worktree', 'list', '--porcelain']))
-    .filter(w => okDir(w.path)).map(w => longPath(w.path)).filter(Boolean);
+    .filter(w => okDir(w.path) && !tooWide(w.path, home)).map(w => longPath(w.path)).filter(Boolean);
   return listed.length ? listed : [root];
 }
 ```
 
-- [ ] **Step 6: Replace `createViewer`**
+- [ ] **Step 7: Replace `createViewer`**
 
 Replace the whole of `createViewer`, from the line `/** opts.home: the home folder, never browsed (tests give their own). */` down to and including the `return { open, get: id => handles.get(id) || null, changesOf, diffOf, read, close: id => { handles.delete(id); }, staleFor, keepTabs };` line and the closing `}` after it, with:
 
 ```js
 /** opts.home: the home folder, never browsed (tests give their own). */
 function createViewer({ home = os.homedir() } = {}) {
-  // id -> { id, kind, root, git, branch, base, tabId, origin, gen, shown, slots, pending, last, places }.
-  // kind 'folder' reads its folder; kind 'branch' reads git alone and adds { ref, commit, trees, tree }.
+  // id -> { id, kind, root, git, branch, base, tabId, origin, gen, shown, slots, pending, last, places, placing }.
+  // kind 'folder' reads its folder; kind 'branch' reads git alone and adds { ref, commit, trees, tree }
+  // (tree = { commit, p }: the one ls-tree for that commit, running or done, failed or not).
   // slots, pending and last are each by mode ('base' | 'head'; a branch has only 'base'):
   // slots[mode] = { files: Map(path key -> file), ref } (what a diff is cut from), pending[mode] = a
   // look running, last[mode] = { at, result }; shown = the mode of the list the panel was last handed;
   // gen counts nudges. origin = { tabId, root, base }: the conversation the first handle was opened
-  // from, carried through the header menu's picks; places = that menu's list (placesOf).
+  // from, carried through the header menu's picks; places = that menu's list (placesOf), placing = its
+  // build while one runs.
   const handles = new Map();
   let line = Promise.resolve(); // viewer snapshots take turns: eight handles never hash a big repo at once
 
   function add(fields) {
     const id = crypto.randomBytes(8).toString('hex');
     if (handles.size >= MAX_HANDLES) handles.delete(handles.keys().next().value);
-    const h = { id, gen: 0, shown: null, slots: {}, pending: {}, last: {}, places: null, ...fields };
+    const h = { id, gen: 0, shown: null, slots: {}, pending: {}, last: {}, places: null, placing: null, ...fields };
     handles.set(id, h);
     return h;
   }
@@ -451,7 +798,7 @@ function createViewer({ home = os.homedir() } = {}) {
     if (!commit) return { ok: false, gone: true, error: 'That worktree or branch is gone.' };
     const branch = ref.slice(HEADS.length);
     const against = typeof base === 'string' && base ? base : null;
-    const h = add({ kind: 'branch', root: top, git: true, ref, commit, branch, base: against, tabId: null, origin, trees: await treesOf(top), tree: null });
+    const h = add({ kind: 'branch', root: top, git: true, ref, commit, branch, base: against, tabId: null, origin, trees: await treesOf(top, home), tree: null });
     return { ok: true, id: h.id, root: top, name: path.basename(top), branch, base: against, git: true, kind: 'branch' };
   }
 
@@ -459,11 +806,17 @@ function createViewer({ home = os.homedir() } = {}) {
     const uncommittedOnly = key === 'head';
     if (!longPath(h.root)) return { ok: false, gone: true, error: 'This folder is gone.' };
     const info = {};
-    const snap = await changes.snapshot(h.root, info, { hooks: false });
+    const snap = await changes.snapshot(h.root, info, { hooks: false, noFetch: true });
     if (!snap) return info.skipped ? { ok: false, tooManyNew: true, error: 'Too many new files to compare.' } : { ok: false, error: "Couldn't read changes." };
-    const fork = !uncommittedOnly && h.base ? (await git(h.root, ['merge-base', h.base, 'HEAD']))?.trim() || null : null;
+    // The base by its full name: a main checkout on a branch called "--fork-point" would otherwise
+    // reach merge-base as that option. One that doesn't resolve (a 'HEAD' base, a deleted branch)
+    // compares with HEAD, as a base git can't find always has.
+    const mb = !uncommittedOnly && h.base ? (await git(h.root, ['merge-base', `${HEADS}${h.base}`, 'HEAD']))?.trim() : null;
+    const fork = mb && TREE.test(mb) ? mb : null;
     const before = fork || snap.head || EMPTY_TREE;
-    const sum = await changes.summarize({ root: snap.root, tree: before }, snap);
+    const diff = {};
+    const sum = await changes.summarize({ root: snap.root, tree: before }, snap, { noFetch: true, info: diff });
+    if (diff.failed) return { ok: false, error: "Couldn't read changes." }; // not "Nothing has changed here."
     const files = sum?.files || [];
     // In a snapshot an untracked file is just another added one: git status says which.
     if (files.some(f => f.status === 'A')) {
@@ -486,10 +839,20 @@ function createViewer({ home = os.homedir() } = {}) {
       return alive === null ? { ok: false, error: "Couldn't read changes." } : { ok: false, branchGone: true, error: 'This branch is gone.' };
     }
     h.commit = commit;
-    h.trees = await treesOf(h.root);
-    const fork = h.base ? (await git(h.root, ['merge-base', `${HEADS}${h.base}`, commit]))?.trim() : null;
-    const before = fork && TREE.test(fork) ? fork : EMPTY_TREE;
-    const sum = await changes.summarize({ root: h.root, tree: before }, { root: h.root, tree: commit });
+    h.trees = await treesOf(h.root, home);
+    // merge-base exits 1 when the two share no history: then all of the branch is new, from the empty
+    // tree. Any other failure (a timeout, a base that no longer resolves) is said, with Retry, rather
+    // than shown as the whole branch added "(from main)".
+    let before = EMPTY_TREE;
+    if (h.base) {
+      const mb = await git(h.root, ['merge-base', `${HEADS}${h.base}`, commit], { exit: true });
+      const fork = mb.code === 0 ? mb.out.trim() : '';
+      if (TREE.test(fork)) before = fork;
+      else if (mb.code !== 1) return { ok: false, error: "Couldn't read changes." };
+    }
+    const diff = {};
+    const sum = await changes.summarize({ root: h.root, tree: before }, { root: h.root, tree: commit }, { noFetch: true, info: diff });
+    if (diff.failed) return { ok: false, error: "Couldn't read changes." }; // a missing object, a timeout: not "nothing changed"
     const files = sum?.files || [];
     // Git's own spelling: a branch can hold A.txt and a.txt, and nothing on disk folds them.
     h.slots.base = { ref: { root: h.root, before, after: commit }, files: new Map(files.map(f => [f.path, f])) };
@@ -527,26 +890,32 @@ function createViewer({ home = os.homedir() } = {}) {
     const slot = h.slots[h.shown];
     const f = typeof rel === 'string' ? slot?.files.get(h.kind === 'branch' ? rel : rel.toLowerCase()) : null;
     if (!f) return { ok: false, error: 'Not a file in these changes.' };
-    const r = await changes.patchFor({ ...slot.ref, file: f.path });
+    const r = await changes.patchFor({ ...slot.ref, file: f.path }, { noFetch: true });
     return r.error ? { ok: false, error: r.error } : { ok: true, patch: r.patch, truncated: r.truncated, binary: f.binary };
   }
 
-  // The paths in a branch's tree at its last-read tip, listed once per tip. -> { commit, list, set } | null
-  async function pathsAt(h) {
-    if (h.tree?.commit === h.commit) return h.tree;
-    const commit = h.commit;
-    const out = await git(h.root, ['ls-tree', '-r', '-z', '--name-only', commit], { maxBuffer: 32 * 1024 * 1024 });
-    if (out === null) return null;
-    const list = String(out).split('\0').filter(Boolean).slice(0, TREE_MAX);
-    h.tree = { commit, list, set: new Set(list) };
-    return h.tree;
+  // The paths in a branch's tree at a commit: one ls-tree per commit, shared by every ask while it runs,
+  // and a failure (a timeout, a listing over 32 MB, a tree git can't read) kept for that commit rather
+  // than run again on each read. -> Promise<{ commit, list, set } | null>
+  function pathsAt(h, commit) {
+    if (h.tree?.commit !== commit) {
+      const p = git(h.root, ['ls-tree', '-r', '-z', '--name-only', commit], { maxBuffer: 32 * 1024 * 1024 }).then(out => {
+        if (out === null) return null;
+        const list = out.split('\0').filter(Boolean).slice(0, TREE_MAX);
+        return { commit, list, set: new Set(list) };
+      });
+      h.tree = { commit, p };
+    }
+    return h.tree.p;
   }
 
-  // A file of a branch, from its commit. Only a path its own tree lists (git's spelling, case and all):
-  // cat-file would answer for a folder or another revision too. Size first, so a huge blob is never read.
+  // A file of a branch, from its newest commit read. Only a path its own tree lists (git's spelling, case
+  // and all): cat-file would answer for a folder or another revision too. Size first, so a huge blob is never read.
   async function readBlob(h, rel) {
-    const t = typeof rel === 'string' && rel ? await pathsAt(h) : null;
-    if (!t?.set.has(rel)) return { ...NOT_HERE };
+    if (typeof rel !== 'string' || !rel) return { ...NOT_HERE };
+    const t = await pathsAt(h, h.commit);
+    if (!t) return { ok: false, error: "Couldn't read that." };
+    if (!t.set.has(rel)) return { ...NOT_HERE };
     const at = `${t.commit}:${rel}`;
     const size = Number((await git(h.root, ['cat-file', '-s', at]))?.trim());
     if (!Number.isFinite(size)) return { ok: false, error: "Couldn't read that." };
@@ -571,7 +940,11 @@ function createViewer({ home = os.homedir() } = {}) {
     const h = handles.get(id);
     if (!h) return { ok: false, expired: true };
     if (h.kind !== 'branch') return { ok: true, entries: await fileIndex.list(h.root) };
-    const t = await pathsAt(h);
+    // The tip as it is now, not where the last changes look left it: Refresh asks for both at once, and
+    // computeBranch moves h.commit only after its own rev-parse. A branch gone since keeps its last tree.
+    const tip = await tipOf(h.root, h.ref);
+    if (tip) h.commit = tip;
+    const t = await pathsAt(h, h.commit);
     return { ok: true, entries: t ? fileIndex.withFolders(t.list) : [] };
   }
 
@@ -582,14 +955,15 @@ function createViewer({ home = os.homedir() } = {}) {
   //   the conversation's folder), except inside a folder too wide to browse: a conversation left in ~
   //   would otherwise nudge every viewer on every write.
   //   A branch handle only with { commits: true } (turn ends, step undo, ! commands: where commits
-  //   land), when dir is in one of its repo's worktrees; never for each tool's result.
+  //   land), when dir is in one of its repo's worktrees; never for each tool's result, and never from a
+  //   folder too wide to browse either (treesOf leaves those out as well).
   function staleFor(dir, { commits = false } = {}) {
     if (typeof dir !== 'string' || !path.isAbsolute(dir)) return [];
     const at = longPath(dir) || path.resolve(dir);
     const wide = !!tooWide(at, home);
     const within = root => path.relative(root, at) === '' || isUnder(root, at);
     const hit = [...handles.values()].filter(h => (h.kind === 'branch'
-      ? commits && h.trees.some(within)
+      ? commits && !wide && h.trees.some(within)
       : within(h.root) || (!wide && isUnder(at, h.root))));
     for (const h of hit) { h.gen++; h.last = {}; h.pending = {}; }
     return hit.map(h => h.id);
@@ -607,9 +981,9 @@ function createViewer({ home = os.homedir() } = {}) {
 }
 ```
 
-`computeFolder` is the old `compute`, unchanged apart from its name. `changes.patchFor` already accepts a commit id for `before` and `after` (`checkRef` tests both against `TREE`, which a 40-hex commit id passes), and `git diff <tree> <commit>` compares a tree with a commit as readily as two trees.
+`computeFolder` is the old `compute` with three changes: the base reaches `merge-base` as `refs/heads/<base>`, its `snapshot` and `summarize` pass `noFetch: true`, and a diff git couldn't make answers "Couldn't read changes." where it used to answer an empty list. The existing `a base that git cannot find falls back to HEAD` test still passes (`refs/heads/no-such-branch` fails just as `no-such-branch` did). `changes.patchFor` already accepts a commit id for `before` and `after` (`checkRef` tests both against `TREE`, which a 40-hex commit id passes), and `git diff <tree> <commit>` compares a tree with a commit as readily as two trees.
 
-- [ ] **Step 7: Export the new constants**
+- [ ] **Step 8: Export the new constants**
 
 Replace the `module.exports` line:
 
@@ -623,15 +997,15 @@ with:
 module.exports = { readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, branchOf, writeWatch, MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE, TREE_MAX, HEAD_REF };
 ```
 
-- [ ] **Step 8: Run the tests to make sure they pass**
+- [ ] **Step 9: Run the tests to make sure they pass**
 
-Run: `node --test test/viewer-branch.test.js test/viewer.test.js test/viewer-read.test.js test/ipc-viewer.test.js`
-Expected: PASS (7 in viewer-branch.test.js, 19 in viewer.test.js, 7 in viewer-read.test.js, 9 in ipc-viewer.test.js). The ipc tests still pass because `ipc/viewer.js` calls `fileIndex.list` itself until Task 3 moves it, and `staleFor(dir)` without options matches what it did for folder handles.
+Run: `node --test test/viewer-branch.test.js test/viewer.test.js test/viewer-read.test.js test/ipc-viewer.test.js test/changes.test.js`
+Expected: PASS (12 in viewer-branch.test.js, 20 in viewer.test.js, 7 in viewer-read.test.js, 9 in ipc-viewer.test.js, 20 in changes.test.js). The ipc tests still pass because `ipc/viewer.js` calls `fileIndex.list` itself until Task 3 moves it. `staleFor(dir)` without options does not match what it did exactly: a folder handle whose root is inside `dir` (an agent's worktree under the conversation's folder) is now nudged too, by design (the spec's "Staying fresh"); none of the existing ipc or viewer tests opens such a nested handle, so their expected ids are unchanged. changes.test.js passes untouched because every new `changes.js` option defaults to today's behaviour.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add src/main/viewer.js test/viewer-branch.test.js test/viewer.test.js
+git add src/main/changes.js src/main/viewer.js test/viewer-branch.test.js test/viewer.test.js
 git commit -m "feat: file viewer branch handles read a branch's changes, diffs, tree and files from git alone
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -642,18 +1016,21 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 2: The header menu's list, and picking from it
 
 **Files:**
-- Modify: `src/main/viewer.js` (constants after `TREE_MAX`, two pure helpers after `treesOf`, three functions inside `createViewer` before `staleFor`, the `return` of `createViewer`, `module.exports`)
+- Modify: `src/main/viewer.js` (constants after `TREE_MAX`, four helpers after `treesOf`, the menu's code inside `createViewer` before `staleFor`, the `return` of `createViewer`, `module.exports`)
 - Test: create `test/viewer-places.test.js`
 
 **Interfaces:**
-- Consumes: Task 1's `createViewer` internals (`handles`, `open`, `openBranch`, `tipOf` through `openBranch`, `HEADS`, `HEAD_REF`, `git`); `changes.mapLimit`, `changes.sameRepo`; `leaving.parseWorktrees`, `leaving.okDir`; `tooWide`, `sameDir`.
+- Consumes: Task 1's `createViewer` internals (`handles`, `home`, `open`, `openBranch`, `tipOf` through `openBranch`, `HEADS`, `HEAD_REF`, `git`, the handle fields `places` and `placing`); `changes.sameRepo` (switchTo); `leaving.parseWorktrees`, `leaving.okDir`; `tooWide`, `sameDir`.
 - Produces:
   - `countStatus(out: string) -> number` (pure; files `git status --porcelain -z` names, a rename or copy once)
   - `checkoutBranch(worktreeListOut: string) -> string | null` (pure; the main checkout's branch, null when bare or detached)
+  - `limiter(n) -> (job: () => Promise<T>) -> Promise<T>` (pure; at most n jobs run at once across every caller, the rest in order; a job that throws gives its slot back and rejects its own caller)
+  - `commonDirOf(dir) -> Promise<string | null>` (module-private; `rev-parse --git-common-dir` resolved against dir and lower-cased, as `changes.sameRepo` compares them)
   - constants `MAX_PLACE_TREES = 20`, `MAX_PLACE_BRANCHES = 30`, `PLACES_MS = 10000`, `AT_ONCE = 4`
-  - `placesOf(id) -> Promise<{ ok: true, places: [{ key, kind: 'worktree'|'branch', label, branch, changed?, ahead?, when?, current }] } | { ok: false, expired: true } | { ok: false, error: "Couldn't list worktrees." }>`. `when` is ms since 1970. Never a path or a ref.
-  - `switchTo(id, key) -> Promise<open() result | openBranch() result | { ok: false, expired: true } | { ok: false, error } | { ok: false, gone: true, error: 'That worktree or branch is gone.' }>`
-  - handle field `places = { at, base, list: [{ ...the entry above, path? (worktree), ref? (branch) }] }`
+  - inside `createViewer`: `lists: Map(git common dir -> { at: ms | null while building, p: Promise<{ at, base, rows } | null> })`, shared by every handle, and `slot = limiter(AT_ONCE)`, which every menu `git status`, `rev-list` and `rev-parse --git-common-dir` of a listed worktree runs behind
+  - `placesOf(id) -> Promise<{ ok: true, places: [{ key, kind: 'worktree'|'branch', label, branch, changed?, ahead?, when?, current }] } | { ok: false, expired: true } | { ok: false, error: "Couldn't list worktrees." }>`. `when` is ms since 1970. Never a path or a ref. Keys are this handle's own; two calls at once on one handle share one list and one set of keys.
+  - `switchTo(id, key) -> Promise<open() result | openBranch() result | { ok: false, expired: true } | { ok: false, error } | { ok: false, gone: true, error: 'That worktree or branch is gone.' }>`; a stale pick (`gone`) drops the handle's list and the repo's shared one, so the next `placesOf` builds afresh
+  - handle fields `places = { at, base, common, list: [{ ...the entry above, path? (worktree), ref? (branch) }] }` and `placing` (the handle's own build while one runs)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -669,7 +1046,28 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { createViewer, countStatus, checkoutBranch, MAX_PLACE_TREES, MAX_PLACE_BRANCHES, PLACES_MS } = require('../src/main/viewer');
+const { createViewer, countStatus, checkoutBranch, limiter, MAX_PLACE_TREES, MAX_PLACE_BRANCHES, PLACES_MS } = require('../src/main/viewer');
+
+// The git commands run while fn does, as GIT_TRACE logs them ("status --porcelain ...", "for-each-ref ..."):
+// git() hands the viewer's calls process.env as it is at the call.
+async function gitRuns(dir, fn) {
+  const log = path.join(dir, `trace-${process.hrtime.bigint()}.log`);
+  const had = process.env.GIT_TRACE;
+  process.env.GIT_TRACE = log;
+  try { await fn(); } finally { if (had === undefined) delete process.env.GIT_TRACE; else process.env.GIT_TRACE = had; }
+  const said = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+  return said.split('\n').map(l => /trace: built-in: git (.*?)\r?$/.exec(l)?.[1]).filter(Boolean);
+}
+
+// A worktree record made by hand, as a hostile repo could: git lists `folder` as one of its worktrees
+// (its gitdir names folder/.git, which must exist for git not to call it prunable).
+function plant(r, name, folder) {
+  const rec = path.join(r.dir, '.git', 'worktrees', name);
+  fs.mkdirSync(rec, { recursive: true });
+  fs.writeFileSync(path.join(rec, 'gitdir'), `${path.join(folder, '.git').split(path.sep).join('/')}\n`);
+  fs.writeFileSync(path.join(rec, 'HEAD'), 'ref: refs/heads/main\n');
+  fs.writeFileSync(path.join(rec, 'commondir'), '../..\n');
+}
 
 function repo() {
   const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-viewer-places-')));
@@ -802,19 +1200,23 @@ test("a pick: a made-up key, another handle's and a stale one are refused; a liv
     const h = await v.open({ dir: r.dir });
     const other = await v.open({ dir: r.dir });
     const p = await v.placesOf(h.id);
-    const key = label => p.places.find(x => x.label === label).key;
+    const key = (list, label) => list.places.find(x => x.label === label).key;
     const made = await v.switchTo(h.id, 'f00df00df00df00d');
     assert.equal(made.ok, false);
     assert.equal(made.gone, undefined, 'not stale: never one of ours');
     assert.equal(typeof made.error, 'string');
-    assert.equal((await v.switchTo(other.id, key('new'))).ok, false, "another handle's key");
+    assert.equal((await v.switchTo(other.id, key(p, 'new'))).ok, false, "another handle's key");
     assert.equal((await v.switchTo(h.id, 42)).ok, false);
     const GONE = { ok: false, gone: true, error: 'That worktree or branch is gone.' };
     r.g(r.dir, 'worktree', 'remove', '--force', hand);
-    assert.deepEqual(await v.switchTo(h.id, key('hand')), GONE, 'a worktree removed since the list was made');
+    assert.deepEqual(await v.switchTo(h.id, key(p, 'hand')), GONE, 'a worktree removed since the list was made');
+    // A stale pick drops the list: the menu's next open, well inside 10 s, is built afresh with new keys.
+    const q = await v.placesOf(h.id);
+    assert.equal(q.places.some(x => x.label === 'hand'), false, 'rebuilt without it');
+    assert.equal((await v.switchTo(h.id, key(p, 'new'))).ok, false, "the dropped list's keys went with it");
     r.g(r.dir, 'branch', '-D', 'old');
-    assert.deepEqual(await v.switchTo(h.id, key('old')), GONE, 'a branch deleted since');
-    const b = await v.switchTo(h.id, key('new'));
+    assert.deepEqual(await v.switchTo(h.id, key(q, 'old')), GONE, 'a branch deleted since');
+    const b = await v.switchTo(h.id, key(await v.placesOf(h.id), 'new'));
     assert.equal(b.ok, true);
     assert.equal(b.branch, 'new');
     assert.ok((await v.placesOf(b.id)).places.find(x => x.label === 'new').current, 'the branch being viewed is the checked one');
@@ -860,6 +1262,74 @@ test("a pick back to the conversation's own folder belongs to its tab again, wit
   } finally { r.done(); }
 });
 
+test('asked at once, or from a second handle on the repo, the list is built once', async () => {
+  const r = repo();
+  try {
+    r.branch('new');
+    const hand = path.join(r.base, 'hand');
+    r.g(r.dir, 'worktree', 'add', '-q', '-b', 'hand', hand);
+    const v = createViewer();
+    const h = await v.open({ dir: r.dir });
+    const other = await v.open({ dir: hand });
+    let a, b, c;
+    const runs = await gitRuns(r.base, async () => {
+      [a, b] = await Promise.all([v.placesOf(h.id), v.placesOf(h.id)]);
+      c = await v.placesOf(other.id);
+    });
+    assert.equal(runs.filter(l => l.startsWith('for-each-ref')).length, 1, 'one build for three asks on two handles');
+    assert.equal(runs.filter(l => l.startsWith('status')).length, 2, 'one git status in proj, one in hand');
+    assert.deepEqual(b.places.map(x => x.key), a.places.map(x => x.key), 'two asks at once hold the same keys');
+    assert.deepEqual(c.places.map(x => x.label), a.places.map(x => x.label), 'the second handle reuses the list');
+    assert.ok(c.places.every(x => !a.places.some(y => y.key === x.key)), 'under keys of its own');
+    assert.equal(a.places.find(x => x.label === 'proj').current, true);
+    assert.equal(c.places.find(x => x.label === 'hand').current, true, 'and its own current place');
+    assert.equal(c.places.find(x => x.label === 'proj').current, false);
+  } finally { r.done(); }
+});
+
+test("a worktree record naming another repo's folder, or the home folder, is never listed or looked in", async () => {
+  const r = repo();
+  try {
+    const home = path.join(r.base, 'home');
+    fs.mkdirSync(path.join(home, '.git'), { recursive: true });
+    const other = path.join(r.base, 'other');
+    fs.mkdirSync(other);
+    r.g(other, 'init', '-q', '-b', 'main');
+    plant(r, 'h', home);
+    plant(r, 'o', other);
+    const listed = r.g(r.dir, 'worktree', 'list', '--porcelain');
+    assert.match(listed, /^worktree .*\/home$/m, 'git lists the home folder');
+    assert.match(listed, /^worktree .*\/other$/m, 'and the other repo');
+    const v = createViewer({ home });
+    const h = await v.open({ dir: r.dir });
+    let p;
+    const runs = await gitRuns(r.base, async () => { p = await v.placesOf(h.id); });
+    assert.deepEqual(p.places.filter(x => x.kind === 'worktree').map(x => x.label), ['proj']);
+    assert.equal(runs.filter(l => l.startsWith('status')).length, 1, 'git status ran in the checkout alone, never in the other repo, whose filters it would run');
+  } finally { r.done(); }
+});
+
+test('limiter: at most n at once across callers, each answered, a failure giving its slot back', async () => {
+  const slot = limiter(2);
+  let now = 0;
+  let most = 0;
+  const job = v => slot(async () => {
+    now++;
+    most = Math.max(most, now);
+    await new Promise(res => setTimeout(res, 5));
+    now--;
+    return v;
+  });
+  const first = Promise.all([1, 2, 3].map(job));
+  const second = Promise.all([4, 5, 6].map(job)); // another caller, sharing the same two slots
+  assert.deepEqual(await first, [1, 2, 3]);
+  assert.deepEqual(await second, [4, 5, 6]);
+  assert.equal(most, 2);
+  await assert.rejects(slot(async () => { throw new Error('boom'); }), /boom/);
+  assert.equal(await job(7), 7, 'the failed one gave its slot back');
+  assert.equal(now, 0);
+});
+
 test('countStatus: one per file, a rename or copy counted once', () => {
   assert.equal(countStatus(''), 0);
   assert.equal(countStatus(null), 0);
@@ -881,17 +1351,17 @@ test("checkoutBranch: the main checkout's branch, or none when it is bare or det
 - [ ] **Step 2: Run it to make sure it fails**
 
 Run: `node --test test/viewer-places.test.js`
-Expected: FAIL with `TypeError: v.placesOf is not a function` and `TypeError: countStatus is not a function`.
+Expected: FAIL with `TypeError: v.placesOf is not a function`, `TypeError: countStatus is not a function` and `TypeError: limiter is not a function`.
 
-- [ ] **Step 3: Constants and two pure helpers**
+- [ ] **Step 3: Constants and four helpers**
 
 In `src/main/viewer.js`, after the line `const TREE_MAX = 30000;              // All files on a branch, at most (fileindex.js lists a folder to the same)` add:
 
 ```js
 const MAX_PLACE_TREES = 20;          // worktrees in the header's menu
 const MAX_PLACE_BRANCHES = 30;       // branches checked for commits of their own, newest first
-const PLACES_MS = 10000;             // the menu's list is reused this long
-const AT_ONCE = 4;                   // git status (or rev-list) runs at a time
+const PLACES_MS = 10000;             // the menu's list is reused this long, per repo
+const AT_ONCE = 4;                   // the menu's git status, rev-list and rev-parse runs at a time, across the whole viewer
 ```
 
 After the `treesOf` function from Task 1, add:
@@ -920,6 +1390,27 @@ function checkoutBranch(out) {
   const b = first.find(l => l.startsWith(`branch ${HEADS}`));
   return b ? b.slice(`branch ${HEADS}`.length) : null;
 }
+
+/** At most n of the jobs handed to it run at once, whoever hands them over; the rest wait their turn, in order. */
+function limiter(n) {
+  let running = 0;
+  const queue = [];
+  const pump = () => {
+    while (running < n && queue.length) {
+      const { job, resolve, reject } = queue.shift();
+      running++;
+      Promise.resolve().then(job).then(resolve, reject).finally(() => { running--; pump(); });
+    }
+  };
+  return job => new Promise((resolve, reject) => { queue.push({ job, resolve, reject }); pump(); });
+}
+
+// The repo a folder belongs to, as its git common dir resolved and lower-cased (as changes.sameRepo
+// compares them), or null. A checkout and its worktrees share one; a folder of another repo doesn't.
+async function commonDirOf(dir) {
+  const out = (await git(dir, ['rev-parse', '--git-common-dir']))?.trim();
+  return out ? path.resolve(dir, out).toLowerCase() : null;
+}
 ```
 
 - [ ] **Step 4: The list and the pick**
@@ -928,56 +1419,99 @@ Inside `createViewer`, directly before the comment line `  // The handles a chan
 
 ```js
   // ---- the header's menu (panel/viewer.js): the repo's worktrees, and its branches still in flight.
-  // The list stays on the handle with a random key per entry; a pick names a key, never a path or a ref.
+  // Built once per repo (its git common dir) and reused for 10 s by every handle on it, however many
+  // ask at once. Each handle then keeps its own copy under random keys; a pick names a key, never a
+  // path or a ref.
+  const lists = new Map();       // git common dir -> { at: when built (null while building), p: Promise<built | null> }
+  const slot = limiter(AT_ONCE); // the menu's git status, rev-list and rev-parse runs, across every handle and build
 
-  async function buildPlaces(h) {
-    const out = await git(h.root, ['worktree', 'list', '--porcelain']);
+  // The repo's rows, without keys or a current mark (those are each handle's own). -> { base, rows } | null
+  async function buildPlaces(root, common) {
+    const out = await git(root, ['worktree', 'list', '--porcelain']);
     if (out === null) return null;
-    const newKey = () => crypto.randomBytes(8).toString('hex');
-    // Local folders only, never the home folder or above: open() would refuse them anyway.
-    const trees = parseWorktrees(out).filter(w => okDir(w.path) && !tooWide(w.path, home)).slice(0, MAX_PLACE_TREES);
+    // Local folders only, never the home folder or above (open() would refuse them anyway), and only
+    // folders of this repo: a record in .git/worktrees can name any folder, and git status there would
+    // run that repo's own filters.
+    const listed = parseWorktrees(out).filter(w => okDir(w.path) && !tooWide(w.path, home)).slice(0, MAX_PLACE_TREES);
+    const ours = await Promise.all(listed.map(w => slot(() => commonDirOf(w.path))));
+    const trees = listed.filter((_w, i) => ours[i] === common);
     // A count that timed out (8 s) is left off rather than guessed.
-    const changed = await changes.mapLimit(trees, AT_ONCE, async w => {
+    const changed = await Promise.all(trees.map(w => slot(async () => {
       const st = await git(w.path, ['status', '--porcelain', '-z', '--untracked-files=all']);
       return st === null ? null : countStatus(st);
-    });
-    const list = trees.map((w, i) => ({
-      key: newKey(), kind: 'worktree', label: path.basename(w.path), branch: w.branch || 'detached',
-      ...(changed[i] === null ? {} : { changed: changed[i] }), current: h.kind === 'folder' && sameDir(w.path, h.root), path: w.path,
+    })));
+    const rows = trees.map((w, i) => ({
+      kind: 'worktree', label: path.basename(w.path), branch: w.branch || 'detached',
+      ...(changed[i] === null ? {} : { changed: changed[i] }), path: w.path,
     }));
     // Branches with commits the main checkout's branch lacks. One out in a listed worktree shows
     // there instead. Full refs/heads/ names throughout, so none reaches git as an option.
     const base = checkoutBranch(out);
     if (base) {
       const taken = new Set(trees.filter(w => w.branch).map(w => `${HEADS}${w.branch}`));
-      const refs = await git(h.root, ['for-each-ref', '--sort=-committerdate', '--format=%(refname)%00%(committerdate:unix)', 'refs/heads']);
+      const refs = await git(root, ['for-each-ref', '--sort=-committerdate', '--format=%(refname)%00%(committerdate:unix)', 'refs/heads']);
       const newest = String(refs || '').split('\n').map(l => l.replace(/\r$/, '').split('\0'))
         .filter(([ref]) => HEAD_REF.test(ref || '') && !taken.has(ref)).slice(0, MAX_PLACE_BRANCHES);
-      const ahead = await changes.mapLimit(newest, AT_ONCE, async ([ref]) =>
-        Number((await git(h.root, ['rev-list', '--count', `${HEADS}${base}..${ref}`]))?.trim()) || 0);
+      const ahead = await Promise.all(newest.map(([ref]) => slot(async () =>
+        Number((await git(root, ['rev-list', '--count', `${HEADS}${base}..${ref}`]))?.trim()) || 0)));
       newest.forEach(([ref, at], i) => {
         if (ahead[i] <= 0) return;
         const name = ref.slice(HEADS.length);
-        list.push({ key: newKey(), kind: 'branch', label: name, branch: name, ahead: ahead[i], when: Number(at) * 1000 || 0, current: h.kind === 'branch' && h.ref === ref, ref });
+        rows.push({ kind: 'branch', label: name, branch: name, ahead: ahead[i], when: Number(at) * 1000 || 0, ref });
       });
     }
-    return { at: Date.now(), base, list };
+    return { base, rows };
   }
 
-  /** The menu's list for a handle's repo, built when asked and reused for 10 s. */
+  // The repo's rows, shared: one build at a time per repo, reused for 10 s from when it finished.
+  // A failed build isn't kept, so the next ask tries again. -> Promise<{ at, base, rows } | null>
+  function listFor(root, common) {
+    const now = Date.now();
+    for (const [k, e] of lists) if (e.at !== null && now - e.at >= PLACES_MS) lists.delete(k);
+    const had = lists.get(common);
+    if (had) return had.p;
+    const e = { at: null, p: null };
+    e.p = buildPlaces(root, common).catch(() => null).then(built => {
+      if (!built) { if (lists.get(common) === e) lists.delete(common); return null; }
+      e.at = Date.now();
+      return { ...built, at: e.at };
+    });
+    lists.set(common, e);
+    return e.p;
+  }
+
+  /** The menu's list for a handle's repo, under this handle's own keys; built when asked, reused for 10 s. */
   async function placesOf(id) {
     const h = handles.get(id);
     if (!h) return { ok: false, expired: true };
     if (!h.git) return { ok: false, error: "Couldn't list worktrees." };
     if (!h.places || Date.now() - h.places.at >= PLACES_MS) {
-      const built = await buildPlaces(h);
-      if (!built) return { ok: false, error: "Couldn't list worktrees." };
-      h.places = built;
+      // Two asks at once on one handle wait for the same list, so neither's keys go stale under the other.
+      h.placing ||= (async () => {
+        const common = await commonDirOf(h.root);
+        const built = common ? await listFor(h.root, common) : null;
+        if (!built) return false;
+        const current = r => (r.kind === 'worktree' ? h.kind === 'folder' && sameDir(r.path, h.root) : h.kind === 'branch' && h.ref === r.ref);
+        h.places = {
+          at: built.at, base: built.base, common,
+          list: built.rows.map(r => ({ key: crypto.randomBytes(8).toString('hex'), ...r, current: current(r) })),
+        };
+        return true;
+      })().finally(() => { h.placing = null; });
+      if (!(await h.placing)) return { ok: false, error: "Couldn't list worktrees." };
     }
     return { ok: true, places: h.places.list.map(({ path: _path, ref: _ref, ...shown }) => shown) };
   }
 
   const GONE = { ok: false, gone: true, error: 'That worktree or branch is gone.' };
+
+  // A pick that went stale: the list it came from is dropped, here and for the repo, so the menu's
+  // next open builds it again rather than offering the same dead entry for the rest of the 10 s.
+  function stale(h) {
+    if (h.places) lists.delete(h.places.common);
+    h.places = null;
+    return { ...GONE };
+  }
 
   /**
    * A pick from that handle's own list, checked again before it opens: a worktree must still be
@@ -990,15 +1524,15 @@ Inside `createViewer`, directly before the comment line `  // The handles a chan
     const e = typeof key === 'string' ? h.places?.list.find(x => x.key === key) : null;
     if (!e) return { ok: false, error: "That isn't on this list. Open the menu again." };
     if (e.kind === 'worktree') {
-      if (!okDir(e.path) || tooWide(e.path, home)) return { ...GONE };
+      if (!okDir(e.path) || tooWide(e.path, home)) return stale(h);
       const listed = parseWorktrees(await git(h.root, ['worktree', 'list', '--porcelain']));
-      if (!listed.some(w => okDir(w.path) && sameDir(w.path, e.path))) return { ...GONE };
-      if (!(await changes.sameRepo(h.root, e.path))) return { ...GONE };
+      if (!listed.some(w => okDir(w.path) && sameDir(w.path, e.path))) return stale(h);
+      if (!(await changes.sameRepo(h.root, e.path))) return stale(h);
       const r = await open({ dir: e.path, origin: h.origin });
-      return r.ok || !r.gone ? r : { ...GONE };
+      return r.ok || !r.gone ? r : stale(h);
     }
     const r = await openBranch({ root: h.root, ref: e.ref, base: h.places.base, origin: h.origin });
-    return r.ok || !r.gone ? r : { ...GONE };
+    return r.ok || !r.gone ? r : stale(h);
   }
 
 ```
@@ -1025,22 +1559,22 @@ Replace the `module.exports` line from Task 1 with:
 
 ```js
 module.exports = {
-  readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, branchOf, writeWatch, countStatus, checkoutBranch,
+  readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, branchOf, writeWatch, countStatus, checkoutBranch, limiter,
   MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE, TREE_MAX, HEAD_REF, MAX_PLACE_TREES, MAX_PLACE_BRANCHES, PLACES_MS,
 };
 ```
 
-A branch picked from a folder handle keeps that handle's root (a worktree or the main checkout of the same repo); every git call there reads the same refs and objects. The 30-branch cap counts branches after those already out in a listed worktree are dropped, so it caps the `rev-list` calls.
+A branch picked from a folder handle keeps that handle's root (a worktree or the main checkout of the same repo); every git call there reads the same refs and objects. The 30-branch cap counts branches after those already out in a listed worktree are dropped, so it caps the `rev-list` calls. `buildPlaces` runs in whichever handle's root asked first: `git worktree list` and the refs are the same from every worktree of the repo, which is why the rows can be shared and only `key` and `current` are stamped per handle. The 20-worktree cap is taken before the same-repo check, so a repo with planted records lists fewer than 20, never more; and `changes.mapLimit` is no longer used here, since a limit per build bounded nothing across builds.
 
 - [ ] **Step 5: Run the tests to make sure they pass**
 
 Run: `node --test test/viewer-places.test.js test/viewer-branch.test.js test/viewer.test.js`
-Expected: PASS (10 in viewer-places.test.js, 7, 19). The caps test makes 21 worktrees and may take several seconds.
+Expected: PASS (13 in viewer-places.test.js, 12, 20). The caps test makes 21 worktrees and may take several seconds.
 
 - [ ] **Step 6: Lint the file**
 
-Run: `npx eslint src/main/viewer.js test/viewer-places.test.js test/viewer-branch.test.js`
-Expected: no problems (the `_path`/`_ref` rest siblings match `varsIgnorePattern: '^_'`). Then `(Get-Content src/main/viewer.js | Measure-Object -Line).Lines` reports well under 800.
+Run: `npx eslint src/main/viewer.js src/main/changes.js test/viewer-places.test.js test/viewer-branch.test.js`
+Expected: no problems (the `_path`/`_ref` rest siblings and the `_w` argument match the `^_` ignore patterns). Then `(Get-Content src/main/viewer.js | Measure-Object -Line).Lines` reports well under 800 (about 580).
 
 - [ ] **Step 7: Commit**
 
@@ -1216,7 +1750,7 @@ with:
 In `docs/THREAT-MODEL.md`, replace the whole row at line 65 (it starts `| Renderer → main file read |`) with:
 
 ```markdown
-| Renderer → main file read | The panel reading files outside the folder it was shown, aiming git at another repo, reaching a UNC network path, being handed the whole home folder, a browsed repo running its own programs, or a branch name read by git as an option | The panel opens a handle on a conversation id or on a local worktree that `git worktree list` reports and that shares the project's git directory, never on a UNC path; a folder (or the repo root it belongs to) that is the home folder, a folder above it or a whole drive is refused, so a conversation left in `~` or a dotfiles repo at `~` never hands over `.ssh` or `.claude`; paths with a drive, a stream, a network or rooted start, or `..` are refused before the disk is touched, then links and 8.3 names are resolved and the file opened is checked to be the one inside; outside and missing answer alike; diffs only for files on that handle's own changes list; 2 MB cap, binary refused. The header's menu lists the repo's local worktrees (none too wide to browse) and its unmerged local branches under random keys main keeps on that handle; a pick names only a key and is checked again before it opens (still listed, same git directory, not too wide; a branch still resolves). A branch is read from git alone (`rev-parse`, `merge-base`, `diff`, `ls-tree`, `cat-file`) with full `refs/heads/` names, so no ref reaches git as an option; Whole file only for a path in the commit's own tree; nothing is checked out, no index written, no hook run. Its snapshots run `git add` into a temporary index with hooks pointed at an empty folder; clean filters (git-lfs) still run, as they do for status reads and the menu's per-worktree `git status` counts | `src/main/viewer.js`, `src/main/ipc/viewer.js`, `src/main/changes.js` |
+| Renderer → main file read | The panel reading files outside the folder it was shown, aiming git at another repo, reaching a UNC network path, being handed the whole home folder, a browsed repo running its own programs, or a branch name read by git as an option | The panel opens a handle on a conversation id or on a local worktree that `git worktree list` reports and that shares the project's git directory, never on a UNC path; a folder (or the repo root it belongs to) that is the home folder, a folder above it or a whole drive is refused, so a conversation left in `~` or a dotfiles repo at `~` never hands over `.ssh` or `.claude`; paths with a drive, a stream, a network or rooted start, or `..` are refused before the disk is touched, then links and 8.3 names are resolved and the file opened is checked to be the one inside; outside and missing answer alike; diffs only for files on that handle's own changes list; 2 MB cap, binary refused. The header's menu lists the repo's local worktrees (none too wide to browse, and only folders that share the repo's git common dir, so a hand-made `.git/worktrees` record can't send `git status` into another repo or the home folder) and its unmerged local branches under random keys main keeps on that handle; the list is built once per repo at a time and its git runs share one limit of four; a pick names only a key and is checked again before it opens (still listed, same git directory, not too wide; a branch still resolves). A branch is read from git alone (`rev-parse`, `merge-base`, `diff`, `ls-tree`, `cat-file`) with full `refs/heads/` names, and a folder's base reaches `merge-base` as `refs/heads/<base>`, so no ref reaches git as an option; Whole file only for a path in the commit's own tree; nothing is checked out, no index written, no hook run. Every viewer git call, the `changes.js` snapshot and diffs it asks for included, runs with lazy fetch off and no transport (`GIT_NO_LAZY_FETCH=1`, `-c protocol.allow=never`): a repo whose config says it is a partial clone can't make git run the program it names (`core.sshCommand`, an `ext::` url) or write a pack, and a missing object reads as "Couldn't read changes." or "Couldn't read that."; Claude's own turn snapshots still fetch as before. Its snapshots run `git add` into a temporary index with hooks pointed at an empty folder; clean filters (git-lfs) still run, as they do for status reads and the menu's per-worktree `git status` counts | `src/main/viewer.js`, `src/main/ipc/viewer.js`, `src/main/changes.js` |
 ```
 
 In `docs/DEVELOPMENT.md`, replace line 407:
@@ -1261,6 +1795,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `findPlace(places, { kind, label, branch }) -> place | null`
   - `placeKey({ kind, root, branch }) -> string` (what `lastFile` is keyed by)
   - `tabAt(tabs: Iterable<tab>, root, home) -> tab | null`: a tab whose folder is the place or inside it, else one whose folder holds the place; never a tab whose folder is too wide
+  - `keepFile(open: string|null, remembered: string|null, has: (rel) => boolean) -> string | null`: the file a pick opens: the one you were on when the new place has it, else the one last open there (`lastFile`) when it still has that, else none
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1317,12 +1852,22 @@ test('tabAt: a conversation in the place or holding it, never one left in the ho
   assert.equal(V.tabAt(new Map([['c', copy]]).values(), copy.cwd, home), copy, 'any iterable, as state.tabs.values()');
   assert.equal(V.tabAt(tabs, '', home), null);
 });
+
+test('keepFile: a pick keeps the file you were on if the new place has it, else opens the one last open there', () => {
+  const has = rel => ['a.txt', 'src/b.js'].includes(rel);
+  assert.equal(V.keepFile('a.txt', 'src/b.js', has), 'a.txt', 'the file you were on wins');
+  assert.equal(V.keepFile('feature.txt', 'src/b.js', has), 'src/b.js', 'the place remembers its own');
+  assert.equal(V.keepFile('feature.txt', 'gone.txt', has), null, 'neither is there: the placeholder');
+  assert.equal(V.keepFile(null, 'a.txt', has), 'a.txt');
+  assert.equal(V.keepFile('', null, has), null);
+  assert.equal(V.keepFile(null, null, has), null);
+});
 ```
 
 - [ ] **Step 2: Run it to make sure it fails**
 
 Run: `node --test test/viewer-logic.test.js`
-Expected: FAIL. The branch `whereText` test gets `'feature-x (from main)'`-style text; the others with `TypeError: V.placeSub is not a function` (and `findPlace`, `placeKey`, `tabAt`).
+Expected: FAIL. The branch `whereText` test gets `'feature-x (from main)'`-style text; the others with `TypeError: V.placeSub is not a function` (and `findPlace`, `placeKey`, `tabAt`, `keepFile`).
 
 - [ ] **Step 3: Write the implementation**
 
@@ -1380,24 +1925,33 @@ Directly before the line `  const api = { buildTree, visibleRows, numberDiff, sp
     return open.find(t => inside(norm(t.cwd), at)) || open.find(t => inside(at, norm(t.cwd))) || null;
   }
 
+  /**
+   * The file a pick from the header's menu opens: the one you were on when the new place has it too,
+   * else the one last open there (lastFile) when it still has that, else none (the placeholder).
+   * has(rel): on the new place's changes list or in its tree.
+   */
+  function keepFile(open, remembered, has) {
+    return [open, remembered].find(f => typeof f === 'string' && f && has(f)) || null;
+  }
+
 ```
 
 and change that `const api = ...` line to:
 
 ```js
-  const api = { buildTree, visibleRows, numberDiff, splitLines, whereText, tooWide, liveState, totals, totalsText, statusWord, statusClass, placeSub, findPlace, placeKey, tabAt, STATUS_WORDS };
+  const api = { buildTree, visibleRows, numberDiff, splitLines, whereText, tooWide, liveState, totals, totalsText, statusWord, statusClass, placeSub, findPlace, placeKey, tabAt, keepFile, STATUS_WORDS };
 ```
 
 - [ ] **Step 4: Run the test to make sure it passes**
 
 Run: `node --test test/viewer-logic.test.js`
-Expected: PASS (18 tests).
+Expected: PASS (19 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/renderer/shared/viewer-logic.js test/viewer-logic.test.js
-git commit -m "feat: the viewer's pure logic words a branch's header and a place's menu row, and finds a place's conversation
+git commit -m "feat: the viewer's pure logic words a branch's header and a place's menu row, finds a place's conversation, and picks the file a switch opens
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -1417,7 +1971,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `docs/DEVELOPMENT.md:78` (the e2e-viewer row)
 
 **Interfaces:**
-- Consumes: preload `viewerPlaces`, `viewerSwitch` (Task 3); `V.whereText`, `V.placeSub`, `V.findPlace`, `V.placeKey`, `V.tabAt` (Task 4); `SB.openMenu`, `SB.closeMenus`, `SB.menuItem`, `SB.relTime`, `SB.toast`, `SB.h`.
+- Consumes: preload `viewerPlaces`, `viewerSwitch` (Task 3); `V.whereText`, `V.placeSub`, `V.findPlace`, `V.placeKey`, `V.tabAt`, `V.keepFile` (Task 4); `SB.openMenu`, `SB.closeMenus`, `SB.menuItem`, `SB.relTime`, `SB.toast`, `SB.h`.
 - Produces: `SB.viewer.current() -> { id, root, file, side, files, kind, branch, gone } | null` (adds `kind`, `branch`, `gone`); `start(req, { file, line, side, handle, place })`.
 
 - [ ] **Step 1: Write the failing e2e checks**
@@ -1503,6 +2057,7 @@ After the line `    check(await until("SB.state.view === 'projects'"), 'Back goe
     check(!(await ev(rowsOf)).some(p => p.title === BRANCH.name), 'without the deleted branch');
     await menuRow('.mi-sub', `${copyBranch} · `);
     check(await until(`SB.viewer.current()?.kind === 'folder' && SB.viewer.current().branch === ${JSON.stringify(copyBranch)} && SB.viewer.current().files.length === ${COPY_CHANGED}`), 'picking the copy goes back to it, with what it changed');
+    check(await until(`SB.viewer.current()?.file === ${JSON.stringify(keptFile)}`), `the copy has no ${BRANCH.file}, so the file last open there (${keptFile}) opens again`);
 
     // ---- a worktree an agent made inside the copy: the copy's turn nudges a viewer on it
     const copyRoot = await ev('SB.viewer.current().root');
@@ -1657,7 +2212,8 @@ Replace the start of `start` (lines 42-62), from `  async function start(req, { 
 ```js
   // opts.handle: one main has opened already (a pick from the header's menu), and opts.place which
   // pick, so call() can make it again. A pick keeps the file you were on when the new place has it
-  // too (on its changes list or in its tree), else shows the placeholder.
+  // too (on its changes list or in its tree), else opens the one last open there when it still has
+  // that, else shows the placeholder (V.keepFile).
   async function start(req, { file = null, line = null, side = null, handle = null, place = null } = {}) {
     const r = handle || await api.viewerOpen(req).catch(() => null);
     if (!r?.ok) return SB.toast(r?.error || "Couldn't open that folder.");
@@ -1665,10 +2221,11 @@ Replace the start of `start` (lines 42-62), from `  async function start(req, { 
     // Back (and Esc) return to where it was opened from: the chat, or the Project page.
     // Opened again from inside the viewer (a file link in it, a pick from its menu), it keeps the first.
     const from = state.view === 'viewer' ? cur?.from || null : state.view;
+    const remembered = lastFile.get(V.placeKey(r)) || null;
     const me = cur = {
       ...r, req, from, place, tabId: place ? null : req.tabId || null, side, only: false, files: [], more: 0, against: null, note: null,
       gone: false, branchGone: false, dirty: false, entries: [], open: new Set(), filter: '',
-      file: file || (place ? null : lastFile.get(V.placeKey(r))) || null, line, whole: !!line,
+      file: file || remembered, line, whole: !!line,
     };
     $('viewerFilter').value = '';
     $('viewerMain').replaceChildren();
@@ -1677,8 +2234,10 @@ Replace the start of `start` (lines 42-62), from `  async function start(req, { 
     await Promise.all([loadChanges(), loadTree()]);
     if (cur !== me) return;
     if (me.gone) return draw();
-    if (place && me.file && !me.files.some(f => f.path === me.file) && !me.entries.includes(me.file)) me.file = null;
+    if (place) me.file = V.keepFile(file, remembered, rel => me.files.some(f => f.path === rel) || me.entries.includes(rel));
 ```
+
+Opened any other way (a pane's Files button, a file link, the Project page), `file || remembered` is what `file || lastFile.get(r.root)` was: `V.placeKey` of a folder is its root, lower-cased.
 
 The rest of `start` (from `    if (!me.side) me.side = me.files.length || me.note ? 'changes' : 'files';`) stays as it is: Changes is the default when the place changed anything, a branch included.
 
@@ -1867,7 +2426,7 @@ Two things already work without edits: Arrow keys, Home/End and Enter move throu
 In `docs/DEVELOPMENT.md`, in the row at line 78 that starts ``| `node scripts/e2e-viewer.js [--shots <dir>]` |``, replace the end of its description, `and the Project page's Browse files and worktree rows |`, with:
 
 ```
-the Project page's Browse files and worktree rows, and the header's menu: the copy and an unmerged branch listed with their counts, the branch's change, diff and Whole file, a deleted branch, back to the copy, and a turn in the copy nudging a viewer on a worktree inside it |
+the Project page's Browse files and worktree rows, and the header's menu: the copy and an unmerged branch listed with their counts, the branch's change, diff and Whole file, a deleted branch, back to the copy and the file last open there, and a turn in the copy nudging a viewer on a worktree inside it |
 ```
 
 - [ ] **Step 7: Rebuild panel.html and run the checks**
