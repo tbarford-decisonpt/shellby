@@ -1,13 +1,15 @@
 /* Shellby panel — code as code: syntax colours in a reply's code blocks and in
    diffs (shared/syntax.js does the reading), a Copy button on each block, a
-   long block folded until Show all, and Mermaid diagrams drawn as pictures
-   (shared/mermaid.js). Every token becomes a span or a text node with
+   long block folded until Show all, Mermaid diagrams drawn as pictures
+   (shared/mermaid.js), and drawings in box characters kept on their grid
+   (shared/textgrid.js). Every token becomes a span or a text node with
    textContent: none of it is ever markup. */
 'use strict';
 (function () {
   const { h, api } = SB;
   const S = window.ShellbySyntax;
   const M = window.ShellbyMermaid;
+  const G = window.ShellbyTextGrid;
 
   const MAX_BLOCK_CHARS = 200000;  // bigger blocks stay plain: colouring them would stall the panel
   const MAX_BLOCK_LINES = 4000;
@@ -176,6 +178,18 @@
     return true;
   }
 
+  // A drawing in box characters, set on a grid: each character the drawing
+  // font lacks gets a cell as wide as a terminal would give it (code.css).
+  function grid(code, lines) {
+    code.replaceChildren();
+    lines.forEach((l, i) => {
+      if (i) code.append('\n');
+      for (const c of G.cells(l)) {
+        code.append(c.w === undefined ? document.createTextNode(c.s) : h('span', { class: `cell w${c.w}`, text: c.s }));
+      }
+    });
+  }
+
   function paint(code, lines, lang) {
     if (!lang || lines.length > MAX_BLOCK_LINES) return;
     const tk = S.lineTokenizer(lang);
@@ -202,7 +216,11 @@
       if (lang === 'mermaid' && M && diagram(pre, source)) continue;
       // Too big to colour (null) is certainly long enough to fold.
       const lines = source.length > MAX_BLOCK_CHARS ? null : source.split('\n');
-      if (lines) paint(code, lines, S.langOf(lang));
+      const drawing = !!lines && !!G && G.isDrawing(source, lang);
+      if (drawing) {
+        pre.classList.add('drawing');
+        grid(code, lines);
+      } else if (lines) paint(code, lines, S.langOf(lang));
       const long = !lines || lines.length > FOLD_LINES;
       if (long) pre.classList.add('fold');
       // A fence that never closed, in a finished reply: the reply stopped mid-block.
@@ -211,7 +229,8 @@
         lang ? h('span', { class: 'code-lang', text: lang }) : null,
         cut ? h('span', { class: 'code-cut', text: 'cut off', title: 'The reply ended before this block was closed' }) : null,
         long ? foldButton() : null,
-        source.includes('\n') || source.length > 60 ? wrapButton() : null,
+        // Wrapping a drawing breaks it apart, so it scrolls sideways instead.
+        !drawing && (source.includes('\n') || source.length > 60) ? wrapButton() : null,
         copyButton(() => source, 'this code'));
       const box = h('div', { class: 'code-block' });
       pre.replaceWith(box);
