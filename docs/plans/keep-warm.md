@@ -33,6 +33,9 @@ tab manager (`src/main/sessions.js`) and the tests.
   the hour counts from the start of the request. So each ping restamps
   `cache.at`, and the next one is due about 55 minutes later. Five minutes
   covers the 30-second tick, a slow start and a reply that thinks for a while.
+  It also covers the stamp being late: `cache.at` is set on a call's first
+  event, a little after the request starts, which is when the cache's hour
+  really began. Don't shorten the lead without allowing for that.
 - **It stops on its own:**
   - **You're back.** The first idle reading under 2 minutes, after at least
     one reading of 2 minutes or more since you pressed the button. These are
@@ -57,10 +60,13 @@ One fixed message, sent through the tab's own running Claude process:
   prompt at each start (git status, date, memory). A resumed or forked process
   would ask about a different prefix and pay a full write anyway.
 - **Not through `manager.send`.** A ping skips History, the effort picker,
-  the note preamble, `decorate`, `prepareTurn`, steering and `turnFrom`. It
-  goes through a new `manager.ping(tabId, text)` that calls `session.send`
-  directly. Effort matters most here: a change in effort or thinking settings
-  breaks the messages cache, so a ping must never change either.
+  the note preamble, `decorate`, `prepareTurn`, steering and
+  `history.markTurn`, so a power cut mid-ping doesn't mark the conversation
+  unfinished. It goes through a new `manager.ping(tabId, text)` that sets
+  `turnFrom = { keepwarm: true }` and `turnText` for the ledger, then calls
+  `session.send` directly. Effort matters most here: a change in effort or
+  thinking settings breaks the messages cache, so a ping must never change
+  either.
 - **Out of the conversation feed.** While a tab has a ping in flight
   (`tab.pinging`), `onItem` drops that turn's replayed user message, its text
   and its result. They are neither saved nor sent to the panel, and they don't
@@ -69,6 +75,12 @@ One fixed message, sent through the tab's own running Claude process:
   dim line:
   - `Kept warm 12:55 · read 214k from cache`
   - `Stopped keeping warm: <reason>`
+
+  The panel learns a turn has ended only from its `result` item (`boot.js`
+  `onTabItem` clears `tab.busy`). So the `keepwarm` item also ends the turn
+  there: it clears `busy` and calls `syncBusyUi`, but skips `unread` and
+  `onTurnEnded`. The swallowed items go nowhere else either, so the recap
+  (`noteRecap`) and the crab never hear about a ping.
 - **Its cost shows.** The ping's usage goes into spend and the usage ledger
   like any turn's, as its own "Keep warm" category, so the Lean tab shows what
   keeping warm cost.
@@ -90,6 +102,7 @@ tooltip lists them.
 | No process, terminal mode, or nothing sent yet | not pinged | "nothing to keep warm" |
 | Ping read nothing, or wrote at least a tenth of what it read | dropped | "the ping found it cold (read 0, wrote 212k)" |
 | Ping ended in an error (window used up, API error) | dropped | the error, first line |
+| Ping asked for a permission | denied at once, dropped | "the ping tried to use a tool" |
 | Tab closed, or its process died | dropped | - |
 
 The read and write rule is Cache Tax's. Either reading means the cache had
