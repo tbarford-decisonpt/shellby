@@ -197,6 +197,7 @@ const DEFAULTS = {
   channelsConfirmed: null, // the destination you said yes to in the confirm window; nothing goes anywhere else (main.js channelPlace)
   crashReports: 'ask',        // ask | always | never: whether crash reports go to Sentry (crash-report.js)
   crashReportDecisions: [],   // [{ until, send }]: each Send / Don't send answer and what it covered
+  ideaAsked: false,           // he's asked for an idea once, at Buddies (feedback.js); never again
 };
 
 // A second copy of the settings, from the last boot that read them fine (and

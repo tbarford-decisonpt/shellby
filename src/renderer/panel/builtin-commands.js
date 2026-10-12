@@ -23,10 +23,20 @@
     SB.toast('Your plan usage shows here once Claude Code has reported it, after your first message.', { ms: 5000 });
   };
 
+  // Typed in Shellby, /bug and /feedback are as likely about him as about Claude
+  // Code, so they ask which before opening anything.
+  const feedbackFor = kind => () => SB.toast(kind === 'bug' ? 'Which one misbehaved?' : 'Feedback on which?', {
+    ms: 10000,
+    actions: [
+      { label: 'Shellby', onAction: () => (kind === 'bug' ? api.reportProblem() : api.suggestIdea()) },
+      { label: 'Claude Code', onAction: () => api.openExternal(CLAUDE_ISSUES) },
+    ],
+  });
+
   const ACTIONS = {
     agents: () => SB.showToolbox?.('agent'),
-    bug: () => api.openExternal(CLAUDE_ISSUES),
-    feedback: () => api.openExternal(CLAUDE_ISSUES),
+    bug: feedbackFor('bug'),
+    feedback: feedbackFor('feedback'),
     config: () => SB.setView('settings'),
     diff: tab => SB.showChanges?.(tab),
     doctor: () => SB.setView('health'),

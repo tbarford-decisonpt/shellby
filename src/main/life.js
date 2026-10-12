@@ -116,6 +116,7 @@ function createLife(d) {
       d.awardXp('bond', { label: `You and Shellby: ${r.levelUp.name}` });
       celebrate(BOND_LINES[r.levelUp.index], { eyebrow: 'Closer', icon: r.levelUp.icon, title: r.levelUp.name, text: bond.UNLOCKS.find(u => u.level === r.levelUp.index)?.text || '' });
       care.earn('bond-up'); // a golden plankton to mark it
+      d.askForIdea?.(r.levelUp.index); // once ever, at Buddies (feedback.js)
     }
     if (r.milestone) celebrate(bond.celebrationLine('days', { days: r.milestone }), { eyebrow: 'Together', icon: '🗓️', title: `${r.milestone} days together`, text: 'He counts. Every one of them.' });
     changed();

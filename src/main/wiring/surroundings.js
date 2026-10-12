@@ -227,6 +227,7 @@ function wireSurroundings(d) {
       touch: () => { d.lastActivity = Date.now(); if (d.lastStatus.state === 'sleeping') d.refreshCritter(); },
       refresh: () => d.refreshCritter(),
       stat: d.stat, awardXp: d.awardXp, burst,
+      askForIdea: level => d.askForIdea?.(level), // tray.js; wired after life starts
       systemIdleSeconds: () => { try { return powerMonitor.getSystemIdleTime(); } catch { return null; } },
       isIdle: () => d.lastStatus.state === 'idle' && !d.dragging && !d.perching?.isUp() && !d.climbing?.busy() && !d.pranks?.busy(),
       working: () => ['working', 'asking'].includes(d.lastStatus.state),

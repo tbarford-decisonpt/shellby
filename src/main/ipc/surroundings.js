@@ -249,6 +249,8 @@ function registerSurroundingsIpc(ipcMain, d) {
   ipcMain.on('open-external', (_e, url) => {
     try { if (new URL(url).protocol === 'https:') shell.openExternal(url); } catch { /* ignore bad urls */ }
   });
+  ipcMain.on('feedback:problem', () => d.reportProblem?.());
+  ipcMain.on('feedback:idea', () => d.suggestIdea?.());
   ipcMain.on('open-data-folder', () => shell.openPath(app.getPath('userData')));
 }
 

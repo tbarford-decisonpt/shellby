@@ -323,6 +323,8 @@
   $('leaveGuardToggle').addEventListener('change', async e => { const r = await api.setSettings({ leaveGuard: e.target.checked }); state.settings = r.settings; });
   $('openSkinsBtn').addEventListener('click', () => api.openSkinsFolder());
   $('reloadSkinsBtn').addEventListener('click', async () => { state.skins = await api.reloadSkins(); renderSkins(); SB.toast(`${state.skins.length} skins loaded`); });
+  $('problemBtn').addEventListener('click', () => api.reportProblem());
+  $('ideaBtn').addEventListener('click', () => api.suggestIdea());
   $('githubBtn').addEventListener('click', () => api.openExternal('https://github.com/x-salmon/shellby'));
   $('dataBtn').addEventListener('click', () => api.openDataFolder());
 

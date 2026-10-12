@@ -194,9 +194,9 @@ contextBridge.exposeInMainWorld('shellby', {
   pickAnyFolder: invoke('folder:pick-any'),
   setFolder: invoke('folder:set'),
   reloadSkins: invoke('skins:reload'),
-  openSkinsFolder: fire('skins:open-folder'),
-  openDataFolder: fire('open-data-folder'),
+  openSkinsFolder: fire('skins:open-folder'), openDataFolder: fire('open-data-folder'),
   openExternal: fire('open-external'),
+  reportProblem: fire('feedback:problem'), suggestIdea: fire('feedback:idea'), // GitHub drafts (wiring/tray.js)
   pickTextMenu: fire('text-menu:pick'), // the right-click menu for text (textmenu.js, main/context-menu.js)
   onTextMenu: on('text-menu'),
 
