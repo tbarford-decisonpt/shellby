@@ -92,7 +92,9 @@
 
   async function loadChanges() {
     const me = cur;
-    const r = await call(id => api.viewerChanges(id, { uncommittedOnly: me.only }));
+    me.looking = (me.looking || 0) + 1; // looks in flight, for the e2e (current().looking)
+    let r;
+    try { r = await call(id => api.viewerChanges(id, { uncommittedOnly: me.only })); } finally { me.looking--; }
     if (cur !== me) return;
     shownAt = Date.now();
     me.note = null;
@@ -406,6 +408,6 @@
       }
       if (cur && state.view === 'viewer') drawLive();
     },
-    current: () => (cur ? { id: cur.id, root: cur.root, file: cur.file, side: cur.side, files: cur.files, kind: cur.kind, branch: cur.branch, gone: cur.gone } : null),
+    current: () => (cur ? { id: cur.id, root: cur.root, file: cur.file, side: cur.side, files: cur.files, kind: cur.kind, branch: cur.branch, gone: cur.gone, looking: cur.looking || 0 } : null),
   };
 })();

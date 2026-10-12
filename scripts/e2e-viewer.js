@@ -326,8 +326,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until("!document.getElementById('viewerLive').hidden"), "the live state is the copy's conversation, which holds it");
     await ev("document.getElementById('viewerTabChanges').click()");
     check(await until("document.getElementById('viewerNote').textContent === 'Nothing has changed here.'"), 'its Changes say nothing has changed');
-    // The note above is drawn before the first look has answered; let that look finish, or it may read the file written next.
-    await wait(1500);
+    // The note above is drawn before the look the click started has answered; let every look finish, or one may read the file written next.
+    check(await until('SB.viewer.current()?.looking === 0'), 'its looks have answered');
     fs.writeFileSync(path.join(agentAt, AGENT.file), `${AGENT.words}\n`);
     await wait(400);
     check(await ev('SB.viewer.current().files.length === 0'), 'a file the agent writes waits for a look');
