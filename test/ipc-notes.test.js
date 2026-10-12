@@ -57,6 +57,7 @@ test('Plan and Build run in a copy; Ask reads in place', async () => {
   assert.equal((await call('notes:run', { scope: KEY, id, kind: 'ask' })).ok, true);
   assert.deepEqual(started.map(s => [s.how, s.mode]), [['copy', null], ['copy', 'plan'], ['task', 'ask']]);
   assert.deepEqual(startsIn, ['tab2', 'tab3'], 'Plan and Ask only start in their mode; Build is in yours already');
+  assert.equal(started[2].copyLater, true, 'an Ask that goes on to change things still moves into a copy');
   assert.equal(started[0].dir, ROOT);
   assert.equal(started[0].prompt, 'add a dark mode');
   assert.equal(started[0].draft, false);
