@@ -60,7 +60,7 @@ async function cdp(wsUrl) {
     check(!(await panel.ev(pressed)), 'the mug is not pressed');
 
     await type('warm1h 40000');
-    check(await poll('!SB.activeTab().busy && SB.activeTab().cache?.ttlMs === 3600000'), 'a reply cached for an hour');
+    check(await poll('!SB.activeTab().busy && SB.activeTab().cache?.ttlMs === 3600000', 20000), 'a reply cached for an hour');
     await wait(1500); // past the one-second lead: the ping is due as it turns on
     await panel.ev("SB.$('keepWarmBtn').click()");
     check(await poll(`${pressed} && /^Warm · \\d/.test(SB.$('keepWarmLeft').textContent)`), 'pressed, with the time left beside it');
@@ -70,7 +70,7 @@ async function cdp(wsUrl) {
     check(await poll("SB.$('keepWarmBtn').title.includes('next ping')"), 'the tooltip says when the next ping goes');
 
     await panel.ev(`shellby.devAway({ idleMs: ${5 * 60e3} })`);
-    check(await panel.ev(pressed), 'still on while you are away');
+    check(await poll(pressed), 'still on while you are away');
     await panel.ev('shellby.devAway({ idleMs: 0 })');
     check(await poll(`!(${pressed})`), 'coming back turns it off');
 

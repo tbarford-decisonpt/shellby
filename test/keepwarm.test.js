@@ -106,6 +106,7 @@ test('the words: receipts, and a tooltip line per tab', () => {
   assert.equal(kw.tokensText(950), '950');
   assert.equal(kw.keptText(T0, 214000), `Kept warm ${kw.hhmm(T0)} · read 214k from cache`);
   assert.equal(kw.keptText(T0, 21000, 16000), `Kept warm ${kw.hhmm(T0)} · read 21k from cache, wrote 16k`, 'a cold receipt says what it wrote');
+  assert.equal(kw.keptText(T0, 0, 40000), `Kept warm ${kw.hhmm(T0)} · wrote 40k back to the cache`, 'a ping that read nothing does not say it read 0');
   assert.equal(kw.stoppedText('it went cold at 13:02'), 'Stopped keeping warm: it went cold at 13:02');
   const due = { id: 'a', title: 'A', action: 'wait', reason: null, dueAt: T0 };
   assert.equal(kw.tabLine(due, { state: 'kept', lastPing: null }), `next ping ${kw.hhmm(T0)}`);

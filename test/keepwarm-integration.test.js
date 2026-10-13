@@ -65,7 +65,7 @@ test('with the real tab manager, a first ping that finds the cache cold keeps th
     await new Promise(r => setTimeout(r, 300));
     const receipts = seen.filter(i => i.kind === 'keepwarm');
     assert.equal(receipts.length, 1, 'not pinged again straight away');
-    assert.match(receipts[0].text, /^Kept warm \d\d:\d\d · read 0 from cache, wrote 40k$/);
+    assert.match(receipts[0].text, /^Kept warm \d\d:\d\d · wrote 40k back to the cache$/);
     assert.equal(receipts[0].warm, true);
     assert.equal(receipts[0].endsTurn, true);
     assert.equal(svc.isKept('t1'), true);

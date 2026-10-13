@@ -87,7 +87,7 @@ test('a ping that finds the cache cold keeps the tab once, and says what it wrot
   advance(46 * MIN); tick(); await settle();
   assert.equal(calls.pings.length, 1);
   assert.deepEqual({ ...calls.notes.at(-1).item, at: 0 }, { kind: 'keepwarm', warm: true, endsTurn: true, at: 0, read: 0, wrote: 40000, text: kw.keptText(T0 + 46 * MIN, 0, 40000) });
-  assert.match(calls.notes.at(-1).item.text, /read 0 from cache, wrote 40k$/);
+  assert.match(calls.notes.at(-1).item.text, /wrote 40k back to the cache$/);
   assert.equal(svc.isKept('a'), true, 'the ping wrote it back, so the next one should read it');
 });
 
@@ -120,7 +120,7 @@ test('a warm ping between two cold ones starts the count again: the tab stays ke
   }
   assert.equal(calls.pings.length, 3);
   assert.deepEqual(calls.notes.map(n => n.item.warm), [true, true, true]);
-  assert.match(calls.notes.at(-1).item.text, /wrote 40k$/);
+  assert.match(calls.notes.at(-1).item.text, /wrote 40k back to the cache$/);
   assert.equal(svc.isKept('a'), true);
 });
 

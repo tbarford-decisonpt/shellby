@@ -66,8 +66,12 @@ function watchBack(left, { idleMs = 0, locked = false } = {}) {
   return { left: false, back: !!left };
 }
 
-// wrote: only for a ping that found it cold, and kept it anyway.
-function keptText(at, read, wrote = null) { return `Kept warm ${hhmm(at)} · read ${tokensText(read)} from cache${wrote === null ? '' : `, wrote ${tokensText(wrote)}`}`; }
+// wrote: only for a ping that found it cold, and kept it anyway. With nothing read, the line says only what it wrote.
+function keptText(at, read, wrote = null) {
+  if (wrote === null) return `Kept warm ${hhmm(at)} · read ${tokensText(read)} from cache`;
+  if (!read) return `Kept warm ${hhmm(at)} · wrote ${tokensText(wrote)} back to the cache`;
+  return `Kept warm ${hhmm(at)} · read ${tokensText(read)} from cache, wrote ${tokensText(wrote)}`;
+}
 function stoppedText(reason) { return `Stopped keeping warm: ${reason}`; }
 
 /** The button's tooltip line for one tab: p from plan(), k its kept entry. */
