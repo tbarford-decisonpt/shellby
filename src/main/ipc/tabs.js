@@ -10,6 +10,7 @@ const quiz = require('../quiz');
 const problems = require('../problems');
 const panes = require('../../renderer/shared/panes');
 const { run: runCli, skipSettings } = require('../claude/cli');
+const { selectedNote } = require('../viewer');
 
 // The most queued messages that go in at once, and files across all of them (as one task:send).
 const MAX_STEERS = 20;
@@ -125,7 +126,7 @@ function registerTabsIpc(ipcMain, d) {
     try { d.isStr(tabId) && d.manager.setTabEffort(tabId, effort); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; }
   });
 
-  ipcMain.handle('task:send', (_e, { tabId, text, attachments } = {}) => {
+  ipcMain.handle('task:send', async (_e, { tabId, text, attachments, selected } = {}) => {
     text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);
     const files = (Array.isArray(attachments) ? attachments : []).filter(d.isStr).slice(0, 20);
     if (!text && !files.length) return { ok: false, error: 'Type a task first.' };
@@ -136,7 +137,12 @@ function registerTabsIpc(ipcMain, d) {
     } catch (err) {
       return { ok: false, error: err.message };
     }
-    const r = d.sendToTab(tabId, text, files);
+    // The file picked in All files goes along as one line, once main has found it is a file in
+    // the conversation's folder (viewer.js selectedNote). A folder on another computer has none here,
+    // and a /command goes as typed.
+    const cwd = d.manager.tabs.get(tabId)?.session?.cwd;
+    const note = d.isStr(selected) && d.isStr(cwd) && !text.startsWith('/') && !d.remoteService?.placeOf(cwd) ? await selectedNote(cwd, selected) : null;
+    const r = d.sendToTab(tabId, text, files, { note });
     return r.ok ? { ok: true, tabId: r.tabId, turnId: r.turnId } : r;
   });
   // What's queued behind the turn that's running, to go in at Claude's next step

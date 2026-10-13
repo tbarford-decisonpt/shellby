@@ -46,6 +46,7 @@ function registerViewerIpc(ipcMain, d) {
     return { ok: false, error: 'Open what?' };
   });
   ipcMain.handle('viewer:tree', (_e, id) => viewer.treeOf(id)); // a folder's index, or a branch's own tree
+  ipcMain.handle('viewer:status', (_e, id) => viewer.statusOf(id)); // the file tree's marks (viewer-status.js); a folder handle only
   ipcMain.handle('viewer:changes', (_e, id, opts) => viewer.changesOf(id, { uncommittedOnly: !!opts?.uncommittedOnly }));
   ipcMain.handle('viewer:read', (_e, id, rel) => viewer.read(id, rel));
   ipcMain.handle('viewer:diff', (_e, id, rel) => viewer.diffOf(id, rel));

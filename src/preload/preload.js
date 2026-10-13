@@ -64,7 +64,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // file links (Settings → Editor) and the panel's text size
   openFile: (tabId, target, /** @type {{ line?: number, reveal?: boolean }} */ { line, reveal } = {}) => ipcRenderer.invoke('file:open', { tabId, target, line, reveal }),
   getEditors: invoke('editors:get'), zoom: invoke('panel:zoom'),
-  viewerOpen: invoke('viewer:open'), viewerTree: invoke('viewer:tree'), viewerChanges: invoke('viewer:changes'), viewerRead: invoke('viewer:read'), viewerDiff: invoke('viewer:diff'), viewerLocate: invoke('viewer:locate'), viewerBranch: invoke('viewer:branch'), viewerClose: invoke('viewer:close'), viewerPlaces: invoke('viewer:places'), viewerSwitch: invoke('viewer:switch'), onViewerStale: on('viewer:stale'), // the file viewer (main's viewer.js), read-only
+  viewerOpen: invoke('viewer:open'), viewerTree: invoke('viewer:tree'), viewerChanges: invoke('viewer:changes'), viewerRead: invoke('viewer:read'), viewerDiff: invoke('viewer:diff'), viewerLocate: invoke('viewer:locate'), viewerBranch: invoke('viewer:branch'), viewerClose: invoke('viewer:close'), viewerPlaces: invoke('viewer:places'), viewerSwitch: invoke('viewer:switch'), viewerStatus: invoke('viewer:status'), onViewerStale: on('viewer:stale'), // the file viewer (main's viewer.js), read-only
   claudeStatus: invoke('claude:status'),
   claudeLogin: invoke('claude:login'),
   claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"
@@ -91,7 +91,7 @@ contextBridge.exposeInMainWorld('shellby', {
   paneShapes: (list) => ipcRenderer.invoke('panes:shapes', list), // the layouts you saved by name: read them, or (a list) save them
   setTabEffort: (tabId, effort) => ipcRenderer.invoke('tab:effort', { tabId, effort }), // the effort chip, for one conversation
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
-  sendTask: (tabId, text, attachments) => ipcRenderer.invoke('task:send', { tabId, text, attachments }),
+  sendTask: (tabId, text, attachments, opts) => ipcRenderer.invoke('task:send', { tabId, text, attachments, selected: opts?.selected }), // opts.selected: the file picked in All files (files-select.js)
   stopTask: fire('task:stop'),
   steerTask: (tabId, turnId, items) => ipcRenderer.send('task:steer', { tabId, turnId, items }),
   unsteerTask: (tabId, id) => ipcRenderer.invoke('task:unsteer', { tabId, id }), // a queued message taken back, unless Claude has it

@@ -36,6 +36,8 @@ const MAX_PLACE_TREES = 20;          // worktrees in the header's menu
 const MAX_PLACE_BRANCHES = 30;       // branches checked for commits of their own, newest first
 const PLACES_MS = 10000;             // the menu's list is reused this long, per repo
 const AT_ONCE = 4;                   // the menu's git status, rev-list and rev-parse runs at a time, across the whole viewer
+const MAX_PICKED = 300;                                      // the picked file's path, at most (selectedNote)
+const PICK_UNSAFE = /[\0-\x1f\x7f-\x9f\p{Cf}\p{Zl}\p{Zp}]/u; // control, format (bidi) and separator characters
 
 // buffer: the output as bytes (a blob, sniffed for NUL before it's decoded). env: added to git's own.
 // exit: answer { code, out } (code: git's exit code, null when it didn't run or timed out) rather than
@@ -223,6 +225,29 @@ async function locate(cwd, target, { home = os.homedir() } = {}) {
   if (!file || !isUnder(root, file)) return { inside: false };
   try { if (!fs.statSync(file).isFile()) return { inside: false }; } catch { return { inside: false }; }
   return { inside: true, rel: path.relative(root, file).split(path.sep).join('/'), line: t.line };
+}
+
+/**
+ * The line a prompt carries for the file picked in the file tree (panel/files-select.js): only a
+ * file still there, inside the conversation's repo (or its folder, outside git), never in a folder
+ * too wide to browse. Nothing is read from the file. rel: its path in the tree (relative to the
+ * repo's root), so a conversation moved into its own worktree keeps its pick: the same file there.
+ * The name comes from the repo, and the line is one Claude takes as Shellby's own words: a name
+ * with a control, format or separator character, or longer than MAX_PICKED, is refused, and the
+ * rest goes in quotes, which a Windows name can't hold. -> the line, or null
+ */
+async function selectedNote(cwd, rel, { home = os.homedir() } = {}) {
+  if (!okDir(cwd) || !plainRel(rel) || rel.length > MAX_PICKED || PICK_UNSAFE.test(rel)) return null;
+  const root = longPath((await changes.rootOf(cwd)) || cwd);
+  if (!root || tooWide(cwd, home) || tooWide(root, home)) return null;
+  const abs = path.resolve(root, rel);
+  if (!isUnder(root, abs)) return null; // by name first: nothing outside the folder is touched
+  const file = longPath(abs);           // then links followed: a junction out of it ends outside
+  if (!file || !isUnder(root, file)) return null;
+  try { if (!fs.statSync(file).isFile()) return null; } catch { return null; }
+  const shown = path.relative(root, file).split(path.sep).join('/');
+  if (shown.length > MAX_PICKED || PICK_UNSAFE.test(shown)) return null; // a link inside can name another file
+  return `[Shellby: the user has the file ${JSON.stringify(shown)} selected in the file tree; "this" or "it" may mean it.]`;
 }
 
 /** Tool calls that could write, until their results come in; then nudge(cwd) once for each. */
@@ -655,6 +680,6 @@ function createViewer({ home = os.homedir() } = {}) {
 }
 
 module.exports = {
-  readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, branchOf, writeWatch, countStatus, checkoutBranch, limiter,
+  readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, selectedNote, branchOf, writeWatch, countStatus, checkoutBranch, limiter,
   MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE, TREE_MAX, HEAD_REF, MAX_PLACE_TREES, MAX_PLACE_BRANCHES, PLACES_MS,
 };
