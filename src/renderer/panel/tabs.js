@@ -73,6 +73,7 @@
     state.activeTab = tabId;
     SB.renderPanes();
     SB.trailFollow?.(); // the trail shows the conversation you're in (trail.js)
+    SB.filesFollow?.(); // and so does All files (files-dock.js)
     input.value = tab.draft || '';
     autosize();
     renderAttachments();
@@ -258,6 +259,7 @@
     bringHome: tab => (tab.worktree ? SB.bringHome(tab) : SB.toast('This conversation works in your own checkout, so there’s nothing to bring home.')),
     outline: tab => SB.openOutline?.(tab),     // outline.js
     trail: () => SB.toggleDrawer?.('trail', { focus: true }), // trail.js: the File manager on its Trail tab
+    files: () => SB.toggleDrawer?.('files', { focus: true }), // and on All files (files-dock.js)
     problems: tab => SB.openProblems?.(tab),   // problems.js
   };
 

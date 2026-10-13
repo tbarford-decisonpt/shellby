@@ -204,6 +204,7 @@
     // ------------------------------------------------------------ items
     render(item, { replay = false } = {}) {
       SB.trailTake?.(this, item, replay); // where he's been in the files (trail.js)
+      SB.filesTake?.(this, item, replay); // and lit up in All files (files-dock.js)
       // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it;
       // an unfocused pane keeps a line of it, tab-panes.js).
       if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item)) {
