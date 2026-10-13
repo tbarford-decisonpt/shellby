@@ -12,7 +12,7 @@ A skin is one JSON file: a pixel grid, a palette, and a map that says which body
 
 ```jsonc
 {
-  "id": "my-crab",              // letters, numbers, - and _ ; matches the filename
+  "id": "my-crab",              // letters, numbers, - and _ (the filename if left out); one with a built-in's id replaces it
   "name": "My Crab",
   "author": "you",
   "description": "One line shown on hover.",

@@ -68,6 +68,9 @@ and Autonomous mode, which skips prompts by design.
 | Claude → its own setup | Writing hooks, skills or settings that run later | Permission cards flag self-built tooling and edits to Claude Code's config | `src/main/session.js` |
 | Repository → Shellby | Hooks or git config running programs | Bring home merges with hooks off, and reads run with `core.fsmonitor` off | `src/main/branch.js`, `src/main/gitinfo.js` |
 | Web → plugin listener | DNS rebinding, CSRF | Loopback only, `X-Shellby` header, JSON only, no `Origin`, `Host` check, 2 MB cap | `src/main/external.js` |
+| Web → OBS overlay | A request reading files it shouldn't | Off by default, loopback only, GET only, every URL from a fixed table built at startup (nothing in a request becomes a path), 8 clients at most | `src/main/obs.js` |
+| Web → Stream Deck keys | A web page pressing Allow | Off by default, loopback only, a token Shellby packs into the plugin on every request, no `Origin`, `Host` check, 1 KB bodies; Allow and Deny only, and flagged prompts are never answered from a key | `src/main/deck.js` |
+| Web → Debug mode's receiver | Planted lines steering Claude | Open only while a conversation is in Debug mode, on a port Windows picks; answers only `/debug/<32 hex>` addresses it handed out, `Host` must be `127.0.0.1` or `localhost`, 16 KB bodies; lines are shown redacted and go to Claude fenced as output only after you press Send | `src/main/debug-ingest.js`, `src/main/wiring/debug-mode.js` |
 | Packs → install | Swapped or oversized downloads | Registry lookup, origin-pinned download, size cap, SHA-256, id match, confirmation | `src/main/registry.js` |
 | Plugins → install | Malicious marketplace | Only CLI-listed ids, normalized sources, no `-y`, confirmation window | `src/main/marketplace.js` |
 | Workflows → commands | Outside data turning into code | Values passed as environment variables, never spliced into command text, plus host and path checks | `src/main/workflows/` |

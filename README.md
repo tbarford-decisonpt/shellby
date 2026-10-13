@@ -293,46 +293,46 @@ Want a quieter crab in one click? **Work mode** switches off the climbing, pals 
 <tr>
 <td width="33%" valign="top">
 
-**🏛️ The Council** · 0.78<br>
-<sub>Put a decision to a table of advisor crabs. Each argues their own angle and votes, and Shellby unrolls a verdict. Quick costs about one reply. [See](CHANGELOG.md#0780-the-council-every-slash-command-and-undo-to-here)</sub>
+**👣 The trail** · 0.82<br>
+<sub><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> opens a map of the files Claude has touched, with him walking it: footprints where he read, dug-over files where he changed things, and a replay of every step. [See](CHANGELOG.md#0820-the-trail)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**⏪ Undo to here** · 0.78<br>
-<sub>Every step that changed your files gets a checkpoint, so you can put them back to just before it. Plus every Claude Code slash command in the box, and <code>/clear</code>. [How](docs/CLAUDE-CODE.md#conversations)</sub>
+**★ Marks past 99** · 0.81<br>
+<sub>XP keeps counting after the top level: each mark shows as 99★1, 99★2…, with its own countdown and celebration. [See](CHANGELOG.md#0810-marks-past-99-zoomed-panes-and-named-layouts)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**🗂️ Every conversation at a glance** · 0.78<br>
-<sub><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> shows each one's tests, changes and overlaps, answers many at once, and lines finished copies up to merge. [See](CHANGELOG.md#0780-the-council-every-slash-command-and-undo-to-here)</sub>
+**🪟 Twelve panes** · 0.80<br>
+<sub>Up to twelve conversations side by side, each pane with its own tabs and box. Zoom one, name a layout or keep one per project, and <kbd>Alt</kbd>+<kbd>J</kbd> finds the one waiting for you. [See](CHANGELOG.md#0800-twelve-panes-each-with-its-own-tabs)</sub>
 
 </td>
 </tr>
 <tr>
 <td width="33%" valign="top">
 
-**🐛 Seventeen new bugs** · 0.78<br>
-<sub>The Bugdex has 83 to catch now, from React render loops to sulking Docker daemons, and bug battles act up between moves. [See](docs/BUGDEX.md)</sub>
+**🎨 Code in colour** · 0.79<br>
+<sub>Replies stream in as Claude writes them, code is coloured by language, Mermaid diagrams are drawn, and diffs go side by side with <b>Undo this part</b>. [How](docs/CLAUDE-CODE.md)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**✨ A glow-up** · 0.77<br>
-<sub>Shellby, every skin, shell and outfit reshaded with a fine dark line, so he stands out on any wallpaper. Same crab, crisper. [See](CHANGELOG.md#0770-sign-ins-shared-tools-and-a-glow-up)</sub>
+**🧭 Outline, Problems and Debug mode** · 0.79<br>
+<sub><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> for every message and the files it touched, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> for the errors your checks found, and <code>/debug</code> to fix a bug from live logs. [See](CHANGELOG.md#0790-routines-that-follow-you-live-replies-and-code-in-colour)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**🧰 Tools in bulk** · 0.77<br>
-<sub>Pick many skills at once, park the ones you don't use instead of deleting them, share a set as one file, and sign in to MCP servers without a terminal. [How](docs/CLAUDE-CODE.md#toolbox)</sub>
+**🔁 Routines that follow you** · 0.79<br>
+<sub>Your routines and workflows sync to your other PCs, arriving switched off so nothing runs twice. [See](CHANGELOG.md#0790-routines-that-follow-you-live-replies-and-code-in-colour)</sub>
 
 </td>
 </tr>
 </table>
 
-<sub>And before that: helpers that report back, one-click modes, Search Settings, bug battles, other computers over ssh, his tank, Next up, the Bugdex, mods, <code>/tries</code>, MCP servers in workflows, the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets and time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
+<sub>And before that: the Council, undo to here, every conversation at a glance, seventeen new bugs, a glow-up, tools in bulk, helpers that report back, one-click modes, Search Settings, bug battles, other computers over ssh, his tank, Next up, the Bugdex, mods, <code>/tries</code>, MCP servers in workflows, the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets and time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
 
 ## Install
 
@@ -397,7 +397,7 @@ Your own Claude Code allow/deny rules in `~/.claude/settings.json` still apply i
 
 ## Build from source
 
-`git clone`, `npm install`, `npm start`. The full setup, every test and maintenance script, and a map of the code are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every image in this README is rendered from the real app: `npm run screenshots`, `npm run reel`, `npm run tricks` and `python scripts/make-banners.py`.
+With Node 22 or newer: `git clone`, `npm install`, `npm run setup`, `npm start`. The full setup, every test and maintenance script, and a map of the code are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every image in this README is rendered from the real app: `npm run screenshots`, `npm run reel`, `npm run tricks` and `python scripts/make-banners.py`.
 
 ## Privacy
 
@@ -406,7 +406,9 @@ Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\se
 - Claude Code talking to Anthropic, and the updater checking GitHub Releases.
 - GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your pull requests, with Visiting crabs on, your public calling card and your friends' cards, with Profile card on, the public gist holding your profile card picture, and with Built with Shellby on, the public `shellby-badge` repository holding his picture and the badge at the bottom of pull requests your tabs open.
 - Phone notifications, only if you turn them on, straight to the service you picked (ntfy, Pushover, Telegram, Discord, Slack or your own endpoint).
-- Things you ask for: ssh to the computers you add under **Other computers**, community packs, plugins and MCP servers, `git` fetches and pushes, workflow web requests, and the weekly npm dependency check.
+- The npm registry once a day, to say when a newer Claude Code is out (**Leave it to me** in **Settings → About** stops it).
+- Crash reports to Sentry, only when you say so: he asks first, and **Settings → About → Crash reports** changes it.
+- Things you ask for: ssh to the computers you add under **Other computers**, community packs, plugins and MCP servers, `git` fetches and pushes, workflow web requests, and the weekly dependency check (npm, pnpm, Yarn, pip-audit, cargo-audit and Go's, whichever your projects use).
 - Things that never leave your PC: the time tracker (it reads the title of the window in front to tell which project you're in, keeps only the project, the day and the minutes, and never syncs them; a day goes to Toggl, Clockify or Harvest only when you send it), push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), your PC's health readings, OpenRGB, the OBS overlay, the Stream Deck keys (behind a token only the plugin has), and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
 
 See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.

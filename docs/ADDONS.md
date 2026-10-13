@@ -278,7 +278,7 @@ These are the occasions, from `OCCASIONS` in [`src/main/voice.js`](../src/main/v
 |---|---|
 | His moods | `working`, `success`, `error`, `learned` (a new trick), `newTricks` (Claude Code can do new things), `unlocked` (a new item), `petted` |
 | The work | `tests`, `passed`, `fixed` (red tests green again), `merged` (your pull request merged), `push`, `deploy`, `bigWrite`, `sameFile` (third visit to one file), `searching`*, `web`*, `crew` (helpers), `longTask`, `serverDown` |
-| What Claude Code does by itself | `todoDone`, `todosAll` (its to-do list), `jobDone`, `jobFailed` (a command left running), `remembered` (a memory written down), `skillFirst`, `planning` |
+| What Claude Code does by itself | `todoDone`, `todosAll` (its to-do list), `jobDone`, `jobFailed` (a command left running), `remembered` (a memory written down), `compacted` (the conversation was compacted), `skillFirst`, `planning` |
 | Your day | `morning`, `latenight`, `back` (you were away for days), `gameOver`, `callOver`, `sheetStretch`, `docStretch`, `slideStretch` (hours in a spreadsheet, document or deck), `friday`, `weekend`, `monday` |
 | You and him | `found` (he dug something up), `memory`, `milestone`, `idle`, `oops` (a clumsy habit), `tank`, `tankNew` (a piece you just put in his tank) |
 | You, typing, and the weather | `typingBurst`, `typingRecord`, `rainStart`, `snowStart`, `stormStart`, `rainStopped` |
