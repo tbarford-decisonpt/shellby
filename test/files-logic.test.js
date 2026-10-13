@@ -144,3 +144,9 @@ test('@path in the box: the one the caret is in or just after', () => {
   assert.equal(F.mentionAt('me@example.com', 14), null, 'an address');
   assert.equal(F.mentionAt('plain words ', 12), null);
 });
+
+test('@path in the box: the whole path, even with the caret in the middle of it', () => {
+  assert.equal(F.mentionAt('look at @src/a.js', 10), 'src/a.js');
+  assert.equal(F.mentionAt('look at @src/a.js now', 12), 'src/a.js');
+  assert.equal(F.mentionAt('see @"my docs/x.md" ok', 9), 'my docs/x.md');
+});

@@ -165,11 +165,19 @@
     return litIdx.filter(i => i < first).slice(-fit);
   }
 
-  /** The @path the caret is in or just after (fileindex.js's mention form: @a/b.js or @"a b/c.js"). */
+  /**
+   * The whole @path the caret is in or just after (fileindex.js's mention form: @a/b.js or @"a b/c.js"),
+   * even when the caret sits mid-token. An unclosed quote runs to the end of the text.
+   */
   function mentionAt(text, caret) {
-    const before = String(text || '').slice(0, caret).replace(/ $/, '');
-    const m = /(?:^|\s)@(?:"([^"]+)"?|(\S+))$/.exec(before);
-    return m ? (m[1] || m[2]).replace(/\\/g, '/') : null;
+    const s = String(text || '');
+    const re = /(?:^|\s)@(?:"([^"]*)"?|(\S*))/g;
+    for (let m; (m = re.exec(s));) {
+      const at = m.index + m[0].indexOf('@');
+      const end = m.index + m[0].length;
+      if (caret > at && caret <= end + (s[end] === ' ' ? 1 : 0)) return (m[1] ?? m[2]).replace(/\\/g, '/') || null;
+    }
+    return null;
   }
 
   const api = {
