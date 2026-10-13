@@ -115,3 +115,24 @@ test('the shutdown guard lets Windows go when nothing is at risk', t => {
   assert.equal(prevented, false);
   assert.deepEqual(released, [1]);
 });
+
+test('each idle reading is passed on to whoever listens (Keep warm)', () => {
+  const readings = [];
+  const away = createAway({
+    config: { get: () => undefined, set: () => {} }, RECAP_TEST: true, CAPTURE: false,
+    log: { info: () => {}, warn: () => {} }, send: () => {},
+    onIdleReading: r => readings.push(r),
+  });
+  away.checkAway({ idleMs: 5000 });
+  away.checkAway({ idleMs: 3 * MIN, locked: true });
+  assert.deepEqual(readings, [{ idleMs: 5000, locked: false }, { idleMs: 3 * MIN, locked: true }]);
+});
+
+test("a keep-warm ping isn't listed as work in flight when you ask if it's safe to leave", () => {
+  const tab = (id, extra) => [id, { id, title: id, session: { busy: true, pending: new Map() }, ...extra }];
+  const { away, d } = setup();
+  d.manager = { tabs: new Map([tab('pinged', { pinging: { resolve() {} } }), tab('working')]) };
+  const lines = away.leaveVerdict().lines;
+  assert.ok(lines.includes('Still working: working'));
+  assert.ok(!lines.some(l => l.includes('pinged')), 'the ping is nobody\'s work');
+});

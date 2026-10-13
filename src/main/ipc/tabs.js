@@ -129,6 +129,7 @@ function registerTabsIpc(ipcMain, d) {
     text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);
     const files = (Array.isArray(attachments) ? attachments : []).filter(d.isStr).slice(0, 20);
     if (!text && !files.length) return { ok: false, error: 'Type a task first.' };
+    d.keepWarm?.userSent(); // you're back: Keep warm's job is done
     try {
       // A folder on another computer runs Claude Code there, so this PC needn't have it.
       const ready = (d.claudeStatus?.installed && d.claudeStatus?.loggedIn) || !!d.remoteService?.placeOf(d.currentCwd());

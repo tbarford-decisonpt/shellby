@@ -757,7 +757,7 @@ contextBridge.exposeInMainWorld('shellby', {
   fitPanel: invoke('panel:fit'), zoomFactor: () => webFrame.getZoomFactor(), // grow the panel until the panes fit ({ width, height } DIP); the page's zoom, for CSS px -> DIP
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
-  onTabs: on('tabs'),
+  onTabs: on('tabs'), keepWarmSet: invoke('keepwarm:set'), keepWarmGet: invoke('keepwarm:get'), onKeepWarm: on('keepwarm'), // Keep warm (keepwarm-service.js)
   onHomeLine: on('home:line'), // { tabId, title, base, status: 'sorting' | 'home' | 'stuck', ... }
   onLaneTrain: on('lanes:train'), // { tabId, index, phase, of } while lining copies up, then { done: true }
   onClashes: on('clashes'), // { clashes, fresh: [key] }: copies that changed the same files

@@ -1,0 +1,248 @@
+// keepwarm-service.js: arming and stopping, the tick that pings, receipts,
+// drops, the 3-hour cap and coming back, with a fake clock and tab manager.
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const kw = require('../src/main/keepwarm');
+const { createKeepWarm } = require('../src/main/keepwarm-service');
+
+const T0 = 1_790_000_000_000;
+const MIN = 60 * 1000;
+const HOUR = 60 * MIN;
+const WARM = { ok: true, error: null, denied: false, tokens: { cacheRead: 40000, cacheWrite: 30 } };
+
+// Cached ten minutes ago for an hour: due at T0 + 45 min, cold at T0 + 50 min.
+function fakeTab(id, session = {}) {
+  return { id, title: id.toUpperCase(), saved: true, inTerminal: null, session: { proc: {}, busy: false, pending: new Map(), runningCrew: () => [], cache: { at: T0 - 10 * MIN, ttlMs: HOUR }, ...session } };
+}
+
+function setup({ tabs = [fakeTab('a')], reply = WARM } = {}) {
+  let clock = T0;
+  let interval = null;
+  const calls = { pings: [], notes: [], sent: [], blocker: [], interrupted: [] };
+  const timeouts = [];
+  const manager = {
+    tabs: new Map(tabs.map(t => [t.id, t])),
+    ping: async (id, text) => { calls.pings.push({ id, text }); return reply; },
+    note: (id, item) => calls.notes.push({ id, item }),
+    interrupt: id => calls.interrupted.push(id),
+  };
+  const svc = createKeepWarm({
+    manager, panel: {}, CAPTURE: false,
+    log: { info: () => {}, warn: () => {} },
+    send: (_win, channel, payload) => calls.sent.push({ channel, payload }),
+    powerSaveBlocker: { start: kind => { calls.blocker.push(['start', kind]); return 7; }, stop: id => calls.blocker.push(['stop', id]) },
+    now: () => clock,
+    setInterval: fn => { interval = fn; return { unref() {} }; },
+    clearInterval: () => { interval = null; },
+    setTimeout: (fn, ms) => { const h = { fn, ms, live: true, unref() {} }; timeouts.push(h); return h; },
+    clearTimeout: h => { if (h) h.live = false; },
+  });
+  const settle = () => new Promise(r => setImmediate(r));
+  return { svc, manager, calls, settle, advance: ms => { clock += ms; }, tick: () => interval?.(), timeouts: () => timeouts, ticking: () => !!interval };
+}
+
+test('with nothing warm for an hour it does not turn on, and says why', () => {
+  const { svc, calls, ticking } = setup({ tabs: [fakeTab('a', { cache: { at: T0, ttlMs: 5 * MIN } })] });
+  const r = svc.set(true);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /Nothing to keep warm/);
+  assert.equal(svc.view().on, false);
+  assert.deepEqual(calls.blocker, []);
+  assert.equal(ticking(), false);
+});
+
+test('while it is on the PC stays awake, and turning it off lets it sleep', () => {
+  const { svc, calls, ticking } = setup();
+  assert.equal(svc.set(true).ok, true);
+  assert.deepEqual(calls.blocker, [['start', 'prevent-app-suspension']]);
+  assert.equal(ticking(), true);
+  svc.set(false);
+  assert.deepEqual(calls.blocker, [['start', 'prevent-app-suspension'], ['stop', 7]]);
+  assert.equal(ticking(), false);
+  assert.equal(svc.view().on, false);
+});
+
+test('a tab is pinged five minutes before its cache would expire, and not before', async () => {
+  const { svc, calls, advance, tick, settle } = setup();
+  svc.set(true);
+  advance(44 * MIN); tick(); await settle();
+  assert.equal(calls.pings.length, 0);
+  advance(1 * MIN); tick(); await settle();
+  assert.deepEqual(calls.pings, [{ id: 'a', text: kw.PING_TEXT }]);
+  const receipt = calls.notes.at(-1);
+  assert.equal(receipt.id, 'a');
+  assert.deepEqual({ ...receipt.item, at: 0 }, { kind: 'keepwarm', warm: true, endsTurn: true, at: 0, read: 40000, text: kw.keptText(T0 + 45 * MIN, 40000) });
+  assert.equal(svc.isKept('a'), true);
+});
+
+test('a ping that finds the cache cold drops the tab and says so', async () => {
+  const { svc, calls, advance, tick, settle } = setup({ reply: { ok: true, error: null, denied: false, tokens: { cacheRead: 0, cacheWrite: 40000 } } });
+  svc.set(true);
+  advance(46 * MIN); tick(); await settle();
+  assert.equal(calls.notes.at(-1).item.text, 'Stopped keeping warm: the ping found it cold (read 0, wrote 40k)');
+  assert.equal(calls.notes.at(-1).item.endsTurn, true);
+  assert.equal(svc.isKept('a'), false);
+  advance(30 * MIN); tick(); await settle();
+  assert.equal(calls.pings.length, 1, 'never pinged again');
+});
+
+test('a ping that asked for a tool drops the tab', async () => {
+  const { svc, calls, advance, tick, settle } = setup({ reply: { ok: false, error: null, denied: true, tokens: null } });
+  svc.set(true);
+  advance(46 * MIN); tick(); await settle();
+  assert.equal(calls.notes.at(-1).item.text, 'Stopped keeping warm: the ping tried to use a tool');
+});
+
+test('a working tab waits and stays kept, even past due', async () => {
+  const a = fakeTab('a');
+  const { svc, calls, advance, tick, settle } = setup({ tabs: [a] });
+  svc.set(true);
+  a.session.busy = true;
+  advance(55 * MIN); tick(); await settle();
+  assert.deepEqual([calls.pings.length, calls.notes.length, svc.isKept('a')], [0, 0, true]);
+});
+
+test('woken past the expiry, a kept tab is dropped, not pinged, and the line does not end a turn', async () => {
+  const { svc, calls, advance, tick, settle } = setup();
+  svc.set(true);
+  advance(51 * MIN); tick(); await settle();
+  assert.equal(calls.pings.length, 0);
+  assert.equal(calls.notes.at(-1).item.text, `Stopped keeping warm: it went cold at ${kw.hhmm(T0 + 50 * MIN)}`);
+  assert.equal(calls.notes.at(-1).item.endsTurn, false);
+});
+
+test('a kept tab whose process ended is dropped', async () => {
+  const a = fakeTab('a');
+  const { svc, calls, tick, settle } = setup({ tabs: [a] });
+  svc.set(true);
+  a.session.proc = null;
+  tick(); await settle();
+  assert.equal(calls.notes.at(-1).item.text, 'Stopped keeping warm: its Claude Code process ended');
+});
+
+test('a kept tab that is closed just leaves, with no ping and no line', async () => {
+  const { svc, manager, calls, advance, tick, settle } = setup();
+  svc.set(true);
+  manager.tabs.delete('a');
+  advance(46 * MIN); tick(); await settle();
+  assert.deepEqual([calls.pings.length, calls.notes.length, svc.isKept('a')], [0, 0, false]);
+});
+
+test('a tab that warms up after it went on is kept from then on', () => {
+  const b = fakeTab('b', { cache: null });
+  const { svc, tick } = setup({ tabs: [fakeTab('a'), b] });
+  svc.set(true);
+  assert.equal(svc.isKept('b'), false);
+  b.session.cache = { at: T0, ttlMs: HOUR };
+  tick();
+  assert.equal(svc.isKept('b'), true);
+});
+
+test('three hours after it went on, it stops', () => {
+  const { svc, calls, advance, tick } = setup();
+  svc.set(true);
+  advance(3 * HOUR); tick();
+  assert.equal(svc.view().on, false);
+  assert.deepEqual(calls.blocker.at(-1), ['stop', 7]);
+});
+
+test("coming back after stepping away turns it off; staying at the keyboard doesn't", () => {
+  const { svc } = setup();
+  svc.set(true);
+  svc.reading({ idleMs: 0 });
+  assert.equal(svc.view().on, true);
+  svc.reading({ idleMs: 3 * MIN });
+  assert.equal(svc.view().on, true);
+  svc.reading({ idleMs: 10 * 1000 });
+  assert.equal(svc.view().on, false);
+});
+
+test('a message you send turns it off', () => {
+  const { svc } = setup();
+  svc.set(true);
+  svc.userSent();
+  assert.equal(svc.view().on, false);
+  svc.userSent(); // already off: nothing happens
+  assert.equal(svc.view().on, false);
+});
+
+test('due tabs are pinged one at a time, and none twice in a row', async () => {
+  let open = 0;
+  let most = 0;
+  const { svc, manager, calls, advance, tick, settle } = setup({ tabs: [fakeTab('a'), fakeTab('b'), fakeTab('c')] });
+  manager.ping = async id => {
+    open++; most = Math.max(most, open);
+    calls.pings.push({ id });
+    await new Promise(r => setImmediate(r));
+    open--;
+    return WARM;
+  };
+  svc.set(true);
+  advance(46 * MIN); tick();
+  for (let i = 0; i < 12; i++) await settle();
+  assert.deepEqual(calls.pings.map(p => p.id), ['a', 'b', 'c']);
+  assert.equal(most, 1);
+  tick(); await settle();
+  assert.equal(calls.pings.length, 3, 'a cache just read is not pinged again');
+});
+
+test('the panel hears each change, with a line for every tab', () => {
+  const b = fakeTab('b', { cache: { at: T0, ttlMs: 5 * MIN } });
+  const { svc, calls } = setup({ tabs: [fakeTab('a'), b] });
+  svc.set(true);
+  const last = calls.sent.filter(s => s.channel === 'keepwarm').at(-1).payload;
+  assert.equal(last.on, true);
+  assert.equal(last.endsAt, T0 + 3 * HOUR);
+  assert.deepEqual(last.tabs, [
+    { id: 'a', title: 'A', line: `next ping ${kw.hhmm(T0 + 45 * MIN)}` },
+    { id: 'b', title: 'B', line: 'its cache only lasts 5 minutes' },
+  ]);
+  svc.set(false);
+  assert.deepEqual(calls.sent.at(-1), { channel: 'keepwarm', payload: { on: false, endsAt: null, tabs: [] } });
+});
+
+test('a ping that never answers is interrupted after the lead time, then the tab is dropped and the next one goes', async () => {
+  // a is due at T0 + 35 min; b (a longer-lived cache) is due at T0 + 41 min, while a's ping is still out.
+  const a = fakeTab('a', { cache: { at: T0 - 20 * MIN, ttlMs: HOUR } });
+  const b = fakeTab('b', { cache: { at: T0 - 20 * MIN, ttlMs: HOUR + 6 * MIN } });
+  const { svc, manager, calls, advance, tick, settle, timeouts } = setup({ tabs: [a, b] });
+  let release = null;
+  manager.ping = id => {
+    calls.pings.push({ id });
+    manager.tabs.get(id).session.busy = true;
+    return new Promise(r => { release = r; });
+  };
+  manager.interrupt = id => {
+    calls.interrupted.push(id);
+    manager.tabs.get(id).session.busy = false;
+    release({ ok: false, error: null, denied: false, tokens: null });
+  };
+  svc.set(true);
+  advance(36 * MIN); tick(); await settle();
+  assert.deepEqual(calls.pings.map(p => p.id), ['a']);
+  advance(5 * MIN); tick(); await settle();
+  assert.deepEqual(calls.pings.map(p => p.id), ['a'], 'b is due, but one at a time: it waits behind the stuck ping');
+  const fuse = timeouts().find(h => h.live);
+  assert.equal(fuse.ms, kw.LEAD_MS);
+  assert.deepEqual(calls.interrupted, []);
+  advance(1);
+  fuse.fn();
+  assert.deepEqual(calls.interrupted, ['a']);
+  await settle();
+  const note = calls.notes.find(n => n.id === 'a');
+  assert.equal(note.item.text, 'Stopped keeping warm: the ping got no reply');
+  assert.equal(note.item.endsTurn, true);
+  assert.equal(calls.notes.at(-1).id, 'a', 'the last line is the drop');
+  assert.equal(svc.isKept('a'), false);
+  assert.deepEqual(calls.pings.map(p => p.id), ['a', 'b'], 'the next due tab now gets its ping');
+});
+
+test('a ping that answers in time clears its fuse and never interrupts', async () => {
+  const { svc, calls, advance, tick, settle, timeouts } = setup();
+  svc.set(true);
+  advance(46 * MIN); tick(); await settle();
+  assert.equal(calls.pings.length, 1);
+  assert.equal(timeouts().length, 1, 'one fuse was set');
+  assert.equal(timeouts().filter(h => h.live).length, 0, 'and cleared');
+  assert.deepEqual(calls.interrupted, []);
+});
