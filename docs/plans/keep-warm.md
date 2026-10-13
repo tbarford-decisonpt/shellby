@@ -45,12 +45,15 @@ tab manager (`src/main/sessions.js`) and the tests.
     (`recap.js` `IDLE_MS`).
   - **You send a message from the panel, in any tab.** A routine, a workflow,
     the reset queue or your phone sending one doesn't count: you aren't back
-    at the PC.
+    at the PC. Nor does a message you queued before leaving going out by
+    itself when the turn ahead of it ends.
   - **3 hours** after you pressed it (`MAX_MS`). A button you forgot can't ping
     all night.
   - **You press it again**, or Shellby quits. Nothing is saved across a
     restart: a restart ends every process, and a resumed process rebuilds its
     prompt, so the cache would not survive it anyway.
+  - **Nothing is left to keep warm**: every tab it kept has been dropped or
+    closed, and no tab is working that could warm up again.
 - **It won't arm with nothing to do.** If no tab has a warm one-hour cache when
   you press it, it doesn't turn on. A toast says why.
 
@@ -108,14 +111,20 @@ tooltip lists them.
 | Cache lasts 5 minutes (an API key without `promptCacheTtl: "1h"`) | not pinged | "its cache only lasts 5 minutes" |
 | Cache already cold, for example the PC slept past it | dropped, no ping (it would pay the full write) | "it went cold at 13:02" |
 | No process, terminal mode, or nothing sent yet | not pinged | "nothing to keep warm" |
-| Ping read nothing, or wrote at least a tenth of what it read and at least 10k | dropped | "the ping found it cold (read 0, wrote 212k)" |
+| Ping read nothing, or wrote at least a tenth of what it read and at least 10k | kept the first time, since the ping wrote the cache back and the next one should read it; dropped if the next ping finds it cold too | "the ping found it cold (read 0, wrote 212k)" |
 | Ping ended in an error (window used up, API error) | dropped | the error, first line |
 | Ping asked for a permission | denied at once, dropped | "the ping tried to use a tool" |
 | Ping got no reply within 5 minutes (`LEAD_MS`) | dropped, and the next tab's ping can go | "the ping got no reply" |
 | Tab closed, or its process died | dropped | - |
 
 The read and write rule is Cache Tax's. Either reading means the cache had
-already gone, and pinging on would pay a write every 55 minutes. The 10k floor
+gone. One cold ping still leaves the cache warm, because it wrote it back, so
+Shellby gives the tab one more ping. Task 0's spike found that a process's
+second turn always rewrites part of its first message (it read 21k and wrote
+16k), so a ping that is a tab's second turn looks cold once and then reads
+normally. Two cold pings in a row mean pings aren't holding this tab's cache,
+and pinging on would pay a write every 55 minutes. Its receipt line then says
+what it wrote: `Kept warm 12:55 · read 21k from cache, wrote 16k`. The 10k floor
 is Shellby's: every warm ping writes about 2.6k of its own (its message, the
 reply and what Claude Code attaches to each turn), which on a small
 conversation can pass a tenth of what it read.
@@ -126,7 +135,9 @@ conversation can pass a tenth of what it read.
   quiet for 30 minutes, which is long before the first ping. While Keep warm is
   on, a tab it is still keeping is skipped.
   `stopIdle(idleMs, now, keep = () => false)` takes the service's
-  `isKept(tabId)`. A dropped tab goes back to the normal rule.
+  `isKept(tabId)`. A dropped tab goes back to the normal rule. When Keep warm
+  stops, each tab it was still keeping counts as just used, so idle stop
+  doesn't end those processes in the minute after you come back.
 - **The PC stays awake.** A laptop asleep at lunch pings nothing. While it's
   on, Windows is asked not to sleep (`powerSaveBlocker`
   `'prevent-app-suspension'`, as the reset queue does), and that ends when it
