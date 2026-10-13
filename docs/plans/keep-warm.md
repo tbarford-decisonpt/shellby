@@ -62,7 +62,7 @@ One fixed message, sent through the tab's own running Claude process:
 
 - **Through the running process, never a new one.** Claude Code rebuilds its
   prompt at each start (git status, date, memory). A resumed or forked process
-  would ask about a different prefix and pay a full write anyway.
+  can ask about a different prefix and pay a full write.
 - **Not through `manager.send`.** A ping skips History, the effort picker,
   the note preamble, `decorate`, `prepareTurn`, steering and
   `history.markTurn`, so a power cut mid-ping doesn't mark the conversation
@@ -106,13 +106,16 @@ tooltip lists them.
 | Cache lasts 5 minutes (an API key without `promptCacheTtl: "1h"`) | not pinged | "its cache only lasts 5 minutes" |
 | Cache already cold, for example the PC slept past it | dropped, no ping (it would pay the full write) | "it went cold at 13:02" |
 | No process, terminal mode, or nothing sent yet | not pinged | "nothing to keep warm" |
-| Ping read nothing, or wrote at least a tenth of what it read | dropped | "the ping found it cold (read 0, wrote 212k)" |
+| Ping read nothing, or wrote at least a tenth of what it read and at least 10k | dropped | "the ping found it cold (read 0, wrote 212k)" |
 | Ping ended in an error (window used up, API error) | dropped | the error, first line |
 | Ping asked for a permission | denied at once, dropped | "the ping tried to use a tool" |
 | Tab closed, or its process died | dropped | - |
 
 The read and write rule is Cache Tax's. Either reading means the cache had
-already gone, and pinging on would pay a write every 55 minutes.
+already gone, and pinging on would pay a write every 55 minutes. The 10k floor
+is Shellby's: every warm ping writes about 2.6k of its own (its message, the
+reply and what Claude Code attaches to each turn), which on a small
+conversation can pass a tenth of what it read.
 
 ### What else changes while it's on
 
