@@ -108,6 +108,7 @@ fs.mkdirSync(claudeConfig);
 
     // ---- 2. the branch row and the tree
     check(await until(`${cur}?.branch === 'main' && document.querySelector('#filesDock .ft-branch-name')?.textContent === 'main'`), 'the branch row names the branch');
+    await ev("window.__ftWhere = document.querySelector('#filesDock .ft-where')");
     check(await until("document.querySelector('#filesDock .ft-sums')?.textContent === 'clean'"), 'and says it is clean');
     check(await until(`!!${row('src')} && !!${row('docs')} && !!${row('readme.md')}`), 'the tree lists the project');
     check(await ev(`[...document.querySelectorAll('#filesDock .ft-rows .ft-row')].findIndex(r => r.dataset.key === 'readme.md') > [...document.querySelectorAll('#filesDock .ft-rows .ft-row')].findIndex(r => r.dataset.key === 'src')`), 'folders first');
@@ -137,6 +138,8 @@ fs.mkdirSync(claudeConfig);
     // ---- 5. the branch row's menu
     await ev("document.querySelector('#filesDock .ft-where').click()");
     check(await until("!document.getElementById('filesMenu').hidden && document.getElementById('filesMenu').textContent.includes('Worktrees') && document.getElementById('filesMenu').textContent.includes('✓')"), 'the branch row opens the worktree and branch menu, this one ticked');
+    check(await ev("document.querySelector('#filesDock .ft-where') === window.__ftWhere"), 'the branch button is the same element after the edit and the commit reads, so the menu stays anchored to it');
+    check(await ev("(m => (d => m.top > 0 && m.left >= d.left - 4 && m.left < d.right)(document.getElementById('filesDock').getBoundingClientRect()))(document.getElementById('filesMenu').getBoundingClientRect())"), 'and the menu opens beside the dock, not at the window corner');
     await ev('SB.closeMenus()');
 
     // ---- 6. closing

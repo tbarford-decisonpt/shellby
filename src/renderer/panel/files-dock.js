@@ -29,6 +29,17 @@
   const pinsEl = h('div', { class: 'ft-pins', 'aria-hidden': 'true' });
   const rowsEl = h('div', { class: 'ft-rows' });
   const treeEl = h('div', { class: 'ft-tree', role: 'tree', tabindex: '0', 'aria-label': 'All files' }, pinsEl, rowsEl);
+  // The branch row's parts are built once and updated in place: a status read every couple of seconds
+  // must not replace the button the menu is anchored to, or the one holding the keyboard.
+  const nogitEl = h('span', { class: 'ft-nogit', text: 'Not a git repo' });
+  const nameEl = h('span', { class: 'ft-branch-name' });
+  const abEl = h('span', { class: 'ft-ab' });
+  const whereBtn = h('button', { type: 'button', class: 'ft-where', 'aria-haspopup': 'menu', onclick: () => openPlaces() }, nameEl, abEl,
+    h('span', { class: 'vw-where-caret', 'aria-hidden': 'true', text: '▾' }));
+  const errText = document.createTextNode('');
+  const retryBtn = h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Retry', onclick: () => load() });
+  const errEl = h('span', { class: 'ft-err' }, errText, ' ', retryBtn);
+  const sumsEl = h('span', { class: 'ft-sums' });
   const pickedEl = h('span', { class: 'ft-picked' });
   const unpickBtn = h('button', { type: 'button', class: 'icon-btn ft-unpick', title: 'Stop sending this file along', 'aria-label': 'Clear the picked file', text: '×' });
   const followBox = h('input', { type: 'checkbox' });
@@ -77,10 +88,12 @@
 
   // The conversation in the focused pane gets the tree; a new one, or one moved into its own copy,
   // gets a handle of its own (opened with its id, so main closes it with the conversation).
-  async function ensure() {
+  // quiet: a catch-up (the tab shown again) lights nothing; activating the conversation already shown
+  // reads as any nudge would, so a commit's flash isn't swallowed.
+  async function ensure(quiet = true) {
     const tab = state.tabs.get(state.activeTab) || null;
     const cwd = tab?.cwd || null;
-    if (me && tab && me.tabId === tab.id && me.cwd === cwd && (me.root || me.note)) return me.root ? load({ tree: true, quiet: true }) : draw();
+    if (me && tab && me.tabId === tab.id && me.cwd === cwd && (me.root || me.note)) return me.root ? load({ tree: true, quiet }) : draw();
     if (me?.id) api.viewerClose(me.id);
     Object.assign(flash, F.create());
     clearTimeout(darkTimer);
@@ -186,16 +199,22 @@
   // The branch, ahead and behind its upstream, and the repo's totals; a button that opens the menu.
   function drawBranch() {
     const at = me;
-    if (!at.git) return branchEl.replaceChildren(h('span', { class: 'ft-nogit', text: 'Not a git repo' }));
+    if (!at.git) return setBranch([nogitEl]);
     const ab = at.upstream ? [at.ahead ? `↑${at.ahead}` : '', at.behind ? `↓${at.behind}` : ''].filter(Boolean).join(' ') : '';
-    branchEl.replaceChildren(
-      h('button', { type: 'button', class: 'ft-where', 'aria-haspopup': 'menu', title: `${at.root}\nWorktrees and branches`, onclick: openPlaces },
-        h('span', { class: 'ft-branch-name', text: at.branch || 'detached' }),
-        ab ? h('span', { class: 'ft-ab', text: ab, title: `Ahead of ${at.upstream} by ${at.ahead}, behind by ${at.behind}` }) : null,
-        h('span', { class: 'vw-where-caret', 'aria-hidden': 'true', text: '▾' })),
-      at.error
-        ? h('span', { class: 'ft-err' }, at.error, ' ', h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Retry', onclick: () => load() }))
-        : h('span', { class: 'ft-sums', text: F.totalsText(at.sums.get('')) || 'clean' }));
+    nameEl.textContent = at.branch || 'detached';
+    abEl.textContent = ab;
+    abEl.hidden = !ab;
+    abEl.title = ab ? `Ahead of ${at.upstream} by ${at.ahead}, behind by ${at.behind}` : '';
+    whereBtn.title = `${at.root}\nWorktrees and branches`;
+    if (at.error) errText.nodeValue = at.error; else sumsEl.textContent = F.totalsText(at.sums.get('')) || 'clean';
+    setBranch([whereBtn, at.error ? errEl : sumsEl]);
+  }
+
+  // Only when the parts differ: putting the same nodes back would drop the keyboard from a focused one.
+  function setBranch(parts) {
+    const now = branchEl.children;
+    if (now.length === parts.length && parts.every((p, i) => now[i] === p)) return;
+    branchEl.replaceChildren(...parts);
   }
 
   // The conversation's pick, as a path in its own folder's tree (never shown on a picked worktree).
@@ -364,14 +383,14 @@
   async function openPlaces() {
     const at = me;
     const menu = $('filesMenu');
-    const anchor = branchEl.querySelector('.ft-where');
-    if (!at?.git || !anchor) return;
+    if (!at?.git || !whereBtn.isConnected) return;
     if (!menu.hidden) return SB.closeMenus({ refocus: true });
-    SB.openMenu(menu, anchor, () => [h('div', { class: 'menu-label', text: 'Looking…' })]);
+    SB.openMenu(menu, whereBtn, () => [h('div', { class: 'menu-label', text: 'Looking…' })]);
     const r = await call(at, id => api.viewerPlaces(id));
     if (me !== at || menu.hidden) return;
     SB.closeMenus();
-    SB.openMenu(menu, anchor, () => SB.viewer.placeRows(r, pickPlace));
+    if (!whereBtn.isConnected) return;
+    SB.openMenu(menu, whereBtn, () => SB.viewer.placeRows(r, pickPlace));
   }
 
   // A worktree: the tree switches to it (its own folder again: back home). A branch has no folder,
@@ -476,7 +495,7 @@
     },
   });
   // The conversation in the focused pane changed (tabs.js activate): the tree, and the chip, follow it.
-  SB.filesFollow = () => { if (shown) ensure(); SB.renderPickChip?.(); };
+  SB.filesFollow = () => { if (shown) ensure(false); SB.renderPickChip?.(); };
   SB.filesRedraw = () => { if (shown && me?.root) { drawRows(); drawFoot(); } };
   // Back to the chat (SB.setView calls its render): a nudge missed meanwhile is read now. The chat's
   // render belongs to pane-room.js, which loads before this file; it still runs first.
@@ -485,7 +504,7 @@
     ...chatView,
     render() {
       chatView?.render?.();
-      if (missed && shown && me?.root) { missed = false; load(); }
+      if (missed && shown && me?.root) { missed = false; load({ quiet: true }); }
     },
   };
 
