@@ -1,8 +1,19 @@
 # Panes that aren't conversations: a dev server, a copy's changes, a file
 
-A plan, not built yet. It follows on from [split-panes.md](split-panes.md) and
-needs agreeing before anyone starts, because it changes that plan's central
-rule: "every pane is a group of conversation tabs".
+Partly built. It follows on from [split-panes.md](split-panes.md) and changes
+that plan's central rule: "every pane is a group of conversation tabs".
+
+**Built:** the model (tool ids in `shared/panes.js`) and the dev server log
+(`renderer/panel/tool-tabs.js`), opened from a server's card. The open
+questions were settled as follows: a tool is a tab id in a pane's slot; a tool
+pane holds that tool alone; the log came first. The approval sheet on the
+server's card stays the only way its error goes to Claude, so the pane's
+button takes you there. Tool panes aren't kept over a restart, because the
+servers they show stop with Shellby.
+
+**Not built, on purpose:** Changes and File. The file viewer (0.83.0) already
+shows a copy's changes and its files, one click away. Add them as kinds in
+`tool-tabs.js` if docking them beside the chat turns out to be missed.
 
 ## What it's for
 

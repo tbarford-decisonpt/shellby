@@ -118,6 +118,19 @@ body.panes-split .tabstrip { display: none; }
 /* Its share of the row is under 1 (tab-panes.js applySizes), which would leave the rest empty. */
 .feeds.pane-zoomed .zoomed-col, .feeds.pane-zoomed .pane.zoomed { flex-grow: 1 !important; }
 .pane-btn[aria-pressed="true"] { color: var(--glass); }
+/* A tool's pane (tool-tabs.js): its name where the tabs go, only its x, and
+   the tool filling the rest. No box, no zoom, no new conversation in it. */
+.pane.tool > .pane-head .pane-btn:not(.pane-close) { display: none; }
+.tool-chip {
+  align-self: center; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: var(--fs-11) var(--font-mono); color: var(--sand-dim); cursor: grab;
+}
+.tool-pane { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; }
+.tp-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tp-status { margin-left: auto; flex: none; font: var(--fs-11) var(--font-mono); color: var(--sand-dim); }
+.tp-actions { gap: 4px; }
+.tool-pane .tp-log { flex: 1 1 0; max-height: none; min-height: 0; }
 /* A pane's lane: the branch of its copy and its last checks. Dragging the
    header there (not a tab or a button) swaps the pane with another. */
 .pane-lane {

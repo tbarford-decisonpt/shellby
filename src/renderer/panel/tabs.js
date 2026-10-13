@@ -300,7 +300,9 @@
       if (e.defaultPrevented || e.target.closest?.('.title-edit') || !dir || !state.activeTab || state.view !== 'chat' || SB.panes.count(state.grid) < 2 || SB.overlayOpen()) return;
       e.preventDefault();
       if (K.matches(e, 'movePane')) { SB.movePane(state.activeTab, dir); return; }
-      const to = SB.panes.neighbor(state.grid, SB.focusedPane(), dir);
+      // A tool's pane takes no box: on past it, the same way.
+      let to = SB.panes.neighbor(state.grid, SB.focusedPane(), dir);
+      while (to && SB.panes.isToolPane(SB.panes.byId(state.grid, to))) to = SB.panes.neighbor(state.grid, to, dir);
       if (to) SB.activate(SB.panes.byId(state.grid, to).active);
       return;
     }

@@ -110,7 +110,8 @@
       $('tabs').replaceChildren();
       for (const p of state.grid.flat()) {
         const strip = SB.paneStripOf(p.id);
-        if (strip) drawTabs(strip, p.tabs, p.active);
+        if (strip && SB.panes.isToolPane(p)) strip.replaceChildren(SB.tools.chip(p.active));
+        else if (strip) drawTabs(strip, p.tabs, p.active);
       }
     } else {
       for (const p of state.grid.flat()) SB.paneStripOf(p.id)?.replaceChildren();
