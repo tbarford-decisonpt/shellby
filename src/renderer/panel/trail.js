@@ -184,6 +184,7 @@
 
   // Ctrl+Shift+E and Ctrl+Shift+F: the drawer on that tab, or closed when that tab is already up.
   SB.toggleDrawer = (name, { focus = false } = {}) => {
+    if (name !== 'trail' && !tabs.has(name)) name = 'trail'; // a tab this window has none of (All files in solo)
     if (open && shows === name) return SB.toggleTrail(false);
     if (open) return showTab(name, { focus });
     shows = name;
