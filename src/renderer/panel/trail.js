@@ -31,6 +31,11 @@
   const LANDED_MS = 2400;   // how long a step the trail sent you to stays lit
   const OPEN_KEY = 'shellby.trail.open';
   const SCOPE_KEY = 'shellby.trail.scope';
+  const WIDTH_KEY = 'shellby.trail.width';
+  const TRAIL_W = 272;      // its width until you drag it (trail.css --trail-w)
+  const MIN_W = 220;        // narrower and the names no longer fit beside their marks
+  const STEP_W = 16;        // an arrow key on its edge
+  const OVER_GAP = 48;      // lying over the chat, this much of the chat stays in view
   const MAX_SIGNALS = 3;
 
   // Footprints, as pixel grids (shared/sprite.js grid): read, changed, found.
@@ -132,6 +137,7 @@
     SB.trailFollow();
     await makeRoom();
     if (!open) return; // closed again while the panel grew
+    setWidth(drawer.getBoundingClientRect().width); // a width kept from a wider window fits this one
     paint();
     if (focus) map.focus();
   };
@@ -609,6 +615,60 @@
   api.onSkin?.(() => { for (const c of crabsEl.querySelectorAll('.tr-crab')) delete c.dataset.pose; schedule(); });
   // A narrower or wider chat moves the names he stands beside.
   new ResizeObserver(() => { if (open) schedule(); }).observe(map);
+
+  // ------------------------------------------------------------ its width
+
+  // Drag the line on its left edge, or arrow keys on it (Home and End for the
+  // narrowest and widest); a double-click puts the usual width back. Beside the
+  // chat, the chat keeps MIN_CHAT; lying over it, OVER_GAP of it stays in view.
+  const grip = $('trailGrip');
+  const widest = () => {
+    const whole = $('chatView').getBoundingClientRect().width;
+    if (!whole) return Infinity; // the chat isn't on screen: nothing to measure against yet
+    return Math.max(MIN_W, Math.floor(whole - (document.body.classList.contains('trail-over') ? OVER_GAP : MIN_CHAT)));
+  };
+  function setWidth(px, { save = false } = {}) {
+    const max = widest();
+    const w = Math.round(Math.min(max, Math.max(MIN_W, px)));
+    document.body.style.setProperty('--trail-w', `${w}px`);
+    grip.setAttribute('aria-valuemin', String(MIN_W));
+    if (Number.isFinite(max)) grip.setAttribute('aria-valuemax', String(max));
+    grip.setAttribute('aria-valuenow', String(w));
+    // A conversation's own window keeps the panel's width as it is.
+    if (save && !SB.solo) try { window.localStorage.setItem(WIDTH_KEY, String(w)); } catch { /* lasts this session */ }
+  }
+  const kept = Number(window.localStorage.getItem(WIDTH_KEY));
+  if (kept >= MIN_W) document.body.style.setProperty('--trail-w', `${Math.round(kept)}px`); // fitted to the window when it opens
+
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const start = e.clientX;
+    const from = drawer.getBoundingClientRect().width;
+    grip.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing-trail');
+    const move = ev => setWidth(from + start - ev.clientX);
+    // Whichever of these comes first ends it, once (as tab-panes.js's dividers do).
+    let done = false;
+    const up = ev => {
+      if (done || ev.pointerId !== e.pointerId) return;
+      done = true;
+      grip.removeEventListener('pointermove', move);
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) grip.removeEventListener(type, up);
+      document.body.classList.remove('resizing-trail');
+      setWidth(drawer.getBoundingClientRect().width, { save: true });
+    };
+    grip.addEventListener('pointermove', move);
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) grip.addEventListener(type, up);
+  });
+  grip.addEventListener('dblclick', () => setWidth(TRAIL_W, { save: true }));
+  grip.addEventListener('keydown', (e) => {
+    const w = drawer.getBoundingClientRect().width;
+    const to = { ArrowLeft: w + STEP_W, ArrowRight: w - STEP_W, Home: MIN_W, End: Infinity }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    setWidth(to, { save: true });
+  });
 
   // Open as you left it: boot.js calls this once the tabs are back.
   SB.restoreTrail = () => { if (window.localStorage.getItem(OPEN_KEY) === '1' && !SB.solo && state.view === 'chat') SB.toggleTrail(true); };

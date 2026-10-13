@@ -213,7 +213,7 @@
       o.textContent = o.dataset.label + (o.value === 'auto' ? ` (${ed.using || 'default app'})` : o.value !== 'system' && !ed.installed.includes(o.value) ? ' (not installed)' : '');
     }
     $('editorNote').textContent = ed.using
-      ? `File paths in a conversation open in ${ed.using}, at the line. Shift+click shows a file in its folder instead.`
+      ? `File paths in a conversation open in Shellby's viewer. Ctrl+click opens ${ed.using} at the line, and Shift+click shows a file in its folder.`
       : "No VS Code, Cursor or Windsurf found, so file links open in Windows' default app. Anything that would run (a script, an .exe) is shown in its folder instead.";
   }
   $('editorSelect').addEventListener('change', async e => {

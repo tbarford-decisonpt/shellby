@@ -18,6 +18,7 @@
   const PLUS_ICON = 'M8 3.5v9M3.5 8h9';
   const CLOSE_ICON = 'M4.5 4.5l7 7M11.5 4.5l-7 7';
   const ZOOM_ICON = 'M3 6.5V3h3.5M13 6.5V3H9.5M3 9.5V13h3.5M13 9.5V13H9.5';
+  const FILES_ICON = 'M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6.1c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z';
   const EDGES = new Set(['left', 'right', 'top', 'bottom']);
 
   // On screen: the tab a pane shows.
@@ -299,7 +300,7 @@
   }
 
   // A pane's header is its tab strip, with its own edge markers (tab-overview.js),
-  // then a new conversation in this pane, pop out the tab it shows, and close the pane.
+  // then a new conversation in this pane, its files, pop out the tab it shows, and close the pane.
   function paneHead(paneId) {
     const strip = h('div', { class: 'tabs pane-tabs', role: 'tablist', 'aria-label': 'Conversations in this pane' });
     const left = h('button', { type: 'button', class: 'tab-edge left', hidden: true });
@@ -312,6 +313,8 @@
         SB.icon(PLUS_ICON, { width: 1.6 })),
       h('button', { class: 'pane-btn pane-zoom', type: 'button', title: 'Fill the chat with this pane, and back (Ctrl+Alt+Enter)', 'aria-label': 'Zoom this pane', 'aria-pressed': 'false', onclick: () => SB.zoomFrom(paneId) },
         SB.icon(ZOOM_ICON, { width: 1.5 })),
+      h('button', { class: 'pane-btn pane-files', type: 'button', hidden: true, title: "Browse this conversation's files", 'aria-label': 'Browse files', onclick: () => { const id = activeOf(paneId); if (id) SB.viewer?.openTab(id); } },
+        SB.icon(FILES_ICON, { width: 1.3 })),
       h('button', { class: 'pane-btn', type: 'button', title: 'Open in its own window', 'aria-label': 'Open in its own window', onclick: () => { const id = activeOf(paneId); if (id) SB.popOut(id); } },
         SB.icon(POP_ICON)),
       h('button', { class: 'pane-btn', type: 'button', title: 'Close this pane (its conversations move to the one beside it)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(paneId) },

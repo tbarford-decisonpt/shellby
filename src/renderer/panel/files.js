@@ -25,7 +25,7 @@
 
   SB.fileLink = (file, { line = null, text = null, cls = '' } = {}) => h('a', {
     class: `file-link${cls ? ` ${cls}` : ''}`, href: '#', dataset: { path: file, line: line || '' },
-    title: `Open ${file}${line ? ` at line ${line}` : ''} · Shift+click shows it in its folder`,
+    title: `Open ${file}${line ? ` at line ${line}` : ''} · Ctrl+click opens your editor · Shift+click shows it in its folder`,
   }, text ?? SB.basename(file));
 
   // One listener for every link, wherever it is: inside a tool row's <summary>
@@ -34,8 +34,13 @@
     const a = e.target.closest?.('a.file-link');
     if (!a) return;
     e.preventDefault();
-    const tab = a.closest('.feed')?.dataset.tab;
-    SB.openFile(a.dataset.path, { line: Number(a.dataset.line) || null, reveal: e.shiftKey, tabId: tab || state.activeTab });
+    const feed = a.closest('.feed');
+    const tabId = feed?.dataset.tab || state.activeTab;
+    const line = Number(a.dataset.line) || null;
+    // Ctrl: your editor, as a click used to be. Shift: its folder. A popped-out window has only its
+    // chat, and a link outside a conversation (Workflows' runs, say) has no folder to show it in.
+    if (e.ctrlKey || e.shiftKey || SB.solo || !SB.viewer || !feed) return SB.openFile(a.dataset.path, { line, reveal: e.shiftKey, tabId });
+    SB.viewer.openLink(tabId, a.dataset.path, line);
   });
 
   // `src/main/x.js:42` in a reply becomes a link. Only things that are plainly
