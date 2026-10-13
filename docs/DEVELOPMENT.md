@@ -513,6 +513,7 @@ src/main/        Electron main process
                    big drawings, one file per habitat; scripts/bugdex-sheet.js draws them to a PNG); wiring/bugdex.js ties it in
   fileindex.js     @ mentions: the files in a conversation's folder and a fuzzy match over them
   viewer.js        the file viewer: handles on a folder (reads kept inside it) or on a branch (read from git alone), what changed since each began, and the header menu's worktrees and branches; ipc/viewer.js serves it
+  viewer-status.js the file tree's git status for a viewer handle: each file's mark and +/− against HEAD, the branch and its upstream, and the files a real commit or a git add just touched
   mention-context.js @ what Shellby knows (pure): a dev server, a red build, another chat or a note, ranked for the @ menu and
                    fenced as a block; wiring/mention-context.js lists a tab's own, saves a pick's snapshot and reads it back for composePrompt
   debug-mode.js    Debug mode (pure): the prompts, a reproduction's lines, the marked lines left behind; debug-ingest.js is the

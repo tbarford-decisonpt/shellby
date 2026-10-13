@@ -19,6 +19,7 @@ const changes = require('./changes');
 const fileIndex = require('./fileindex');
 const { parseTarget } = require('./filelinks');
 const { parseWorktrees, okDir } = require('./leaving');
+const { readStatus } = require('./viewer-status');
 
 const { TREE } = changes;
 const HEADS = 'refs/heads/';
@@ -248,7 +249,7 @@ function createViewer({ home = os.homedir() } = {}) {
   // look running, last[mode] = { at, result }; shown = the mode of the list the panel was last handed;
   // gen counts nudges. origin = { tabId, root, base }: the conversation the first handle was opened
   // from, carried through the header menu's picks; places = that menu's list (placesOf), placing = its
-  // build while one runs.
+  // build while one runs. statusHead, statusCached, statusLine: the file tree's status reads (viewer-status.js).
   const handles = new Map();
   let line = Promise.resolve(); // viewer snapshots take turns: eight handles never hash a big repo at once
 
@@ -468,6 +469,29 @@ function createViewer({ home = os.homedir() } = {}) {
     return { ok: true, entries: t ? fileIndex.withFolders(t.list) : [] };
   }
 
+  // The file tree's marks (viewer-status.js), for a folder handle only. One read at a time per
+  // handle, in order, so each one's commit check compares with the one before. Asked again within
+  // REFRESH_MS with no nudge between, the last answer stands, without its commits and staged files
+  // (they lit once). staleFor's h.last = {} and h.pending = {} drop the reuse and the share, as
+  // they do for a changes look.
+  function statusOf(id) {
+    const h = handles.get(id);
+    if (!h) return Promise.resolve({ ok: false, expired: true });
+    if (h.kind !== 'folder') return Promise.resolve({ ok: false, error: 'Only a folder has a status.' });
+    if (!longPath(h.root)) return Promise.resolve({ ok: false, gone: true, error: 'This folder is gone.' });
+    if (h.pending.status) return h.pending.status;
+    const last = h.last.status;
+    if (last && Date.now() - last.at < REFRESH_MS) return Promise.resolve(last.result);
+    const gen = h.gen;
+    const p = (h.statusLine || Promise.resolve()).then(() => readStatus(h, git)).then(result => {
+      if (result.ok && h.gen === gen) h.last.status = { at: Date.now(), result: { ...result, committed: [], staged: [] } };
+      return result;
+    }).finally(() => { if (h.pending.status === p) delete h.pending.status; });
+    h.statusLine = p.catch(() => {});
+    h.pending.status = p;
+    return p;
+  }
+
   // ---- the header's menu (panel/viewer.js): the repo's worktrees, and its branches still in flight.
   // Built once per repo (its git common dir) and reused for 10 s by every handle on it, however many
   // ask at once. Each handle then keeps its own copy under random keys; a pick names a key, never a
@@ -625,7 +649,7 @@ function createViewer({ home = os.homedir() } = {}) {
   }
 
   return {
-    open, openBranch, get: id => handles.get(id) || null, changesOf, diffOf, read, treeOf,
+    open, openBranch, get: id => handles.get(id) || null, changesOf, diffOf, read, treeOf, statusOf,
     placesOf, switchTo, close: id => { handles.delete(id); }, staleFor, keepTabs,
   };
 }
