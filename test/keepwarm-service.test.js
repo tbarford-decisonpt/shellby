@@ -9,6 +9,7 @@ const T0 = 1_790_000_000_000;
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
 const WARM = { ok: true, error: null, denied: false, tokens: { cacheRead: 40000, cacheWrite: 30 } };
+const COLD = { ok: true, error: null, denied: false, tokens: { cacheRead: 0, cacheWrite: 40000 } };
 
 // Cached ten minutes ago for an hour: due at T0 + 45 min, cold at T0 + 50 min.
 function fakeTab(id, session = {}) {
@@ -18,13 +19,14 @@ function fakeTab(id, session = {}) {
 function setup({ tabs = [fakeTab('a')], reply = WARM } = {}) {
   let clock = T0;
   let interval = null;
-  const calls = { pings: [], notes: [], sent: [], blocker: [], interrupted: [] };
+  const calls = { pings: [], notes: [], sent: [], blocker: [], interrupted: [], touched: [] };
   const timeouts = [];
   const manager = {
     tabs: new Map(tabs.map(t => [t.id, t])),
     ping: async (id, text) => { calls.pings.push({ id, text }); return reply; },
     note: (id, item) => calls.notes.push({ id, item }),
     interrupt: id => calls.interrupted.push(id),
+    touch: id => calls.touched.push(id),
   };
   const svc = createKeepWarm({
     manager, panel: {}, CAPTURE: false,
@@ -75,15 +77,51 @@ test('a tab is pinged five minutes before its cache would expire, and not before
   assert.equal(svc.isKept('a'), true);
 });
 
-test('a ping that finds the cache cold drops the tab and says so', async () => {
-  const { svc, calls, advance, tick, settle } = setup({ reply: { ok: true, error: null, denied: false, tokens: { cacheRead: 0, cacheWrite: 40000 } } });
+// The ping's turn restamps the cache (session-accounting.js): the fake tab's has to be moved by hand.
+const restamp = (tab, at) => { tab.session.cache = { ...tab.session.cache, at }; };
+
+test('a ping that finds the cache cold keeps the tab once, and says what it wrote', async () => {
+  const a = fakeTab('a');
+  const { svc, calls, advance, tick, settle } = setup({ tabs: [a], reply: COLD });
   svc.set(true);
   advance(46 * MIN); tick(); await settle();
+  assert.equal(calls.pings.length, 1);
+  assert.deepEqual({ ...calls.notes.at(-1).item, at: 0 }, { kind: 'keepwarm', warm: true, endsTurn: true, at: 0, read: 0, wrote: 40000, text: kw.keptText(T0 + 46 * MIN, 0, 40000) });
+  assert.match(calls.notes.at(-1).item.text, /read 0 from cache, wrote 40k$/);
+  assert.equal(svc.isKept('a'), true, 'the ping wrote it back, so the next one should read it');
+});
+
+test('a second cold ping in a row drops the tab and says so', async () => {
+  const a = fakeTab('a');
+  const { svc, calls, advance, tick, settle } = setup({ tabs: [a], reply: COLD });
+  svc.set(true);
+  advance(46 * MIN); tick(); await settle();
+  restamp(a, T0 + 46 * MIN);
+  advance(55 * MIN); tick(); await settle();
+  assert.equal(calls.pings.length, 2);
   assert.equal(calls.notes.at(-1).item.text, 'Stopped keeping warm: the ping found it cold (read 0, wrote 40k)');
+  assert.equal(calls.notes.at(-1).item.warm, false);
   assert.equal(calls.notes.at(-1).item.endsTurn, true);
   assert.equal(svc.isKept('a'), false);
   advance(30 * MIN); tick(); await settle();
-  assert.equal(calls.pings.length, 1, 'never pinged again');
+  assert.equal(calls.pings.length, 2, 'never pinged again');
+});
+
+test('a warm ping between two cold ones starts the count again: the tab stays kept', async () => {
+  const a = fakeTab('a');
+  const { svc, manager, calls, advance, tick, settle } = setup({ tabs: [a] });
+  const replies = [COLD, WARM, COLD];
+  manager.ping = async id => { calls.pings.push({ id }); return replies[calls.pings.length - 1]; };
+  svc.set(true);
+  advance(46 * MIN); tick(); await settle();
+  for (let i = 0; i < 2; i++) {
+    restamp(a, T0 + (46 + 55 * i) * MIN);
+    advance(55 * MIN); tick(); await settle();
+  }
+  assert.equal(calls.pings.length, 3);
+  assert.deepEqual(calls.notes.map(n => n.item.warm), [true, true, true]);
+  assert.match(calls.notes.at(-1).item.text, /wrote 40k$/);
+  assert.equal(svc.isKept('a'), true);
 });
 
 test('a ping that asked for a tool drops the tab', async () => {
@@ -138,6 +176,50 @@ test('a tab that warms up after it went on is kept from then on', () => {
   b.session.cache = { at: T0, ttlMs: HOUR };
   tick();
   assert.equal(svc.isKept('b'), true);
+});
+
+test('when it stops, each tab it was still keeping counts as just used, so idle stop spares it', () => {
+  for (const off of [svc => svc.userSent(), svc => { svc.reading({ idleMs: 3 * MIN }); svc.reading({ idleMs: 0 }); }, svc => svc.set(false)]) {
+    const b = fakeTab('b');
+    const { svc, calls, tick } = setup({ tabs: [fakeTab('a'), b] });
+    svc.set(true);
+    b.session.proc = null; // dropped: back to the normal rule
+    tick();
+    assert.equal(svc.isKept('b'), false);
+    off(svc);
+    assert.equal(svc.view().on, false);
+    assert.deepEqual(calls.touched, ['a']);
+  }
+});
+
+test('with nothing left to keep warm it turns itself off, and lets the PC sleep', () => {
+  const a = fakeTab('a');
+  const { svc, calls, tick, ticking } = setup({ tabs: [a] });
+  svc.set(true);
+  a.session.proc = null;
+  tick();
+  assert.equal(calls.notes.at(-1).item.text, 'Stopped keeping warm: its Claude Code process ended', 'the drop is said first');
+  assert.equal(svc.view().on, false);
+  assert.deepEqual(calls.blocker.at(-1), ['stop', 7]);
+  assert.equal(ticking(), false);
+});
+
+test('with nothing kept but a tab still working, it stays on: that tab may warm up yet', () => {
+  const a = fakeTab('a');
+  const b = fakeTab('b', { cache: null, busy: true }); // its first turn: no cache yet
+  const { svc, tick } = setup({ tabs: [a, b] });
+  svc.set(true);
+  a.session.proc = null;
+  tick();
+  assert.equal(svc.isKept('a'), false);
+  assert.equal(svc.view().on, true);
+  b.session.busy = false;
+  b.session.pending = new Map([['r1', {}]]); // waiting on you counts too
+  tick();
+  assert.equal(svc.view().on, true);
+  b.session.pending = new Map();
+  tick();
+  assert.equal(svc.view().on, false);
 });
 
 test('three hours after it went on, it stops', () => {

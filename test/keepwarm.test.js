@@ -70,6 +70,10 @@ test('a ping that read nothing, or wrote a tenth or more of what it read (10k at
   assert.equal(kw.receipt({ ok: true, tokens: { cacheRead: 200000, cacheWrite: 20000 } }).warm, false);
   assert.equal(kw.receipt({ ok: true, tokens: { cacheRead: 200000, cacheWrite: 19999 } }).warm, true);
   assert.equal(kw.receipt({ ok: true, tokens: null }).warm, false);
+  // cold, so the service can tell a cold cache (one more ping) from an error or a tool (dropped at once)
+  assert.equal(kw.receipt({ ok: true, tokens: { cacheRead: 0, cacheWrite: 40000 } }).cold, true);
+  assert.equal(kw.receipt({ ok: false, error: 'boom' }).cold, undefined);
+  assert.equal(kw.receipt({ ok: false, denied: true }).cold, undefined);
 });
 
 test("a small tab's fixed per-ping write isn't mistaken for a cold cache", () => {
@@ -101,6 +105,7 @@ test('the words: receipts, and a tooltip line per tab', () => {
   assert.equal(kw.tokensText(214321), '214k');
   assert.equal(kw.tokensText(950), '950');
   assert.equal(kw.keptText(T0, 214000), `Kept warm ${kw.hhmm(T0)} · read 214k from cache`);
+  assert.equal(kw.keptText(T0, 21000, 16000), `Kept warm ${kw.hhmm(T0)} · read 21k from cache, wrote 16k`, 'a cold receipt says what it wrote');
   assert.equal(kw.stoppedText('it went cold at 13:02'), 'Stopped keeping warm: it went cold at 13:02');
   const due = { id: 'a', title: 'A', action: 'wait', reason: null, dueAt: T0 };
   assert.equal(kw.tabLine(due, { state: 'kept', lastPing: null }), `next ping ${kw.hhmm(T0)}`);

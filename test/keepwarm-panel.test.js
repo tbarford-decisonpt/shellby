@@ -32,6 +32,18 @@ test('the feed draws a receipt, and the boot hands it to keepwarm.js', () => {
   assert.match(src('boot.js'), /item\.kind === 'keepwarm'\) SB\.onKeepWarmItem\?\.\(tab, item\)/);
 });
 
+test('a queued message going out by itself says so, so Keep warm stays on', () => {
+  const has = (text, part, what) => assert.ok(text.includes(part), what);
+  const queue = src('tab-queue.js');
+  const drain = queue.slice(queue.indexOf('async function drain(tab)'), queue.indexOf('SB.onTurnEnded'));
+  has(drain, 'sendNow(tab, next.text, next.attachments, { fromQueue: true })', 'the drain marks what it sends');
+  has(queue, 'const sendNow = (tab, text, attachments, opts) => SB.sendNow(tab, text, attachments, opts);', 'and the queue passes the mark on');
+  has(src('tab-send.js'), 'async function sendNow(tab, text, attachments, { fromQueue = false } = {}) {\n    const r = await api.sendTask(tab.id, text, attachments, fromQueue);', 'sendNow hands it to main');
+  const preload = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload', 'preload.js'), 'utf8');
+  has(preload, "sendTask: (tabId, text, attachments, fromQueue) => ipcRenderer.invoke('task:send', { tabId, text, attachments, fromQueue }),", 'the preload carries it');
+  has(fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'ipc', 'tabs.js'), 'utf8'), 'if (fromQueue !== true) d.keepWarm?.userSent();', 'and task:send heeds it');
+});
+
 test('split, the mug moves under the panes with the review and list buttons, so it stays visible', () => {
   assert.match(src('tab-overview.js'), /where\.append\(\$\('keepWarmBtn'\), \$\('reviewBtn'\), allBtn\)/);
   assert.match(src('components.css'), /\.subbar > \.tab-warm \{/);

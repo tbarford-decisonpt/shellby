@@ -77,8 +77,9 @@
   };
 
   // Send to any tab: the active one, or a background tab draining its queue.
-  async function sendNow(tab, text, attachments) {
-    const r = await api.sendTask(tab.id, text, attachments);
+  // fromQueue: the queue sending it by itself, which isn't you back at the PC (Keep warm).
+  async function sendNow(tab, text, attachments, { fromQueue = false } = {}) {
+    const r = await api.sendTask(tab.id, text, attachments, fromQueue);
     if (!r.ok) {
       // Out in a terminal: the way back is one click from the refusal. Not set
       // up (or signed out): the toast takes you to the fix.

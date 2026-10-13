@@ -144,7 +144,11 @@ class SessionManager extends EventEmitter {
     session.inCopy = () => !!tab.worktree;
     session.copyOf = () => tab.worktree?.originalCwd || null;
 
-    session.on('item', item => this.onItem(tab, item));
+    // Keep warm's ping is keepwarm-service.js's business: none of its turn is
+    // saved, shown or counted as a turn of yours; its result settles ping().
+    // Only what the process says: a note made meanwhile (note(), safe mode, the
+    // crab's suggestions) is the tab's as ever. Its usage readings go through.
+    session.on('item', item => (tab.pinging && item.kind !== 'usage' ? this.onPingItem(tab, item) : this.onItem(tab, item)));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));
     session.on('call', c => this.emit('call', tab.id, c, tab));
     session.on('cache', () => this.changed());
@@ -159,6 +163,8 @@ class SessionManager extends EventEmitter {
     session.on('planning', () => this.changed());
     session.on('tool', () => this.changed());
     session.on('exit', () => {
+      // A process stopped mid-ping sends no result (session.js ended), so the ping is settled here.
+      if (tab.pinging) this.settlePing(tab, { ok: false, error: 'its Claude Code process ended', tokens: null, denied: false });
       // Its mods ended with it: their status lines go too (plugin null: all of them).
       this.emit('item', tab.id, { kind: 'modstatus', plugin: null, text: null }, tab);
       this.changed();
@@ -168,9 +174,6 @@ class SessionManager extends EventEmitter {
   }
 
   onItem(tab, raw) {
-    // Keep warm's ping is keepwarm-service.js's business: none of its turn is
-    // saved, shown or counted as a turn of yours; its result settles ping().
-    if (tab.pinging && raw.kind !== 'usage') return this.onPingItem(tab, raw);
     // The reply as it's written, and what you might ask next, are only for the
     // panel now: the reply itself is kept when it's done, and a guess goes stale.
     if (raw.kind === 'partial' || raw.kind === 'next') {
@@ -408,7 +411,8 @@ class SessionManager extends EventEmitter {
   ping(tabId, text) {
     const tab = this.require(tabId);
     const s = tab.session;
-    if (!s.proc || s.busy || s.pending.size || tab.inTerminal || tab.pinging) return Promise.reject(new Error("That conversation can't take a ping now."));
+    // A process on its way out (a stop asked for, or exited and not yet closed) would drop it unanswered.
+    if (!s.proc || s.stopping || s.proc.exitCode != null || s.busy || s.pending.size || tab.inTerminal || tab.pinging) return Promise.reject(new Error("That conversation can't take a ping now."));
     return new Promise(resolve => {
       // growths: put back after, so a one-word reply doesn't slow the "filling up" pace (turncost.js).
       tab.pinging = { resolve, denied: false, growths: s.growths };
@@ -429,10 +433,21 @@ class SessionManager extends EventEmitter {
       return;
     }
     if (item.kind !== 'result') return;
+    this.settlePing(tab, { ok: !!item.ok && !p.denied, error: item.error || null, tokens: item.tokens || null, denied: p.denied });
+  }
+
+  settlePing(tab, r) {
+    const p = tab.pinging;
     tab.pinging = null;
     tab.session.growths = p.growths;
-    p.resolve({ ok: !!item.ok && !p.denied, error: item.error || null, tokens: item.tokens || null, denied: p.denied });
+    p.resolve(r);
     this.changed();
+  }
+
+  /** Counts as just used, for stopIdle: Keep warm lets go of the tabs it kept (keepwarm-service.js stop). */
+  touch(tabId) {
+    const tab = this.tabs.get(tabId);
+    if (tab) tab.activeAt = Date.now();
   }
 
   respond(tabId, requestId, decision, message, answers, via) {
@@ -494,11 +509,7 @@ class SessionManager extends EventEmitter {
     // Quitting (kill) leaves the mark, so the next start says what didn't finish.
     if (!kill && tab.saved && tab.session.busy) this.history.markTurn?.(tab.id, null);
     // A ping in flight would never hear its result once the listeners are gone: settle it here.
-    if (tab.pinging) {
-      const p = tab.pinging;
-      tab.pinging = null;
-      p.resolve({ ok: false, error: 'the conversation was closed', tokens: null, denied: false });
-    }
+    if (tab.pinging) this.settlePing(tab, { ok: false, error: 'the conversation was closed', tokens: null, denied: false });
     tab.session.removeAllListeners();
     if (kill) tab.session.kill();
     tab.session.close();
@@ -627,10 +638,12 @@ class SessionManager extends EventEmitter {
     const crew = [], tools = [], jobs = [], crewEnded = [];
     const now = Date.now();
     for (const t of this.tabs.values()) {
-      if (t.pinging) continue; // a keep-warm ping is nobody's work: no crab at work, no "running" in the tray, no Multitasker
       pending += t.session.pending.size;
-      if (t.session.busy) { busy++; tools.push({ tool: t.session.tool, toolAt: t.session.toolAt }); }
-      if (t.session.busy && t.session.planning) planning++;
+      // A keep-warm ping is nobody's work: no crab at work, no "running" in the tray, no
+      // Multitasker. What else the tab has going (its jobs, its helpers) still shows.
+      const working = t.session.busy && !t.pinging;
+      if (working) { busy++; tools.push({ tool: t.session.tool, toolAt: t.session.toolAt }); }
+      if (working && t.session.planning) planning++;
       for (const p of t.session.pending.values()) if (p.toolName === 'ExitPlanMode') plans++;
       for (const j of t.session.jobView()) if (j.status === 'running') jobs.push({ ...j, tabId: t.id });
       for (const c of t.session.runningCrew()) {

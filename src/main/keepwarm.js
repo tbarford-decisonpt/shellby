@@ -46,14 +46,17 @@ function plan(tabs, kept, now, lead = LEAD_MS) {
   });
 }
 
-/** A ping's readback ({ ok, error, tokens, denied } from manager.ping) -> { warm, read, wrote, reason }. */
+/**
+ * A ping's readback ({ ok, error, tokens, denied } from manager.ping) -> { warm, read, wrote, reason },
+ * and cold: true when it found the cache gone (the service gives that tab one more ping).
+ */
 function receipt(r) {
   if (r?.denied) return { warm: false, read: 0, wrote: 0, reason: 'the ping tried to use a tool' };
   if (!r?.ok) return { warm: false, read: 0, wrote: 0, reason: String(r?.error || 'the ping failed').split('\n')[0] };
   const read = r.tokens?.cacheRead || 0;
   const wrote = r.tokens?.cacheWrite || 0;
   // Read nothing, or wrote a good part of it again: the cache had already gone.
-  if (!read || (wrote >= read * COLD_SHARE && wrote >= COLD_MIN_WRITE)) return { warm: false, read, wrote, reason: `the ping found it cold (read ${tokensText(read)}, wrote ${tokensText(wrote)})` };
+  if (!read || (wrote >= read * COLD_SHARE && wrote >= COLD_MIN_WRITE)) return { warm: false, cold: true, read, wrote, reason: `the ping found it cold (read ${tokensText(read)}, wrote ${tokensText(wrote)})` };
   return { warm: true, read, wrote, reason: null };
 }
 
@@ -63,7 +66,8 @@ function watchBack(left, { idleMs = 0, locked = false } = {}) {
   return { left: false, back: !!left };
 }
 
-function keptText(at, read) { return `Kept warm ${hhmm(at)} · read ${tokensText(read)} from cache`; }
+// wrote: only for a ping that found it cold, and kept it anyway.
+function keptText(at, read, wrote = null) { return `Kept warm ${hhmm(at)} · read ${tokensText(read)} from cache${wrote === null ? '' : `, wrote ${tokensText(wrote)}`}`; }
 function stoppedText(reason) { return `Stopped keeping warm: ${reason}`; }
 
 /** The button's tooltip line for one tab: p from plan(), k its kept entry. */

@@ -56,18 +56,19 @@ test('with the real tab manager, one due ping leaves exactly one receipt', async
   } finally { close(); }
 });
 
-test('with the real tab manager, a ping that finds the cache cold drops the tab', async () => {
+// One cold ping keeps the tab (it wrote the cache back); keepwarm-service.test.js has the second, which drops it.
+test('with the real tab manager, a first ping that finds the cache cold keeps the tab and says what it wrote', async () => {
   const { seen, svc, close } = await rig('cold');
   try {
     assert.equal(svc.set(true).ok, true);
     assert.ok(await until(() => seen.some(i => i.kind === 'keepwarm')), 'a receipt');
     await new Promise(r => setTimeout(r, 300));
     const receipts = seen.filter(i => i.kind === 'keepwarm');
-    assert.equal(receipts.length, 1, 'dropped, so never pinged again');
-    assert.equal(receipts[0].text, 'Stopped keeping warm: the ping found it cold (read 0, wrote 40k)');
-    assert.equal(receipts[0].warm, false);
+    assert.equal(receipts.length, 1, 'not pinged again straight away');
+    assert.match(receipts[0].text, /^Kept warm \d\d:\d\d · read 0 from cache, wrote 40k$/);
+    assert.equal(receipts[0].warm, true);
     assert.equal(receipts[0].endsTurn, true);
-    assert.equal(svc.isKept('t1'), false);
+    assert.equal(svc.isKept('t1'), true);
     svc.set(false);
   } finally { close(); }
 });

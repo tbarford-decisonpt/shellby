@@ -21,7 +21,8 @@ function createKeepWarm(d) {
   let timer = null;
   let blocker = null;      // the powerSaveBlocker's id while it's on
   let lastPlan = [];
-  const kept = new Map();  // tabId -> { state: 'kept' | 'dropped', reason, lastPing: { at, read } | null }
+  // tabId -> { state: 'kept' | 'dropped', reason, lastPing: { at, read } | null, coldOnce: its last ping found it cold }
+  const kept = new Map();
   const inFlight = new Set();
   const isWarm = p => p.action === 'ping' || p.action === 'wait';
 
@@ -65,6 +66,9 @@ function createKeepWarm(d) {
     stopEvery(timer);
     timer = null;
     if (blocker !== null) { d.powerSaveBlocker.stop(blocker); blocker = null; }
+    // What it was keeping counts as just used: its last ping may be most of an
+    // hour ago, and idle stop would end those processes the minute you're back.
+    for (const [id, k] of kept) if (k.state === 'kept') d.manager.touch?.(id);
     kept.clear();
     d.log.info('Keep warm off', why);
     push();
@@ -92,12 +96,15 @@ function createKeepWarm(d) {
     if (!d.manager.tabs.has(id)) { tick(); return; } // closed meanwhile: it just leaves, with no line
     if (!r && !timedOut) return;
     const v = timedOut ? { warm: false, reason: 'the ping got no reply' } : kw.receipt(r);
-    if (!v.warm) drop(id, v.reason, true);
+    const k = kept.get(id);
+    // A cold ping wrote the cache back, so the next one should read it (a process's
+    // second turn rewrites part of its first): only two cold in a row drop the tab.
+    if (!v.warm && !(v.cold && !k?.coldOnce)) drop(id, v.reason, true);
     else {
       const at = now();
-      const k = kept.get(id);
-      if (on && k) kept.set(id, { ...k, lastPing: { at, read: v.read } });
-      d.manager.note(id, { kind: 'keepwarm', warm: true, endsTurn: true, at, read: v.read, text: kw.keptText(at, v.read) });
+      if (on && k) kept.set(id, { ...k, coldOnce: !!v.cold, lastPing: { at, read: v.read } });
+      const wrote = v.cold ? v.wrote : null; // what a cold one wrote is said; a warm one's few k aren't
+      d.manager.note(id, { kind: 'keepwarm', warm: true, endsTurn: true, at, read: v.read, ...(v.cold ? { wrote } : {}), text: kw.keptText(at, v.read, wrote) });
     }
     tick(); // the next due tab, if any: one ping at a time
   }
@@ -107,7 +114,8 @@ function createKeepWarm(d) {
     const t = now();
     if (t >= on.endsAt) { stop('3 hours are up'); return; }
     for (const id of [...kept.keys()]) if (!d.manager.tabs.has(id)) kept.delete(id); // closed: just gone
-    lastPlan = kw.plan(tabsNow(), kept, t, lead);
+    const tabs = tabsNow();
+    lastPlan = kw.plan(tabs, kept, t, lead);
     for (const p of lastPlan) {
       if (p.action === 'drop') drop(p.id, p.reason);
       else if (isWarm(p) && !kept.has(p.id)) kept.set(p.id, { state: 'kept', reason: null, lastPing: null }); // warmed up since
@@ -117,6 +125,10 @@ function createKeepWarm(d) {
       const recent = k?.lastPing && t - k.lastPing.at < kw.LEAD_MS;
       if (p.action === 'ping' && !inFlight.size && !recent) ping(p.id);
     }
+    // Every tab it kept is dropped or closed, and none is working that could warm up
+    // again: nothing to do but keep the PC awake.
+    const keeping = [...kept.values()].some(k => k.state === 'kept');
+    if (!keeping && !tabs.some(x => x.busy || x.pending || x.crew)) { stop('nothing left to keep warm'); return; }
     push();
   }
 

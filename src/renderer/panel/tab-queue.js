@@ -8,7 +8,7 @@
   const input = $('input');
   // Theirs (tab-send.js, loaded before this).
   const syncBusyUi = () => SB.syncBusyUi();
-  const sendNow = (tab, text, attachments) => SB.sendNow(tab, text, attachments);
+  const sendNow = (tab, text, attachments, opts) => SB.sendNow(tab, text, attachments, opts);
   const autosize = () => SB.autosize();
   const renderAttachments = () => SB.renderAttachments();
 
@@ -115,7 +115,7 @@
   async function drain(tab) {
     if (tab.busy || tab.queuePaused || !tab.queue.length) return;
     const next = tab.queue.shift();
-    if (!(await sendNow(tab, next.text, next.attachments))) tab.queue.unshift(next);
+    if (!(await sendNow(tab, next.text, next.attachments, { fromQueue: true }))) tab.queue.unshift(next);
     if (tab.isActive) syncBusyUi();
   }
 

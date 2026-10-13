@@ -103,6 +103,65 @@ test('idle stop spares a tab Keep warm still keeps', async () => {
   } finally { mgr.closeAll({ kill: true }); }
 });
 
+test('a kept tab Keep warm lets go of counts as just used, so idle stop spares it for a while', async () => {
+  const { mgr, seen } = makeManager();
+  try {
+    const tab = await warmTab(mgr, seen);
+    tab.activeAt = Date.now() - 55 * 60 * 1000; // last bumped by a ping
+    mgr.touch('t1');
+    assert.ok(Date.now() - tab.activeAt < 1000);
+    assert.deepEqual(mgr.stopIdle(30 * 60 * 1000), []);
+    mgr.touch('gone'); // closed meanwhile: nothing to do
+  } finally { mgr.closeAll({ kill: true }); }
+});
+
+test('a process on its way out cannot take a ping: it would never answer', async () => {
+  const { mgr, seen } = makeManager();
+  try {
+    const tab = await warmTab(mgr, seen);
+    tab.session.stopping = true;
+    await assert.rejects(mgr.ping('t1', PING_TEXT), /can't take a ping now/);
+    tab.session.stopping = false;
+    const proc = tab.session.proc;
+    proc.exitCode = 0; // exited, its 'close' still to come
+    await assert.rejects(mgr.ping('t1', PING_TEXT), /can't take a ping now/);
+    proc.exitCode = null;
+    assert.equal(tab.pinging ?? null, null);
+  } finally { mgr.closeAll({ kill: true }); }
+});
+
+test('a ping whose process ends with no result (a stop asked for) is settled when it exits', async () => {
+  const { mgr, seen } = makeManager();
+  try {
+    const tab = await warmTab(mgr, seen);
+    const growths = tab.session.growths;
+    let r = null;
+    tab.pinging = { resolve: v => { r = v; }, denied: false, growths };
+    tab.session.growths = growths + 1;
+    tab.session.emit('exit', null); // ended() while stopping: no stand-in result, only 'exit'
+    assert.deepEqual(r, { ok: false, error: 'its Claude Code process ended', tokens: null, denied: false });
+    assert.equal(tab.pinging, null);
+    assert.equal(tab.session.growths, growths, 'put back, as a ping that ends does');
+  } finally { mgr.closeAll({ kill: true }); }
+});
+
+test("a note during a ping is not the ping's: it is saved and shown as ever", async () => {
+  const { mgr, seen, appended } = makeManager();
+  try {
+    const tab = await warmTab(mgr, seen);
+    tab.pinging = { resolve() {}, denied: false, growths: tab.session.growths };
+    const shown = seen.length;
+    const saved = appended.length;
+    mgr.note('t1', { kind: 'suggest', id: 'x1', feature: 'lean', text: 'Try Lean' });
+    assert.deepEqual(seen.slice(shown).map(i => i.kind), ['suggest']);
+    assert.deepEqual(appended.slice(saved), ['suggest']);
+    // What the process itself says during the ping is still the ping's.
+    tab.session.emit('item', { kind: 'text', text: 'warm' });
+    assert.deepEqual(seen.slice(shown).map(i => i.kind), ['suggest']);
+    tab.pinging = null;
+  } finally { mgr.closeAll({ kill: true }); }
+});
+
 test('a receipt is shown, and saved so a reopened conversation still has it', async () => {
   const { mgr, seen, history } = makeManager();
   try {
@@ -119,9 +178,12 @@ test('a tab being pinged is nobody\'s work: the crab, the tray and the trophies 
   try {
     const tab = await warmTab(mgr, seen);
     const growths = tab.session.growths;
+    // A helper of its last turn that has just finished still walks home in the crab window.
+    tab.session.tasks.set('h1', { taskId: 'h1', status: 'completed', startedAt: Date.now() - 5000, endedAt: Date.now() });
     const pinged = mgr.ping('t1', PING_TEXT);
     assert.equal(mgr.aggregate.busy, 0);
     assert.equal(mgr.aggregate.state, 'idle');
+    assert.deepEqual(mgr.aggregate.crewEnded, [{ id: 'h1', ok: true }], 'only the ping is hidden, not the rest of the tab');
     await pinged;
     assert.equal(tab.session.growths, growths, "the ping doesn't count towards the context's growth pace");
   } finally { mgr.closeAll({ kill: true }); }
