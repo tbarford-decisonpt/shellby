@@ -72,10 +72,13 @@ async function readStatus(h, git) {
   if (!h.git) return { ok: true, noGit: true, files: [], committed: [], staged: [] };
   const [st, rev] = await Promise.all([
     git(h.root, ['status', '--porcelain=v1', '-b', '-z', '--untracked-files=normal']),
-    git(h.root, ['rev-list', '--parents', '-n', '1', 'HEAD']), // null when there are no commits yet
+    git(h.root, ['rev-list', '--parents', '-n', '1', 'HEAD']), // null with no commits yet, or when it fails
   ]);
   if (st === null) return { ok: false, error: FAILED };
   const [head = null, ...parents] = String(rev || '').trim().split(/\s+/).filter(x => SHA.test(x));
+  // No HEAD in a repo whose branch line doesn't say it has no commits: rev-list failed or timed out.
+  // Read as an empty repo, the whole index would light as staged and the next commit pass unseen.
+  if (!head && !/^## (?:No commits yet on|Initial commit on) /.test(st)) return { ok: false, error: FAILED };
   // Plumbing, never porcelain `git diff`: that refreshes the index for a file whose timestamp moved
   // but whose content didn't, taking index.lock and firing post-index-change whatever
   // GIT_OPTIONAL_LOCKS says. diff-index reads the index and never writes it.

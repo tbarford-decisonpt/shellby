@@ -229,13 +229,42 @@ test('a status never writes the index (so no lock, and no post-index-change hook
   } finally { r.done(); }
 });
 
-test('every git call is a fixed read, and a failure says only our words', async () => {
+test('every git call is a fixed read', async () => {
+  // Answers as a repo would give them, so the reads after status and rev-list run too: a second
+  // read with HEAD moved onto a child of the first asks diff-tree what the commit changed.
+  const [a, b] = ['a'.repeat(40), 'b'.repeat(40)];
+  const heads = [a, `${b} ${a}`];
   const calls = [];
-  const r = await readStatus({ root: 'C:\\nowhere', git: true }, async (_cwd, args) => { calls.push(args.join(' ')); return null; });
-  assert.deepEqual(r, { ok: false, error: "Couldn't read git status." });
+  const fake = async (_cwd, args) => {
+    calls.push(args.join(' '));
+    return args[0] === 'status' ? '## main\0 M a.txt\0' : args[0] === 'rev-list' ? `${heads.shift()}\n` : '';
+  };
+  const h = { root: 'C:\\nowhere', git: true };
+  assert.equal((await readStatus(h, fake)).ok, true);
+  assert.equal((await readStatus(h, fake)).ok, true);
   assert.ok(calls.includes('status --porcelain=v1 -b -z --untracked-files=normal'), calls.join(' | '));
+  for (const verb of ['rev-list', 'diff-index', 'diff-tree']) assert.ok(calls.some(c => c.startsWith(`${verb} `)), `${verb} ran: ${calls.join(' | ')}`);
   for (const c of calls) assert.match(c, /^(status|rev-list|diff-index|diff-tree) /, c);
   assert.ok(!calls.some(c => /^diff /.test(c)), 'never porcelain git diff: it refreshes the index');
+});
+
+test('a failure says only our words', async () => {
+  assert.deepEqual(await readStatus({ root: 'C:\\nowhere', git: true }, async () => null), { ok: false, error: "Couldn't read git status." });
+});
+
+test('a rev-list that fails is a failed read, not a repo with no commits yet', async () => {
+  // Read as no commits, every file in the index would light as staged, and the next commit would pass unseen.
+  const head = 'a'.repeat(40);
+  const h = { root: 'C:\\nowhere', git: true, statusHead: head, statusCached: new Set(['a.txt']) };
+  const calls = [];
+  const r = await readStatus(h, async (_cwd, args) => {
+    calls.push(args[0]);
+    return args[0] === 'status' ? '## main\0 M a.txt\0' : args[0] === 'rev-list' ? null : '';
+  });
+  assert.deepEqual(r, { ok: false, error: "Couldn't read git status." });
+  assert.equal(h.statusHead, head, 'the last HEAD stays, for the next read to compare with');
+  assert.deepEqual([...h.statusCached], ['a.txt']);
+  assert.ok(!calls.includes('diff-index'), 'nothing compared with the empty tree');
 });
 
 test('a folder gone, and a handle main dropped', async () => {
