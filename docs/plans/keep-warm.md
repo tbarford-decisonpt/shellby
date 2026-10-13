@@ -85,7 +85,9 @@ One fixed message, sent through the tab's own running Claude process:
   there: it clears `busy`, sends anything you queued meanwhile
   (`onTurnEnded`, which only drains the queue) and calls `syncBusyUi`, but
   leaves `unread` alone. The swallowed items go nowhere else either, so the
-  recap (`noteRecap`) and the crab never hear about a ping.
+  crab and the recap's turn lines never hear about a ping. Its `usage`
+  readings do pass through, so what it spent reaches spend, the recap's usage
+  figures and Lean.
 - **Its cost shows.** The ping's calls go into spend (usage by project) and
   Lean's cache figures like any call's, and its receipt line says what it
   read. It has no row in the per-turn ledger, which counts only turns that go
@@ -109,6 +111,7 @@ tooltip lists them.
 | Ping read nothing, or wrote at least a tenth of what it read and at least 10k | dropped | "the ping found it cold (read 0, wrote 212k)" |
 | Ping ended in an error (window used up, API error) | dropped | the error, first line |
 | Ping asked for a permission | denied at once, dropped | "the ping tried to use a tool" |
+| Ping got no reply within 5 minutes (`LEAD_MS`) | dropped, and the next tab's ping can go | "the ping got no reply" |
 | Tab closed, or its process died | dropped | - |
 
 The read and write rule is Cache Tax's. Either reading means the cache had
@@ -153,7 +156,7 @@ SVG of a mug with steam.
 
 | File | What |
 |---|---|
-| `src/main/keepwarm.js` | Pure. `plan(tabs, state, now)`: which tabs to ping, skip or drop, and why. `receipt(tokens)`: warm, or the reason to drop. `back(state, reading)`: has the user returned. Constants `LEAD_MS`, `MAX_MS`, `TICK_MS`. No Electron. |
+| `src/main/keepwarm.js` | Pure. `plan(tabs, kept, now, lead)`: which tabs to ping, wait, skip or drop, and why. `receipt(result)`: warm, or the reason to drop. `watchBack(left, reading)`: has the user returned. Constants `LEAD_MS`, `MAX_MS`, `TICK_MS`, `COLD_SHARE`, `COLD_MIN_WRITE`. No Electron. |
 | `src/main/keepwarm-service.js` | Arms and disarms, runs the 30-second tick, calls `manager.ping`, reads each ping's result, adds the receipt items, holds the power blocker, and pushes `keepwarm` state to the panel. Takes its dependencies as `d`, as `away-service.js` does. |
 | `src/main/sessions.js` | `ping(tabId, text)`, the `tab.pinging` branch in `onItem`, and `keep` in `stopIdle`. A pinging tab is left out of `aggregate`, so the crab, the tray and the Multitasker trophy never count a ping. `wiring/timetrack.js` `claudeAt` leaves it out too. The summary still says `busy`, so a message typed during a ping queues. |
 | `src/main/history.js` | `'keepwarm'` joins `PERSISTED`, so receipts come back when a conversation is reopened or synced. |
@@ -171,9 +174,11 @@ existing `send`.
   - due times
   - every row of the skip table
   - the read and write rule
-  - the 3-hour cap
   - back detection, including staying put after pressing
   - a tick that wakes past expiry and drops the tab instead of pinging
+- **`test/keepwarm-service.test.js`** (fake clock and tab manager): the
+  3-hour cap, one ping at a time, a ping that never answers, closed and dead
+  tabs.
 - **A fake-CLI session test.** The fake replies with `cache_creation` carrying
   `ephemeral_1h_input_tokens`, so the hour path runs. The fixture currently has
   no `cache_creation`, so it falls back to 5 minutes. The test checks four
