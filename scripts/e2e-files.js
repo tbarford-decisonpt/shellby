@@ -155,14 +155,23 @@ fs.mkdirSync(claudeConfig);
     await ev('SB.closeMenus()');
 
     // ---- 6. a picked file goes along with the next message
+    // As the user does it: text in the box, then send. SB.send('...') is a message Shellby composed, with no pick.
+    const typeSend = text => ev(`(() => { const i = document.getElementById('input'); i.value = ${JSON.stringify(text)}; i.dispatchEvent(new Event('input', { bubbles: true })); return SB.send(); })()`);
     await ev(`${row('readme.md')}.click()`);
     check(await until("!document.getElementById('pickChip').hidden && document.getElementById('pickChip').textContent.includes('README.md')"), 'a click picks README.md: its chip shows above the box');
     check(await ev("document.querySelector('#filesDock .ft-picked').textContent") === 'README.md', 'and the footer names it');
     check(await ev(`${row('readme.md')}.classList.contains('picked')`), 'its row is marked');
-    await ev("SB.send('what is this')");
+    await typeSend('what is this');
     check(await until("document.querySelector('.feed:not([hidden])').textContent.includes('[Shellby: the user has the file \"README.md\" selected in the file tree')", 12000), 'Claude is told which file is picked (the fake CLI echoes its prompt)');
     check(await until("!SB.activeTab().busy", 15000), 'that turn finishes');
     check(await ev("!document.getElementById('pickChip').hidden"), 'the pick stays after sending');
+    // A message Shellby composed (a fix prompt, a chip) goes without the pick, which stays.
+    const told = "document.querySelector('.feed:not([hidden])').textContent.split('[Shellby: the user has the file').length - 1";
+    const toldBefore = await ev(told);
+    await ev("SB.send('composed text')");
+    check(await until("/echo:[^]*composed text/.test(document.querySelector('.feed:not([hidden])').textContent) && !SB.activeTab().busy", 15000), 'a message composed by code reaches Claude');
+    check(await ev(told) === toldBefore, 'without the [Shellby: line about the picked file');
+    check(await ev("!document.getElementById('pickChip').hidden"), 'and the pick is still there');
     await ev("document.querySelector('#pickChip button').click()");
     check(await until("document.getElementById('pickChip').hidden && document.querySelector('#filesDock .ft-picked').textContent === ''"), '× clears it');
     await ev("(() => { const i = document.getElementById('input'); i.value = '@src/util.js '; i.selectionStart = i.selectionEnd = i.value.length; i.dispatchEvent(new Event('input', { bubbles: true })); })()");
@@ -190,7 +199,7 @@ fs.mkdirSync(claudeConfig);
     check(await until(`!!${row('docs/guide.md')}`), 'docs opens');
     await ev(`${row('docs/guide.md')}.click()`);
     check(await until("document.getElementById('pickChip').textContent.includes('guide.md')"), 'docs/guide.md is picked');
-    await ev("SB.send('with a pick')");
+    await typeSend('with a pick');
     check(await ev("SB.activeTab().queue.length === 1 && SB.activeTab().queue[0].selected === 'docs/guide.md'"), 'the message typed meanwhile is queued with the pick');
     await ev("document.querySelector('#pickChip button').click()");
     check(await until("document.querySelector('.feed:not([hidden])').textContent.includes('[Shellby: the user has the file \"docs/guide.md\" selected in the file tree')", 20000), 'it reaches Claude with its [Shellby: line after the turn, though the pick was cleared since');

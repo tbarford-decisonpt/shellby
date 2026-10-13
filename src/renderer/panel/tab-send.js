@@ -129,10 +129,11 @@
   SB.send = async (text, { force = false } = {}) => {
     const tab = SB.activeTab();
     if (!tab) return false;
+    const typed = text == null; // the box is the user's message; a string from code is Shellby's own and carries no pick
     text = (text ?? input.value).trim();
     if (!text && !tab.attachments.length) return false;
     const attachments = [...tab.attachments];
-    const picked = SB.treePickOpts?.(tab); // the pick goes with what you typed, as it was when you pressed Enter
+    const picked = typed ? SB.treePickOpts?.(tab) : undefined; // as it was when you pressed Enter
     let snippet = null; // its name, counted as a use once the prompt has gone
     // /export, /rewind, ! commands and friends happen here, not in Claude (composer.js).
     if (SB.runLocal?.(text, tab, attachments)) { clearComposer(tab); return true; }
