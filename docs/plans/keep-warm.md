@@ -75,8 +75,9 @@ One fixed message, sent through the tab's own running Claude process:
   either. While a ping runs, `takeSteers` hands over nothing: a message you
   queue then waits for the ping to end and goes as a turn of its own.
 - **Out of the conversation feed.** While a tab has a ping in flight
-  (`tab.pinging`), `onItem` drops that turn's replayed user message, its text
-  and its result. They are neither saved nor sent to the panel, and they don't
+  (`tab.pinging`), the manager drops what that tab's process says (the
+  replayed user message, the text and the result) before it reaches `onItem`.
+  Notes Shellby adds itself, such as a check's verdict, still go through. They are neither saved nor sent to the panel, and they don't
   set `unread`, `outcome`, the crab or the Ready rail. In their place the
   service adds one `keepwarm` item to the tab's History and feed, drawn as a
   dim line:
@@ -169,7 +170,7 @@ SVG of a mug with steam.
 |---|---|
 | `src/main/keepwarm.js` | Pure. `plan(tabs, kept, now, lead)`: which tabs to ping, wait, skip or drop, and why. `receipt(result)`: warm, or the reason to drop. `watchBack(left, reading)`: has the user returned. Constants `LEAD_MS`, `MAX_MS`, `TICK_MS`, `COLD_SHARE`, `COLD_MIN_WRITE`. No Electron. |
 | `src/main/keepwarm-service.js` | Arms and disarms, runs the 30-second tick, calls `manager.ping`, reads each ping's result, adds the receipt items, holds the power blocker, and pushes `keepwarm` state to the panel. Takes its dependencies as `d`, as `away-service.js` does. |
-| `src/main/sessions.js` | `ping(tabId, text)`, the `tab.pinging` branch in `onItem`, and `keep` in `stopIdle`. A pinging tab is left out of `aggregate`, so the crab, the tray and the Multitasker trophy never count a ping. `wiring/timetrack.js` `claudeAt` leaves it out too. The summary still says `busy`, so a message typed during a ping queues. |
+| `src/main/sessions.js` | `ping(tabId, text)`, the `tab.pinging` branch where the session's items arrive, `keep` in `stopIdle`, and `touch(id)` for when Keep warm stops. A pinging tab's busy state is left out of `aggregate`, so the crab, the tray and the Multitasker trophy never count a ping; its helpers and jobs still count. `wiring/timetrack.js` `claudeAt` leaves it out too. The summary still says `busy`, so a message typed during a ping queues. |
 | `src/main/history.js` | `'keepwarm'` joins `PERSISTED`, so receipts come back when a conversation is reopened or synced. |
 | Disarming | `ipc/tabs.js` `task:send` calls `userSent()`, and `away-service` `checkAway` hands each idle reading to `reading()`. |
 | `src/main/ipc/*.js`, `src/preload/preload.js` | `keepwarm:set(on)` (handle) and the `keepwarm` push. The preload is at 800 lines, so it has to give up a line first. |
