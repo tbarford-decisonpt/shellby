@@ -682,4 +682,5 @@ function createViewer({ home = os.homedir() } = {}) {
 module.exports = {
   readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, selectedNote, branchOf, writeWatch, countStatus, checkoutBranch, limiter,
   MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE, TREE_MAX, HEAD_REF, MAX_PLACE_TREES, MAX_PLACE_BRANCHES, PLACES_MS,
+  PICK_UNSAFE, MAX_PICKED,
 };
