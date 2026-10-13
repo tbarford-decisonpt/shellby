@@ -42,6 +42,28 @@ test('a turn that ends stops the wait for a step that never answered', () => {
   assert.equal(s.until, 100 + F.AFTERGLOW_MS);
 });
 
+test('hidden mid-tool, only the ends are taken (files-dock.js): the burst still goes dark on time', () => {
+  const s = F.create();
+  F.take(s, tool('1', 'Edit', `${ROOT}/src/a.js`), { root: ROOT, now: 0 });
+  F.reveal(s, 'src/a.js', () => false);
+  assert.equal(s.until, Infinity);
+  // The tab is hidden now: nothing lights, but its result and the turn's end still come in.
+  assert.equal(F.take(s, done('1'), { root: ROOT, now: 400 }), true);
+  assert.equal(F.take(s, { kind: 'result' }, { root: ROOT, now: 500 }), false);
+  assert.equal(s.running.size, 0);
+  assert.equal(s.until, 400 + F.AFTERGLOW_MS);
+  assert.equal(F.expire(s, 400 + F.AFTERGLOW_MS - 1), null);
+  assert.deepEqual(F.expire(s, 400 + F.AFTERGLOW_MS), ['src']);
+  assert.equal(s.lit.size, 0);
+});
+
+test('an end with nothing lit or running changes nothing', () => {
+  const s = F.create();
+  assert.equal(F.take(s, done('9'), { root: ROOT, now: 0 }), false);
+  assert.equal(F.take(s, { kind: 'result' }, { root: ROOT, now: 0 }), false);
+  assert.deepEqual(s, F.create());
+});
+
 test('a write beats a read on the same file, and a commit beats both', () => {
   const s = F.create();
   F.take(s, tool('1', 'Read', `${ROOT}/a.js`), { root: ROOT, now: 0 });

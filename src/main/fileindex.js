@@ -55,11 +55,12 @@ function withFolders(files) {
   return [...dirs, ...files];
 }
 
-async function list(cwd) {
+/** fresh: read it again now, whatever is cached (the new list is cached in its place). */
+async function list(cwd, { fresh = false } = {}) {
   if (typeof cwd !== 'string' || !path.isAbsolute(cwd) || !fs.existsSync(cwd)) return [];
   const key = path.resolve(cwd).toLowerCase();
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.entries;
+  if (hit && !fresh && Date.now() - hit.at < CACHE_MS) return hit.entries;
   const entries = (async () => withFolders((await gitFiles(cwd)) || walk(cwd)))();
   cache.set(key, { at: Date.now(), entries });
   if (cache.size > 20) cache.delete(cache.keys().next().value);

@@ -75,11 +75,12 @@
   }
 
   // What's queued behind a running turn and can go to Claude at his next step:
-  // everything up to the first /command, which can only start a turn of its own.
+  // everything up to the first /command, which can only start a turn of its own,
+  // or the first with a file picked, whose line only a turn of its own carries.
   // key changes whenever main needs telling; live is false once no turn is running.
   function steerPlan(tab) {
     const live = !!(tab.busy && tab.turnId);
-    const upTo = tab.queue.findIndex(m => m.text.startsWith('/'));
+    const upTo = tab.queue.findIndex(m => m.text.startsWith('/') || m.selected);
     const items = live ? tab.queue.slice(0, upTo < 0 ? tab.queue.length : upTo) : [];
     const key = live ? `${tab.turnId}|${items.map(m => m.id).join(',')}` : '';
     return { live, items, key };

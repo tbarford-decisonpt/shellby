@@ -65,6 +65,22 @@ test('list: outside git, walks the folder and skips node_modules', async () => {
   }
 });
 
+test('list: cached for a while, unless asked for a fresh one, which is cached in its place', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-files-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'a.js'), '');
+    assert.deepEqual(await list(dir), ['a.js']);
+    fs.mkdirSync(path.join(dir, 'new'));
+    fs.writeFileSync(path.join(dir, 'new', 'b.js'), '');
+    assert.ok(!(await list(dir)).includes('new/b.js'), 'the cached list, made before it');
+    const fresh = await list(dir, { fresh: true });
+    assert.ok(fresh.includes('new/b.js') && fresh.includes('new/'), fresh.join(', '));
+    assert.ok((await list(dir)).includes('new/b.js'), 'and the next plain call has it too');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('list: a folder that is not there lists nothing', async () => {
   assert.deepEqual(await list(path.join(os.tmpdir(), 'shellby-no-such-folder-xyz')), []);
   assert.deepEqual(await list('relative/path'), []);

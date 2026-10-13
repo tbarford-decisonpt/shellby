@@ -113,6 +113,13 @@ test('steerPlan sends everything queued up to the first /command', () => {
   assert.equal(plan.key, 't1|q1,q2');
 });
 
+test('steerPlan stops at a message with a file picked: a steer carries no pick, so it waits for the turn to end', () => {
+  const tab = { busy: true, turnId: 't1', queue: [{ id: 'q1', text: 'a' }, { id: 'q2', text: 'b', selected: 'src/app.js' }, { id: 'q3', text: 'c' }] };
+  const plan = L.steerPlan(tab);
+  assert.deepEqual(plan.items.map(m => m.id), ['q1']);
+  assert.equal(plan.key, 't1|q1');
+});
+
 test('steerPlan sends nothing once no turn is running', () => {
   assert.deepEqual(L.steerPlan({ busy: false, turnId: 't1', queue: [{ id: 'q1', text: 'a' }] }), { live: false, items: [], key: '' });
   assert.deepEqual(L.steerPlan({ busy: true, turnId: null, queue: [{ id: 'q1', text: 'a' }] }), { live: false, items: [], key: '' });

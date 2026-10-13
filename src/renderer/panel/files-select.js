@@ -1,4 +1,4 @@
-/* Shellby panel — the file picked in All files (files-dock.js), sent along with your messages:
+/* Shellby panel — the file picked in All files (files-dock.js), sent along with the messages you type:
    a chip above the box with its name and an ×, and one line main adds to the prompt once it has
    checked the file is in the conversation's folder (ipc/tabs.js task:send). The pick belongs to
    the conversation and stays after a send, until cleared or another is picked. Also @path in
@@ -22,7 +22,7 @@
   };
 
   /**
-   * What task:send carries for it (tab-send.js): its path in the tree, which main resolves in the
+   * What task:send carries for it, taken when you press Enter (tab-send.js): its path in the tree, which main resolves in the
    * conversation's folder (so a conversation moved into its own worktree keeps it), or nothing.
    */
   SB.treePickOpts = tab => {

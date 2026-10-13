@@ -121,9 +121,10 @@
     if (me !== at) return;
     if (st.gone || tr?.gone) { at.gone = true; return draw(); }
     if (tr?.ok) { at.entries = tr.entries; at.tree = null; }
-    // A folder git lists whole ('?? new/'): its files are in the index only once it's read again.
+    // A folder git lists whole ('?? new/'): its files are in the index only once it's read again, and
+    // afresh (main caches its list a while, and more files in it later won't change that line).
     if (takeStatus(at, st, quiet) && !tree) {
-      const again = await call(at, id => api.viewerTree(id));
+      const again = await call(at, id => api.viewerTree(id, { fresh: true }));
       if (me !== at) return;
       if (again.ok) { at.entries = again.entries; at.tree = null; }
     }
@@ -172,8 +173,10 @@
 
   function treeOf(at) {
     if (!at.tree) {
-      // Folders git lists whole ('new/') are marks, not files: buildTree would make a file named ''.
-      at.tree = V.buildTree(at.entries, at.files.filter(f => !f.path.endsWith('/')));
+      // Folders git lists whole ('new/') go in as folders, so one shows at once, marked '?' (markOf);
+      // as files, buildTree would make one named ''.
+      const whole = f => f.path.endsWith('/');
+      at.tree = V.buildTree([...at.entries, ...at.files.filter(whole).map(f => f.path)], at.files.filter(f => !whole(f)));
       at.paths = new Map();
       (function walk(n) { for (const c of n.children) { at.paths.set(F.keyOf(c.path), c.path); if (c.dir) walk(c); } })(at.tree);
     }
@@ -316,9 +319,14 @@
   // ------------------------------------------------------------ flashes
 
   // Every item of every conversation (feed.js, beside the trail): only the one shown, only live
-  // ones, and only while this tab is up. Hidden, it reads nothing; showing it reads again.
+  // ones, and only while this tab is up. Hidden, nothing lights; showing it reads again. But a
+  // tool's result and the turn's end still count, or what lit before would stay lit for good.
   SB.filesTake = (tab, item, replay) => {
-    if (replay || !live() || !me?.root || tab.id !== me.tabId || me.place) return;
+    if (replay || !me?.root || tab.id !== me.tabId || me.place) return;
+    if (!live()) {
+      if ((item?.kind === 'tool_result' || item?.kind === 'result') && F.take(flash, item, { root: me.root, now: Date.now() })) darkLater();
+      return;
+    }
     if ((tab.cwd || null) !== me.cwd) { ensure(); return; } // moved into its own copy: the tree follows
     if (F.take(flash, item, { root: me.root, cwd: tab.cwd, now: Date.now() })) lit();
   };
@@ -334,16 +342,18 @@
     }
     followed = null;
     schedule();
+    darkLater();
+  }
+
+  // Dark when the burst is over; while a tool runs, it has no end yet.
+  function darkLater() {
     clearTimeout(darkTimer);
-    if (Number.isFinite(flash.until)) darkTimer = setTimeout(dark, Math.max(0, flash.until - Date.now()) + 20);
+    if (flash.lit.size && Number.isFinite(flash.until)) darkTimer = setTimeout(dark, Math.max(0, flash.until - Date.now()) + 20);
   }
 
   function dark() {
     const close = F.expire(flash, Date.now());
-    if (!close) {
-      if (flash.lit.size && Number.isFinite(flash.until)) darkTimer = setTimeout(dark, Math.max(0, flash.until - Date.now()) + 20);
-      return;
-    }
+    if (!close) return darkLater();
     for (const k of close) me?.open?.delete(me.paths.get(k) ?? k);
     schedule();
   }

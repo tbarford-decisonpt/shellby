@@ -479,11 +479,11 @@ function createViewer({ home = os.homedir() } = {}) {
     return h.kind === 'branch' ? readBlob(h, rel) : readInside(h.root, rel);
   }
 
-  /** All files: fileindex.js's list for a folder; a branch's own tree, with its folders. */
-  async function treeOf(id) {
+  /** All files: fileindex.js's list for a folder (fresh: not the cached one); a branch's own tree, with its folders. */
+  async function treeOf(id, { fresh = false } = {}) {
     const h = handles.get(id);
     if (!h) return { ok: false, expired: true };
-    if (h.kind !== 'branch') return { ok: true, entries: await fileIndex.list(h.root) };
+    if (h.kind !== 'branch') return { ok: true, entries: await fileIndex.list(h.root, { fresh }) };
     // The tip as it is now, not where the last changes look left it: Refresh asks for both at once, and
     // computeBranch moves h.commit only after its own rev-parse. A branch gone since keeps its last tree.
     const at = await liveRoot(h);

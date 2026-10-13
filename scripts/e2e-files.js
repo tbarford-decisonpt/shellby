@@ -4,11 +4,12 @@
 //   1. Ctrl+Shift+F opens it; Ctrl+Shift+E switches to the Trail rather than closing it, and back
 //   2. the branch row says main and clean; the tree lists the project, folders first
 //   3. an edit lights its row orange and opens its folder, dimmed; the marks and the folder's
-//      totals follow; when the flash is over the folder closes again
+//      totals follow; when the flash is over the folder closes again; hidden mid-tool, it still goes dark
 //   4. a commit lights what it changed green, and the branch row is clean again
 //   5. the branch row opens the worktree and branch menu, this worktree ticked
 //   6. a picked file: its chip, the [Shellby: line reaching Claude, still picked after; × clears it;
-//      @path in the box finds its row without picking it
+//      @path in the box finds its row without picking it; a message typed mid-turn keeps its pick;
+//      a folder made mid-turn shows at once, with its files
 //   7. Ctrl+Shift+F closes it
 // CI has reduced motion on: rows are checked by class, never by how they move.
 // No account, no network beyond this PC.
@@ -128,6 +129,15 @@ fs.mkdirSync(claudeConfig);
     check(await until(`(${row('src')}?.querySelector('.ft-sum')?.textContent || '') === '+1 −2 M:1'`), "src's totals say so even when it's closed");
     check(await until("document.querySelector('#filesDock .ft-sums')?.textContent === '+1 −2 M:1'"), 'and so does the branch row');
     check(await until(`!(${cur}?.lit || []).length && ${row('src')}?.getAttribute('aria-expanded') === 'false'`, 8000), 'when the flash is over, src closes again');
+    // Hidden while a tool runs: its result still comes in, so the flash ends once the tab is back.
+    const take = item => ev(`SB.filesTake(SB.activeTab(), ${JSON.stringify(item)})`);
+    await take({ kind: 'tool', id: 'e2e-hidden', name: 'Edit', filePath: path.join(repo, 'docs', 'guide.md') });
+    check(await until(litAs('docs/guide.md', 'write'), 4000), 'a tool lights docs/guide.md');
+    await ev("SB.toggleDrawer('trail')");
+    await take({ kind: 'tool_result', id: 'e2e-hidden' });
+    await take({ kind: 'result' });
+    await ev("SB.toggleDrawer('files')");
+    check(await until(`${tabUp('files')} && !!${cur} && !${cur}.lit.length`, 8000), 'with the tab hidden while it ran, it still goes dark');
 
     // ---- 4. a commit lights what it changed green
     git('add', '-A');
@@ -159,6 +169,33 @@ fs.mkdirSync(claudeConfig);
     check(await until(`!!${row('src/util.js')} && document.querySelector('#filesDock .ft-tree').getAttribute('aria-activedescendant') === ${row('src/util.js')}?.id`), '@src/util.js in the box brings its row into view with the keyboard on it');
     check(await ev("document.getElementById('pickChip').hidden"), 'without picking it');
     await ev("(() => { const i = document.getElementById('input'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); })()");
+    // A folder made mid-turn: git lists it whole ('?? feature/'), so its row comes from status at once,
+    // and the tree is read afresh (main's list is cached 20 s) so what's in it shows too.
+    await ev("SB.toggleDrawer('trail')");
+    await ev("SB.toggleDrawer('files')"); // a tree read: main's list of the folder is cached from here
+    check(await until(`${tabUp('files')} && !!${row('src')}`), 'the tree is read again');
+    await ev("SB.send('steps 3 1200')");
+    check(await until('SB.activeTab().busy'), 'a turn of several steps starts');
+    put('feature/a.js', 'a\n');
+    put('feature/b.js', 'b\n');
+    check(await until(`${row('feature')}?.querySelector('.ft-st')?.textContent === '?'`, 10000), 'a folder made mid-turn shows in the tree, marked ?');
+    check(await until('!SB.activeTab().busy', 15000), 'that turn finishes');
+    await ev(`(r => r.getAttribute('aria-expanded') === 'true' || r.click())(${row('feature')})`);
+    check(await until(`!!${row('feature/a.js')} && !!${row('feature/b.js')}`), 'with both files in it');
+    // Typed while Claude works, with a pick: queued with it, not steered in mid-turn (that carries no
+    // pick), and sent with it when the turn ends, even though the pick is cleared meanwhile.
+    await ev("SB.send('steps 4 600')");
+    check(await until('SB.activeTab().busy'), 'a turn of several steps starts');
+    await ev(`(r => r.getAttribute('aria-expanded') === 'true' || r.click())(${row('docs')})`);
+    check(await until(`!!${row('docs/guide.md')}`), 'docs opens');
+    await ev(`${row('docs/guide.md')}.click()`);
+    check(await until("document.getElementById('pickChip').textContent.includes('guide.md')"), 'docs/guide.md is picked');
+    await ev("SB.send('with a pick')");
+    check(await ev("SB.activeTab().queue.length === 1 && SB.activeTab().queue[0].selected === 'docs/guide.md'"), 'the message typed meanwhile is queued with the pick');
+    await ev("document.querySelector('#pickChip button').click()");
+    check(await until("document.querySelector('.feed:not([hidden])').textContent.includes('[Shellby: the user has the file \"docs/guide.md\" selected in the file tree')", 20000), 'it reaches Claude with its [Shellby: line after the turn, though the pick was cleared since');
+    check(await ev("!document.querySelector('.feed:not([hidden])').textContent.includes('steered: with a pick')"), 'and was never steered in mid-turn');
+    check(await until('!SB.activeTab().busy', 15000), 'that turn finishes');
 
     // ---- 7. closing
     await ev("document.querySelector('#filesDock .ft-tree').focus()");

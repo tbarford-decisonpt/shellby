@@ -73,6 +73,19 @@ test("a conversation's folder opens, with its copy's base", async () => {
   } finally { s.done(); }
 });
 
+test("All files' tree read again asks for a fresh list; a plain read may have the cached one", async () => {
+  const s = setup();
+  try {
+    const h = await s.ipc.invoke('viewer:open', { tabId: 't1' });
+    assert.ok((await s.ipc.invoke('viewer:tree', h.id)).entries.includes('a.txt'));
+    fs.mkdirSync(path.join(s.wt, 'new'));
+    fs.writeFileSync(path.join(s.wt, 'new', 'b.txt'), 'b\n');
+    assert.ok(!(await s.ipc.invoke('viewer:tree', h.id)).entries.includes('new/b.txt'), 'cached (fileindex.js)');
+    const fresh = (await s.ipc.invoke('viewer:tree', h.id, { fresh: true })).entries;
+    assert.ok(fresh.includes('new/b.txt') && fresh.includes('new/'), fresh.join(', '));
+  } finally { s.done(); }
+});
+
 test('a closed conversation, a remote one, and nothing at all are refused', async () => {
   const s = setup();
   try {

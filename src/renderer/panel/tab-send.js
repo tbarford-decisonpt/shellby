@@ -9,7 +9,7 @@
   // Theirs, reached when they're called (the files load after this one).
   const renderQueue = () => SB.renderQueue();
   const syncSteers = tab => SB.syncSteers(tab);
-  const queueItem = (text, attachments) => SB.queueItem(text, attachments);
+  const queueItem = (text, attachments, selected) => SB.queueItem(text, attachments, selected);
   const editQueued = (tab, i) => SB.editQueued(tab, i);
   const updateSlash = () => SB.updateSlash();
   const slashKeydown = e => SB.slashKeydown(e);
@@ -76,9 +76,10 @@
     input.focus();
   };
 
-  // Send to any tab: the active one, or a background tab draining its queue.
-  async function sendNow(tab, text, attachments) {
-    const r = await api.sendTask(tab.id, text, attachments, SB.treePickOpts?.(tab)); // the file picked in All files (files-select.js)
+  // Send to any tab: the active one, or a background tab draining its queue. opts: the file picked
+  // in All files when you typed it (files-select.js); a message Shellby composed carries none.
+  async function sendNow(tab, text, attachments, opts) {
+    const r = await api.sendTask(tab.id, text, attachments, opts);
     if (!r.ok) {
       // Out in a terminal: the way back is one click from the refusal. Not set
       // up (or signed out): the toast takes you to the fix.
@@ -131,6 +132,7 @@
     text = (text ?? input.value).trim();
     if (!text && !tab.attachments.length) return false;
     const attachments = [...tab.attachments];
+    const picked = SB.treePickOpts?.(tab); // the pick goes with what you typed, as it was when you pressed Enter
     let snippet = null; // its name, counted as a use once the prompt has gone
     // /export, /rewind, ! commands and friends happen here, not in Claude (composer.js).
     if (SB.runLocal?.(text, tab, attachments)) { clearComposer(tab); return true; }
@@ -161,7 +163,7 @@
       }
     }
     if (tab.busy) {
-      tab.queue.push(queueItem(text, attachments));
+      tab.queue.push(queueItem(text, attachments, picked?.selected));
       clearComposer(tab);
       syncBusyUi();
       if (snippet) api.snippetUsed(snippet);
@@ -171,7 +173,7 @@
     if (tab.sending) return false;
     tab.sending = true;
     let ok;
-    try { ok = await sendNow(tab, text, attachments); } finally { tab.sending = false; }
+    try { ok = await sendNow(tab, text, attachments, picked); } finally { tab.sending = false; }
     if (!ok) return false;
     clearComposer(tab);
     SB.setView('chat');
