@@ -58,3 +58,7 @@
 .ft-picked:empty::before { content: 'Click a file to talk about it'; color: var(--sand-faint); }
 .ft-unpick[hidden] { display: none; }
 .ft-follow { display: inline-flex; align-items: center; gap: 4px; color: var(--sand-dim); font-size: var(--fs-12); white-space: nowrap; }
+
+/* The picked file's chip above the box (files-select.js). */
+.att.pick { border-color: color-mix(in srgb, var(--glass) 55%, transparent); }
+.att.pick .pick-label { color: var(--sand-faint); }

@@ -78,7 +78,7 @@
 
   // Send to any tab: the active one, or a background tab draining its queue.
   async function sendNow(tab, text, attachments) {
-    const r = await api.sendTask(tab.id, text, attachments);
+    const r = await api.sendTask(tab.id, text, attachments, SB.treePickOpts?.(tab)); // the file picked in All files (files-select.js)
     if (!r.ok) {
       // Out in a terminal: the way back is one click from the refusal. Not set
       // up (or signed out): the toast takes you to the fix.
@@ -167,7 +167,12 @@
       if (snippet) api.snippetUsed(snippet);
       return true;
     }
-    if (!(await sendNow(tab, text, attachments))) return false;
+    // A second Enter while main checks the picked file would send it twice.
+    if (tab.sending) return false;
+    tab.sending = true;
+    let ok;
+    try { ok = await sendNow(tab, text, attachments); } finally { tab.sending = false; }
+    if (!ok) return false;
     clearComposer(tab);
     SB.setView('chat');
     if (snippet) api.snippetUsed(snippet);

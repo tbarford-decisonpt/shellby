@@ -7,7 +7,9 @@
 //      totals follow; when the flash is over the folder closes again
 //   4. a commit lights what it changed green, and the branch row is clean again
 //   5. the branch row opens the worktree and branch menu, this worktree ticked
-//   6. Ctrl+Shift+F closes it
+//   6. a picked file: its chip, the [Shellby: line reaching Claude, still picked after; × clears it;
+//      @path in the box finds its row without picking it
+//   7. Ctrl+Shift+F closes it
 // CI has reduced motion on: rows are checked by class, never by how they move.
 // No account, no network beyond this PC.
 //   node scripts/e2e-files.js [--shots <dir>]
@@ -142,7 +144,23 @@ fs.mkdirSync(claudeConfig);
     check(await ev("(m => (d => m.top > 0 && m.left >= d.left - 4 && m.left < d.right)(document.getElementById('filesDock').getBoundingClientRect()))(document.getElementById('filesMenu').getBoundingClientRect())"), 'and the menu opens beside the dock, not at the window corner');
     await ev('SB.closeMenus()');
 
-    // ---- 6. closing
+    // ---- 6. a picked file goes along with the next message
+    await ev(`${row('readme.md')}.click()`);
+    check(await until("!document.getElementById('pickChip').hidden && document.getElementById('pickChip').textContent.includes('README.md')"), 'a click picks README.md: its chip shows above the box');
+    check(await ev("document.querySelector('#filesDock .ft-picked').textContent") === 'README.md', 'and the footer names it');
+    check(await ev(`${row('readme.md')}.classList.contains('picked')`), 'its row is marked');
+    await ev("SB.send('what is this')");
+    check(await until("document.querySelector('.feed:not([hidden])').textContent.includes('[Shellby: the user has the file \"README.md\" selected in the file tree')", 12000), 'Claude is told which file is picked (the fake CLI echoes its prompt)');
+    check(await until("!SB.activeTab().busy", 15000), 'that turn finishes');
+    check(await ev("!document.getElementById('pickChip').hidden"), 'the pick stays after sending');
+    await ev("document.querySelector('#pickChip button').click()");
+    check(await until("document.getElementById('pickChip').hidden && document.querySelector('#filesDock .ft-picked').textContent === ''"), '× clears it');
+    await ev("(() => { const i = document.getElementById('input'); i.value = '@src/util.js '; i.selectionStart = i.selectionEnd = i.value.length; i.dispatchEvent(new Event('input', { bubbles: true })); })()");
+    check(await until(`!!${row('src/util.js')} && document.querySelector('#filesDock .ft-tree').getAttribute('aria-activedescendant') === ${row('src/util.js')}?.id`), '@src/util.js in the box brings its row into view with the keyboard on it');
+    check(await ev("document.getElementById('pickChip').hidden"), 'without picking it');
+    await ev("(() => { const i = document.getElementById('input'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); })()");
+
+    // ---- 7. closing
     await ev("document.querySelector('#filesDock .ft-tree').focus()");
     await key('f', { ctrl: true, shift: true });
     check(await until("document.getElementById('trail').hidden"), 'Ctrl+Shift+F closes it');
