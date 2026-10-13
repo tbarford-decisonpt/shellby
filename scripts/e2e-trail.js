@@ -1,12 +1,13 @@
 // ci: the trail: files read, searched and changed, the crab on them, circles, secrets, untested, replay
 // The trail (Ctrl+Shift+E), end to end against the fake CLI's "crawl" turn in a
 // throwaway repository:
-//   1. Ctrl+Shift+E opens it beside the chat (the panel grows to keep the chat usable)
+//   1. Ctrl+Shift+E opens it beside the chat, on the File manager's Trail tab (the panel grows to keep the chat usable)
 //   2. a turn that wanders: what it read, what a search found, what it changed
 //      (+/− from the turn's diff), .env called a secret, a file outside the project
 //   3. what's worth a look: going in circles, a change whose test nobody ran,
 //      a secret; each action puts its words in the box, unsent
 //   4. a row goes to its step in the feed; @ mentions it in the box
+//   4b. a row's open button opens the file in the viewer; Ctrl+double-click opens the editor
 //   5. the replay: step 1 puts him back on the first file and lights its step
 //   6. a change waiting for your OK: its row says so and he stands on it
 //   7. its width: drag the line on its left edge, arrow keys, Home/End, double-click
@@ -113,6 +114,14 @@ fs.mkdirSync(claudeConfig);
       `the chat keeps room beside it (the panel went from ${widthBefore} px to ${await ev('window.innerWidth')} px)`);
     check(await ev("document.activeElement === document.getElementById('trailMap')"), 'the map has the keyboard');
     check(await ev("document.getElementById('trailBtn').getAttribute('aria-pressed')") === 'true', 'the subbar\'s Trail button shows it\'s open');
+    check(await ev("document.getElementById('trailTitle').textContent") === 'File manager', 'the drawer is the File manager');
+    check(await ev("document.getElementById('drawerTabTrail').getAttribute('aria-selected') === 'true' && !document.getElementById('trailPanel').hidden && document.getElementById('filesDock').hidden"), 'Ctrl+Shift+E chose the Trail tab');
+    await ev("document.getElementById('drawerTabTrail').focus()");
+    await key('ArrowRight');
+    check(await until("document.getElementById('drawerTabTrail').getAttribute('aria-selected') === 'true' || document.getElementById('drawerTabFiles').getAttribute('aria-selected') === 'true'"), 'arrow keys on the tab list move between the tabs without error');
+    await ev("document.getElementById('drawerTabTrail').click()");
+    check(await until("document.getElementById('drawerTabTrail').getAttribute('aria-selected') === 'true' && !document.getElementById('trailPanel').hidden"), 'the Trail tab brings the Trail back');
+    await ev("document.getElementById('trailMap').focus()");
 
     // ---- 2. a turn that wanders
     await ev("SB.send('crawl 70')");
@@ -153,6 +162,17 @@ fs.mkdirSync(claudeConfig);
     await ev(`${row('util.js')}.querySelector('[data-act="mention"]').click()`);
     check((await input()).trim() === '@src/util.js', `@ puts it in the box as a mention ("${(await input()).trim()}")`);
     await clearInput();
+
+    // ---- 4b. a row opens in the viewer, as a file link does; Ctrl opens the editor
+    await clearInput();
+    await ev("window.__opened = []; window.__openFile = SB.openFile; SB.openFile = (p, o) => { window.__opened.push({ p, reveal: !!o?.reveal }); }");
+    await ev(`${row('util.js')}.querySelector('[data-act="open"]').click()`);
+    check(await until("SB.state.view === 'viewer' && SB.viewer.current()?.file === 'src/util.js'"), "a row's open button opens it in the viewer");
+    await ev('SB.goBack()');
+    check(await until("SB.state.view === 'chat'"), 'Back returns to the chat');
+    await ev(`${row('util.js')}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, ctrlKey: true }))`);
+    check(await until('window.__opened.length === 1') && await ev("SB.state.view === 'chat' && /util\\.js$/.test(window.__opened[0].p)"), 'Ctrl+double-click opens the editor instead');
+    await ev('SB.openFile = window.__openFile');
 
     // ---- 5. the replay
     const steps = Number(await ev("document.getElementById('trailScrub').max"));

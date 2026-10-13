@@ -257,7 +257,7 @@
     showChanges: tab => SB.showChanges(tab),
     bringHome: tab => (tab.worktree ? SB.bringHome(tab) : SB.toast('This conversation works in your own checkout, so there’s nothing to bring home.')),
     outline: tab => SB.openOutline?.(tab),     // outline.js
-    trail: () => SB.toggleTrail?.(undefined, { focus: true }), // trail.js
+    trail: () => SB.toggleDrawer?.('trail', { focus: true }), // trail.js: the File manager on its Trail tab
     problems: tab => SB.openProblems?.(tab),   // problems.js
   };
 

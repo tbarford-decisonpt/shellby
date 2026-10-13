@@ -35,6 +35,17 @@ body.resizing-trail { user-select: none; cursor: col-resize; }
 .trail-scope button[aria-pressed="true"] { background: var(--reef-3); color: var(--sand); }
 .trail-scope button:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
 
+/* The File manager's tabs (Trail, All files), under its title. This turn / All is the Trail's own. */
+.drawer-tabs { display: flex; gap: 2px; padding: 2px 8px 0; border-bottom: 1px solid var(--line-soft); }
+.drawer-tabs [role="tab"] { padding: 5px 10px 6px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--sand-dim); font: inherit; font-size: var(--fs-12); cursor: pointer; }
+.drawer-tabs [role="tab"]:hover { color: var(--sand); }
+.drawer-tabs [role="tab"][aria-selected="true"] { color: var(--sand); border-bottom-color: var(--glass); }
+.drawer-tabs [role="tab"]:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.trail[data-tab="files"] .trail-scope { display: none; }
+.trail[data-tab="files"] .trail-head #trailClose { margin-left: auto; }
+.trail-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.trail-panel[hidden] { display: none; }
+
 /* ---------- what's worth a look */
 .trail-signals { display: grid; gap: 6px; padding: 0 8px; }
 .trail-signals:not(:empty) { padding: 8px; border-bottom: 1px solid var(--line-soft); }
