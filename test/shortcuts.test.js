@@ -38,7 +38,11 @@ test('no two shortcuts can be pressed the same way', () => {
 test('the new shortcuts leave the text box and the browser alone', () => {
   // Text editing in the composer, and Chromium/Electron keys that mean something already.
   const taken = ['Ctrl+Z', 'Ctrl+Y', 'Ctrl+Shift+Z', 'Ctrl+A', 'Ctrl+C', 'Ctrl+X', 'Ctrl+Shift+I', 'Ctrl+Shift+R', 'Ctrl+Backspace', 'Ctrl+Delete'];
-  const ours = K.SHORTCUTS.flatMap(s => s.keys.filter(k => s.id !== 'paste').map(k => k.toLowerCase()));
+  // Shown only, never rebound: paste is the box's own Ctrl+V, and the review inbox
+  // (review-view.js) has held Ctrl+Shift+R in place of the reload it would be.
+  const shownOnly = new Set(['paste', 'reviewInbox']);
+  const ours = K.SHORTCUTS.flatMap(s => s.keys.filter(() => !shownOnly.has(s.id)).map(k => k.toLowerCase()));
+  assert.ok(K.SHORTCUTS.filter(s => shownOnly.has(s.id)).every(s => s.fixed), 'a shown-only key can\'t be changed in the list');
   for (const t of taken) assert.ok(!ours.includes(t.toLowerCase()), t);
 });
 

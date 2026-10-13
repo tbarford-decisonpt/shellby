@@ -16,7 +16,7 @@ Your phone, your stream, your desk lights, your Discord profile, your pull reque
 
 ## 💡 Desk lighting
 
-Through [OpenRGB](https://openrgb.org): coral while he works, amber when he needs you, red when a build goes red or something overheats. **Install OpenRGB for me** does it with winget after you confirm, and he starts it in the tray whenever the lighting is on.
+Through [OpenRGB](https://openrgb.org): coral while he works, amber when he needs you, red when a build goes red, and orange running to red-hot when something overheats. **Install OpenRGB for me** does it with winget after you confirm, and he starts it in the tray whenever the lighting is on.
 
 ## 🎮 On your Discord profile
 

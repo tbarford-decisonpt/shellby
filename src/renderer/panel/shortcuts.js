@@ -24,6 +24,7 @@
     { id: 'prevTab', group: 'Conversations', keys: ['Ctrl+Shift+Tab', 'Ctrl+PgUp'], what: 'Previous conversation (in this pane, when they’re side by side)' },
     { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right along its strip' },
     { id: 'tabList', group: 'Conversations', keys: ['Ctrl+Shift+A'], what: 'Every open conversation, grouped by what it needs from you' },
+    { id: 'reviewInbox', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+R'], what: 'Ready to review: the conversations whose changes you haven’t looked at yet' },
     { id: 'renameTab', fixed: true, group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
     { id: 'focusPane', fixed: true, group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
     { id: 'movePane', fixed: true, group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation into the pane beside it, with its tabs (at the left or right edge, into a column of its own)' },

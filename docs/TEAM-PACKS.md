@@ -55,7 +55,7 @@ A pack is a file from a repository, and you might have cloned that repository fr
 
 ### Hooks every teammate must run
 
-If the whole team should always run a hook (a formatter, say), put it in the project's shared Claude Code settings, `.claude/settings.json`, instead: **Toolbox → Hooks**, *This project, shared*. Claude Code already shares that file through the repo. The team pack is for hooks each person can choose, like a sound when Claude finishes.
+If the whole team should always run a hook (a formatter, say), put it in the project's shared Claude Code settings, `.claude/settings.json`, instead: **Toolbox → Setup → Hooks**, *This project, shared*. Claude Code already shares that file through the repo. The team pack is for hooks each person can choose, like a sound when Claude finishes.
 
 ## The file
 

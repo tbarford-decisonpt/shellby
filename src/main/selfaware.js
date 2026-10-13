@@ -21,7 +21,7 @@ const FEATURES = Object.freeze({
   routine: { name: 'Routines', where: 'the Routines screen', what: 'run a prompt on a schedule', title: 'Make this a routine?', button: 'Set it up' },
   focus: { name: 'Guard my focus', where: 'right-click the crab', what: '15, 25 or 50 minutes with notifications held back', title: 'Guard your focus?', button: 'Start' },
   review: { name: 'Look over my changes', where: 'Trophies & XP, the shield next to a project', what: 'a read-only security review of uncommitted and unpushed changes', title: 'Look over these changes?', button: 'Start a review' },
-  notify: { name: "Tell me when I'm away", where: 'Settings, Elsewhere', what: 'a phone notification when Claude needs permission or a task finishes', title: 'Get pinged on your phone?', button: 'Open settings' },
+  notify: { name: "Tell me when I'm away", where: 'Settings, Connections', what: 'a phone notification when Claude needs permission or a task finishes', title: 'Get pinged on your phone?', button: 'Open settings' },
 });
 const FEATURE_IDS = Object.keys(FEATURES);
 

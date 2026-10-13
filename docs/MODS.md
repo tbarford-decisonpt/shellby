@@ -31,7 +31,7 @@ The plugin has other tools (`add_routine`, `add_workflow`, `run_workflow`…). L
 
 ## Let the mod make the call
 
-`$.mcp.call` goes through Claude Code's permission rules like any other MCP tool. Without an allow rule it can be refused: in `claude -p`, where there's nobody to ask, it is. So allow the tools your mod uses. In `~/.claude/settings.json`, or with **Toolbox → Rules** in Shellby:
+`$.mcp.call` goes through Claude Code's permission rules like any other MCP tool. Without an allow rule it can be refused: in `claude -p`, where there's nobody to ask, it is. So allow the tools your mod uses. In `~/.claude/settings.json`, or with **Toolbox → Setup → Rules** in Shellby:
 
 ```json
 {
