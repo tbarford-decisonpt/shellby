@@ -30,7 +30,7 @@ function createKeepWarm(d) {
     return [...d.manager.tabs.values()].map(t => ({
       id: t.id, title: t.title, saved: !!t.saved, inTerminal: !!t.inTerminal,
       hasProc: !!t.session.proc, busy: !!t.session.busy, pending: t.session.pending.size,
-      crew: t.session.runningCrew().length, cache: t.session.cache || null,
+      crew: t.session.runningCrew().length, size: t.session.context?.tokens || 0, cache: t.session.cache || null,
     }));
   }
 
@@ -48,7 +48,7 @@ function createKeepWarm(d) {
     kept.clear();
     lastPlan = kw.plan(tabsNow(), kept, t, lead);
     const warm = lastPlan.filter(isWarm);
-    if (!warm.length) return { ok: false, error: 'Nothing to keep warm: no conversation has a warm one-hour cache.', ...view() };
+    if (!warm.length) return { ok: false, error: `Nothing to keep warm: no conversation of ${kw.tokensText(kw.MIN_KEEP_TOKENS)} or more has a warm one-hour cache.`, ...view() };
     for (const p of warm) kept.set(p.id, { state: 'kept', reason: null, lastPing: null });
     on = { endsAt: t + kw.MAX_MS, left: false };
     timer = every(tick, kw.TICK_MS);

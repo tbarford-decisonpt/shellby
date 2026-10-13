@@ -59,12 +59,12 @@ async function cdp(wsUrl) {
     check(await poll("SB.$('toast').textContent.includes('Nothing to keep warm')"), 'with nothing cached it says so, and stays off');
     check(!(await panel.ev(pressed)), 'the mug is not pressed');
 
-    await type('warm1h 40000');
+    await type('warm1h 250000'); // over the 200k floor
     check(await poll('!SB.activeTab().busy && SB.activeTab().cache?.ttlMs === 3600000', 20000), 'a reply cached for an hour');
     await wait(1500); // past the one-second lead: the ping is due as it turns on
     await panel.ev("SB.$('keepWarmBtn').click()");
     check(await poll(`${pressed} && /^Warm · \\d/.test(SB.$('keepWarmLeft').textContent)`), 'pressed, with the time left beside it');
-    check(await poll("[...SB.activeTab().el.querySelectorAll('.keepwarm-mark')].some(m => /read 40k from cache/.test(m.textContent))", 15000), 'the ping leaves one dim line with what it read');
+    check(await poll("[...SB.activeTab().el.querySelectorAll('.keepwarm-mark')].some(m => /read 250k from cache/.test(m.textContent))", 15000), 'the ping leaves one dim line with what it read');
     check(!(await panel.ev("[...SB.activeTab().el.querySelectorAll('.msg')].some(m => m.textContent.includes('Keep-warm ping'))")), 'the ping itself is not in the feed');
     check(await poll('!SB.activeTab().busy'), 'the tab is not left working');
     check(await poll("SB.$('keepWarmBtn').title.includes('next ping')"), 'the tooltip says when the next ping goes');

@@ -24,11 +24,13 @@ tab manager (`src/main/sessions.js`) and the tests.
 
 - **One ping at a time.** Due tabs are pinged in turn, never together, and a
   tab whose cache a ping just read isn't pinged again within 5 minutes.
-- **One press covers every conversation.** While it's on, Shellby looks at
-  every open tab every 30 seconds. A tab gets pinged when its cache is warm,
-  lasts an hour, and is due within 5 minutes. A tab you're actively using is
-  never due, because your own messages keep its cache warm. A tab that warms up
-  after you press the button is included from then on.
+- **One press covers every conversation big enough to be worth it.** While
+  it's on, Shellby looks at every open tab every 30 seconds. A tab gets pinged
+  when its conversation is 200k tokens or more (`MIN_KEEP_TOKENS`), its cache
+  is warm and lasts an hour, and it is due within 5 minutes. A tab you're
+  actively using is never due, because your own messages keep its cache warm.
+  A tab that warms up, or grows past 200k, after you press the button is
+  included from then on.
 - **The ping goes 5 minutes before expiry.** It is due at
   `cache.at + cache.ttlMs - LEAD_MS`, with `LEAD_MS = 5 min`, from the stamp
   `session-accounting.js` already keeps. A read resets the cache's timer, and
@@ -54,8 +56,9 @@ tab manager (`src/main/sessions.js`) and the tests.
     prompt, so the cache would not survive it anyway.
   - **Nothing is left to keep warm**: every tab it kept has been dropped or
     closed, and no tab is working that could warm up again.
-- **It won't arm with nothing to do.** If no tab has a warm one-hour cache when
-  you press it, it doesn't turn on. A toast says why.
+- **It won't arm with nothing to do.** If no conversation of 200k or more has
+  a warm one-hour cache when you press it, it doesn't turn on. A toast says why
+  and names the floor.
 
 ### What a ping is
 
@@ -110,6 +113,7 @@ tooltip lists them.
 | Cache warm, lasts 1 hour, due | ping | - |
 | Working (`busy`), waiting on you (`pending`), or crew running | skip this tick; its own turn restamps the cache | "working" |
 | Cache lasts 5 minutes (an API key without `promptCacheTtl: "1h"`) | not pinged | "its cache only lasts 5 minutes" |
+| Conversation under 200k tokens (`MIN_KEEP_TOKENS`), as its context meter reads | not pinged; a kept tab that falls under it, after a compact say, is dropped | "too small to be worth it (40k)" |
 | Cache already cold, for example the PC slept past it | dropped, no ping (it would pay the full write) | "it went cold at 13:02" |
 | No process, terminal mode, or nothing sent yet | not pinged | "nothing to keep warm" |
 | Ping read nothing, or wrote at least a tenth of what it read and at least 10k | kept the first time, since the ping wrote the cache back and the next one should read it; dropped if the next ping finds it cold too | "the ping found it cold (read 0, wrote 212k)" |
@@ -129,6 +133,15 @@ what it wrote: `Kept warm 12:55 · read 21k from cache, wrote 16k`. The 10k floo
 is Shellby's: every warm ping writes about 2.6k of its own (its message, the
 reply and what Claude Code attaches to each turn), which on a small
 conversation can pass a tenth of what it read.
+
+The 200k floor is Shellby's too. What a ping saves grows with the
+conversation; what it costs mostly doesn't: about 2.6k written per ping, and
+about 16k more when the ping is a process's second turn. On a 200k
+conversation a cold return writes 200k at twice the input rate, about 400k
+input-equivalent, against about 25k for a ping. Below 200k the saving isn't
+worth the pings and a PC kept awake. A conversation on a 200k context window
+can't reach the floor, so in practice only 1M-window conversations are kept
+warm.
 
 ### What else changes while it's on
 
@@ -168,7 +181,7 @@ SVG of a mug with steam.
 
 | File | What |
 |---|---|
-| `src/main/keepwarm.js` | Pure. `plan(tabs, kept, now, lead)`: which tabs to ping, wait, skip or drop, and why. `receipt(result)`: warm, or the reason to drop. `watchBack(left, reading)`: has the user returned. Constants `LEAD_MS`, `MAX_MS`, `TICK_MS`, `COLD_SHARE`, `COLD_MIN_WRITE`. No Electron. |
+| `src/main/keepwarm.js` | Pure. `plan(tabs, kept, now, lead)`: which tabs to ping, wait, skip or drop, and why. `receipt(result)`: warm, or the reason to drop. `watchBack(left, reading)`: has the user returned. Constants `LEAD_MS`, `MAX_MS`, `TICK_MS`, `COLD_SHARE`, `COLD_MIN_WRITE`, `MIN_KEEP_TOKENS`. No Electron. |
 | `src/main/keepwarm-service.js` | Arms and disarms, runs the 30-second tick, calls `manager.ping`, reads each ping's result, adds the receipt items, holds the power blocker, and pushes `keepwarm` state to the panel. Takes its dependencies as `d`, as `away-service.js` does. |
 | `src/main/sessions.js` | `ping(tabId, text)`, the `tab.pinging` branch where the session's items arrive, `keep` in `stopIdle`, and `touch(id)` for when Keep warm stops. A pinging tab's busy state is left out of `aggregate`, so the crab, the tray and the Multitasker trophy never count a ping; its helpers and jobs still count. `wiring/timetrack.js` `claudeAt` leaves it out too. The summary still says `busy`, so a message typed during a ping queues. |
 | `src/main/history.js` | `'keepwarm'` joins `PERSISTED`, so receipts come back when a conversation is reopened or synced. |

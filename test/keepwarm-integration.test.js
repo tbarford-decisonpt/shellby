@@ -34,7 +34,7 @@ async function rig(fakePing) {
     setInterval: () => ({ unref() {} }), clearInterval: () => {},
   });
   const tab = mgr.open({ tabId: 't1', cwd: os.tmpdir() });
-  mgr.send('t1', 'warm1h 40000', { kind: 'user', text: 'warm1h 40000' });
+  mgr.send('t1', 'warm1h 250000', { kind: 'user', text: 'warm1h 250000' }); // over the 200k floor
   assert.ok(await until(() => seen.some(i => i.kind === 'result') && !tab.session.busy));
   await new Promise(r => setTimeout(r, 5));
   return { mgr, seen, svc, close: () => { delete process.env.SHELLBY_FAKE_PING; mgr.closeAll({ kill: true }); } };
@@ -48,7 +48,7 @@ test('with the real tab manager, one due ping leaves exactly one receipt', async
     await new Promise(r => setTimeout(r, 300));
     const receipts = seen.filter(i => i.kind === 'keepwarm');
     assert.equal(receipts.length, 1);
-    assert.match(receipts[0].text, /read 40k from cache/);
+    assert.match(receipts[0].text, /read 250k from cache/);
     assert.equal(receipts[0].endsTurn, true);
     assert.equal(seen.filter(i => i.kind === 'result').length, 1, 'the ping\'s own result never surfaced');
     assert.equal(svc.isKept('t1'), true);
@@ -65,7 +65,7 @@ test('with the real tab manager, a first ping that finds the cache cold keeps th
     await new Promise(r => setTimeout(r, 300));
     const receipts = seen.filter(i => i.kind === 'keepwarm');
     assert.equal(receipts.length, 1, 'not pinged again straight away');
-    assert.match(receipts[0].text, /^Kept warm \d\d:\d\d · wrote 40k back to the cache$/);
+    assert.match(receipts[0].text, /^Kept warm \d\d:\d\d · wrote 250k back to the cache$/);
     assert.equal(receipts[0].warm, true);
     assert.equal(receipts[0].endsTurn, true);
     assert.equal(svc.isKept('t1'), true);

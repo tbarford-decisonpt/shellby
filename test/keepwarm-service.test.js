@@ -13,7 +13,7 @@ const COLD = { ok: true, error: null, denied: false, tokens: { cacheRead: 0, cac
 
 // Cached ten minutes ago for an hour: due at T0 + 45 min, cold at T0 + 50 min.
 function fakeTab(id, session = {}) {
-  return { id, title: id.toUpperCase(), saved: true, inTerminal: null, session: { proc: {}, busy: false, pending: new Map(), runningCrew: () => [], cache: { at: T0 - 10 * MIN, ttlMs: HOUR }, ...session } };
+  return { id, title: id.toUpperCase(), saved: true, inTerminal: null, session: { proc: {}, busy: false, pending: new Map(), runningCrew: () => [], cache: { at: T0 - 10 * MIN, ttlMs: HOUR }, context: { tokens: 250000 }, ...session } };
 }
 
 function setup({ tabs = [fakeTab('a')], reply = WARM } = {}) {
@@ -51,6 +51,14 @@ test('with nothing warm for an hour it does not turn on, and says why', () => {
   assert.equal(svc.view().on, false);
   assert.deepEqual(calls.blocker, []);
   assert.equal(ticking(), false);
+});
+
+test('a warm conversation under 200k does not turn it on, and the toast names the floor', () => {
+  const { svc, calls } = setup({ tabs: [fakeTab('a', { context: { tokens: 40000 } }), fakeTab('b', { context: null })] });
+  const r = svc.set(true);
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'Nothing to keep warm: no conversation of 200k or more has a warm one-hour cache.');
+  assert.deepEqual(calls.pings, []);
 });
 
 test('while it is on the PC stays awake, and turning it off lets it sleep', () => {

@@ -32,6 +32,7 @@ const sessionId = args.includes('--resume') ? args[args.indexOf('--resume') + 1]
 let mode = args.includes('--permission-mode') ? args[args.indexOf('--permission-mode') + 1] : 'default';
 let turn = 0;
 let pending = null;   // { requestId, onAnswer }
+let warmTokens = 40000; // what the last "warm1h" cached: a keep-warm ping reads (or writes) that much
 let slow = null;
 const mcpWaiting = new Map(); // our control request id -> what to do with the answer
 let mcpTools = null;           // from tools/list, once the in-app server answered
@@ -360,12 +361,14 @@ function onLine(line) {
     };
     return;
   }
-  // "warm1h <tokens>" -> a reply that wrote <tokens> to the one-hour cache, as a plan session's does
+  // "warm1h <tokens>" -> a reply that wrote <tokens> to the one-hour cache, as a plan session's does, in a 1M window
   if (content.startsWith('warm1h')) {
     const tokens = parseInt(content.split(' ')[1], 10) || 40000;
+    warmTokens = tokens;
     const usage = { input_tokens: 10, cache_creation_input_tokens: tokens, cache_read_input_tokens: 0, output_tokens: 20, cache_creation: { ephemeral_1h_input_tokens: tokens, ephemeral_5m_input_tokens: 0 } };
     out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage, content: [{ type: 'text', text: 'cached for an hour' }] }, parent_tool_use_id: null, session_id: sessionId });
-    result(true, { usage });
+    // A 1M window, as a conversation past keep warm's 200k floor has: under 200k it would read as full.
+    result(true, { usage, modelUsage: { 'claude-sonnet-5-5': { inputTokens: 10, outputTokens: 20, contextWindow: 1000000 } } });
     return;
   }
   // Shellby's keep-warm ping (src/main/keepwarm.js PING_TEXT) -> "warm", read from the cache.
@@ -374,8 +377,8 @@ function onLine(line) {
   if (content.startsWith('Keep-warm ping')) {
     const how = process.env.SHELLBY_FAKE_PING || 'warm';
     const usage = how === 'cold'
-      ? { input_tokens: 10, cache_creation_input_tokens: 40000, cache_read_input_tokens: 0, output_tokens: 2, cache_creation: { ephemeral_1h_input_tokens: 40000, ephemeral_5m_input_tokens: 0 } }
-      : { input_tokens: 10, cache_creation_input_tokens: 30, cache_read_input_tokens: 40000, output_tokens: 2 };
+      ? { input_tokens: 10, cache_creation_input_tokens: warmTokens, cache_read_input_tokens: 0, output_tokens: 2, cache_creation: { ephemeral_1h_input_tokens: warmTokens, ephemeral_5m_input_tokens: 0 } }
+      : { input_tokens: 10, cache_creation_input_tokens: 30, cache_read_input_tokens: warmTokens, output_tokens: 2 };
     const reply = () => {
       out({ type: 'assistant', message: { id: `msg_fake_${++messages}`, model: 'claude-sonnet-5-5', usage, content: [{ type: 'text', text: 'warm' }] }, parent_tool_use_id: null, session_id: sessionId });
       result(true, { usage });

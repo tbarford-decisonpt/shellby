@@ -10,7 +10,7 @@ const HOUR = 60 * MIN;
 
 const tab = (over = {}) => ({
   id: 'a', title: 'A', saved: true, hasProc: true, inTerminal: false, busy: false, pending: 0, crew: 0,
-  cache: { at: T0 - 10 * MIN, ttlMs: HOUR }, ...over,
+  size: 250000, cache: { at: T0 - 10 * MIN, ttlMs: HOUR }, ...over,
 });
 const one = (t, kept = new Map(), now = T0, lead) => kw.plan([t], kept, now, lead)[0];
 
@@ -43,6 +43,16 @@ test('nothing to keep warm: unsaved, no process, in a terminal, or no cache yet'
 test('a five-minute cache is left alone, and says so', () => {
   const p = one(tab({ cache: { at: T0, ttlMs: 5 * MIN } }));
   assert.deepEqual([p.action, p.reason], ['skip', 'its cache only lasts 5 minutes']);
+});
+
+test('a conversation under 200k is too small to be worth it, and says how big it is', () => {
+  for (const size of [40000, 199999, 0, undefined]) {
+    assert.deepEqual([one(tab({ size })).action, one(tab({ size })).reason], ['skip', `too small to be worth it (${kw.tokensText(size)})`]);
+  }
+  assert.equal(one(tab({ size: 200000 })).action, 'wait', 'exactly 200k is kept');
+  // Kept, then compacted: what's left isn't worth it either.
+  const kept = new Map([['a', { state: 'kept', reason: null, lastPing: null }]]);
+  assert.deepEqual([one(tab({ size: 30000 }), kept).action, one(tab({ size: 30000 }), kept).reason], ['drop', 'too small to be worth it (30k)']);
 });
 
 test('a cold cache is skipped when it was never kept, and dropped when it was', () => {
@@ -118,5 +128,5 @@ test('the words: receipts, and a tooltip line per tab', () => {
 
 test('the ping text is the one the spec fixes', () => {
   assert.equal(kw.PING_TEXT, 'Keep-warm ping from Shellby. Reply with the single word: warm. Use no tools.');
-  assert.deepEqual([kw.LEAD_MS, kw.MAX_MS, kw.TICK_MS, kw.AWAY_IDLE_MS, kw.COLD_SHARE, kw.COLD_MIN_WRITE], [5 * MIN, 3 * HOUR, 30 * 1000, 2 * MIN, 0.1, 10000]);
+  assert.deepEqual([kw.LEAD_MS, kw.MAX_MS, kw.TICK_MS, kw.AWAY_IDLE_MS, kw.COLD_SHARE, kw.COLD_MIN_WRITE, kw.MIN_KEEP_TOKENS], [5 * MIN, 3 * HOUR, 30 * 1000, 2 * MIN, 0.1, 10000, 200000]);
 });

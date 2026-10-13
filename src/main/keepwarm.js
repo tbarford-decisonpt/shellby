@@ -9,6 +9,7 @@ const TICK_MS = 30 * 1000;      // how often the tabs are looked at
 const AWAY_IDLE_MS = 2 * MIN;   // no input for this long and you've stepped away (recap.js IDLE_MS)
 const COLD_SHARE = 0.1;         // a ping that wrote this share of what it read found the cache gone,
 const COLD_MIN_WRITE = 10000;   // as long as it wrote this much: every ping writes ~2.6k of its own
+const MIN_KEEP_TOKENS = 200000; // smaller conversations cost little to write again, so they aren't pinged
 const PING_TEXT = 'Keep-warm ping from Shellby. Reply with the single word: warm. Use no tools.';
 
 const pad = n => String(n).padStart(2, '0');
@@ -22,7 +23,8 @@ function tokensText(n) { return n >= 1000 ? `${Math.round(n / 1000)}k` : String(
 
 /**
  * What to do with each open tab this tick.
- * tabs: [{ id, title, saved, hasProc, inTerminal, busy, pending, crew, cache: { at, ttlMs } | null }]
+ * tabs: [{ id, title, saved, hasProc, inTerminal, busy, pending, crew, size, cache: { at, ttlMs } | null }]
+ *   size: the conversation's tokens, as its context meter has them
  * kept: Map tabId -> { state: 'kept' | 'dropped', reason }, what the service already decided
  * -> [{ id, title, action, reason, dueAt }], action:
  *   'ping' due now; 'wait' kept, not due (reason 'working' while it's busy);
@@ -36,6 +38,8 @@ function plan(tabs, kept, now, lead = LEAD_MS) {
     if (k && !t.hasProc) return out('drop', 'its Claude Code process ended');
     if (!t.saved || !t.hasProc || t.inTerminal || !t.cache) return out('skip', 'nothing to keep warm');
     if (!(t.cache.ttlMs >= HOUR)) return out('skip', 'its cache only lasts 5 minutes');
+    // Kept and then compacted, say: what's left isn't worth it either.
+    if (!(t.size >= MIN_KEEP_TOKENS)) return out(k ? 'drop' : 'skip', `too small to be worth it (${tokensText(t.size)})`);
     const expires = t.cache.at + t.cache.ttlMs;
     const dueAt = expires - lead;
     // Its own turn reads (and restamps) the cache: nothing to do but wait.
@@ -83,4 +87,4 @@ function tabLine(p, k) {
   return k?.lastPing ? `kept warm ${hhmm(k.lastPing.at)} · ${next}` : next;
 }
 
-module.exports = { LEAD_MS, MAX_MS, TICK_MS, AWAY_IDLE_MS, COLD_SHARE, COLD_MIN_WRITE, PING_TEXT, hhmm, tokensText, plan, receipt, watchBack, keptText, stoppedText, tabLine };
+module.exports = { LEAD_MS, MAX_MS, TICK_MS, AWAY_IDLE_MS, COLD_SHARE, COLD_MIN_WRITE, MIN_KEEP_TOKENS, PING_TEXT, hhmm, tokensText, plan, receipt, watchBack, keptText, stoppedText, tabLine };
