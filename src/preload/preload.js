@@ -63,8 +63,8 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // file links (Settings → Editor) and the panel's text size
   openFile: (tabId, target, /** @type {{ line?: number, reveal?: boolean }} */ { line, reveal } = {}) => ipcRenderer.invoke('file:open', { tabId, target, line, reveal }),
-  getEditors: invoke('editors:get'),
-  zoom: invoke('panel:zoom'),
+  getEditors: invoke('editors:get'), zoom: invoke('panel:zoom'),
+  viewerOpen: invoke('viewer:open'), viewerTree: invoke('viewer:tree'), viewerChanges: invoke('viewer:changes'), viewerRead: invoke('viewer:read'), viewerDiff: invoke('viewer:diff'), viewerLocate: invoke('viewer:locate'), viewerBranch: invoke('viewer:branch'), viewerClose: invoke('viewer:close'), viewerPlaces: invoke('viewer:places'), viewerSwitch: invoke('viewer:switch'), onViewerStale: on('viewer:stale'), // the file viewer (main's viewer.js), read-only
   claudeStatus: invoke('claude:status'),
   claudeLogin: invoke('claude:login'),
   claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"

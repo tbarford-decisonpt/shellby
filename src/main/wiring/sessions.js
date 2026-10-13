@@ -189,6 +189,7 @@ function wireSessions(d) {
         if (d.pendingCommands.size > 200) d.pendingCommands.delete(d.pendingCommands.keys().next().value);
       }
       if (item.kind === 'tool') changes.noteTool(touchOf(tabId)?.touch, item); // what this turn could have written
+      d.viewerWrites?.(item, tab.session?.cwd); // the file viewer looks again once a writing tool is done (ipc/viewer.js)
       if (item.kind === 'tool') d.onToolSpoken(item);
       // Claude writing code (or reading round): whatever bug is on the loose in that project is being worked on, and fought.
       if (item.kind === 'tool') d.bugdex?.tool(tabId, item);

@@ -1,0 +1,70 @@
+/* The file viewer (viewer.js): a header, then two framed panels that fill the rest, like an editor's
+   sidebar and its editor: the list on the left, the file or its diff on the right. */
+body[data-view="viewer"] .view-viewer { display: flex; flex-direction: column; padding: 10px 12px 12px; gap: 8px; animation: fadein .18s var(--ease-out); }
+.vw-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vw-where { flex: 0 1 auto; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border: 0; border-radius: var(--r-sm); background: none; color: var(--sand); font: inherit; font-size: var(--fs-13); text-align: left; cursor: pointer; }
+.vw-where:hover:not(:disabled), .vw-where:focus-visible, .vw-where[aria-expanded="true"] { background: var(--line-soft); }
+.vw-where:disabled { cursor: default; color: var(--sand); opacity: 1; }
+.vw-where-caret { color: var(--sand-dim); }
+.vw-menu { min-width: 240px; }
+.vw-menu-note { margin: 0; padding: 2px 9px 6px; }
+.vw-live { font-size: var(--fs-12); padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-soft); color: var(--sand-dim); }
+.vw-live.busy { color: var(--glass); }
+.vw-live.needs { color: #ffc9bb; }
+.vw-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(180px, 30%) minmax(0, 1fr); gap: 10px; }
+.vw-side, .vw-main { min-height: 0; min-width: 0; background: var(--abyss); border: 1px solid var(--line-soft); border-radius: var(--r-sm); }
+.vw-side { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.vw-side[hidden] { display: none; }
+.vw-side[hidden] + .vw-main { grid-column: 1 / -1; }
+.vw-tabs { display: flex; gap: 4px; }
+.vw-tab { flex: 1; padding: 4px 6px; border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: none; color: var(--sand-dim); font-size: var(--fs-12); cursor: pointer; }
+.vw-tab[aria-selected="true"] { color: var(--sand); box-shadow: inset 0 -2px 0 var(--glass); }
+.vw-tab[hidden] { display: none; }
+.vw-count:empty { display: none; }
+.vw-only { display: flex; align-items: center; gap: 6px; color: var(--sand-dim); }
+.vw-only[hidden] { display: none; }
+.vw-note { margin: 0; }
+.vw-list { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; min-height: 0; }
+.vw-foot { flex: none; margin: 0; padding-top: 6px; border-top: 1px solid var(--line-soft); }
+.vw-row { display: flex; align-items: center; gap: 6px; width: 100%; padding: 2px 6px; border: 0; border-radius: var(--r-sm); background: none; color: var(--sand-dim); font: var(--fs-12)/1.6 var(--font-mono); text-align: left; cursor: pointer; }
+.vw-row:hover, .vw-row:focus-visible { background: var(--line-soft); color: var(--sand); }
+.vw-row.on { background: var(--line-soft); color: var(--sand); box-shadow: inset 2px 0 0 var(--glass); }
+.vw-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vw-caret { width: 10px; flex: none; }
+.vw-st { flex: none; width: 1.2em; text-align: center; font-weight: 600; }
+.vw-st.st-a, .vw-st.st-u { color: #c9f2e7; }
+.vw-st.st-m, .vw-st.st-t { color: var(--glass); }
+.vw-st.st-d { color: #ffc9bb; }
+.vw-n { flex: none; font-size: var(--fs-11); }
+.vw-n .add { color: #c9f2e7; }
+.vw-n .del { color: #ffc9bb; }
+.vw-d1 { padding-left: 18px; } .vw-d2 { padding-left: 30px; } .vw-d3 { padding-left: 42px; } .vw-d4 { padding-left: 54px; }
+.vw-d5 { padding-left: 66px; } .vw-d6 { padding-left: 78px; } .vw-d7 { padding-left: 90px; } .vw-d8 { padding-left: 102px; }
+.vw-d9 { padding-left: 114px; } .vw-d10 { padding-left: 126px; } .vw-d11 { padding-left: 138px; } .vw-d12 { padding-left: 150px; }
+.vw-main { display: flex; flex-direction: column; overflow: hidden; }
+.vw-file-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line-soft); }
+.vw-file { min-width: 0; color: var(--sand); font-size: var(--fs-12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vw-tools { margin-left: auto; flex: none; display: flex; align-items: center; gap: 4px; }
+.vw-wrap[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.vw-wrap[aria-pressed="true"] { color: var(--sand); box-shadow: inset 0 -2px 0 var(--glass); }
+.vw-scroll { flex: 1; min-height: 0; overflow: auto; }
+.vw-code.diff { max-height: none; overflow: visible; border: 0; border-radius: 0; background: none; padding: 4px 0; font-size: var(--fs-12); }
+.vw-code.diff.nowrap { width: max-content; min-width: 100%; }
+.vw-code .dl { display: flex; align-items: flex-start; padding: 0 10px 0 0; min-width: 0; }
+.vw-code .dl.hit { background: rgba(243, 230, 204, .13); box-shadow: inset 2px 0 0 var(--sand); }
+.vw-code .dl.hunk { margin-top: 8px; padding-top: 3px; padding-bottom: 3px; border-top: 1px solid var(--line); }
+.vw-code .dl.hunk:first-child { margin-top: 0; border-top: 0; }
+.vw-ln { flex: none; width: 4.5ch; padding-right: 1ch; text-align: right; color: var(--sand-faint); user-select: none; }
+.vw-sign { flex: none; width: 2ch; text-align: center; user-select: none; }
+.vw-code .code { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; padding-left: 2ch; text-indent: -2ch; }
+.vw-code.nowrap .dl { min-width: max-content; }
+.vw-code.nowrap .code { flex: none; white-space: pre; overflow-wrap: normal; padding-left: 0; text-indent: 0; }
+.vw-big { display: flex; padding: 4px 0; font: var(--fs-12)/1.55 var(--font-mono); width: max-content; min-width: 100%; }
+.vw-big pre { margin: 0; }
+.vw-gutter { padding: 0 1ch; text-align: right; color: var(--sand-faint); user-select: none; }
+.vw-plain { color: var(--sand-dim); white-space: pre; }
+.vw-note-box { padding: 12px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.vw-empty, .vw-gone { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 18px; text-align: center; }
+.vw-empty p, .vw-gone p { margin: 0; }
+.vw-gone { gap: 10px; }
+@media (prefers-reduced-motion: reduce) { body[data-view="viewer"] .view-viewer { animation: none; } }

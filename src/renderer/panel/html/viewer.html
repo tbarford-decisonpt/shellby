@@ -1,0 +1,24 @@
+  <!-- ====================== FILE VIEWER ====================== -->
+  <main class="view view-viewer" id="viewerView" aria-label="Files">
+    <div class="vw-head">
+      <button type="button" class="back-btn" id="viewerBack">← Back</button>
+      <button type="button" class="vw-where" id="viewerWhere" aria-haspopup="menu" aria-expanded="false"></button>
+      <span class="vw-live" id="viewerLive" hidden></span>
+      <button type="button" class="btn ghost slim-btn" id="viewerRefresh" title="Look again" aria-label="Refresh">⟳</button>
+      <button type="button" class="btn ghost slim-btn" id="viewerEditor" hidden>Open in editor</button>
+    </div>
+    <div class="vw-body">
+      <aside class="vw-side" id="viewerSide">
+        <div class="vw-tabs" role="tablist" aria-label="What to list">
+          <button type="button" role="tab" class="vw-tab" id="viewerTabChanges" aria-selected="true">Changes <span class="vw-count" id="viewerCount"></span></button>
+          <button type="button" role="tab" class="vw-tab" id="viewerTabFiles" aria-selected="false">All files</button>
+        </div>
+        <label class="vw-only small" id="viewerOnlyRow"><input type="checkbox" id="viewerOnly"> Just uncommitted</label>
+        <input type="search" class="field slim vw-filter" id="viewerFilter" placeholder="Filter…" aria-label="Filter files" hidden>
+        <p class="small muted vw-note" id="viewerNote" aria-live="polite" hidden></p>
+        <ul class="vw-list" id="viewerList" aria-label="Files"></ul>
+        <p class="small muted vw-foot" id="viewerFoot" hidden></p>
+      </aside>
+      <section class="vw-main" id="viewerMain"></section>
+    </div>
+  </main>

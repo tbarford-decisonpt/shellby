@@ -69,3 +69,13 @@ test('list: a folder that is not there lists nothing', async () => {
   assert.deepEqual(await list(path.join(os.tmpdir(), 'shellby-no-such-folder-xyz')), []);
   assert.deepEqual(await list('relative/path'), []);
 });
+
+test('onForget hears every forget, and a listener that throws harms nothing', () => {
+  const { forget, onForget } = require('../src/main/fileindex');
+  const heard = [];
+  onForget(() => { throw new Error('boom'); });
+  onForget(cwd => heard.push(cwd));
+  forget('C:\\somewhere');
+  forget(42);
+  assert.deepEqual(heard, ['C:\\somewhere']);
+});

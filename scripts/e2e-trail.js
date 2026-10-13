@@ -9,7 +9,8 @@
 //   4. a row goes to its step in the feed; @ mentions it in the box
 //   5. the replay: step 1 puts him back on the first file and lights its step
 //   6. a change waiting for your OK: its row says so and he stands on it
-//   7. This turn / All, and Ctrl+Shift+E closes it
+//   7. its width: drag the line on its left edge, arrow keys, Home/End, double-click
+//   8. This turn / All, and Ctrl+Shift+E closes it
 // No account, no network beyond this PC.
 //   node scripts/e2e-trail.js [--shots <dir>]
 const { spawn, execFileSync } = require('child_process');
@@ -177,7 +178,31 @@ fs.mkdirSync(claudeConfig);
     check(await until('!SB.activeTab().busy'), 'allowed, the turn finishes');
     check(await until(`!${row('util.js')}?.querySelector('.m-ask')`), 'and the row stops asking');
 
-    // ---- 7. This turn / All, and closing
+    // ---- 7. its width: the line on its left edge, dragged or with the arrow keys
+    const trailW = "Math.round(document.getElementById('trail').getBoundingClientRect().width)";
+    const w0 = await ev(trailW);
+    check(await ev("document.getElementById('trailGrip')?.getAttribute('role') === 'separator'"), 'the trail\'s left edge is a line you can drag');
+    // A real press lands on whatever is on top: a reward card (celebrate.js) or a toast can float over the chat by now (as in e2e-panes).
+    await ev("SB.clearCelebrations?.(); document.querySelectorAll('.celebrate').forEach(c => c.remove()); document.querySelector('#toast .toast-close')?.click()");
+    const at = await ev("(r => ({ x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }))(document.getElementById('trailGrip').getBoundingClientRect())");
+    check(await ev(`document.elementFromPoint(${at.x}, ${at.y})?.id`) === 'trailGrip', 'a press on the line lands on it');
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: at.x, y: at.y, button: 'left', buttons: 1, clickCount: 1 });
+    for (let i = 1; i <= 3; i++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x + 10 * i, y: at.y, button: 'left', buttons: 1 });
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: at.x + 30, y: at.y, button: 'left', buttons: 0, clickCount: 1 });
+    check(await until(`${trailW} === ${w0 - 30}`), `dragging it 30 px right makes the trail 30 px narrower (${w0} → ${await ev(trailW)})`);
+    check(await ev("window.localStorage.getItem('shellby.trail.width')") === String(w0 - 30), 'and the width is kept for next time');
+    await ev("document.getElementById('trailGrip').focus()");
+    await key('ArrowLeft');
+    check(await until(`${trailW} === ${w0 - 30 + 16}`), 'the left arrow on it widens it');
+    await key('Home');
+    const narrowest = await ev(trailW);
+    check(narrowest < w0 - 30 && narrowest >= 200, `Home makes it as narrow as it goes (${narrowest})`);
+    await key('End');
+    check(await until("document.body.classList.contains('trail-over') || document.getElementById('chatView').getBoundingClientRect().width - document.getElementById('trail').getBoundingClientRect().width >= 340"), 'End widens it only as far as leaves the chat its room');
+    await ev("document.getElementById('trailGrip').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))");
+    check(await until(`${trailW} === ${w0}`), 'a double-click puts it back to its usual width');
+
+    // ---- 8. This turn / All, and closing
     await ev("document.querySelector('.trail-scope [data-scope=\"turn\"]').click()");
     check(await until(`!${row('app.js')} && !!${row('util.js')}`), 'This turn shows only what the last turn touched');
     await ev("document.querySelector('.trail-scope [data-scope=\"all\"]').click()");

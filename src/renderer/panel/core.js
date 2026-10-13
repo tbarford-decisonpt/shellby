@@ -366,12 +366,12 @@ document.addEventListener('click', e => {
 
 // ------------------------------------------------------------------ views
 
-SB.views = {};  // name -> { render?() }
+SB.views = {};  // name -> { render?(), parent?() (where Back goes, when the view knows) }
 
 // Which navigation item a screen lives under (Trophies, Crew, Council, Stickers, Finds, Tank and Us are
 // tabs of the Shellby screen, Routines sits beside Workflows under Automate), and
 // which screens sit one level down, so Back/Esc go up to their parent.
-SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', crew: 'wardrobe', council: 'wardrobe', stickers: 'wardrobe', finds: 'wardrobe', tank: 'wardrobe', us: 'wardrobe', routines: 'workflows' };
+SB.NAV_SECTION = { shop: 'toolbox', trophies: 'wardrobe', crew: 'wardrobe', council: 'wardrobe', stickers: 'wardrobe', finds: 'wardrobe', tank: 'wardrobe', us: 'wardrobe', routines: 'workflows', viewer: 'chat' };
 SB.PARENT_VIEW = { shop: 'toolbox' };
 SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 
@@ -449,7 +449,7 @@ SB.closeMenus = ({ refocus = false } = {}) => {
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .tab-review, .slash-menu, .snip-more, .note-more, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .tab-review, .slash-menu, .snip-more, .note-more, .vw-where, #input')) SB.closeMenus();
 });
 
 // Up/Down walk a menu's items (wrapping round), Home/End jump to either end.

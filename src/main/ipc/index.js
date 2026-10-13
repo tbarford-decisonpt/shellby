@@ -31,6 +31,7 @@ const { registerCritterIpc } = require('./critter');
 const { registerLifeIpc } = require('./life');
 const { registerPanelIpc } = require('./panel');
 const { registerFilesIpc } = require('./files');
+const { registerViewerIpc } = require('./viewer');
 const { registerTabsIpc } = require('./tabs');
 const { registerHandoffIpc } = require('./handoff');
 const { registerRemoteIpc } = require('./remote');
@@ -203,6 +204,7 @@ function registerIpc(electronIpcMain, d) {
   registerLifeIpc(ipcMain, d);
   registerPanelIpc(ipcMain, d);
   registerFilesIpc(ipcMain, d);
+  registerViewerIpc(ipcMain, d);
   registerTabsIpc(ipcMain, d);
   registerHandoffIpc(ipcMain, d);
   registerRemoteIpc(ipcMain, d);

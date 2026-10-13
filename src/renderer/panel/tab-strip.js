@@ -120,6 +120,7 @@
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
     SB.refreshPaneHeads(); // the panes' headers show the same names and marks
+    SB.viewer?.syncButtons(); // the Files buttons follow what each pane shows (viewer.js)
   };
   const shownTitle = L.shownTitle;
   SB.shownTitle = shownTitle;

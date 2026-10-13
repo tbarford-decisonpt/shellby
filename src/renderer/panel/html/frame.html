@@ -45,6 +45,7 @@
 <link rel="stylesheet" href="wf-chat.css">
 <link rel="stylesheet" href="time.css">
 <link rel="stylesheet" href="projects.css">
+<link rel="stylesheet" href="viewer.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -91,6 +92,9 @@
     </div>
     <button type="button" class="tab-add" id="newTabBtn" title="New conversation (Ctrl+T)" aria-label="New conversation">
       <svg viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+    <button type="button" class="tab-files" id="filesBtn" title="Browse this conversation's files" aria-label="Browse files" hidden>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6.1c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
     <button type="button" class="tab-review" id="reviewBtn" aria-haspopup="dialog" aria-expanded="false" aria-keyshortcuts="Control+Shift+R" title="Ready to review (Ctrl+Shift+R)" hidden>
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.4l2.8 2.8 6.2-6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -152,6 +156,7 @@
   <div class="popover" id="snipMenu" role="menu" hidden></div>
   <div class="popover text-menu" id="textMenu" role="menu" aria-label="Text" hidden></div>
   <div class="popover" id="noteMenu" role="menu" hidden></div>
+  <div class="popover vw-menu" id="viewerMenu" role="menu" aria-label="Worktrees and branches" hidden></div>
 
   <!-- @include chat.html -->
 
@@ -195,6 +200,8 @@
   <!-- @include settings.html -->
 
   <!-- @include onboarding.html -->
+
+  <!-- @include viewer.html -->
 
   <!-- ====================== MAIN NAVIGATION ====================== -->
   <nav class="dock" id="dock" aria-label="Main">
@@ -431,6 +438,7 @@
 <script src="../shared/panes.js"></script>
 <script src="../shared/workposes.js"></script>
 <script src="../shared/trail.js"></script>
+<script src="../shared/viewer-logic.js"></script>
 <script src="shortcuts.js"></script>
 <script src="core.js"></script>
 <script src="a11y.js"></script>
@@ -458,6 +466,7 @@
 <script src="tab-panes.js"></script>
 <script src="pane-layouts.js"></script>
 <script src="pane-room.js"></script>
+<script src="viewer.js"></script>
 <script src="tab-send.js"></script>
 <script src="native-strip.js"></script>
 <script src="native-cli.js"></script>
