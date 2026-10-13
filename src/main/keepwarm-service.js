@@ -89,6 +89,7 @@ function createKeepWarm(d) {
     try { r = await d.manager.ping(id, kw.PING_TEXT); } catch { /* it took up work of its own meanwhile: the next tick looks again */ }
     (d.clearTimeout || clearTimeout)(fuse);
     inFlight.delete(id);
+    if (!d.manager.tabs.has(id)) { tick(); return; } // closed meanwhile: it just leaves, with no line
     if (!r && !timedOut) return;
     const v = timedOut ? { warm: false, reason: 'the ping got no reply' } : kw.receipt(r);
     if (!v.warm) drop(id, v.reason, true);

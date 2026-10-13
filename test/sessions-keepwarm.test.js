@@ -126,3 +126,16 @@ test('a tab being pinged is nobody\'s work: the crab, the tray and the trophies 
     assert.equal(tab.session.growths, growths, "the ping doesn't count towards the context's growth pace");
   } finally { mgr.closeAll({ kill: true }); }
 });
+
+test('closing a tab while its ping is out settles the ping, so nothing waits on it forever', async () => {
+  const { mgr, seen } = makeManager();
+  try {
+    const tab = await warmTab(mgr, seen);
+    const pinged = mgr.ping('t1', PING_TEXT);
+    mgr.close('t1');
+    const r = await Promise.race([pinged, new Promise(res => setTimeout(() => res('hung'), 3000))]);
+    assert.notEqual(r, 'hung', 'the ping settled');
+    assert.deepEqual([r.ok, r.denied, r.error], [false, false, 'the conversation was closed']);
+    assert.equal(tab.pinging, null);
+  } finally { mgr.closeAll({ kill: true }); }
+});

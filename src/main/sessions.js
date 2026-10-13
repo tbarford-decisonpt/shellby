@@ -493,6 +493,12 @@ class SessionManager extends EventEmitter {
     // Closed by hand mid-turn: no result is coming, and it wasn't cut off either.
     // Quitting (kill) leaves the mark, so the next start says what didn't finish.
     if (!kill && tab.saved && tab.session.busy) this.history.markTurn?.(tab.id, null);
+    // A ping in flight would never hear its result once the listeners are gone: settle it here.
+    if (tab.pinging) {
+      const p = tab.pinging;
+      tab.pinging = null;
+      p.resolve({ ok: false, error: 'the conversation was closed', tokens: null, denied: false });
+    }
     tab.session.removeAllListeners();
     if (kill) tab.session.kill();
     tab.session.close();

@@ -91,6 +91,8 @@ test('a ping that asked for a tool drops the tab', async () => {
   svc.set(true);
   advance(46 * MIN); tick(); await settle();
   assert.equal(calls.notes.at(-1).item.text, 'Stopped keeping warm: the ping tried to use a tool');
+  assert.equal(calls.notes.at(-1).item.endsTurn, true);
+  assert.equal(svc.isKept('a'), false);
 });
 
 test('a working tab waits and stays kept, even past due', async () => {
@@ -245,4 +247,19 @@ test('a ping that answers in time clears its fuse and never interrupts', async (
   assert.equal(timeouts().length, 1, 'one fuse was set');
   assert.equal(timeouts().filter(h => h.live).length, 0, 'and cleared');
   assert.deepEqual(calls.interrupted, []);
+});
+
+test('a tab closed while its ping is out leaves with no line, and the next due tab goes', async () => {
+  const { svc, manager, calls, advance, tick, settle, timeouts } = setup({ tabs: [fakeTab('a'), fakeTab('b')] });
+  let release = null;
+  manager.ping = id => { calls.pings.push({ id }); return new Promise(r => { if (id === 'a') release = r; else r(WARM); }); };
+  svc.set(true);
+  advance(46 * MIN); tick(); await settle();
+  assert.deepEqual(calls.pings.map(p => p.id), ['a']);
+  manager.tabs.delete('a'); // the manager settles a ping of a closed tab with this
+  release({ ok: false, error: 'the conversation was closed', tokens: null, denied: false });
+  for (let i = 0; i < 5; i++) await settle();
+  assert.equal(calls.notes.some(n => n.id === 'a'), false, 'no line for a closed tab');
+  assert.deepEqual(calls.pings.map(p => p.id), ['a', 'b'], 'the next due tab gets its ping');
+  assert.equal(timeouts().filter(h => h.live).length, 0, 'every fuse is cleared');
 });
