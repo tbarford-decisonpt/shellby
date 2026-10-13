@@ -34,6 +34,8 @@
   let lastFocused = null;
   const homePane = () => focusedPane() ?? (P.byId(state.grid, lastFocused) ? lastFocused : null);
   const activeOf = paneId => P.byId(state.grid, paneId)?.active ?? null;
+  // What a pane shows: a conversation's feed, or a tool (tool-tabs.js).
+  const shownEl = id => state.tabs.get(id)?.el || (P.isTool(id) ? SB.tools.elOf(id) : null);
 
   // ------------------------------------------------------------ panes
 
@@ -61,9 +63,12 @@
       panes.set(pane.id, p);
     }
     const t = state.tabs.get(pane.active);
-    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot && el !== p.jump && el !== t?.el) { el.hidden = true; $('feeds').append(el); }
-    if (t && t.el.parentElement !== p.el) p.el.insertBefore(t.el, p.jump);
+    const shown = shownEl(pane.active);
+    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot && el !== p.jump && el !== shown) { el.hidden = true; $('feeds').append(el); }
+    if (shown && shown.parentElement !== p.el) p.el.insertBefore(shown, p.jump);
+    if (shown && !t) shown.hidden = false;
     p.el.dataset.tab = pane.active;
+    p.el.classList.toggle('tool', P.isTool(pane.active));
     if (t) SB.refreshJump(t);
     return p;
   }
@@ -103,7 +108,7 @@
     const n = P.count(next);
     const closedDown = paneCount > 1 && n === 1;
     paneCount = n;
-    if (closedDown) SB.orderTabs(next[0][0].tabs);
+    if (closedDown && P.tabIds(next).length) SB.orderTabs(P.tabIds(next));
     else next = P.follow(next, open);
     const changed = P.layoutKey(next) !== P.layoutKey(state.grid);
     state.grid = next;
@@ -129,10 +134,11 @@
     $('feeds').dataset.panes = live.size;
     document.body.classList.toggle('panes-split', live.size > 1);
     for (const id of [...panes.keys()]) if (!live.has(id)) dropPane(id);
+    SB.tools?.prune(P.toolIds(state.grid)); // a tool gone by any way (a layout, a merge) stops
     for (const t of state.tabs.values()) if (!shown.has(t.id)) t.el.hidden = true;
     const next = P.layoutKey(state.grid);
     // A tab made anew under an id already on screen (the screenshot demo) has a feed no pane holds yet.
-    const loose = state.grid.flat().some(p => state.tabs.get(p.active)?.el.parentElement !== panes.get(p.id)?.el);
+    const loose = state.grid.flat().some(p => shownEl(p.active)?.parentElement !== panes.get(p.id)?.el);
     if (next !== shape || loose) {
       shape = next;
       // Moving a feed in the page loses its scroll; put each back after.
@@ -215,7 +221,7 @@
     }
     for (const [id, p] of panes) {
       if (p.slot === into) continue;
-      if (!split) p.slot.replaceChildren();
+      if (!split || P.isTool(activeOf(id))) p.slot.replaceChildren(); // a tool has no conversation to type to
       else if (!p.slot.querySelector('.pane-standin')) p.slot.replaceChildren(standIn(id));
     }
   }
@@ -317,7 +323,7 @@
         SB.icon(FILES_ICON, { width: 1.3 })),
       h('button', { class: 'pane-btn', type: 'button', title: 'Open in its own window', 'aria-label': 'Open in its own window', onclick: () => { const id = activeOf(paneId); if (id) SB.popOut(id); } },
         SB.icon(POP_ICON)),
-      h('button', { class: 'pane-btn', type: 'button', title: 'Close this pane (its conversations move to the one beside it)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(paneId) },
+      h('button', { class: 'pane-btn pane-close', type: 'button', title: 'Close this pane (its conversations move to the one beside it)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(paneId) },
         SB.icon(CLOSE_ICON, { width: 1.5 })));
     SB.wireStrip(strip);
     SB.watchEdges(strip, left, right);
@@ -383,7 +389,7 @@
     const here = focusedPane();
     for (const [id, p] of panes) {
       const t = state.tabs.get(activeOf(id));
-      if (!t) continue;
+      if (!t) { for (const el of [p.head, p.el]) el.classList.remove('focused', 'needs-you'); continue; } // a tool's pane
       const focused = split && id === here;
       p.head.classList.toggle('focused', focused);
       t.el.classList.toggle('focused', focused);
@@ -526,6 +532,7 @@
   // (panes.merge), so no conversation closes by accident. That pane keeps the
   // tab it shows, and takes the focus if the closed one had it.
   SB.closePane = (paneId) => {
+    if (P.isToolPane(P.byId(state.grid, paneId))) return SB.tools.close(activeOf(paneId));
     const { grid, into } = P.merge(state.grid, paneId);
     if (!into) return;
     const hadFocus = focusedPane() === paneId;
@@ -605,6 +612,7 @@
     for (const pane of state.grid.flat()) {
       const p = panes.get(pane.id);
       if (!p) continue;
+      if (P.isToolPane(pane)) { if (inside(p.el.getBoundingClientRect())) return null; continue; } // takes no conversations
       // Its header is its strip (hidden, a zero rect, with one pane): its own
       // tab moves along it, any other joins the pane there.
       if (inside(p.head.getBoundingClientRect())) {
@@ -703,7 +711,8 @@
   // rendering: the caller must activate the tab or render afterwards.
   function nextShown(was, heirId) {
     const split = P.count(state.grid) > 1;
-    return (split && (activeOf(was) || activeOf(heirId) || P.shownTabs(state.grid)[0])) || [...state.tabs.keys()].pop();
+    const conv = id => (state.tabs.has(id) ? id : null); // a tool's pane takes no box
+    return (split && (conv(activeOf(was)) || conv(activeOf(heirId)) || P.shownTabs(state.grid).find(conv))) || [...state.tabs.keys()].pop();
   }
   // For main's tab list (tabs.js syncTabs) arriving with no tab focused: the
   // focused one taken away under the panes, its replacement not here yet.
