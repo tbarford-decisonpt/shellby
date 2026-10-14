@@ -1,0 +1,2034 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "milestones",
+  "name": "Milestones",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Rare tank pieces, one for each milestone across the Bugdex, nests, tides, molts, the reef, review, Wrapped, levels, quests and streaks.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "decor": [
+    {
+      "id": "specimen-shelf",
+      "name": "Specimen Shelf",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Three jars on a plank: the first ten bugs Claude caught, or near enough. He dusts them.",
+      "palette": {
+        "G": "#7fb8b0",
+        "W": "#5e3b20",
+        "g": "#cfeee8",
+        "l": "#c9a24a",
+        "n": "#6fbf4a",
+        "p": "#9a6ad0",
+        "r": "#e0604a",
+        "w": "#8a5a34"
+      },
+      "pixels": [
+        ".lll..lll..lll.",
+        ".GgG..GgG..GgG.",
+        ".GnG..GrG..GpG.",
+        ".GgG..GgG..GgG.",
+        ".GGG..GGG..GGG.",
+        "wwwwwwwwwwwwwww",
+        "WWWWWWWWWWWWWWW",
+        ".W...........W.",
+        ".W...........W.",
+        ".W...........W."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            7,
+            4
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "jar-collector"
+      }
+    },
+    {
+      "id": "jar-shelf-100",
+      "name": "Century Jar Shelf",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "A hundred bugs, give or take, bubbling quietly in their jars. Every one a fix.",
+      "palette": {
+        "G": "#7fb8b0",
+        "W": "#5e3b20",
+        "b": "#4a8fe0",
+        "c": "#ff7a5c",
+        "g": "#cfeee8",
+        "l": "#c9a24a",
+        "n": "#6fbf4a",
+        "o": "#ffffff",
+        "p": "#9a6ad0",
+        "r": "#e0604a",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        ".lll.lll.lll.lll",
+        ".GoG.GgG.GgG.GgG",
+        ".GnG.GrG.GbG.GpG",
+        ".GGG.GGG.GGG.GGG",
+        "wwwwwwwwwwwwwwww",
+        "WWWWWWWWWWWWWWWW",
+        ".lll.lll.lll.lll",
+        ".GgG.GgG.GoG.GgG",
+        ".GyG.GcG.GnG.GrG",
+        ".GGG.GGG.GGG.GGG",
+        "wwwwwwwwwwwwwwww",
+        "WWWWWWWWWWWWWWWW",
+        "W..............W"
+      ],
+      "frames": [
+        [
+          ".lll.lll.lll.lll",
+          ".GgG.GoG.GgG.GgG",
+          ".GnG.GrG.GbG.GpG",
+          ".GGG.GGG.GGG.GGG",
+          "wwwwwwwwwwwwwwww",
+          "WWWWWWWWWWWWWWWW",
+          ".lll.lll.lll.lll",
+          ".GgG.GgG.GgG.GoG",
+          ".GyG.GcG.GnG.GrG",
+          ".GGG.GGG.GGG.GGG",
+          "wwwwwwwwwwwwwwww",
+          "WWWWWWWWWWWWWWWW",
+          "W..............W"
+        ],
+        [
+          ".lll.lll.lll.lll",
+          ".GgG.GgG.GgG.GoG",
+          ".GnG.GrG.GbG.GpG",
+          ".GGG.GGG.GGG.GGG",
+          "wwwwwwwwwwwwwwww",
+          "WWWWWWWWWWWWWWWW",
+          ".lll.lll.lll.lll",
+          ".GoG.GoG.GgG.GgG",
+          ".GyG.GcG.GnG.GrG",
+          ".GGG.GGG.GGG.GGG",
+          "wwwwwwwwwwwwwwww",
+          "WWWWWWWWWWWWWWWW",
+          "W..............W"
+        ]
+      ],
+      "fps": 3,
+      "unlock": {
+        "achievement": "century-of-jars"
+      }
+    },
+    {
+      "id": "bug-hotel",
+      "name": "Bug Hotel",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Rooms for every kind of bug Claude has caught, and a door just his size. No vacancies.",
+      "palette": {
+        "R": "#a8382a",
+        "W": "#5e3b20",
+        "b": "#4a8fe0",
+        "k": "#22262e",
+        "n": "#6fbf4a",
+        "p": "#9a6ad0",
+        "r": "#e0604a",
+        "w": "#8a5a34"
+      },
+      "pixels": [
+        "......R......",
+        ".....RRR.....",
+        "....RRrRR....",
+        "...RRrrrRR...",
+        "..RRrrrrrRR..",
+        ".RRRRRRRRRRR.",
+        "..wwwwwwwww..",
+        "..wkkkwkkkw..",
+        "..wknkwkrkw..",
+        "..wwwwwwwww..",
+        "..wkwkwkwkw..",
+        "..wbwkwpwkw..",
+        "..wwwwwwwww..",
+        "..wwwkkkwww..",
+        "..WWWkkkWWW.."
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            6,
+            14
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "bug-hotelier"
+      }
+    },
+    {
+      "id": "jar-tower-500",
+      "name": "Jar Tower",
+      "category": "treasure",
+      "rarity": "legendary",
+      "description": "Five hundred bugs stacked to the ceiling. He has a system. Do not touch the system.",
+      "palette": {
+        "G": "#7fb8b0",
+        "S": "#5c6373",
+        "Y": "#b8862b",
+        "b": "#4a8fe0",
+        "c": "#ff7a5c",
+        "g": "#cfeee8",
+        "l": "#c9a24a",
+        "n": "#6fbf4a",
+        "p": "#9a6ad0",
+        "r": "#e0604a",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "...yyy...",
+        "..yYYYy..",
+        "...lll...",
+        "..GgggG..",
+        "..GgngG..",
+        "..GGGGG..",
+        ".lllllll.",
+        ".GgggggG.",
+        ".GgrgbgG.",
+        ".GGGGGGG.",
+        "lllllllll",
+        "GgggggggG",
+        "GgpgygcgG",
+        "GgggggggG",
+        "GGGGGGGGG",
+        "sssssssss",
+        ".SSSSSSS."
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            4,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "tower-of-jars"
+      }
+    },
+    {
+      "id": "thousand-bug-trophy",
+      "name": "Thousand-Bug Trophy",
+      "category": "treasure",
+      "rarity": "legendary",
+      "description": "A golden cup with a bug on it, for a thousand fixes. He polishes it with his claw.",
+      "palette": {
+        "S": "#5c6373",
+        "Y": "#b8862b",
+        "e": "#f4f1e8",
+        "k": "#22262e",
+        "n": "#6fbf4a",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "..yyyyyyy..",
+        "yyYyyyyyYyy",
+        "y.yyyyyyy.y",
+        "y.yynnnyy.y",
+        ".yyynknyyy.",
+        "...yyyyy...",
+        "....yyy....",
+        ".....Y.....",
+        "....yyy....",
+        "..sssssss..",
+        "..sSSSSSs..",
+        "..sssssss.."
+      ],
+      "frames": [
+        [
+          "..yyyyyyy..",
+          "yyYyyyyyYyy",
+          "y.yeyyyyy.y",
+          "y.yynnnyy.y",
+          ".yyynknyyy.",
+          "...yyyyy...",
+          "....yyy....",
+          ".....Y.....",
+          "....yyy....",
+          "..sssssss..",
+          "..sSSSSSs..",
+          "..sssssss.."
+        ],
+        [
+          "..yyyyyyy..",
+          "yyYyyyyyeyy",
+          "y.yyyyyyy.y",
+          "y.yynnnyy.y",
+          ".yyynknyyy.",
+          "...yyyye...",
+          "....yyy....",
+          ".....Y.....",
+          "....yyy....",
+          "..sssssss..",
+          "..sSSSSSs..",
+          "..sssssss.."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "one-thousand"
+      }
+    },
+    {
+      "id": "first-nest-stone",
+      "name": "Cleared Nest Stone",
+      "category": "rock",
+      "rarity": "rare",
+      "description": "Where a bug nest used to be. A sprout grows through it now.",
+      "palette": {
+        "N": "#3f8a2a",
+        "S": "#5c6373",
+        "k": "#22262e",
+        "n": "#6fbf4a",
+        "s": "#8d94a3"
+      },
+      "pixels": [
+        ".....n......",
+        "....nNn.....",
+        "...ssNsss...",
+        ".ssskkkksss.",
+        "ssskssssksss",
+        "sssskkkkssss",
+        "SSSSSSSSSSSS"
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            6,
+            2
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "nest-sweeper"
+      }
+    },
+    {
+      "id": "nest-cairn",
+      "name": "Cairn of Ten Nests",
+      "category": "rock",
+      "rarity": "epic",
+      "description": "One stone for every nest cleared, ten high. He added the top one himself.",
+      "palette": {
+        "S": "#5c6373",
+        "s": "#8d94a3"
+      },
+      "pixels": [
+        "....sss....",
+        "...sssSs...",
+        "....SSS....",
+        "...ssssS...",
+        "..ssSssss..",
+        "...SSSSS...",
+        "..sssSssss.",
+        ".sssssSsss.",
+        "..SSSSSSSS.",
+        ".ssssSsssss",
+        "sssSssssSss",
+        "SSSSSSSSSSS"
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            5,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "nest-warden"
+      }
+    },
+    {
+      "id": "rematch-belt",
+      "name": "Rematch Belt",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Hung on its stand after beating a bug that came back. It glints when nobody is looking.",
+      "palette": {
+        "R": "#a8382a",
+        "W": "#5e3b20",
+        "Y": "#b8862b",
+        "c": "#ff7a5c",
+        "e": "#f4f1e8",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "wwwwwwwwwwww",
+        "w.RRRRRRRR.w",
+        "w.RyyyyyyR.w",
+        "w.RyYccYyR.w",
+        "w.RyyyyyyR.w",
+        "w.RRR..RRR.w",
+        "w.RR....RR.w",
+        "w..........w",
+        "w..........w",
+        "WW........WW"
+      ],
+      "frames": [
+        [
+          "wwwwwwwwwwww",
+          "w.RRRRRRRR.w",
+          "w.ReyyyyyR.w",
+          "w.RyYccYyR.w",
+          "w.RyyyyyyR.w",
+          "w.RRR..RRR.w",
+          "w.RR....RR.w",
+          "w..........w",
+          "w..........w",
+          "WW........WW"
+        ],
+        [
+          "wwwwwwwwwwww",
+          "w.RRRRRRRR.w",
+          "w.RyyyyyyR.w",
+          "w.RyYccYyR.w",
+          "w.RyyyyyeR.w",
+          "w.RRR..RRR.w",
+          "w.RR....RR.w",
+          "w..........w",
+          "w..........w",
+          "WW........WW"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "rematch"
+      }
+    },
+    {
+      "id": "grudge-gong",
+      "name": "Grudge Gong",
+      "category": "treasure",
+      "rarity": "legendary",
+      "description": "Rung once for every bug that came back and lost again. It still hums.",
+      "palette": {
+        "R": "#a8382a",
+        "W": "#5e3b20",
+        "Y": "#b8862b",
+        "k": "#22262e",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "wwwwwwwwwwww",
+        "w....k.....w",
+        "w...yyyy...w",
+        "w..yYYYYy..w",
+        "w.yYyyyyYy.w",
+        "w.yYyRRyYy.w",
+        "w.yYyyyyYy.w",
+        "w..yYYYYy..w",
+        "w...yyyy...w",
+        "w..........w",
+        "WW........WW"
+      ],
+      "frames": [
+        [
+          "wwwwwwwwwwww",
+          "w....k.....w",
+          "w...YYYY...w",
+          "w..YyyyyY..w",
+          "w.YyYYYYyY.w",
+          "w.YyYRRYyY.w",
+          "w.YyYYYYyY.w",
+          "w..YyyyyY..w",
+          "w...YYYY...w",
+          "w..........w",
+          "WW........WW"
+        ]
+      ],
+      "fps": 3,
+      "unlock": {
+        "achievement": "grudge-match"
+      }
+    },
+    {
+      "id": "proof-tablet",
+      "name": "Tablet of Proof",
+      "category": "rock",
+      "rarity": "epic",
+      "description": "Ten clean fixes, each with a test that proves it, carved in stone. The tick is the best bit.",
+      "palette": {
+        "S": "#5c6373",
+        "k": "#22262e",
+        "n": "#6fbf4a",
+        "s": "#8d94a3"
+      },
+      "pixels": [
+        "..ssssss..",
+        ".ssssssss.",
+        "sskkkkkkss",
+        "ssssssssss",
+        "ssssssssns",
+        "sssssssnss",
+        "ssnsssnsss",
+        "sssnsnssss",
+        "ssssnsssss",
+        "ssssssssss",
+        "SSSSSSSSSS",
+        ".ssssssss.",
+        "SSSSSSSSSS"
+      ],
+      "unlock": {
+        "achievement": "proven"
+      }
+    },
+    {
+      "id": "held-anchor",
+      "name": "The Anchor That Held",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Twenty-five fixes held for two weeks. Green rope, gold plate, not going anywhere.",
+      "palette": {
+        "Y": "#b8862b",
+        "n": "#6fbf4a",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "....sss....",
+        "....s.s....",
+        "....sss....",
+        "..sssssss..",
+        ".....s.....",
+        ".....s.....",
+        "....nsn....",
+        ".....s.....",
+        "....nsn....",
+        ".....s.....",
+        "s....s....s",
+        "ss...s...ss",
+        ".sss.s.sss.",
+        "...sssss...",
+        "YyyyyyyyyyY"
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            5,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "it-held"
+      }
+    },
+    {
+      "id": "perfect-tide-buoy",
+      "name": "Perfect Tide Buoy",
+      "category": "bubbler",
+      "layer": "float",
+      "rarity": "legendary",
+      "description": "For a tide event done to the last goal in its first half. The light blinks for you.",
+      "palette": {
+        "L": "#fff3b0",
+        "R": "#a8382a",
+        "e": "#f4f1e8",
+        "k": "#22262e",
+        "l": "#7a6a30",
+        "r": "#e0604a"
+      },
+      "pixels": [
+        "....L....",
+        "...kLk...",
+        "....k....",
+        "...rrr...",
+        "..rrrrr..",
+        "..eeeee..",
+        ".eeeeeee.",
+        ".rrrrrrr.",
+        "rrrrrrrrr",
+        "eeeeeeeee",
+        ".rrrrrrr.",
+        "..RRRRR.."
+      ],
+      "frames": [
+        [
+          "....l....",
+          "...klk...",
+          "....k....",
+          "...rrr...",
+          "..rrrrr..",
+          "..eeeee..",
+          ".eeeeeee.",
+          ".rrrrrrr.",
+          "rrrrrrrrr",
+          "eeeeeeeee",
+          ".rrrrrrr.",
+          "..RRRRR.."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "perfect-tide"
+      }
+    },
+    {
+      "id": "medal-rack",
+      "name": "Medal Rack",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Four tide medals on their ribbons, and room for more. He straightens them every morning.",
+      "palette": {
+        "W": "#5e3b20",
+        "Y": "#b8862b",
+        "b": "#4a8fe0",
+        "n": "#6fbf4a",
+        "p": "#9a6ad0",
+        "r": "#e0604a",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "WWWWWWWWWWWWW",
+        "wrrwbbwnnwppw",
+        "wrrwbbwnnwppw",
+        "wyywyywyywyyw",
+        "wyYwyYwyYwyYw",
+        "wwwwwwwwwwwww",
+        "WWWWWWWWWWWWW",
+        ".W.........W.",
+        ".W.........W.",
+        "WW.........WW"
+      ],
+      "unlock": {
+        "achievement": "medal-collector"
+      }
+    },
+    {
+      "id": "molt-husk-1",
+      "name": "First Husk",
+      "category": "structure",
+      "layer": "back",
+      "rarity": "epic",
+      "description": "His old shell from before the first Molt, framed. He looks at it and feels very grown up.",
+      "palette": {
+        "C": "#c94f3a",
+        "Y": "#b8862b",
+        "c": "#ff7a5c",
+        "k": "#22262e",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "YYYYYYYYYYYYYY",
+        "YyyyyyyyyyyyyY",
+        "YykkkkkkkkkkyY",
+        "YykkkcccckkkyY",
+        "YykkcCCccckkyY",
+        "YykcCcckCcckyY",
+        "YykcCckkCcckyY",
+        "YykkcCCCcckkyY",
+        "YykkkcccckkkyY",
+        "YyyyyyyyyyyyyY",
+        "YYYYYYYYYYYYYY"
+      ],
+      "unlock": {
+        "achievement": "first-molt"
+      }
+    },
+    {
+      "id": "twin-husks",
+      "name": "Twin Husks",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Two old shells side by side on a little shelf. One coral, one pearl.",
+      "palette": {
+        "C": "#c94f3a",
+        "P": "#b8a8c8",
+        "W": "#5e3b20",
+        "c": "#ff7a5c",
+        "k": "#22262e",
+        "p": "#e8dcf0",
+        "w": "#8a5a34"
+      },
+      "pixels": [
+        "..ccc....ppp..",
+        ".cCcCc..pPpPp.",
+        "cCcccCcpPpppPp",
+        "cCckcCcpPpkpPp",
+        ".cCCCc..pPPPp.",
+        "..ccc....ppp..",
+        "wwwwwwwwwwwwww",
+        ".W..........W.",
+        "WW..........WW"
+      ],
+      "unlock": {
+        "achievement": "second-molt"
+      }
+    },
+    {
+      "id": "molt-altar",
+      "name": "Molting Altar",
+      "category": "structure",
+      "rarity": "legendary",
+      "description": "Three Molts in, a shell rests on stone and the water around it flickers violet.",
+      "palette": {
+        "C": "#c94f3a",
+        "S": "#5c6373",
+        "a": "#b98cff",
+        "c": "#ff7a5c",
+        "k": "#22262e",
+        "s": "#8d94a3"
+      },
+      "pixels": [
+        "...a.....a...",
+        ".a...ccc...a.",
+        "....cCcCc....",
+        "...cCcccCc...",
+        "....cCCCc....",
+        "..sssssssss..",
+        "..sSkSkSkSs..",
+        "...sssssss...",
+        "...sSsssSs...",
+        "...sssssss...",
+        ".sssssssssss.",
+        "SSSSSSSSSSSSS"
+      ],
+      "frames": [
+        [
+          "....a.....a..",
+          "..a..ccc..a..",
+          "....cCcCc....",
+          "...cCcccCc...",
+          "....cCCCc....",
+          "..sssssssss..",
+          "..sSkSkSkSs..",
+          "...sssssss...",
+          "...sSsssSs...",
+          "...sssssss...",
+          ".sssssssssss.",
+          "SSSSSSSSSSSSS"
+        ],
+        [
+          "..a.......a..",
+          "...a.ccc.a...",
+          "....cCcCc....",
+          "...cCcccCc...",
+          "....cCCCc....",
+          "..sssssssss..",
+          "..sSkSkSkSs..",
+          "...sssssss...",
+          "...sSsssSs...",
+          "...sssssss...",
+          ".sssssssssss.",
+          "SSSSSSSSSSSSS"
+        ]
+      ],
+      "fps": 3,
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            6,
+            5
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "third-molt"
+      }
+    },
+    {
+      "id": "husk-totem",
+      "name": "Husk Totem",
+      "category": "structure",
+      "rarity": "legendary",
+      "description": "Five old shells stacked into a totem, one for each Molt, gold at the top.",
+      "palette": {
+        "B": "#2b5ea8",
+        "C": "#c94f3a",
+        "N": "#3f8a2a",
+        "P": "#5e3a8a",
+        "S": "#5c6373",
+        "Y": "#b8862b",
+        "b": "#4a8fe0",
+        "c": "#ff7a5c",
+        "n": "#6fbf4a",
+        "p": "#9a6ad0",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "..ccc..",
+        ".cCcCc.",
+        "..ccc..",
+        "..ppp..",
+        ".pPpPp.",
+        "..ppp..",
+        "..bbb..",
+        ".bBbBb.",
+        "..bbb..",
+        "..nnn..",
+        ".nNnNn.",
+        "..nnn..",
+        "..yyy..",
+        ".yYyYy.",
+        "..yyy..",
+        "sssssss",
+        "SSSSSSS"
+      ],
+      "unlock": {
+        "achievement": "fifth-molt"
+      }
+    },
+    {
+      "id": "void-pearl-stand",
+      "name": "Void Pearl",
+      "category": "treasure",
+      "rarity": "legendary",
+      "description": "Nine Molts. A pearl as dark as the deep, with something slowly turning inside it.",
+      "palette": {
+        "P": "#c9a0ff",
+        "Y": "#b8862b",
+        "k": "#1a1030",
+        "p": "#5e3a8a",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "...kkk...",
+        "..kPkkk..",
+        ".kPkkpkk.",
+        ".kkpkkPk.",
+        ".kkkPkkk.",
+        "..kkkpk..",
+        "...kkk...",
+        "..YyyyY..",
+        "...yyy...",
+        "....y....",
+        "...yyy...",
+        ".YyyyyyY.",
+        "YYYYYYYYY"
+      ],
+      "frames": [
+        [
+          "...kkk...",
+          "..kpkkk..",
+          ".kpkkPkk.",
+          ".kkPkkpk.",
+          ".kkkpkkk.",
+          "..kkkPk..",
+          "...kkk...",
+          "..YyyyY..",
+          "...yyy...",
+          "....y....",
+          "...yyy...",
+          ".YyyyyyY.",
+          "YYYYYYYYY"
+        ],
+        [
+          "...kkk...",
+          "..kkkPk..",
+          ".kkpkkPk.",
+          ".kPkkpkk.",
+          ".kkPkkkk.",
+          "..kpkkk..",
+          "...kkk...",
+          "..YyyyY..",
+          "...yyy...",
+          "....y....",
+          "...yyy...",
+          ".YyyyyyY.",
+          "YYYYYYYYY"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "ninth-molt"
+      }
+    },
+    {
+      "id": "thriving-reef-arch",
+      "name": "Thriving Reef Arch",
+      "category": "structure",
+      "rarity": "epic",
+      "description": "Coral grown into an arch, for a project whose reef is thriving. It sways when he walks under it.",
+      "palette": {
+        "C": "#c94f3a",
+        "N": "#3f8a2a",
+        "c": "#ff7a5c",
+        "n": "#6fbf4a",
+        "s": "#8d94a3"
+      },
+      "pixels": [
+        "..c..........n....",
+        ".ccc.c....n.nnn...",
+        "..ccccc..nnnnn.n..",
+        "...cCcc...nNnnn...",
+        "..cccCcc.nnnNn....",
+        ".ccCcccccnnnnnnn..",
+        ".cCcc.......nnNn..",
+        ".ccc.........nnn..",
+        ".cCc.........nNn..",
+        ".ccc.........nnn..",
+        "cccCc.......nnnNn.",
+        "ssssss.....ssssss."
+      ],
+      "frames": [
+        [
+          "...c..........n...",
+          "..ccc.c....n.nnn..",
+          "...ccccc..nnnnn.n.",
+          "...cCcc...nNnnn...",
+          "..cccCcc.nnnNn....",
+          ".ccCcccccnnnnnnn..",
+          ".cCcc.......nnNn..",
+          ".ccc.........nnn..",
+          ".cCc.........nNn..",
+          ".ccc.........nnn..",
+          "cccCc.......nnnNn.",
+          "ssssss.....ssssss."
+        ],
+        [
+          ".c..........n.....",
+          "ccc.c....n.nnn....",
+          ".ccccc..nnnnn.n...",
+          "...cCcc...nNnnn...",
+          "..cccCcc.nnnNn....",
+          ".ccCcccccnnnnnnn..",
+          ".cCcc.......nnNn..",
+          ".ccc.........nnn..",
+          ".cCc.........nNn..",
+          ".ccc.........nnn..",
+          "cccCc.......nnnNn.",
+          "ssssss.....ssssss."
+        ]
+      ],
+      "fps": 2,
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            8,
+            5
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "thriving"
+      }
+    },
+    {
+      "id": "great-barrier",
+      "name": "Great Barrier",
+      "category": "structure",
+      "layer": "back",
+      "rarity": "legendary",
+      "description": "A whole wall of living coral, for three thriving reefs. Every colour sways.",
+      "palette": {
+        "B": "#2b5ea8",
+        "C": "#c94f3a",
+        "N": "#3f8a2a",
+        "P": "#5e3a8a",
+        "S": "#5c6373",
+        "Y": "#b8862b",
+        "b": "#4a8fe0",
+        "c": "#ff7a5c",
+        "n": "#6fbf4a",
+        "p": "#9a6ad0",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "..c.....p......y.....n....",
+        ".ccc...ppp....yyy...nnn...",
+        "..cc.p..pp.b...yy..n.nn.c.",
+        ".cCc.pp.pPpbb..yYy.nnNn.cc",
+        "..cccpPppp.bbb.yyy..nnn.cC",
+        ".cCcc.ppp..bBb.yyy.nNnn.cc",
+        "cccCc.pPp.bbbbb.yYy.nnn.cC",
+        ".cccc.ppp..bBb..yyy.nNnn.c",
+        "cCccccpppp.bbbb.yyyynnnncc",
+        "ssssssssssssssssssssssssss",
+        "sSsssSsssSsssSsssSsssSsssS"
+      ],
+      "frames": [
+        [
+          "...c.....p......y.....n...",
+          "..ccc...ppp....yyy...nnn..",
+          "...cc.p..pp.b...yy..n.nn.c",
+          ".cCc.pp.pPpbb..yYy.nnNn.cc",
+          "..cccpPppp.bbb.yyy..nnn.cC",
+          ".cCcc.ppp..bBb.yyy.nNnn.cc",
+          "cccCc.pPp.bbbbb.yYy.nnn.cC",
+          ".cccc.ppp..bBb..yyy.nNnn.c",
+          "cCccccpppp.bbbb.yyyynnnncc",
+          "ssssssssssssssssssssssssss",
+          "sSsssSsssSsssSsssSsssSsssS"
+        ],
+        [
+          ".c.....p......y.....n.....",
+          "ccc...ppp....yyy...nnn....",
+          ".cc.p..pp.b...yy..n.nn.c..",
+          ".cCc.pp.pPpbb..yYy.nnNn.cc",
+          "..cccpPppp.bbb.yyy..nnn.cC",
+          ".cCcc.ppp..bBb.yyy.nNnn.cc",
+          "cccCc.pPp.bbbbb.yYy.nnn.cC",
+          ".cccc.ppp..bBb..yyy.nNnn.c",
+          "cCccccpppp.bbbb.yyyynnnncc",
+          "ssssssssssssssssssssssssss",
+          "sSsssSsssSsssSsssSsssSsssS"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "great-barrier"
+      }
+    },
+    {
+      "id": "coral-record-board",
+      "name": "Coral Record Board",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Twenty-five new reef bests, charted. The last bar is green because it is his favourite.",
+      "palette": {
+        "W": "#5e3b20",
+        "c": "#ff7a5c",
+        "e": "#f4f1e8",
+        "n": "#6fbf4a",
+        "w": "#8a5a34"
+      },
+      "pixels": [
+        "wwwwwwwwwwww",
+        "weeeeeeeeeew",
+        "weeeeeeeneew",
+        "weeeeeeeneew",
+        "weeeeeceneew",
+        "weeeeeceneew",
+        "weeececeneew",
+        "wecececeneew",
+        "wecececeneew",
+        "wwwwwwwwwwww",
+        ".W........W.",
+        "WW........WW"
+      ],
+      "unlock": {
+        "achievement": "reef-records"
+      }
+    },
+    {
+      "id": "diving-goggles-stand",
+      "name": "Diver's Goggles Stand",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Diff Diver: goggles for reading changes line by line, on a stand so they dry.",
+      "palette": {
+        "S": "#5c6373",
+        "b": "#4a8fe0",
+        "e": "#f4f1e8",
+        "k": "#22262e",
+        "s": "#8d94a3"
+      },
+      "pixels": [
+        ".kkk..kkk.",
+        "kbebkkbebk",
+        "kbbbkkbbbk",
+        ".kkk..kkk.",
+        "....ss....",
+        "....ss....",
+        "....ss....",
+        "...ssss...",
+        "..ssssss..",
+        "SSSSSSSSSS"
+      ],
+      "unlock": {
+        "achievement": "diff-diver"
+      }
+    },
+    {
+      "id": "hawk-perch",
+      "name": "Hawk Perch",
+      "category": "structure",
+      "rarity": "epic",
+      "description": "Line Hawk: a hawk that watches every line. It turns its head when something moves.",
+      "palette": {
+        "H": "#e8dcc0",
+        "h": "#9b6b3e",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "...hh......",
+        "..hhhy.....",
+        "..hhh......",
+        ".hHhhh.....",
+        ".hHHhhh....",
+        ".hHHhhh....",
+        "..hHhh.....",
+        "..y.y......",
+        "wwwwwwwww..",
+        "....w......",
+        "....w......",
+        "....w......",
+        "....w......",
+        "...www.....",
+        "..wwwww...."
+      ],
+      "frames": [
+        [
+          "..hh.......",
+          ".yhhh......",
+          "..hhh......",
+          ".hHhhh.....",
+          ".hHHhhh....",
+          ".hHHhhh....",
+          "..hHhh.....",
+          "..y.y......",
+          "wwwwwwwww..",
+          "....w......",
+          "....w......",
+          "....w......",
+          "....w......",
+          "...www.....",
+          "..wwwww...."
+        ]
+      ],
+      "fps": 1,
+      "unlock": {
+        "achievement": "line-hawk"
+      }
+    },
+    {
+      "id": "guardian-gate",
+      "name": "Guardian Gate",
+      "category": "structure",
+      "rarity": "epic",
+      "description": "Merge Guardian: nothing gets past this gate without a proper look. He checks his own shell twice.",
+      "palette": {
+        "S": "#5c6373",
+        "b": "#4a8fe0",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "sss...bbbb...sss",
+        "sSs...byyb...sSs",
+        "sss...byyb...sss",
+        "ssssssbbbbssssss",
+        "sSsss..bb..sssSs",
+        "sss..........sss",
+        "sSs..........sSs",
+        "sss..........sss",
+        "sSs..........sSs",
+        "sss..........sss",
+        "SSS..........SSS"
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            8,
+            10
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "merge-guardian"
+      }
+    },
+    {
+      "id": "auditor-lantern",
+      "name": "Auditor's Lantern",
+      "category": "bubbler",
+      "layer": "float",
+      "rarity": "legendary",
+      "description": "Abyssal Auditor: a lantern for the deepest diffs. Its teal glow breathes slowly.",
+      "palette": {
+        "L": "#9ff0ff",
+        "Y": "#b8862b",
+        "k": "#22262e",
+        "l": "#4fb0c0",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "...k...",
+        "...k...",
+        "..kkk..",
+        ".kLLLk.",
+        ".kLyLk.",
+        ".kLLLk.",
+        ".kLLLk.",
+        "..kkk..",
+        "...k..."
+      ],
+      "frames": [
+        [
+          "...k...",
+          "...k...",
+          "..kkk..",
+          ".klllk.",
+          ".klYlk.",
+          ".klllk.",
+          ".klllk.",
+          "..kkk..",
+          "...k..."
+        ]
+      ],
+      "fps": 1,
+      "unlock": {
+        "achievement": "abyssal-auditor"
+      }
+    },
+    {
+      "id": "red-pen-quill",
+      "name": "Red Pen Quill",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "For ten things caught in review before they merged. The ink never quite dries.",
+      "palette": {
+        "R": "#a8382a",
+        "b": "#2b3a6a",
+        "k": "#22262e",
+        "r": "#e0604a"
+      },
+      "pixels": [
+        ".....r..",
+        "....rr..",
+        "....rR..",
+        "...rR...",
+        "...rR...",
+        "..rR....",
+        "..R.....",
+        ".kRkk...",
+        "kkkkkk..",
+        "kbbbbk..",
+        "kbbbbk..",
+        "kkkkkk.."
+      ],
+      "unlock": {
+        "achievement": "good-catch"
+      }
+    },
+    {
+      "id": "quiz-scroll",
+      "name": "Scroll of Five",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Five quizzes on Claude's work passed in a row, five stars on the scroll.",
+      "palette": {
+        "W": "#5e3b20",
+        "e": "#f4f1e8",
+        "k": "#22262e",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        ".W........W.",
+        "WweeeeeeeewW",
+        "WweyeyeyeewW",
+        "WweeyeyeeewW",
+        "WweeeeeeeewW",
+        "WwekkkkkkewW",
+        "WweeeeeeeewW",
+        ".W........W."
+      ],
+      "unlock": {
+        "achievement": "quiz-whiz"
+      }
+    },
+    {
+      "id": "wrapped-snowglobe-1",
+      "name": "Year One Snowglobe",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Your first year together, shaken up. A little crab waves from inside.",
+      "palette": {
+        "C": "#c94f3a",
+        "R": "#a8382a",
+        "c": "#ff7a5c",
+        "e": "#f4f1e8",
+        "g": "#cfeee8",
+        "r": "#e0604a",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "...ggggg...",
+        "..g.e...g..",
+        ".g.......g.",
+        "g.......e.g",
+        "g..c..ec..g",
+        "ge.ccccc..g",
+        "g.cCcccCc.g",
+        ".g.c.c.c.g.",
+        "..gsssssg..",
+        ".rrrrrrrrr.",
+        ".rrrryrrrr.",
+        "RRRRRRRRRRR"
+      ],
+      "frames": [
+        [
+          "...ggggg...",
+          "..g..e..g..",
+          ".g....e..g.",
+          "g.e.......g",
+          "g..c...c..g",
+          "g..ccccc.eg",
+          "g.cCcccCc.g",
+          ".g.c.c.c.g.",
+          "..gsssssg..",
+          ".rrrrrrrrr.",
+          ".rrrryrrrr.",
+          "RRRRRRRRRRR"
+        ],
+        [
+          "...ggggg...",
+          "..g....eg..",
+          ".g.e.....g.",
+          "g.........g",
+          "g..c...ce.g",
+          "g.eccccc..g",
+          "g.cCcccCc.g",
+          ".g.c.c.c.g.",
+          "..gsssssg..",
+          ".rrrrrrrrr.",
+          ".rrrryrrrr.",
+          "RRRRRRRRRRR"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "year-one"
+      }
+    },
+    {
+      "id": "wrapped-snowglobe-2",
+      "name": "Two-Year Globe",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Two years in a globe. The snow takes longer to settle now.",
+      "palette": {
+        "B": "#2b5ea8",
+        "C": "#c94f3a",
+        "b": "#4a8fe0",
+        "c": "#ff7a5c",
+        "e": "#f4f1e8",
+        "g": "#cfeee8",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "...ggggg...",
+        "..g.e...g..",
+        ".g.......g.",
+        "g.......e.g",
+        "g..c..ec..g",
+        "ge.ccccc..g",
+        "g.cCcccCc.g",
+        ".g.c.c.c.g.",
+        "..gsssssg..",
+        ".bbbbbbbbb.",
+        ".bbbybybbb.",
+        "BBBBBBBBBBB"
+      ],
+      "frames": [
+        [
+          "...ggggg...",
+          "..g..e..g..",
+          ".g....e..g.",
+          "g.e.......g",
+          "g..c...c..g",
+          "g..ccccc.eg",
+          "g.cCcccCc.g",
+          ".g.c.c.c.g.",
+          "..gsssssg..",
+          ".bbbbbbbbb.",
+          ".bbbybybbb.",
+          "BBBBBBBBBBB"
+        ],
+        [
+          "...ggggg...",
+          "..g....eg..",
+          ".g.e.....g.",
+          "g.........g",
+          "g..c...ce.g",
+          "g.eccccc..g",
+          "g.cCcccCc.g",
+          ".g.c.c.c.g.",
+          "..gsssssg..",
+          ".bbbbbbbbb.",
+          ".bbbybybbb.",
+          "BBBBBBBBBBB"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "year-two"
+      }
+    },
+    {
+      "id": "wrapped-snowglobe-3",
+      "name": "Three-Year Globe",
+      "category": "treasure",
+      "rarity": "legendary",
+      "description": "Three years, three gold studs on the base. He shakes it on the first snow.",
+      "palette": {
+        "C": "#c94f3a",
+        "P": "#5e3a8a",
+        "c": "#ff7a5c",
+        "e": "#f4f1e8",
+        "g": "#cfeee8",
+        "p": "#9a6ad0",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "...ggggg...",
+        "..g.e...g..",
+        ".g.......g.",
+        "g.......e.g",
+        "g..c..ec..g",
+        "ge.ccccc..g",
+        "g.cCcccCc.g",
+        ".g.c.c.c.g.",
+        "..gsssssg..",
+        ".ppppppppp.",
+        ".ppypypypp.",
+        "PPPPPPPPPPP"
+      ],
+      "frames": [
+        [
+          "...ggggg...",
+          "..g..e..g..",
+          ".g....e..g.",
+          "g.e.......g",
+          "g..c...c..g",
+          "g..ccccc.eg",
+          "g.cCcccCc.g",
+          ".g.c.c.c.g.",
+          "..gsssssg..",
+          ".ppppppppp.",
+          ".ppypypypp.",
+          "PPPPPPPPPPP"
+        ],
+        [
+          "...ggggg...",
+          "..g....eg..",
+          ".g.e.....g.",
+          "g.........g",
+          "g..c...ce.g",
+          "g.eccccc..g",
+          "g.cCcccCc.g",
+          ".g.c.c.c.g.",
+          "..gsssssg..",
+          ".ppppppppp.",
+          ".ppypypypp.",
+          "PPPPPPPPPPP"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "year-three"
+      }
+    },
+    {
+      "id": "time-capsule",
+      "name": "Time Capsule",
+      "category": "treasure",
+      "rarity": "legendary",
+      "description": "Five Wrapped years sealed in brass and half buried in the sand. Not to be opened until later.",
+      "palette": {
+        "D": "#b8a070",
+        "S": "#5c6373",
+        "d": "#d8c08a",
+        "k": "#22262e",
+        "s": "#8d94a3",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "..ssssss..",
+        ".ssssssss.",
+        ".yyyyyyyy.",
+        ".sSssssSs.",
+        ".sSskksSs.",
+        ".sSskksSs.",
+        ".sSssssSs.",
+        ".yyyyyyyy.",
+        ".sSssssSs.",
+        ".ssssssss.",
+        "dddddddddd",
+        "dDdddDdddd"
+      ],
+      "unlock": {
+        "achievement": "year-five"
+      }
+    },
+    {
+      "id": "level-25-flag",
+      "name": "Level 25 Flag",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Planted at level 25, the highest he's ever been. A Molt never takes it down.",
+      "palette": {
+        "F": "#7fd6c2",
+        "f": "#2b6b60",
+        "s": "#8d94a3",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "y.......",
+        "wFFFFFF.",
+        "wFFfFFF.",
+        "wFFFfFF.",
+        "wFFFFFF.",
+        "w.......",
+        "w.......",
+        "w.......",
+        "w.......",
+        "w.......",
+        "w.......",
+        "sss....."
+      ],
+      "frames": [
+        [
+          "y.......",
+          "wFFFFFF.",
+          "wFFfFFFF",
+          "wFFFfFF.",
+          "wFFFFFFF",
+          "w.......",
+          "w.......",
+          "w.......",
+          "w.......",
+          "w.......",
+          "w.......",
+          "sss....."
+        ],
+        [
+          "y.......",
+          "wFFFFF..",
+          "wFFfFFF.",
+          "wFFFfF..",
+          "wFFFFFF.",
+          "w.......",
+          "w.......",
+          "w.......",
+          "w.......",
+          "w.......",
+          "w.......",
+          "sss....."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "level-25"
+      }
+    },
+    {
+      "id": "level-50-banner",
+      "name": "Level 50 Banner",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Planted at level 50, the highest he's ever been. A Molt never takes it down.",
+      "palette": {
+        "F": "#ff7a5c",
+        "f": "#fff3b0",
+        "s": "#8d94a3",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "y.........",
+        "wFFFFFFFF.",
+        "wFFFFFFFF.",
+        "wFFFffFFF.",
+        "wFFFffFFF.",
+        "wFFFFFFFF.",
+        "wFFFFFFFF.",
+        "w.........",
+        "w.........",
+        "w.........",
+        "w.........",
+        "w.........",
+        "w.........",
+        "sss......."
+      ],
+      "frames": [
+        [
+          "y.........",
+          "wFFFFFFFF.",
+          "wFFFFFFFFF",
+          "wFFFffFFF.",
+          "wFFFffFFFF",
+          "wFFFFFFFF.",
+          "wFFFFFFFFF",
+          "w.........",
+          "w.........",
+          "w.........",
+          "w.........",
+          "w.........",
+          "w.........",
+          "sss......."
+        ],
+        [
+          "y.........",
+          "wFFFFFFF..",
+          "wFFFFFFFF.",
+          "wFFFffFF..",
+          "wFFFffFFF.",
+          "wFFFFFFF..",
+          "wFFFFFFFF.",
+          "w.........",
+          "w.........",
+          "w.........",
+          "w.........",
+          "w.........",
+          "w.........",
+          "sss......."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "level-50"
+      }
+    },
+    {
+      "id": "level-75-standard",
+      "name": "Level 75 Standard",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Planted at level 75, the highest he's ever been. A Molt never takes it down.",
+      "palette": {
+        "F": "#9a6ad0",
+        "f": "#f2c14e",
+        "s": "#8d94a3",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "y..........",
+        "wFFFFFFFFF.",
+        "wFFFFFFFF..",
+        "wFFfFfFFF..",
+        "wFFFfFFF...",
+        "wFFfFfFFF..",
+        "wFFFFFFFF..",
+        "wFFFFFFFFF.",
+        "w..........",
+        "w..........",
+        "w..........",
+        "w..........",
+        "w..........",
+        "w..........",
+        "w..........",
+        "sss........"
+      ],
+      "frames": [
+        [
+          "y..........",
+          "wFFFFFFFFF.",
+          "wFFFFFFFF..",
+          "wFFfFfFFF..",
+          "wFFFfFFF...",
+          "wFFfFfFFF..",
+          "wFFFFFFFF..",
+          "wFFFFFFFFF.",
+          "w..........",
+          "w..........",
+          "w..........",
+          "w..........",
+          "w..........",
+          "w..........",
+          "w..........",
+          "sss........"
+        ],
+        [
+          "y..........",
+          "wFFFFFFFF..",
+          "wFFFFFFFF..",
+          "wFFfFfFFF..",
+          "wFFFfFFF...",
+          "wFFfFfFFF..",
+          "wFFFFFFFF..",
+          "wFFFFFFFF..",
+          "w..........",
+          "w..........",
+          "w..........",
+          "w..........",
+          "w..........",
+          "w..........",
+          "w..........",
+          "sss........"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "level-75"
+      }
+    },
+    {
+      "id": "level-99-pedestal",
+      "name": "Pedestal of 99",
+      "category": "structure",
+      "rarity": "legendary",
+      "description": "Level 99. A gold star on white marble, and it catches the light like nothing else in the tank.",
+      "palette": {
+        "E": "#c9c2b0",
+        "L": "#ffffff",
+        "Y": "#b8862b",
+        "e": "#f4f1e8",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        ".....y.....",
+        "....yyy....",
+        ".yyyyYyyyy.",
+        "..yyYYYyy..",
+        "...yyyyy...",
+        "..yyy.yyy..",
+        ".yy.....yy.",
+        "...eeeee...",
+        "..eEeeeEe..",
+        "...eEeEe...",
+        "...eEeEe...",
+        "...eEeEe...",
+        "..eeeeeee..",
+        ".EEEEEEEEE."
+      ],
+      "frames": [
+        [
+          ".....L.....",
+          "....yyy....",
+          ".yyyyYyyyy.",
+          "..yLYYYyy..",
+          "...yyyyy...",
+          "..yyy.yyy..",
+          ".yy.....yy.",
+          "...eeeee...",
+          "..eEeeeEe..",
+          "...eEeEe...",
+          "...eEeEe...",
+          "...eEeEe...",
+          "..eeeeeee..",
+          ".EEEEEEEEE."
+        ],
+        [
+          ".....y.....",
+          "....yyy....",
+          ".yyyyYyyLy.",
+          "..yyYYYyy..",
+          "...yyyLy...",
+          "..yyy.yyy..",
+          ".yy.....yy.",
+          "...eeeee...",
+          "..eEeeeEe..",
+          "...eEeEe...",
+          "...eEeEe...",
+          "...eEeEe...",
+          "..eeeeeee..",
+          ".EEEEEEEEE."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "level-99"
+      }
+    },
+    {
+      "id": "chapter-compass",
+      "name": "Quest Compass",
+      "category": "treasure",
+      "rarity": "epic",
+      "description": "Five quest chapters done, and the needle still twitches towards the next one.",
+      "palette": {
+        "B": "#2b5ea8",
+        "R": "#a8382a",
+        "e": "#f4f1e8",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "...wwwww...",
+        "..weeeeew..",
+        ".weeeeeeew.",
+        "weeeeReeeew",
+        "weeeeReeeew",
+        "weeeeyeeeew",
+        "weeeeBeeeew",
+        "weeeeBeeeew",
+        ".weeeeeeew.",
+        "..weeeeew..",
+        "...wwwww..."
+      ],
+      "frames": [
+        [
+          "...wwwww...",
+          "..weeeeew..",
+          ".weeeeeeew.",
+          "weeeeeReeew",
+          "weeeeeReeew",
+          "weeeeyeeeew",
+          "weeeBeeeeew",
+          "weeeBeeeeew",
+          ".weeeeeeew.",
+          "..weeeeew..",
+          "...wwwww..."
+        ],
+        [
+          "...wwwww...",
+          "..weeeeew..",
+          ".weeeeeeew.",
+          "weeeReeeeew",
+          "weeeReeeeew",
+          "weeeeyeeeew",
+          "weeeeeBeeew",
+          "weeeeeBeeew",
+          ".weeeeeeew.",
+          "..weeeeew..",
+          "...wwwww..."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "pathfinder"
+      }
+    },
+    {
+      "id": "chapter-map",
+      "name": "Complete Sea Chart",
+      "category": "structure",
+      "layer": "back",
+      "rarity": "legendary",
+      "description": "Every quest chapter, charted on one map. The X is where he buried a snack.",
+      "palette": {
+        "W": "#5e3b20",
+        "b": "#4a8fe0",
+        "d": "#e8d6a8",
+        "k": "#22262e",
+        "n": "#6fbf4a",
+        "r": "#e0604a"
+      },
+      "pixels": [
+        ".WWWWWWWWWWWWWW.",
+        "WddddddddddddddW",
+        "WdbbbddddnnddbbW",
+        "WdbbdkdkdnnnddbW",
+        "WddkddddkdndrdrW",
+        "WdkddbbddkdddrdW",
+        "WdddbbbdddkdrdrW",
+        "WddddbbddddddddW",
+        "WddddddddddddddW",
+        ".WWWWWWWWWWWWWW."
+      ],
+      "unlock": {
+        "achievement": "cartographer"
+      }
+    },
+    {
+      "id": "logbook-lectern",
+      "name": "Logbook Lectern",
+      "category": "structure",
+      "rarity": "epic",
+      "description": "For thirty looks at the Logbook. The pages turn themselves when the current is right.",
+      "palette": {
+        "E": "#c9c2b0",
+        "K": "#8a5a34",
+        "W": "#5e3b20",
+        "e": "#f4f1e8",
+        "k": "#22262e",
+        "w": "#8a5a34"
+      },
+      "pixels": [
+        ".eeeeKeeee.",
+        "eekkeKekkee",
+        "eeeeeKeeeee",
+        "eekkeKekkee",
+        "wwwwwwwwwww",
+        "..wwwwwww..",
+        "....www....",
+        "....wWw....",
+        "....wWw....",
+        "....wWw....",
+        "...wwwww...",
+        "..WWWWWWW.."
+      ],
+      "frames": [
+        [
+          ".eeeeKeeee.",
+          "eekkeKEEEEe",
+          "eeeeeKeeeee",
+          "eekkeKEEEEe",
+          "wwwwwwwwwww",
+          "..wwwwwww..",
+          "....www....",
+          "....wWw....",
+          "....wWw....",
+          "....wWw....",
+          "...wwwww...",
+          "..WWWWWWW.."
+        ],
+        [
+          ".eeeeKeeee.",
+          "eEEEEKekkee",
+          "eeeeeKeeeee",
+          "eEEEEKekkee",
+          "wwwwwwwwwww",
+          "..wwwwwww..",
+          "....www....",
+          "....wWw....",
+          "....wWw....",
+          "....wWw....",
+          "...wwwww...",
+          "..WWWWWWW.."
+        ]
+      ],
+      "fps": 1,
+      "unlock": {
+        "achievement": "ships-log"
+      }
+    },
+    {
+      "id": "streak-lighthouse",
+      "name": "Streak Lighthouse",
+      "category": "structure",
+      "rarity": "legendary",
+      "description": "Sixty days in a row. The beam sweeps the tank so the streak never loses its way.",
+      "palette": {
+        "L": "#fff3b0",
+        "e": "#f4f1e8",
+        "k": "#22262e",
+        "r": "#e0604a",
+        "s": "#8d94a3"
+      },
+      "pixels": [
+        "......kkk......",
+        "LLL...kLk......",
+        "......kkk......",
+        "......rrr......",
+        "......eee......",
+        ".....rrrrr.....",
+        ".....eeeee.....",
+        ".....rrrrr.....",
+        "....eeeeeee....",
+        "....rrrrrrr....",
+        "....eeekeee....",
+        "...sssssssss...",
+        "..sssssssssss.."
+      ],
+      "frames": [
+        [
+          "......kkk......",
+          "......kLk...LLL",
+          "......kkk......",
+          "......rrr......",
+          "......eee......",
+          ".....rrrrr.....",
+          ".....eeeee.....",
+          ".....rrrrr.....",
+          "....eeeeeee....",
+          "....rrrrrrr....",
+          "....eeekeee....",
+          "...sssssssss...",
+          "..sssssssssss.."
+        ],
+        [
+          "......kkk......",
+          "......kLk......",
+          "......kkk......",
+          "......rrr......",
+          "......eee......",
+          ".....rrrrr.....",
+          ".....eeeee.....",
+          ".....rrrrr.....",
+          "....eeeeeee....",
+          "....rrrrrrr....",
+          "....eeekeee....",
+          "...sssssssss...",
+          "..sssssssssss.."
+        ]
+      ],
+      "fps": 2,
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            7,
+            10
+          ]
+        }
+      ],
+      "unlock": {
+        "achievement": "keeper-of-the-light"
+      }
+    },
+    {
+      "id": "tide-bell-100",
+      "name": "Hundred-Day Bell",
+      "category": "treasure",
+      "rarity": "legendary",
+      "description": "A hundred days in a row, rung in. It swings on its own when the tide comes in.",
+      "palette": {
+        "W": "#5e3b20",
+        "Y": "#b8862b",
+        "k": "#22262e",
+        "w": "#8a5a34",
+        "y": "#f2c14e"
+      },
+      "pixels": [
+        "wwwwwwwwwww",
+        "w....k....w",
+        "w...yyy...w",
+        "w..yyyyy..w",
+        "w..yYyyy..w",
+        "w..yYyyy..w",
+        "w.yyyyyyy.w",
+        "w.YYYYYYY.w",
+        "w....y....w",
+        "w.........w",
+        "WW.......WW"
+      ],
+      "frames": [
+        [
+          "wwwwwwwwwww",
+          "w....k....w",
+          "w....yyy..w",
+          "w...yyyyy.w",
+          "w...yYyyy.w",
+          "w...yYyyy.w",
+          "w..yyyyyyyw",
+          "w..YYYYYYYw",
+          "w.....y...w",
+          "w.........w",
+          "WW.......WW"
+        ],
+        [
+          "wwwwwwwwwww",
+          "w....k....w",
+          "w..yyy....w",
+          "w.yyyyy...w",
+          "w.yYyyy...w",
+          "w.yYyyy...w",
+          "wyyyyyyy..w",
+          "wYYYYYYY..w",
+          "w...y.....w",
+          "w.........w",
+          "WW.......WW"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "achievement": "hundred-tides"
+      }
+    }
+  ]
+}
