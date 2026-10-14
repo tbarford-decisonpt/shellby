@@ -798,6 +798,26 @@
         <ul class="xp-ways" id="xpWays"></ul>
       </details>
     </section>
+    <!-- Review mastery (review-mastery.js, docs/CLAUDE-CODE.md#review-mastery) -->
+    <section class="rm-card" id="rmCard" aria-labelledby="rmTitle">
+      <div class="rm-head">
+        <h3 id="rmTitle">Review mastery</h3>
+        <span class="rm-tier" id="rmTier"></span>
+      </div>
+      <p class="muted small">For really reading what Claude changed: quizzes on a turn’s diff, line comments that say something, and catching a problem before it merges.</p>
+      <div class="rm-stats" id="rmStats"></div>
+      <div class="rm-next" id="rmNext"></div>
+      <ol class="rm-ladder" id="rmLadder" aria-label="Review tiers"></ol>
+      <details class="rm-more">
+        <summary class="xp-sub">How it counts</summary>
+        <ul class="rm-rules small">
+          <li><b>+3</b> for a quiz you pass on a turn’s changes, once per turn. Passes in a row make a run; a miss ends the run, but your best run stays.</li>
+          <li><b>+1</b> for a review you send with at least one real comment (12 characters or more, not just “lgtm”) on a change of 10 lines or more. Once per turn.</li>
+          <li><b>+5</b> when Claude’s next turn rewrites lines you commented on, before anything was pushed or merged. That’s a catch.</li>
+        </ul>
+      </details>
+      <ul class="rm-log small" id="rmLog" aria-label="Recent review points"></ul>
+    </section>
     <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
     <ul class="trophy-list" id="trophyList"></ul>
   </main>
@@ -1290,7 +1310,12 @@
       <label class="toggle"><input type="checkbox" id="tkShare" aria-describedby="tkShareHelp"><span class="switch"></span>Show his tank: friends can peek at it, and it’s on your profile card</label>
       <p class="muted small" id="tkShareHelp"></p>
     </section>
-  <!-- the reef in his tank (WP3): a stub from the shared foundation (docs/GAMIFICATION-PLAN.md section 1.6) -->
+    <!-- Coral from each watched reef (reef.js, docs/REEF.md) -->
+    <section class="us-sec reef-tank" aria-labelledby="reefTankTitle">
+      <div class="us-h"><h3 id="reefTankTitle">Coral</h3><span class="us-h-meta" id="reefTankMeta"></span></div>
+      <p class="muted small">Each project whose reef you watch grows a coral here. Every new best adds a polyp, and nothing takes one away: a struggling reef only turns paler. Place it from the tray’s Plants shelf.</p>
+      <ul class="reef-tank-list" id="reefTankList"></ul>
+    </section>
   </main>
 
   <!-- ====================== HISTORY ====================== -->
@@ -1569,7 +1594,21 @@
         <button type="button" class="btn ghost slim-btn" id="pjCloneCancel">Cancel</button>
       </div>
     </section>
-  <!-- the reef on a project page (WP3): a stub from the shared foundation (docs/GAMIFICATION-PLAN.md section 1.6) -->
+    <!-- The reef on a project's page (reef.js, docs/REEF.md): shown under the page while it's open -->
+    <section class="reef-card" id="reefCard" aria-labelledby="reefTitle" hidden>
+      <div class="reef-head">
+        <div class="reef-coral" id="reefCoral" aria-hidden="true"></div>
+        <div class="reef-head-text">
+          <h3 id="reefTitle">Reef</h3>
+          <p class="reef-stage muted small" id="reefStage" role="status"></p>
+        </div>
+        <div class="reef-actions" id="reefActions"></div>
+      </div>
+      <p class="reef-next" id="reefNext" hidden></p>
+      <ul class="reef-signals" id="reefSignals" aria-label="What the reef reads"></ul>
+      <p class="muted small reef-waiting" id="reefWaiting" hidden></p>
+      <p class="muted small reef-privacy">Counts only, kept on this PC. Shellby reads git and coverage files that are already there; it never runs your code.</p>
+    </section>
   </main>
 
   <!-- ====================== SETTINGS ====================== -->
