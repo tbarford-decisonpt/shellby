@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
-const { plan, reroot, branchTitle, branchSlug, makeFence, fenceDenies, family, spellings } = require('../src/main/branch');
+const { plan, reroot, branchTitle, branchSlug, makeFence, fenceDenies, family, lineOf, splitTree, firstTree, sinceSplit, outcome, spellings } = require('../src/main/branch');
 
 const T = c => c.repeat(40);
 const user = (turnId, text, extra = {}) => ({ kind: 'user', turnId, text, t: 1000, ...extra });
@@ -281,4 +281,59 @@ test("the fence keeps the original's git branch from being moved or deleted, but
 test("a branch doesn't inherit the original's notes of its other branches", () => {
   const items = [user('t1', 'a'), result('u1'), { kind: 'branched-off', to: 'other' }, user('t2', 'b'), result('u2')];
   assert.ok(!plan(items, { turnId: 't2', at: 'after' }).items.some(i => i.kind === 'branched-off'));
+});
+
+// ------------------------------------------------------------ comparing tries
+
+const ent = (id, parent, tree) => ({ id, ...(parent ? { branchOf: { id: parent, ...(tree ? { tree } : {}) } } : {}) });
+
+test('lineOf: an entry and the ones it came from, and a loop ends', () => {
+  const list = [ent('a'), ent('b', 'a'), ent('c', 'b')];
+  assert.deepEqual(lineOf(list, 'c').map(e => e.id), ['c', 'b', 'a']);
+  assert.deepEqual(lineOf([ent('x', 'y'), ent('y', 'x')], 'x').map(e => e.id), ['x', 'y']);
+  assert.deepEqual(lineOf(list, 'gone'), []);
+});
+
+test('splitTree: where a branch started, from either side, and through a grandchild', () => {
+  const list = [ent('a'), ent('b', 'a', T('1')), ent('c', 'b', T('2'))];
+  const startOf = e => e?.branchOf?.tree || null;
+  assert.equal(splitTree(list, 'a', 'b', startOf), T('1'));
+  assert.equal(splitTree(list, 'b', 'a', startOf), T('1'));
+  assert.equal(splitTree(list, 'a', 'c', startOf), T('1'), 'the grandchild split from a where its parent did');
+  assert.equal(splitTree(list, 'c', 'b', startOf), T('2'));
+});
+
+test('splitTree: cousins share a point only when they split at the same one', () => {
+  const startOf = e => e?.branchOf?.tree || null;
+  assert.equal(splitTree([ent('a'), ent('b', 'a', T('1')), ent('c', 'a', T('1'))], 'b', 'c', startOf), T('1'));
+  assert.equal(splitTree([ent('a'), ent('b', 'a', T('1')), ent('c', 'a', T('2'))], 'b', 'c', startOf), null);
+  assert.equal(splitTree([ent('a'), ent('b')], 'a', 'b', startOf), null, 'not related');
+});
+
+test('firstTree: the first checkpoint start, else the first diff', () => {
+  assert.equal(firstTree([user('t1', 'x'), point('t1', T('4'), T('5'))]), T('4'));
+  assert.equal(firstTree([change('t1', T('6'), T('7'))]), T('6'));
+  assert.equal(firstTree([user('t1', 'x')]), null);
+});
+
+test('sinceSplit: after branching off towards the other, else after being branched, else the start', () => {
+  const off = { kind: 'branched-off', to: 'b', turnId: 't3', at: 'before' };
+  assert.equal(sinceSplit([...convo, off], ['b', 'a']), 9, 'from the message the branch tried again');
+  const offAfter = { kind: 'branched-off', to: 'b', turnId: 't2', at: 'after' };
+  assert.equal(sinceSplit([...convo, offAfter], ['b']), 8, 'after the reply it branched from');
+  assert.equal(sinceSplit([user('t1', 'x'), { kind: 'branched' }, user('t2', 'y')], ['z']), 2);
+  assert.equal(sinceSplit(convo, ['nobody']), 0);
+});
+
+test('outcome: turns, time, the last tests and the last thing Claude said, since the split', () => {
+  const items = [
+    user('t1', 'before the split'), { kind: 'result', durationMs: 999 },
+    user('t2', 'go'), { kind: 'text', text: 'Working on it' }, { kind: 'text', text: 'sub says', sub: true },
+    { kind: 'result', durationMs: 1000 }, { kind: 'checks', status: 'fail', commands: [{ ok: false, failed: ['a', 'b'] }] },
+    user('t3', 'again'), { kind: 'text', text: 'Done.\nAll green now.' }, { kind: 'result', durationMs: 500 },
+    { kind: 'checks', status: 'pass', commands: [{ ok: true }] },
+  ];
+  assert.deepEqual(outcome(items, 2), { turns: 2, ms: 1500, checks: { status: 'pass', failing: 0 }, said: 'All green now.' });
+  assert.deepEqual(outcome(items.slice(0, 7), 2).checks, { status: 'fail', failing: 2 });
+  assert.deepEqual(outcome([], 0), { turns: 0, ms: 0, checks: null, said: '' });
 });

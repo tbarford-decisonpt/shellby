@@ -87,6 +87,15 @@
 .branch-mark .link-btn:hover, .branch-mark .link-btn:focus-visible { color: var(--accent, var(--sand)); }
 .menu-note { padding: 4px 12px 6px 40px; }
 .changes.compare > summary .chg-icon { color: var(--sand); }
+/* Two tries compared: how each went, who changed each file, and Take theirs (feed-notes.js). */
+.cmp-try { margin: 0; padding: 4px 11px 0; color: var(--sand-dim); }
+.cmp-try b { color: var(--sand); font-weight: 600; }
+.cmp-row { display: flex; align-items: center; gap: 6px; padding-right: 11px; }
+.cmp-row .chg-file { flex: 1; min-width: 0; }
+.cmp-take { flex: none; }
+.cmp-took { flex: none; }
+.cmp-who { flex: none; font-size: var(--fs-11); color: var(--sand-faint); }
+.cmp-who.who-both { color: var(--amber); }
 .branch-family { font-size: var(--fs-12); }
 .branch-family .mi-sub { white-space: normal; }
 @media (prefers-reduced-motion: reduce) { .msg-branch, .meta-branch { transition: none; } }

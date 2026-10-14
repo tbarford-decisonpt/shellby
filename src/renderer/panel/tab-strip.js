@@ -52,7 +52,8 @@
   // One tab. .tab draws it; inside it the role=tab part and its × sit side by
   // side (a button can't live inside a tab).
   function tabEl(t, active) {
-    const clash = SB.clashLine?.(t.id) || '';
+    const shares = SB.sharesWith?.(t);
+    const clash = SB.clashLine?.(t.id) || (shares ? `Shares its folder with "${shares}": changes either one makes, the other sees.` : '');
     return h('div', {
       class: L.tabClass(t, { active, clash, dragging: !!drag?.moved && t.id === drag.id }),
       role: 'presentation',

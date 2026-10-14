@@ -308,4 +308,83 @@ function family(entries, id) {
     .sort((a, b) => a.depth - b.depth || (a.createdAt || 0) - (b.createdAt || 0));
 }
 
-module.exports = { plan, reroot, branchTitle, branchSlug, makeFence, fenceDenies, family, spellings, MARK };
+/** An entry and the ones it came from, itself first. entries: History's index. Pure. */
+function lineOf(entries, id) {
+  const byId = new Map((Array.isArray(entries) ? entries : []).filter(e => e && typeof e.id === 'string').map(e => [e.id, e]));
+  const out = [];
+  const seen = new Set();
+  for (let e = byId.get(id); e && !seen.has(e.id); e = e.branchOf ? byId.get(e.branchOf.id) : null) { seen.add(e.id); out.push(e); }
+  return out;
+}
+
+/**
+ * Where two tries split: the folder's tree they both started from, so a
+ * comparison can say which of them changed each file. entries: History's
+ * index. startOf(entry): the tree that entry's own copy started from (its
+ * branchOf.tree, or its first checkpoint). -> tree | null. Pure.
+ */
+function splitTree(entries, a, b, startOf) {
+  // The step just below `top` on a line: the branch that split from it.
+  const below = (l, top) => { const i = l.findIndex(e => e.id === top); return i > 0 ? l[i - 1] : null; };
+  const la = lineOf(entries, a);
+  const lb = lineOf(entries, b);
+  const step = below(lb, a) || below(la, b);
+  if (step) return startOf(step) || null;
+  // Cousins: each split from the nearest one they share, at the same point or not at all.
+  const common = la.find(e => lb.some(x => x.id === e.id));
+  if (!common) return null;
+  const sa = startOf(below(la, common.id));
+  const sb = startOf(below(lb, common.id));
+  return sa && sa === sb ? sa : null;
+}
+
+/** The tree a transcript's first checkpoint (or diff) started from. Pure. */
+function firstTree(items) {
+  for (const i of Array.isArray(items) ? items : []) {
+    if (i?.kind === 'checkpoint' && TREE.test(i.start || '')) return i.start;
+    if (i?.kind === 'changes' && TREE.test(i.before || '')) return i.before;
+  }
+  return null;
+}
+
+/**
+ * Where this transcript's own part of the story begins, compared with
+ * another try: after it branched off towards `others` (that try's id and the
+ * ones it came from), else after it was branched itself, else the start. Pure.
+ */
+function sinceSplit(items, others = []) {
+  const list = Array.isArray(items) ? items : [];
+  const to = new Set(others);
+  const off = [...list].reverse().find(i => i?.kind === 'branched-off' && to.has(i.to) && typeof i.turnId === 'string');
+  if (off) {
+    const p = plan(list, { turnId: off.turnId, at: off.at === 'after' ? 'after' : 'before' });
+    if (p.ok) return p.cut;
+  }
+  for (let n = list.length - 1; n >= 0; n--) if (list[n]?.kind === 'branched') return n + 1;
+  return 0;
+}
+
+/**
+ * How a try went since the split, for choosing between them: turns, how long
+ * it worked, its last tests and the last thing Claude said. Pure.
+ */
+function outcome(items, from = 0) {
+  let turns = 0;
+  let ms = 0;
+  let checks = null;
+  let said = '';
+  for (const i of (Array.isArray(items) ? items : []).slice(Math.max(0, from))) {
+    if (!i) continue;
+    if (isUser(i)) turns++;
+    else if (i.kind === 'result' && Number.isFinite(i.durationMs)) ms += i.durationMs;
+    else if (i.kind === 'checks' && typeof i.status === 'string') {
+      const cmds = Array.isArray(i.commands) ? i.commands : [];
+      const names = new Set(cmds.flatMap(c => (Array.isArray(c?.failed) ? c.failed : [])));
+      checks = { status: i.status, failing: names.size || cmds.filter(c => c && !c.ok).length };
+    } else if (i.kind === 'text' && !i.sub && typeof i.text === 'string') said = i.text;
+  }
+  const line = said.split('\n').map(l => l.trim()).filter(Boolean).pop() || '';
+  return { turns, ms, checks, said: line.length > 140 ? `${line.slice(0, 139)}…` : line };
+}
+
+module.exports = { plan, reroot, branchTitle, branchSlug, makeFence, fenceDenies, family, lineOf, splitTree, firstTree, sinceSplit, outcome, spellings, MARK };

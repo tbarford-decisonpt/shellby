@@ -57,7 +57,13 @@
     const shown = w?.originalCwd || cwd;
     $('folderLabel').textContent = SB.shortPath(shown);
     $('folderChip').title = w ? `Working folder: ${shown}\nThis conversation works in its own copy: ${cwd}` : `Working folder: ${cwd}`;
-    $('branchChip').hidden = !w;
+    // In your checkout, it shows once there are other tries at this to compare with or keep.
+    const tries = !w && SB.hasTries(tab);
+    $('branchChip').hidden = !w && !tries;
+    if (tries) {
+      $('branchLabel').textContent = 'other tries';
+      $('branchChip').title = 'There are other tries at this: compare them, or keep one';
+    }
     if (w) {
       $('branchLabel').textContent = w.branch.replace(/^shellby\//, '');
       $('branchChip').title = `Its own copy, on branch ${w.branch} (from ${w.base})`;
@@ -65,6 +71,16 @@
     SB.refreshUsage?.(); // a folder on another computer may be another account's plan (tab-meters.js)
   }
   SB.applyFolderLabel = applyFolderLabel;
+
+  // Other tries at the same thing (branching.js): it was branched, or a branch went off from it.
+  SB.hasTries = tab => !!tab && (!!tab.branchOf || !!tab.hasTries || [...state.tabs.values()].some(o => o.branchOf?.id === tab.id));
+
+  // Two tabs branched without a copy share one folder (branching.js): each sees the other's changes.
+  SB.sharesWith = tab => {
+    if (!tab) return null;
+    if (tab.branchOf?.shared) return tab.branchOf.title;
+    return [...state.tabs.values()].find(o => o.branchOf?.shared && o.branchOf.id === tab.id)?.title || null;
+  };
 
   SB.folderChanged = async (r) => {
     if (!r) return;

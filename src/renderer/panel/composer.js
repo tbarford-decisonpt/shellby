@@ -558,7 +558,8 @@
   }
 
   async function doBranch(tab, turnId, at, { send = false } = {}) {
-    SB.toast('Making a branch…', { ms: 20000 });
+    // Long enough for its copy's packages to install (copy-deps.js); the answer replaces it.
+    SB.toast('Making a branch…', { ms: 180000 });
     const r = await api.branch(tab.id, turnId, { at, send });
     if (!r?.ok) return r?.cancelled ? SB.toast('Not branched.') : SB.toast(r?.error || "Couldn't make the branch.", { ms: 9000 });
     // The new tab has opened itself (boot.js onTabOpened).

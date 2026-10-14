@@ -467,4 +467,4 @@ async function treeWith(root, tree, file) {
   }
 }
 
-module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, scope, newTouch, noteTool, patchFor, undo, undoHunk, splitHunks, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };
+module.exports = { pin, pins, prunePins, pinRef, PIN_PREFIX, MAX_PINNED, snapshot, SKIPPED_TOO_MANY, MAX_UNTRACKED, mapLimit, summarize, changedFiles, putBack, scope, newTouch, noteTool, patchFor, undo, undoHunk, splitHunks, restoreTo, parseDiffSummary, checkRef, rootOf, sameRepo, TREE };

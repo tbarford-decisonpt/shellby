@@ -112,6 +112,7 @@ contextBridge.exposeInMainWorld('shellby', {
   branchFamily: invoke('branch:family'),
   compareBranches: (tabId, otherId) => ipcRenderer.invoke('branch:compare', { tabId, otherId }),
   compareDiff: (tabId, otherId, file) => ipcRenderer.invoke('branch:compare-diff', { tabId, otherId, file }),
+  takeBranchFile: (tabId, otherId, file) => ipcRenderer.invoke('branch:take', { tabId, otherId, file }),
   keepBranch: invoke('branch:keep'),
   // Try it N ways (wiring/tries.js): main always asks, with the cost, before any start
   startTries: (/** @type {string} */ tabId, /** @type {{ n?: number, text?: string, arg?: string, attachments?: string[] }} */ { n, text, arg, attachments } = {}) => ipcRenderer.invoke('tries:start', { tabId, n, text, arg, attachments }),

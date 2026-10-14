@@ -62,6 +62,29 @@ test('compareHead counts the differing files, including those not listed', () =>
   assert.equal(F.compareHead('Other', { files: [{}, {}], more: 3 }), '5 files differ from "Other"');
 });
 
+test('whoWord says which try changed a file since they split', () => {
+  assert.equal(F.whoWord('mine'), 'changed here');
+  assert.equal(F.whoWord('theirs'), 'changed there');
+  assert.equal(F.whoWord('both'), 'both changed');
+  assert.equal(F.whoWord(null), '');
+});
+
+test('tryLine puts how a try went on one line', () => {
+  const duration = ms => `${ms / 1000}s`;
+  assert.equal(F.tryLine({ turns: 1, ms: 4000, checks: { status: 'pass', failing: 0 } }, duration), '1 turn · 4s · ✅ checks pass');
+  assert.equal(F.tryLine({ turns: 3, ms: 0, checks: { status: 'fail', failing: 2 } }, duration), '3 turns · ❌ 2 failing');
+  assert.equal(F.tryLine({ turns: 2, ms: 0, checks: null }, duration), '2 turns · tests not run');
+  assert.equal(F.tryLine(null, duration), '');
+});
+
+test('combinePrompt points at the other try and keeps every change here', () => {
+  const p = F.combinePrompt({ title: 'Other', path: 'C:\\copy', branch: 'shellby/x-123456', files: ['a.js', 'b.js'] });
+  assert.match(p, /"Other", works in C:\\copy on branch shellby\/x-123456/);
+  assert.match(p, /the files that differ: a\.js, b\.js\)/);
+  assert.match(p, /make every change here, never in its folder/);
+  assert.match(F.combinePrompt({ title: 'O', path: 'C:\\c', files: [], more: 0 }), /^Another try at this, "O", works in C:\\c\. Compare it with this one, decide/);
+});
+
 test('suggestionLabel names the always button after the rule it saves', () => {
   assert.equal(F.suggestionLabel({ type: 'setMode', mode: 'acceptEdits' }), 'Allow all edits');
   assert.equal(F.suggestionLabel({ type: 'setMode', mode: 'plan' }), 'Switch to plan');
