@@ -210,6 +210,7 @@ function wireTimetrack(d) {
   // Feed the achievement system; unlocks celebrate via the wardrobe 'unlocked' event.
   function stat(event, payload) {
     if (d.CAPTURE) return;
+    d.emitStat?.(event, payload); // d.onStat listeners (wiring/game-hooks.js), each guarded
     try { d.life?.onStat(event, payload); } catch (e) { d.log.warn('life stat failed', e.message); }
     try { d.eventsOnStat?.(event, payload); } catch (e) { d.log.warn('tide event stat failed', e.message); }
     if (!d.wardrobe) return;

@@ -138,6 +138,9 @@ const COUNTERS = [
   'bugsCaught', 'habitatsDone', 'legendaryBugs', 'goldenCatches', 'bugSpecies', 'ghostSpecies',
   'eventsHarvest', 'eventsHaunting', 'eventsFrostbite', 'eventsPenpal', 'eventsSpringClean', 'eventsLowTide', 'eventMedals',
   'sparkles', 'legendarySparkles', 'eggsHatched', 'eggsFromFriends', 'swapsMade', 'swapSets', 'boardWins',
+  // The gamification overhaul (docs/GAMIFICATION-PLAN.md section 1.4).
+  'nestsCleared', 'rematchesWon', 'cleanFixes', 'fixesHeld', 'bugsCaughtTotal', 'reefBests', 'reefThriving',
+  'reviewTier', 'reviewCaught', 'quizStreak', 'molts', 'everLevel', 'chaptersDone', 'tidePerfect', 'wrappedYears', 'logbookViews',
 ];
 const MAX_DAYS = 400;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -211,6 +214,15 @@ const INCREMENTS = {
   'swap-made': 'swapsMade',
   'swap-set': 'swapSets',
   'board-won': 'boardWins',
+  // Bug nests and fix reports (bugdex/nests.js, bugdex/quality.js), the reef, review mastery, the Logbook.
+  'nest-cleared': 'nestsCleared',
+  'rematch-won': 'rematchesWon',
+  'clean-fix': 'cleanFixes',
+  'fix-held': 'fixesHeld',
+  'reef-best': 'reefBests',
+  'review-caught': 'reviewCaught',
+  'tide-perfect': 'tidePerfect',
+  'logbook-opened': 'logbookViews',
 };
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = {
@@ -229,6 +241,10 @@ const MAXIMA = {
   'bug-species': 'bugSpecies', 'ghost-species': 'ghostSpecies',
   // Tide event medals won, all years (src/main/events.js).
   'event-medal': 'eventMedals',
+  // The gamification overhaul: bugs caught all time, projects with a thriving reef, the review
+  // tier, the best quiz streak, molts, the highest level ever reached, chapters done, Wrapped years.
+  'bugs-caught-total': 'bugsCaughtTotal', 'reef-thriving': 'reefThriving', 'review-tier': 'reviewTier', 'quiz-streak': 'quizStreak',
+  molted: 'molts', 'ever-level': 'everLevel', 'chapter-done': 'chaptersDone', 'wrapped-seen': 'wrappedYears',
 };
 
 function emptyStats() {

@@ -429,10 +429,12 @@ contextBridge.exposeInMainWorld('shellby', {
   // what you use: screens opened, counted on this PC (feature-use.js)
   featureUsed: fire('features:used'),
   featureReport: invoke('features:report'),
-  // quests: the features worth finding, one at a time (quests.js)
-  getQuests: invoke('quests:get'),
+  getQuests: invoke('quests:get'), // quests: the features worth finding, one at a time (quests.js)
   hideQuests: invoke('quests:hide'),
   onQuests: on('quests'),
+  getGame: invoke('game:get'), // the game screens (game-hub.js): (what, arg) -> view, what in GAME_VIEWS
+  gameAct: invoke('game:act'), // (what, action, payload) -> view
+  onGame: on('game'), // ({ what, view, event? })
   // his life between tasks: finds, the bond, the journal, games (life.js, playtime.js)
   getLife: invoke('life:get'),
   setBirthday: invoke('life:birthday'),
@@ -485,12 +487,10 @@ contextBridge.exposeInMainWorld('shellby', {
   onTankGauges: on('tank:gauges'),
   tankLife: invoke('tank:life'),       // his favourite piece and the sets on display (tank/life.js)
   tankLived: invoke('tank:lived'),     // what he got up to while you watched
-  // dependency checkups and the week in review
-  getCheckups: invoke('checkups:get'),
+  getCheckups: invoke('checkups:get'), // dependency checkups and the week in review
   runCheckup: invoke('checkups:run'),
   onCheckups: on('checkups'),
-  // the Bugdex: the bugs Claude has fixed for you, in jars (bugdex.js)
-  getBugdex: invoke('bugdex:get'),
+  getBugdex: invoke('bugdex:get'), // the Bugdex: the bugs Claude has fixed for you, in jars (bugdex.js)
   bugdexSeen: fire('bugdex:seen'),
   setFavouriteBug: invoke('bugdex:favourite'),
   openBugTab: fire('bugdex:open-tab'),

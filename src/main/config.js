@@ -42,6 +42,13 @@ const DEFAULTS = {
   rooms: null,       // which screens a new user has opened so far; null until first boot decides (see rooms.js)
   featureUse: null,  // how often each screen is opened, on this PC only, never synced (feature-use.js)
   quests: null,      // which quests are done, and whether the chat's quest card is hidden (see quests.js)
+  // The gamification overhaul (docs/GAMIFICATION-PLAN.md), each on this PC only; molting lives in `xp`.
+  reef: null,          // each project's reef health and coral (reef.js)
+  reviewMastery: null, // review mastery: catches, quiz streak, tier (review-mastery.js)
+  bugNests: null,      // bug history and nests (bugdex/nests.js)
+  yearbook: null,      // the year so far, for Wrapped (yearbook.js)
+  logbook: null,       // what the Logbook has shown (logbook.js)
+  unlockSeen: null,    // the last level unlock the panel showed (levels.js)
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
   claudeElsewhere: false, // Claude Code only on another computer, over ssh: first run asks for one there, not here (onboarding.js)

@@ -54,6 +54,7 @@ const { registerNotesIpc } = require('./notes');
 const { registerCouncilIpc } = require('./council');
 const { registerCrewIpc } = require('./crew');
 const { registerNativeIpc } = require('./native');
+const { registerGameIpc } = require('./game');
 const { registerReleasesIpc } = require('../projects/releases-ipc');
 
 /**
@@ -227,6 +228,7 @@ function registerIpc(electronIpcMain, d) {
   registerCouncilIpc(ipcMain, d);
   registerCrewIpc(ipcMain, d);
   registerNativeIpc(ipcMain, d);
+  registerGameIpc(ipcMain, d); // the game screens' one bridge (game-hub.js)
   registerReleasesIpc(ipcMain, d);
 }
 

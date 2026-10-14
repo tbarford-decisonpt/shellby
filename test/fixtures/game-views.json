@@ -1,0 +1,12 @@
+{
+  "_note": "Stand-in views for each game-hub name (docs/GAMIFICATION-PLAN.md section 4), so a package can be built before the one that owns the view lands. Each owner replaces its entry with the real shape. null: not there yet.",
+  "logbook": { "cards": [{ "id": "reef", "title": "Reef", "text": "shellby reached a new best.", "go": "projects", "feeds": ["xp"] }], "empty": false },
+  "quests": { "chapter": 1, "chapters": [{ "n": 1, "title": "Getting started", "done": 2, "of": 4, "locked": false }], "current": { "id": "comment", "title": "Leave a line comment" } },
+  "reef": { "projects": [{ "project": "shellby", "stage": 3, "best": 3, "coral": 12, "fading": false, "signals": { "lint": 0, "any": 4 } }] },
+  "review": { "tier": 1, "tierName": "Tide reader", "caught": 2, "quizStreak": 3, "quizBest": 5, "next": { "tier": 2, "need": 5 } },
+  "nests": { "nests": [{ "id": "n1", "project": "shellby", "species": "null-crab", "sightings": 3, "clearsAt": 1767225600000, "generation": 1 }], "cleared": 0 },
+  "molt": { "molts": 0, "canMolt": false, "level": 42, "everLevel": 42, "badge": null },
+  "wrapped": null,
+  "unlocks": { "level": 42, "everLevel": 42, "next": { "level": 45, "kind": "title", "name": "Reef Warden" }, "seen": 40 },
+  "yearbook": { "year": 2026, "activeDays": 120, "partial": false }
+}

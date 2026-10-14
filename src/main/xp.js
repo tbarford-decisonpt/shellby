@@ -17,6 +17,11 @@ const { characterSheet } = require('./character');
 // `claude`: only Claude Code work earns it, so just-the-crab mode leaves it off
 // the list of ways to earn (panel/xp.js).
 const AWARDS = Object.freeze({
+  // Quest chapters (quests.js) and review mastery tiers (review-mastery.js).
+  chapter: { xp: 100, perHour: 1, label: 'Finished a quest chapter', way: 'Finishes a chapter of quests', claude: true },
+  reviewtier: { xp: 100, perHour: 1, label: 'Reached a new review tier', way: 'Reaches a new review mastery tier', claude: true },
+  // Bug nests (bugdex/nests.js): 14 days with no recurrence.
+  nest: { xp: 80, perHour: 1, label: 'Cleared a bug nest', way: 'Clears a bug nest (14 days with no recurrence)', claude: true },
   questline: { xp: 150, perHour: 1, label: 'Finished the quest line', way: 'Finishes the whole quest line', claude: true },
   // Tide events (events.js): every goal finished while it was on.
   medal: { xp: 150, perHour: 1, label: 'Finished a tide event', way: 'Finishes every goal of a tide event while it\'s on' },
@@ -40,11 +45,17 @@ const AWARDS = Object.freeze({
   // because the same fix usually pays 'fixed' or 'tests' too.
   newbug: { xp: 40, perHour: 3, label: 'A new bug for the Bugdex', way: 'Catches a kind of bug the Bugdex hasn\'t caught yet', claude: true },
   ship: { xp: 40, perHour: 4, label: 'Pushed code', way: 'Pushes code (+20 first push of the day)', claude: true },
+  // A project's reef health (reef.js) reached a new best.
+  reef: { xp: 30, perHour: 1, label: 'Reef reached a new best', way: "A project's reef reaches a new best", claude: true },
   deps: { xp: 30, perHour: 2, label: 'Clean dependency audit', way: 'A dependency audit comes back clean', claude: true },
   // Lean Shell (efficiency.js): only for things that cost nothing in quality. Never
   // for cheaper tasks, shorter replies or fewer turns, which would reward cutting corners.
   tidy: { xp: 30, perHour: 6, label: 'Tidied his toolbox', way: 'Turns off a plugin or MCP server that sits idle', claude: true },
   treasure: { xp: 30, perHour: 2, label: 'He dug up something rare', way: 'Digs up something rare' },
+  // Fix reports (bugdex/quality.js) and review mastery (review-mastery.js).
+  cleanfix: { xp: 25, perHour: 4, label: 'A clean fix', way: 'A fix with a new test that proves it, at the root', claude: true },
+  caught: { xp: 25, perHour: 3, label: 'Caught something in review', way: 'Catches something in review before it merges', claude: true },
+  held: { xp: 20, perHour: 3, label: 'A fix held', way: 'A fix holds for 14 days', claude: true },
   home: { xp: 20, perHour: 6, label: 'Brought work home green', way: "Brings a copy's work home with its tests passing", claude: true },
   helped: { xp: 15, perHour: 6, label: "Put a helper's find to use", way: 'Acts on what one of his helper agents found', claude: true },
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy', way: 'Earns a trophy' },

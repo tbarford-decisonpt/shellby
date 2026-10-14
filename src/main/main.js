@@ -27,6 +27,15 @@ const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
 const { wireProgress } = require('./wiring/progress');
+const { wireQuestLine } = require('./wiring/quest-line');
+const { wireGameHooks } = require('./wiring/game-hooks');
+const { wireLevels } = require('./wiring/levels');
+const { wireMolting } = require('./wiring/molting');
+const { wireReef } = require('./wiring/reef');
+const { wireReview } = require('./wiring/review');
+const { wireNests } = require('./wiring/bugdex-nests');
+const { wireLogbook } = require('./wiring/logbook');
+const { wireYearbook } = require('./wiring/yearbook');
 const { wireBugdex } = require('./wiring/bugdex');
 const { wireTimetrack } = require('./wiring/timetrack');
 const { wireCrabApi } = require('./wiring/crab-api');
@@ -265,6 +274,8 @@ function share(parts) {
 // ---------------------------------------------------------------- snags
 // Hung on the process before anything else can throw (wiring/crash.js).
 const { snag, startCrashReports } = share(wireCrash(shared));
+// The hooks the game packages meet through (onAward, onStat, everLevel, the game-hub), before anyone emits.
+share(wireGameHooks(shared));
 process.on('uncaughtException', err => snag('uncaught exception', err));
 process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
 // Ctrl+C on a dev run, or a polite kill: go through the normal quit so tasks,
@@ -316,6 +327,7 @@ const { createCritter, createMischief, createMotion, placeCritter, watchIdleCost
 const { broadcastSkin, broadcastWardrobe, refreshCritter, wakeVoice } = share(wireCritter(shared));
 const { createManager, watchUsage } = share(wireSessions(shared));
 const { awardXp, checkWrapUp } = share(wireProgress(shared));
+share(wireQuestLine(shared)); // quests, one feature at a time (quests.js)
 share({ bugdex: wireBugdex(shared) }); // the bugs Claude has fixed for you, in jars
 const { createExternal, createHealth, createTimeTracker, stat } = share(wireTimetrack(shared));
 const { createCrabApi } = share(wireCrabApi(shared));
@@ -357,6 +369,9 @@ share({ surprises: wireSurprises(shared) }); // crit hits and clean landings, no
 share(wireStepUndo(shared)); // a checkpoint before each step that changes files: Undo to here
 share({ native: wireNative(shared) }); // the crab noticing Claude's own to-dos, background commands, memories and skills
 const { eventsTick } = share(wireEvents(shared)); // tide events: a week or so with its own bug, finds, goals and medal
+// The gamification overhaul (docs/GAMIFICATION-PLAN.md): levels, molting, the reef, review mastery,
+// bug nests, the Logbook and the yearbook, each registering its views with d.gameHub.
+for (const wire of [wireLevels, wireMolting, wireReef, wireReview, wireNests, wireLogbook, wireYearbook]) share(wire(shared));
 const { startSocial } = share(wireSocial(shared)); // swaps with friends and crab eggs, over calling cards
 
 // ================================================================ boot
