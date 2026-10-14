@@ -41,6 +41,11 @@ git('config', 'user.name', 'T');
 git('config', 'core.autocrlf', 'false');
 git('add', '-A');
 git('commit', '-qm', 'init');
+// A worktree inside the project, ignored there, as Claude Code's EnterWorktree makes one. Made now
+// so every menu lists it: main reuses a repo's list for 10 s.
+const wt = path.join(repo, '.claude', 'worktrees', 'wt');
+fs.appendFileSync(path.join(repo, '.git', 'info', 'exclude'), '.claude/\n');
+git('worktree', 'add', '-q', '-b', 'wt', wt);
 const claudeConfig = path.join(base, 'claude');
 fs.mkdirSync(claudeConfig);
 
@@ -210,6 +215,40 @@ fs.mkdirSync(claudeConfig);
     check(await until("document.querySelector('.feed:not([hidden])').textContent.includes('[Shellby: the user has the file \"docs/guide.md\" selected in the file tree')", 20000), 'it reaches Claude with its [Shellby: line after the turn, though the pick was cleared since');
     check(await ev("!document.querySelector('.feed:not([hidden])').textContent.includes('steered: with a pick')"), 'and was never steered in mid-turn');
     check(await until('!SB.activeTab().busy', 15000), 'that turn finishes');
+
+    // A file added to a folder git already lists whole: '?? feature/' doesn't change, so only a fresh
+    // read of the tree can show it.
+    await ev("SB.send('edit feature/c.js c')");
+    check(await until('!SB.activeTab().busy', 15000), 'a turn adds feature/c.js beside them');
+    check(await until(`!!${row('feature/c.js')}`, 8000), 'it shows in the tree, though git still lists the folder whole');
+
+    // A worktree inside the project (as Claude Code's EnterWorktree makes one), picked from the
+    // branch row's menu: what Claude adds there shows while it's the view, and back home shows home.
+    const pickTree = home => ev(`(async () => {
+      document.querySelector('#filesDock .ft-where').click();
+      for (let i = 0; i < 100 && !document.querySelector('#filesMenu [role=menuitem]'); i++) await new Promise(r => setTimeout(r, 50));
+      const items = [...document.querySelectorAll('#filesMenu [role=menuitem]')];
+      const want = items.find(b => ${home ? "b.textContent.includes('✓') === false && b.textContent.includes('main')" : "b.textContent.includes('wt') && !b.textContent.includes('✓')"});
+      want?.click();
+      return want ? true : 'menu: ' + JSON.stringify(items.map(b => b.textContent));
+    })()`);
+    const offered = await pickTree(false);
+    if (offered !== true) console.log(offered);
+    check(offered === true, 'the menu offers the worktree');
+    check(await until(`(${cur}?.root || '').toLowerCase().endsWith('wt') && !!${cur}?.place`, 8000), 'picking it shows its tree');
+    fs.mkdirSync(path.join(wt, 'newdir'));
+    fs.writeFileSync(path.join(wt, 'newdir', 'one.js'), '1\n');
+    await ev("SB.send('hello')"); // its turn's end nudges every view on the project's folders
+    check(await until('!SB.activeTab().busy', 15000), 'a turn ends');
+    check(await until(`${row('newdir')}?.querySelector('.ft-st')?.textContent === '?'`, 8000), 'a folder made in the worktree shows, marked ?');
+    await ev(`(r => r.getAttribute('aria-expanded') === 'true' || r.click())(${row('newdir')})`);
+    check(await until(`!!${row('newdir/one.js')}`, 4000), 'with its file');
+    await ev(`SB.send(${JSON.stringify(`editabs ${path.join(wt, 'newdir', 'two.js')} 2`)})`);
+    check(await until('!SB.activeTab().busy', 15000), 'a turn adds a second file there');
+    check(await until(`!!${row('newdir/two.js')}`, 8000), 'it shows while the worktree is the view, without switching away and back');
+    check((await pickTree(true)) === true, 'the menu offers the home checkout');
+    check(await until(`!${cur}?.place && (${cur}?.root || '').toLowerCase() === ${JSON.stringify(repo.toLowerCase())}`, 8000), 'picking it goes back home');
+    check(await until(`!${row('newdir')} && !!${row('feature/c.js')}`, 8000), "and shows home's tree, not the worktree's");
 
     // ---- 7. closing
     await ev("document.querySelector('#filesDock .ft-tree').focus()");

@@ -3,7 +3,9 @@
 // for a folder handle only, through its own git(): fixed arguments, nothing fetched, optional
 // locks off (so a status never writes the index, never fights a turn's snapshot for its lock and
 // never fires a repo's post-index-change hook), a timeout. git is passed in, never required here.
+const crypto = require('crypto');
 const MAX_FLASH = 200;                       // paths one commit or one git add lights, at most
+const MAX_WHOLE = 50;                        // folders git lists whole that are looked inside, at most
 const FAILED = "Couldn't read git status."; // never git's own words (as viewer.js PATCH_SAID)
 const SHA = /^[0-9a-f]{40,64}$/;
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'; // what a repo with no commits stages against (as viewer.js)
@@ -82,12 +84,17 @@ async function readStatus(h, git) {
   // Plumbing, never porcelain `git diff`: that refreshes the index for a file whose timestamp moved
   // but whose content didn't, taking index.lock and firing post-index-change whatever
   // GIT_OPTIONAL_LOCKS says. diff-index reads the index and never writes it.
-  const [num, cached] = await Promise.all([
+  const s = parseStatus(st);
+  // A folder git lists whole ('?? new/') keeps that one line however many files land in it, so what's
+  // inside is listed too (only those folders, names taken literally) and handed on as a digest: the
+  // tree reads again when it changes (panel/files-dock.js).
+  const whole = s.files.filter(f => f.status === '?' && f.path.endsWith('/')).map(f => f.path).slice(0, MAX_WHOLE);
+  const [num, cached, inside] = await Promise.all([
     head ? git(h.root, ['diff-index', '-M', '--numstat', '-z', head]) : '',
     git(h.root, ['diff-index', '--cached', '--name-only', '-z', head || EMPTY_TREE]),
+    whole.length ? git(h.root, ['--literal-pathspecs', 'ls-files', '--others', '--exclude-standard', '-z', '--', ...whole]) : null,
   ]);
   if (num === null || cached === null) return { ok: false, error: FAILED };
-  const s = parseStatus(st);
   const counts = parseNumstat(num);
   const files = s.files.map(f => (f.status === '?' ? { ...f, added: null, removed: null } : { ...f, ...(counts.get(f.path) || { added: 0, removed: 0 }) }));
 
@@ -105,7 +112,8 @@ async function readStatus(h, git) {
     committed = names(out).slice(0, MAX_FLASH);
   }
   const staged = first ? [] : nowCached.filter(p => !wasCached.has(p)).slice(0, MAX_FLASH);
-  return { ok: true, branch: s.branch, upstream: s.upstream, ahead: s.ahead, behind: s.behind, head, files, committed, staged };
+  const untrackedIn = inside === null ? undefined : crypto.createHash('sha1').update(inside).digest('hex');
+  return { ok: true, branch: s.branch, upstream: s.upstream, ahead: s.ahead, behind: s.behind, head, files, committed, staged, untrackedIn };
 }
 
 module.exports = { parseBranch, parseStatus, parseNumstat, readStatus, MAX_FLASH };

@@ -144,7 +144,8 @@
     at.byKey = new Map(r.files.map(f => [F.keyOf(f.path), f]));
     at.marks = new Map(r.files.map(f => [F.keyOf(f.path), f.status]));
     at.sums = F.totals(r.files);
-    const untracked = r.files.filter(f => f.status === '?').map(f => f.path).join('\0');
+    // With what's inside a folder git lists whole: more files in it leave its line as it was.
+    const untracked = r.files.filter(f => f.status === '?').map(f => f.path).join('\0') + '\0' + (r.untrackedIn || '');
     const grew = at.read && untracked !== at.untracked;
     at.untracked = untracked;
     const ran = flash.ranShell;

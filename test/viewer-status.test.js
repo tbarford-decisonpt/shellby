@@ -229,6 +229,24 @@ test('a status never writes the index (so no lock, and no post-index-change hook
   } finally { r.done(); }
 });
 
+test("a file added to a folder git lists whole changes what's in it, though the folder's line doesn't", async () => {
+  const r = repo();
+  try {
+    const v = createViewer();
+    const h = await v.open({ dir: r.dir });
+    assert.equal((await v.statusOf(h.id)).untrackedIn, undefined, 'no folder listed whole: nothing to look inside');
+    r.write('newdir/one.js', '1\n');
+    const one = await statusNow(v, h.id, r.dir);
+    assert.ok(one.files.some(f => f.path === 'newdir/' && f.status === '?'), 'git lists the folder whole');
+    assert.equal(typeof one.untrackedIn, 'string');
+    r.write('newdir/two.js', '2\n');
+    const two = await statusNow(v, h.id, r.dir);
+    assert.deepEqual(two.files.map(f => f.path), one.files.map(f => f.path), "the folder's line is the same");
+    assert.notEqual(two.untrackedIn, one.untrackedIn, 'what is inside it is not');
+    assert.equal((await statusNow(v, h.id, r.dir)).untrackedIn, two.untrackedIn, 'and nothing new reads the same');
+  } finally { r.done(); }
+});
+
 test('every git call is a fixed read', async () => {
   // Answers as a repo would give them, so the reads after status and rev-list run too: a second
   // read with HEAD moved onto a child of the first asks diff-tree what the commit changed.
@@ -237,14 +255,15 @@ test('every git call is a fixed read', async () => {
   const calls = [];
   const fake = async (_cwd, args) => {
     calls.push(args.join(' '));
-    return args[0] === 'status' ? '## main\0 M a.txt\0' : args[0] === 'rev-list' ? `${heads.shift()}\n` : '';
+    return args[0] === 'status' ? '## main\0 M a.txt\0?? newdir/\0' : args[0] === 'rev-list' ? `${heads.shift()}\n` : '';
   };
   const h = { root: 'C:\\nowhere', git: true };
   assert.equal((await readStatus(h, fake)).ok, true);
   assert.equal((await readStatus(h, fake)).ok, true);
   assert.ok(calls.includes('status --porcelain=v1 -b -z --untracked-files=normal'), calls.join(' | '));
   for (const verb of ['rev-list', 'diff-index', 'diff-tree']) assert.ok(calls.some(c => c.startsWith(`${verb} `)), `${verb} ran: ${calls.join(' | ')}`);
-  for (const c of calls) assert.match(c, /^(status|rev-list|diff-index|diff-tree) /, c);
+  assert.ok(calls.includes('--literal-pathspecs ls-files --others --exclude-standard -z -- newdir/'), `a folder listed whole is looked inside, its name taken literally: ${calls.join(' | ')}`);
+  for (const c of calls) assert.match(c, /^(status|rev-list|diff-index|diff-tree|--literal-pathspecs ls-files) /, c);
   assert.ok(!calls.some(c => /^diff /.test(c)), 'never porcelain git diff: it refreshes the index');
 });
 
