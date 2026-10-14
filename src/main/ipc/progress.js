@@ -60,6 +60,7 @@ function registerProgressIpc(ipcMain, d) {
     if (!p || !fs.existsSync(key)) return { ok: false, error: "Shellby can't find that folder any more." };
     const r = d.startTask(reviewPrompt(p.name), `Look over ${p.name}`, { mode: 'ask', cwd: key });
     if (r.ok) d.showPanel({ focusInput: false, tabId: r.tabId });
+    if (r.ok) d.questDone?.('look-over');
     return r;
   });
 

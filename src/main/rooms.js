@@ -10,6 +10,8 @@
 // tab of that screen (the Shellby screen's Trophies, Finds, Bugdex...), so his
 // own screen starts as just his outfits and grows with him too.
 const ROOMS = Object.freeze([
+  // Open from the start: the one page that says what to do next (logbook.js).
+  { id: 'logbook', tasks: 0, in: 'wardrobe', name: 'Logbook', text: 'Everything going on in one place: today’s bounties, your quest, bugs on the loose and what each one leads to.' },
   { id: 'history', tasks: 1, name: 'History', text: 'Every conversation you two have had, to pick back up any time.' },
   { id: 'projects', tasks: 1, name: 'Projects', text: 'Every repo you work in on one page, with its dev server a click away.' },
   { id: 'notes', tasks: 1, name: 'Notes', text: 'Ideas to plan, build or ask Claude about, for each project and in one General list.' },
