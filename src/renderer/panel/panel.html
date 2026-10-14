@@ -855,8 +855,10 @@
       </div>
       <div class="cc-crabs" id="ccCrabs" aria-hidden="true"></div>
       <div class="cc-table" aria-hidden="true"><div class="cc-felt"><i class="cc-sigil"></i></div></div>
+      <ol class="cc-deck" id="ccDeck" aria-label="What he read"></ol>
       <div class="cc-seats" id="ccSeats" role="list"></div>
       <button type="button" class="cc-scroll" id="ccScroll" aria-live="polite">
+        <span class="cc-stamp" id="ccStamp" hidden></span>
         <span class="cc-scroll-text" id="ccScrollText">The council is waiting for a question.</span>
         <span class="cc-tally" id="ccTally"></span>
       </button>
@@ -868,10 +870,9 @@
       <div class="cc-ask-row">
         <div class="seg cc-modes" role="radiogroup" aria-label="How the council sits" id="ccModes">
           <button type="button" role="radio" data-mode="quick" title="One call: every advisor and the chair in a single answer. About the cost of one reply.">Quick</button>
-          <button type="button" role="radio" data-mode="full" title="Each advisor thinks on their own (a small model), then the chair weighs them.">Full</button>
-          <button type="button" role="radio" data-mode="debate" title="Full, plus a round where each advisor answers the others before the chair rules.">Debate</button>
+          <button type="button" role="radio" data-mode="debate" title="Each advisor thinks on their own, then they answer each other before the chair rules. A call for each advisor, and two more.">Debate</button>
         </div>
-        <label class="cc-check"><input type="checkbox" id="ccProject"> Include this project</label>
+        <label class="cc-check" id="ccReadLabel"><input type="checkbox" id="ccProject"> <span id="ccReadText">Read the project first</span></label>
         <span class="cc-hint muted small" id="ccHint"></span>
         <button type="submit" class="btn primary" id="ccConvene">Convene</button>
       </div>
@@ -884,6 +885,7 @@
 
     <section class="cc-drawer" id="ccSeatsEditor" aria-label="Who sits at the table" hidden>
       <h3>Who sits at the table</h3>
+      <label class="cc-check cc-pick"><input type="checkbox" id="ccPick"> Shellby picks who sits for each question</label>
       <p class="muted small" id="ccSeatsNote"></p>
       <ul class="cc-seat-list" id="ccSeatList"></ul>
       <form class="cc-custom" id="ccCustomForm" autocomplete="off">
@@ -2760,6 +2762,7 @@
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
 <script src="crew.js"></script>
+<script src="council-minutes.js"></script>
 <script src="council.js"></script>
 <script src="together.js"></script>
 <script src="bugdex.js"></script>

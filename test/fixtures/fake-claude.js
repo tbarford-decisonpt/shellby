@@ -197,16 +197,31 @@ if (args.includes('--json-schema')) {
       // "Quiz me" (quiz.js): three questions on the diff it was given, the right answer always first.
       const file = (/^diff --git a\/(\S+)/m.exec(prompt) || [])[1] || 'the file';
       answer = { questions: [1, 2, 3].map(n => ({ question: `Question ${n} about ${file}?`, choices: [`right ${n}`, `wrong ${n}a`, `wrong ${n}b`], answer: 0, why: `Because of ${file}.` })) };
-    } else if (schema.properties.opinions || schema.properties.stance || schema.properties.verdict || schema.properties.rebuttals) {
-      // The Council (council/run.js): every seat for, the chair says go ahead.
-      const opinion = id => ({ stance: `${id} says yes`, argument: `The ${id} thinks it is worth doing.`, risks: [`${id} risk`], vote: id === 'skeptic' ? 'against' : 'for', confidence: 70 });
-      const chair = { verdict: 'Go ahead, small first.', agree: ['It is worth doing'], split: ['The skeptic worries'], next: ['Build the smallest version'], confidence: 75 };
+    } else if (schema.properties.opinions || schema.properties.stance || schema.properties.verdict || schema.properties.rebuttals || schema.properties.facts || schema.properties.seats) {
+      // The Council (council/run.js, look.js): every seat for but the Skeptic, the chair says go ahead.
+      const opinion = id => ({ stance: `${id} says yes`, argument: `The ${id} thinks it is worth doing [F1].`, risks: [`${id} risk`], vote: id === 'skeptic' ? 'against' : 'for', condition: '', wouldChange: `${id} would change if it broke`, cites: [1], confidence: 70 });
+      const chair = { decision: 'do', verdict: 'Go ahead, small first.', against: 'The skeptic says it may not be needed.', agree: ['It is worth doing'], split: ['The skeptic worries'], next: ['Build the smallest version'], open: ['Does anyone use it?'], cites: [1], confidence: 75 };
       const system = args[args.indexOf('--system-prompt') + 1] || '';
       const seatOf = (/You are the (\w+)/.exec(system) || [])[1] || 'seat';
-      if (schema.properties.opinions) answer = { opinions: Object.fromEntries(Object.keys(schema.properties.opinions.properties).map(id => [id, opinion(id)])), chair };
+      const pick = () => {
+        const ids = schema.properties.seats.items.enum;
+        return ['skeptic', 'builder', 'tester', 'guard'].filter(id => ids.includes(id));
+      };
+      if (schema.properties.facts) {
+        // The read: only when asked through the reading tools alone, confined to the folder.
+        const flag = name => args[args.indexOf(name) + 1];
+        const locked = args.includes('--restricted') && flag('--tools') === 'Read,Grep,Glob' && flag('--permission-mode') === 'dontAsk' && args.includes('--max-budget-usd');
+        const file = require('fs').readdirSync(process.cwd(), { withFileTypes: true }).find(e => e.isFile())?.name;
+        answer = locked && file
+          ? { facts: [{ claim: `${file} is in the project`, file, line: 1 }, { claim: 'A file that is not there', file: 'nope/missing.js', line: 3 }], unknowns: ['How often people use it'], ...(schema.properties.seats ? { seats: pick() } : {}) }
+          : { facts: [], unknowns: ['Not asked through reading tools only.'], ...(schema.properties.seats ? { seats: pick() } : {}) };
+      } else if (schema.properties.seats) answer = { seats: pick() };
+      else if (schema.properties.opinions) answer = { opinions: Object.fromEntries(Object.keys(schema.properties.opinions.properties).map(id => [id, opinion(id)])), chair };
       else if (schema.properties.stance) answer = opinion(seatOf.toLowerCase());
-      else if (schema.properties.rebuttals) answer = { rebuttals: [...system.matchAll(/^- (\S+) \(/gm)].map(m => ({ seat: m[1], reply: `${m[1]} stands firm`, vote: 'conditional' })) };
-      else answer = chair;
+      else if (schema.properties.rebuttals) {
+        const ids = [...system.matchAll(/^- (\S+) \(/gm)].map(m => m[1]);
+        answer = { rebuttals: ids.map((id, i) => ({ seat: id, to: ids[(i + 1) % ids.length], reply: `${id} stands firm`, vote: 'conditional' })) };
+      } else answer = chair;
       out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer, total_cost_usd: 0.001 });
       return;
     } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
