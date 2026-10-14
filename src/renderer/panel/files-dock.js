@@ -93,7 +93,8 @@
   async function ensure(quiet = true) {
     const tab = state.tabs.get(state.activeTab) || null;
     const cwd = tab?.cwd || null;
-    if (me && tab && me.tabId === tab.id && me.cwd === cwd && (me.root || me.note)) return me.root ? load({ tree: true, quiet }) : draw();
+    // A folder found gone is opened afresh (it may be back), not read again through its old handle.
+    if (me && tab && me.tabId === tab.id && me.cwd === cwd && (me.root || me.note) && !me.gone) return me.root ? load({ tree: true, quiet }) : draw();
     if (me?.id) api.viewerClose(me.id);
     Object.assign(flash, F.create());
     clearTimeout(darkTimer);
@@ -119,7 +120,12 @@
       tree || !at.entries.length ? call(at, id => api.viewerTree(id)) : null,
     ]);
     if (me !== at) return;
-    if (st.gone || tr?.gone) { at.gone = true; return draw(); }
+    if (st.gone || tr?.gone) {
+      if (at.place) return goHome(at); // a worktree picked from the menu, deleted: the conversation's own folder again
+      at.gone = true;
+      return draw();
+    }
+    at.gone = false; // made again since
     if (tr?.ok) { at.entries = tr.entries; at.tree = null; }
     // A folder git lists whole ('?? new/'): its files are in the index only once it's read again, and
     // afresh (main caches its list a while, and more files in it later won't change that line).
@@ -406,6 +412,20 @@
 
   // A worktree: the tree switches to it (its own folder again: back home). A branch has no folder,
   // so no marks: it opens in the full viewer, which keeps the handle main just opened.
+  // The worktree picked from the menu is gone (deleted, or its branch row's pick went stale): back to
+  // the conversation's own folder, which keeps the branch row and its menu, rather than a dead end.
+  async function goHome(at) {
+    if (at.id) api.viewerClose(at.id);
+    at.id = null;
+    const r = await api.viewerOpen(at.req).catch(() => null);
+    if (me !== at) { if (r?.ok) api.viewerClose(r.id); return; }
+    Object.assign(flash, F.create());
+    if (!r?.ok) { me = { tabId: at.tabId, cwd: at.cwd, note: r?.error || "Couldn't open that folder." }; return draw(); }
+    SB.toast(`${at.place.label || 'That worktree'} is gone. Showing this conversation's folder again.`);
+    me = fresh(at.tabId, at.cwd, at.req, r, null, at.home);
+    await load({ tree: true, quiet: true });
+  }
+
   async function pickPlace(p) {
     const at = me;
     const r = await api.viewerSwitch(at.id, p.key).catch(() => null);

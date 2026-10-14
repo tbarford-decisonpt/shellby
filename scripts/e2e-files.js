@@ -249,6 +249,16 @@ fs.mkdirSync(claudeConfig);
     check((await pickTree(true)) === true, 'the menu offers the home checkout');
     check(await until(`!${cur}?.place && (${cur}?.root || '').toLowerCase() === ${JSON.stringify(repo.toLowerCase())}`, 8000), 'picking it goes back home');
     check(await until(`!${row('newdir')} && !!${row('feature/c.js')}`, 8000), "and shows home's tree, not the worktree's");
+    // The worktree being viewed is deleted: back home, with the branch row (and its menu) still there.
+    check((await pickTree(false)) === true && await until(`!!${cur}?.place`, 8000), 'the worktree is the view again');
+    git('worktree', 'remove', '--force', wt);
+    await ev("SB.send('hello')");
+    check(await until('!SB.activeTab().busy', 15000), 'a turn ends after it was deleted');
+    check(await until(`!${cur}?.place && (${cur}?.root || '').toLowerCase() === ${JSON.stringify(repo.toLowerCase())} && !!document.querySelector('#filesDock .ft-where')`, 8000), 'a deleted worktree goes back home, the branch row still there to pick another');
+    check(await ev("!document.querySelector('#filesDock .ft-note')"), 'not stuck on "This folder is gone"');
+    git('worktree', 'add', '-q', wt, 'wt');
+    check((await pickTree(false)) === true && await until(`!!${cur}?.place && !!${row('newdir')}`, 8000), 'made again, it can be picked again');
+    check((await pickTree(true)) === true && await until(`!${cur}?.place`, 8000), 'and home again');
 
     // ---- 7. closing
     await ev("document.querySelector('#filesDock .ft-tree').focus()");
