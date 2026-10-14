@@ -16,12 +16,14 @@ const { LOGIN_RE, sameLogin } = require('../github/card');
 const isRef = v => typeof v === 'string' && tank.REF_RE.test(v);
 const MAX_SEEN = 200;
 const LIVED_GAP_MS = 5000;
+const DECORATE_MIN = 5; // pieces in a saved tank for the "decorate" quest
 
 /**
  * d: {
  *   config         settings
  *   wardrobe()     the Wardrobe (made at boot), for decor and its unlocks
- *   level()        his XP level
+ *   level()        the highest level he's ever reached (d.everLevel), for tank sizes
+ *   questDone(id)  optional: the tank quests (decorate, bigger, milestone-piece, jar-in-tank, tank-share)
  *   shipped()      projects shipped (stickers.js), for the reef tank
  *   stat(event, payload)   feeds the achievements
  *   cardChanged()  optional: what's on your calling card changed, publish it soon
@@ -62,8 +64,18 @@ function registerTankIpc(ipcMain, d) {
     const v = view(l);
     d.stat('tank-pieces', { n: v.pieces.length });
     const life = lived(tank.normalize(previous), state, l);
+    tankQuests(v, life);
     return { ok: true, dropped, view: v, life };
   };
+
+  // The quests his tank teaches (quests.js); an id quests.js doesn't know yet does nothing.
+  function tankQuests(v, life) {
+    if (!d.questDone) return;
+    if (v.pieces.length >= DECORATE_MIN) d.questDone('decorate');
+    if (life.movedTo) d.questDone('bigger');
+    if (v.pieces.some(p => p.milestone)) d.questDone('milestone-piece');
+    if (v.pieces.some(p => p.kind === 'jar')) d.questDone('jar-in-tank');
+  }
 
   ipcMain.handle('tank:save', (_e, draft) => {
     if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return { ok: false, error: 'That isn’t a tank.', view: view() };
@@ -144,6 +156,7 @@ function registerTankIpc(ipcMain, d) {
       d.config.set({ tank: { ...current, shareCard: on } });
       d.cardChanged?.();
     }
+    if (on) d.questDone?.('tank-share');
     return { ok: true, view: view() };
   });
 

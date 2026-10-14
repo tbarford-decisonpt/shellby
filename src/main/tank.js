@@ -39,7 +39,7 @@ const DEFAULT_STYLE = Object.freeze({ substrate: 'soft-sand', backdrop: 'plain-w
 // The tray's order, and what each shelf of it is called.
 const CATEGORIES = Object.freeze([
   ['structure', 'Structures'], ['plant', 'Plants'], ['rock', 'Rocks'], ['treasure', 'Treasures'],
-  ['bubbler', 'Bubblers & lights'], ['find', 'His finds'], ['jar', 'Specimen jars'], ['sticker', 'Stickers on the glass'], ['substrate', 'Floor'], ['backdrop', 'Back glass'],
+  ['bubbler', 'Bubblers & lights'], ['milestone', 'Milestones'], ['find', 'His finds'], ['jar', 'Specimen jars'], ['sticker', 'Stickers on the glass'], ['substrate', 'Floor'], ['backdrop', 'Back glass'],
 ]);
 const CATEGORY_ORDER = new Map(CATEGORIES.map(([id], i) => [id, i]));
 
@@ -122,6 +122,22 @@ function normalize(raw) {
 
 const sizeOfPixels = pixels => ({ w: Math.max(1, ...pixels.map(r => r.length)), h: pixels.length });
 
+// The built-in pack of rare pieces, one per milestone (src/wardrobe/milestones.json).
+const MILESTONE_PACK = 'milestones';
+const count = v => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+
+/**
+ * What a locked piece's tray tile says: the trophy that brings it (the wardrobe's
+ * lockInfo text is "Name: description"), and how far along that trophy is.
+ */
+function lockedHint(locked) {
+  if (!isObj(locked) || typeof locked.text !== 'string') return { hint: null, progress: null };
+  const hint = locked.text.replace(/^[^:]*:\s*/, '') || locked.text;
+  if (locked.reason !== 'achievement') return { hint, progress: null };
+  const goal = Math.max(1, count(locked.goal));
+  return { hint, progress: { current: Math.min(goal, count(locked.current)), goal } };
+}
+
 /**
  * Everything that could go in the tank, by ref: the wardrobe's decor (from
  * Wardrobe#decorView, with `locked` and `isNew`) and the finds on his shelf
@@ -134,12 +150,15 @@ function library({ decor = [], findState = null, finds = [], bugState = null, co
   const lib = new Map();
   for (const d of decor) {
     if (!d || !isRef(d.key) || !d.category || !Array.isArray(d.pixels)) continue;
+    const milestone = d.packId === MILESTONE_PACK;
     lib.set(d.key, {
       ref: d.key, kind: 'decor', name: d.name, description: d.description || '', rarity: d.rarity || 'common',
-      category: d.category, layer: d.layer || null,
+      // Milestone pieces sit on their own shelf, whatever kind of piece they are.
+      category: milestone && !STYLES.includes(d.category) ? 'milestone' : d.category, layer: d.layer || null,
       palette: d.palette, pixels: d.pixels, frames: d.frames || [], fps: d.fps || 0, spots: d.spots || [],
       ...sizeOfPixels(d.pixels), max: null, locked: d.locked || null, isNew: !!d.isNew,
       unlock: d.unlock ? { ...d.unlock } : { default: true },
+      milestone, ...lockedHint(d.locked),
     });
   }
   const items = findState?.items || {};
@@ -244,6 +263,7 @@ const art = e => ({
   palette: { ...e.palette }, pixels: [...e.pixels], frames: e.frames.map(f => [...f]), fps: e.fps,
   spots: e.spots.map(s => ({ kind: s.kind, at: [...s.at] })), w: e.w, h: e.h,
   unlock: e.unlock ? { ...e.unlock } : null,
+  milestone: !!e.milestone, hint: e.hint || null, progress: e.progress ? { ...e.progress } : null,
 });
 
 /**

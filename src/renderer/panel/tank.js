@@ -742,7 +742,26 @@
     SB.tankTidy?.open();    // ...and he may have tidied (tank-tidy.js)
     await loadCrab();
     if (v && !editing() && !walker.target) walker.x = stillX();
+    if (pendingPiece) showPiece();
   }
+
+  // A milestone piece just earned (docs/TANK.md#milestones): "Put it in the tank" opens
+  // the tray on the Milestones shelf with that piece picked out.
+  let pendingPiece = null;
+  function showPiece() {
+    const ref = pendingPiece;
+    pendingPiece = null;
+    if (!v?.tray.some(t => t.ref === ref && !t.locked)) return;
+    shelf = 'milestone';
+    if (editing()) renderTray(); else startEditing();
+    const btn = $('tkItems').querySelector(`[data-ref="${CSS.escape(ref)}"]`);
+    btn?.classList.add('tk-flash');
+    btn?.focus();
+  }
+  api.onUnlocked?.(e => {
+    const piece = (e?.rewards || []).find(r => r?.kind === 'decor' && r.packId === 'milestones');
+    if (piece) SB.toast(`${e.achievement.icon} New milestone piece: ${piece.name}`, { action: 'Put it in the tank', ms: 8000, onAction: () => { pendingPiece = piece.key; if (state.view === 'tank') fetchTank().then(apply).then(showPiece); else SB.setView('tank'); } });
+  });
 
   // New decor unlocking, a find, or a different outfit changes what's shown.
   let refetch = 0;

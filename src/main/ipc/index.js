@@ -181,7 +181,8 @@ function registerIpc(electronIpcMain, d) {
     speak: (occasion, opts) => d.speak?.(occasion, opts),
     life: () => d.life,
     wardrobe: () => d.wardrobe,
-    level: () => d.currentLevel(),
+    level: () => d.everLevel?.() ?? d.currentLevel(), // the highest ever reached: a Molt keeps his tanks
+    questDone: id => d.questDone?.(id),
     shipped: () => stickers.stats(d.stickerState()).stickers,
     cardChanged: () => d.friends?.republish().catch(() => {}),
     reefCorals: () => d.reefCorals?.() || [],
