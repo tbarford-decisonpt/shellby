@@ -60,7 +60,7 @@
   let landedEl = null;      // the feed's step lit by the replay
   const closed = new Map(); // tab id -> folder keys closed
   const tests = new Map();  // tab id -> { sig, map } (ipc trail:tests)
-  let shows = SB.pref(TAB_KEY) === 'files' ? 'files' : 'trail'; // the tab up when the drawer is open
+  let shows = !SB.solo && SB.pref(TAB_KEY) !== 'trail' ? 'files' : 'trail'; // the tab up when the drawer is open: All files unless the Trail was left up (a conversation's own window has none)
   const tabs = new Map(); // the drawer's other tabs: name -> { show({ focus }), hide() } (files-dock.js)
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 

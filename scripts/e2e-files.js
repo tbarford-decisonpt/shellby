@@ -100,6 +100,11 @@ fs.mkdirSync(claudeConfig);
     check(await until(`SB.activeTab() && SB.activeTab().cwd && SB.activeTab().cwd.toLowerCase() === ${JSON.stringify(repo.toLowerCase())}`), 'a new conversation in the throwaway repository');
 
     // ---- 1. the shortcuts
+    // A fresh profile: the drawer opens on All files, however it is opened.
+    await ev('SB.toggleTrail(true)');
+    check(await until(`${tabUp('files')} && !document.getElementById('filesDock').hidden && document.getElementById('trailPanel').hidden && document.getElementById('trail').dataset.tab === 'files'`), 'a fresh profile opens the File manager on All files');
+    check(await ev("document.querySelector('.trail-head .drawer-tabs [role=tab]').id") === 'drawerTabFiles', 'All files is its first tab');
+    await ev('SB.toggleTrail(false)');
     await ev("document.getElementById('input').focus()");
     await key('f', { ctrl: true, shift: true });
     check(await until(`${tabUp('files')} && !document.getElementById('filesDock').hidden && document.getElementById('trailPanel').hidden`), 'Ctrl+Shift+F opens the File manager on All files');

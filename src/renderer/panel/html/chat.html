@@ -1,12 +1,16 @@
   <!-- ====================== CHAT ====================== -->
   <main class="view view-chat" id="chatView">
     <div class="feeds" id="feeds" data-panes="1"></div>
-    <!-- The File manager (trail.js keeps it): two tabs, the Trail (Ctrl+Shift+E), where Claude
-         has been in your files with him on it, and All files (Ctrl+Shift+F, files-dock.js) -->
-    <aside class="trail" id="trail" aria-labelledby="trailTitle" data-tab="trail" hidden>
+    <!-- The File manager (trail.js keeps it): two tabs on its header line, All files (Ctrl+Shift+F, files-dock.js) and the Trail (Ctrl+Shift+E), where
+         Claude has been in your files with him on it -->
+    <aside class="trail" id="trail" aria-labelledby="trailTitle" data-tab="files" hidden>
       <div class="trail-grip" id="trailGrip" role="separator" aria-orientation="vertical" aria-label="File manager width" tabindex="0" title="Drag to resize · double-click for the usual width"></div>
       <header class="trail-head">
-        <h2 class="trail-title" id="trailTitle">File manager</h2>
+        <h2 class="sr-only" id="trailTitle">File manager</h2>
+        <div class="drawer-tabs" role="tablist" aria-label="File manager">
+          <button type="button" role="tab" id="drawerTabFiles" data-tab="files" aria-controls="filesDock" aria-selected="true" title="The whole project, lit up as Claude works (Ctrl+Shift+F)">All files</button>
+          <button type="button" role="tab" id="drawerTabTrail" data-tab="trail" aria-controls="trailPanel" aria-selected="false" tabindex="-1" title="Where Claude has been in your files (Ctrl+Shift+E)">Trail</button>
+        </div>
         <div class="trail-scope" role="group" aria-label="Show">
           <button type="button" data-scope="turn" aria-pressed="false" title="Only the files the last message's turn touched">This turn</button>
           <button type="button" data-scope="all" aria-pressed="true" title="The whole conversation; earlier turns are paler">All</button>
@@ -15,11 +19,7 @@
           <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         </button>
       </header>
-      <div class="drawer-tabs" role="tablist" aria-label="File manager">
-        <button type="button" role="tab" id="drawerTabTrail" data-tab="trail" aria-controls="trailPanel" aria-selected="true" title="Where Claude has been in your files (Ctrl+Shift+E)">Trail</button>
-        <button type="button" role="tab" id="drawerTabFiles" data-tab="files" aria-controls="filesDock" aria-selected="false" tabindex="-1" title="The whole project, lit up as Claude works (Ctrl+Shift+F)">All files</button>
-      </div>
-      <div class="trail-panel" id="trailPanel" role="tabpanel" aria-labelledby="drawerTabTrail">
+      <div class="trail-panel" id="trailPanel" role="tabpanel" aria-labelledby="drawerTabTrail" hidden>
         <div class="trail-signals" id="trailSignals" role="status" aria-live="polite"></div>
         <div class="trail-map" id="trailMap" role="tree" tabindex="0" aria-label="Files Claude touched">
           <div class="trail-rows" id="trailRows"></div>
