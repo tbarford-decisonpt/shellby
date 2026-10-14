@@ -37,7 +37,10 @@ function registerProgressIpc(ipcMain, d) {
     const next = { ...s };
     if ('nudges' in patch) next.nudges = !!patch.nudges;
     if ('afterDays' in patch) next.afterDays = patch.afterDays;
-    d.saveStreaks(streaks.normalize(next));
+    // Rest days change from today on; days already past keep theirs (streaks.js setRestDays).
+    const rested = Array.isArray(patch.restDays) ? streaks.setRestDays(next, patch.restDays, Date.now()) : next;
+    d.saveStreaks(streaks.normalize(rested));
+    if ('restDays' in patch) d.send(d.panel, 'xp', d.xpView());
     return d.streaksView();
   });
   ipcMain.handle('streaks:mute', (_e, { key, muted } = {}) => {

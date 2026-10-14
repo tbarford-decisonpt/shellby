@@ -243,6 +243,7 @@ function wireSessions(d) {
         }
         if (c.tree) d.noteTestRun(c, item, tail);
         d.bugdex?.commandResult(c, item, tail); // a bug seen, or one caught (wiring/bugdex.js)
+        d.noteCommand?.(c, item, tail); // the game packages' onCommandResult (wiring/progress.js)
         const kind = !item.isError && meant;
         if (kind) awardCommand(kind, c);
         // A push, deploy or release ships the project: its sticker (stickers.js).

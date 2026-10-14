@@ -7,10 +7,30 @@
 // cells that are the shell or empty in every built-in skin, never the body,
 // claw, eyes or legs (test/shells.test.js checks). `top` is where shell items
 // (a flag, bat wings) sit on it. Pure: no I/O.
+//
+// Levels 20 to 99 add more (shells-extra.js), and each molt (molting.js) earns
+// a tier shell: hand-made for the first twelve (shells-molt.js), made from the
+// molt number after that (shell-gen.js). A tier shell's id is `molt-<k>`, and
+// it's his once home.molts reaches k. Any shell may carry frames, a colour
+// cycle, an aura and sparkles (see shells-molt.js); renderShell passes them on.
+const { EXTRA_SHELLS } = require('./shells-extra');
+const { TIER_SHELLS } = require('./shells-molt');
+const { shellGen } = require('./shell-gen');
 
 const HOME = 'home'; // the shell he hatched with (the skin's own)
+const MOLT_RE = /^molt-([1-9]\d{0,3})$/;
+const MAX_MOLTS = 9999;
 
-const SHELLS = Object.freeze([
+const freezeShell = s => Object.freeze({
+  ...s,
+  pixels: Object.freeze([...s.pixels]),
+  palette: Object.freeze({ ...s.palette }),
+  top: Object.freeze([...s.top]),
+  ...(s.frames ? { frames: Object.freeze(s.frames.map(f => Object.freeze([...f]))) } : {}),
+  ...(s.cycle ? { cycle: Object.freeze({ ...s.cycle, keys: Object.freeze([...s.cycle.keys]) }) } : {}),
+});
+
+const BASE_SHELLS = [
   {
     id: 'snail', name: 'Snail Shell', level: 3, top: [6, 0],
     description: 'An old spiral shell a snail left on the beach.',
@@ -220,13 +240,37 @@ const SHELLS = Object.freeze([
       '...VVOOOOV...',
     ],
   },
-].map(s => Object.freeze({ ...s, pixels: Object.freeze([...s.pixels]), palette: Object.freeze({ ...s.palette }), top: Object.freeze([...s.top]) })));
+];
+
+// Every level shell, lowest level first.
+const SHELLS = Object.freeze([...BASE_SHELLS, ...EXTRA_SHELLS].sort((a, b) => a.level - b.level).map(freezeShell));
 
 const byId = new Map(SHELLS.map(s => [s.id, s]));
+const HAND_TIERS = TIER_SHELLS.map(freezeShell);
+const madeTiers = new Map(); // k -> generated shell, made once
 
-/** Is this shell unlocked at `level`? (His own shell always is.) */
-function unlockedAt(id, level) {
+/** The molt number a `molt-<k>` id names, or 0. */
+const moltOf = id => { const m = typeof id === 'string' ? MOLT_RE.exec(id) : null; return m ? Number(m[1]) : 0; };
+
+/** The tier shell for molt k (k >= 1): hand-made up to twelve, then generated. */
+function tierShell(kIn) {
+  const k = Math.max(1, Math.min(MAX_MOLTS, Math.floor(Number(kIn) || 1)));
+  if (k <= HAND_TIERS.length) return HAND_TIERS[k - 1];
+  if (!madeTiers.has(k)) madeTiers.set(k, freezeShell(shellGen(k)));
+  return madeTiers.get(k);
+}
+
+/** A level or tier shell by id, or null. */
+const shellById = id => byId.get(id) || (moltOf(id) ? tierShell(moltOf(id)) : null);
+
+/**
+ * Is this shell unlocked at `level`? (His own shell always is.) A tier shell
+ * needs `home` (the saved home state) to have molted that many times.
+ */
+function unlockedAt(id, level, home = null) {
   if (id === HOME) return true;
+  const k = moltOf(id);
+  if (k) return k <= normalizeHome(home).molts;
   const s = byId.get(id);
   return !!s && level >= s.level;
 }
@@ -238,33 +282,66 @@ function unlockedBetween(before, after) {
 
 /** The shell he wears: the chosen one if it's still unlocked, else his own. */
 function wornShell(state, level) {
-  const id = normalizeHome(state).worn;
-  return id !== HOME && unlockedAt(id, level) ? byId.get(id) : null;
+  const h = normalizeHome(state);
+  return h.worn !== HOME && unlockedAt(h.worn, level, h) ? shellById(h.worn) : null;
 }
 
-/** Tolerate anything read from disk: { worn, seen: [ids] }. */
+/** Tolerate anything read from disk: { worn, seen: [ids], molts (tier shells earned) }. */
 function normalizeHome(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
+  const n = Number(r.molts);
+  const molts = Number.isFinite(n) ? Math.max(0, Math.min(MAX_MOLTS, Math.floor(n))) : 0;
+  const known = id => byId.has(id) || (moltOf(id) > 0 && moltOf(id) <= molts);
   return {
-    worn: typeof r.worn === 'string' && (r.worn === HOME || byId.has(r.worn)) ? r.worn : HOME,
-    seen: [...new Set((Array.isArray(r.seen) ? r.seen : []).filter(id => byId.has(id)))],
+    worn: typeof r.worn === 'string' && (r.worn === HOME || known(r.worn)) ? r.worn : HOME,
+    seen: [...new Set((Array.isArray(r.seen) ? r.seen : []).filter(known))],
+    molts,
   };
 }
 
-/** What the sprite builder needs (no names or descriptions). */
-const renderShell = s => (s ? { id: s.id, pixels: s.pixels, palette: s.palette, top: s.top } : null);
+/** The home with at least `n` tier shells earned (a molt, or one synced from another PC). */
+function withMolts(state, n) {
+  const h = normalizeHome(state);
+  const molts = Math.max(h.molts, Math.min(MAX_MOLTS, Math.floor(Number(n) || 0)));
+  return molts === h.molts ? h : { ...h, molts };
+}
 
-/** The Homes tab: every shell, with its lock and "new" state. */
+/** What the sprite builder needs (no names or descriptions), with any frames, cycle, aura and sparkle. */
+function renderShell(s) {
+  if (!s) return null;
+  const out = { id: s.id, pixels: s.pixels, palette: s.palette, top: s.top };
+  if (s.frames?.length) Object.assign(out, { frames: s.frames, fps: s.fps || 2 });
+  if (s.cycle) out.cycle = s.cycle;
+  if (s.aura) out.aura = s.aura;
+  if (s.sparkle) out.sparkle = s.sparkle;
+  return out;
+}
+
+// From this level on, the Homes tab shows the next tier shell, locked, as something to come.
+const TIER_TEASE_LEVEL = 90;
+
+/** The Homes tab: every shell, with its lock and "new" state, then the tier shells. */
 function homesView(state, level) {
   const h = normalizeHome(state);
   const worn = wornShell(h, level);
+  const tiers = Array.from({ length: h.molts }, (_, i) => tierShell(i + 1));
+  const next = h.molts > 0 || level >= TIER_TEASE_LEVEL ? tierShell(h.molts + 1) : null;
   return {
     worn: worn ? worn.id : HOME,
-    shells: SHELLS.map(s => ({
-      ...renderShell(s), name: s.name, description: s.description, level: s.level,
-      locked: level < s.level, isNew: level >= s.level && !h.seen.includes(s.id),
-    })),
+    molts: h.molts,
+    shells: [
+      ...SHELLS.map(s => ({
+        ...renderShell(s), name: s.name, description: s.description, level: s.level,
+        locked: level < s.level, isNew: level >= s.level && !h.seen.includes(s.id),
+      })),
+      ...tiers.map(s => ({ ...renderShell(s), name: s.name, description: s.description, level: 99, molt: s.molt, locked: false, isNew: !h.seen.includes(s.id) })),
+      ...(next ? [{ ...renderShell(next), name: next.name, description: `Molt ${next.molt}: reach level 99 and molt to move in.`, level: 99, molt: next.molt, locked: true, isNew: false }] : []),
+    ],
   };
 }
 
-module.exports = { HOME, SHELLS, unlockedAt, unlockedBetween, wornShell, normalizeHome, renderShell, homesView };
+module.exports = {
+  HOME, SHELLS, MAX_MOLTS,
+  unlockedAt, unlockedBetween, wornShell, normalizeHome, renderShell, homesView,
+  tierShell, shellById, moltOf, withMolts,
+};

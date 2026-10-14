@@ -101,7 +101,7 @@ function registerLifeIpc(ipcMain, d) {
   // ---- shells (homes he moves into as he levels up)
   ipcMain.handle('homes:get', () => d.homesView());
   ipcMain.handle('homes:wear', (_e, id) => {
-    if (!d.isStr(id) || !shells.unlockedAt(id, d.currentLevel())) return { ok: false, error: 'He has to grow into that shell first.', view: d.homesView() };
+    if (!d.isStr(id) || !shells.unlockedAt(id, d.currentLevel(), d.config.get('home'))) return { ok: false, error: 'He has to grow into that shell first.', view: d.homesView() };
     d.config.set({ home: { ...shells.normalizeHome(d.config.get('home')), worn: id } });
     d.broadcastSkin();
     d.send(d.panel, 'stickers', d.stickersView());

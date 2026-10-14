@@ -47,7 +47,7 @@ function snapshot(get, data = {}, now = Date.now()) {
     format: FORMAT,
     wardrobe: { unlocked: w.unlocked, collected: w.collected, outfit: w.outfit, outfitAt: stamps.outfitAt },
     stats: get('stats'),
-    xp: { total: xp.total, byDevice: xp.byDevice, legacyPending: xp.legacyPending, log: xp.log, lastDay: xp.lastDay },
+    xp: { total: xp.total, byDevice: xp.byDevice, legacyPending: xp.legacyPending, log: xp.log, lastDay: xp.lastDay, molt: xp.molt },
     days: streaks.days,
     stickers: get('stickers'),
     skin: get('skin'), skinAt: stamps.skinAt,
@@ -70,7 +70,7 @@ function clean(raw) {
   const w = r.wardrobe && typeof r.wardrobe === 'object' ? r.wardrobe : {};
   const outfit = {};
   for (const s of SLOTS) outfit[s] = typeof w.outfit?.[s] === 'string' && KEY_RE.test(w.outfit[s]) ? w.outfit[s] : null;
-  const xp = normalizeXp({ total: r.xp?.total, byDevice: r.xp?.byDevice, log: r.xp?.log, lastDay: r.xp?.lastDay });
+  const xp = normalizeXp({ total: r.xp?.total, byDevice: r.xp?.byDevice, log: r.xp?.log, lastDay: r.xp?.lastDay, molt: r.xp?.molt });
   return {
     format: FORMAT,
     wardrobe: {
@@ -82,7 +82,7 @@ function clean(raw) {
     stats: normalizeStats(r.stats),
     // An older Shellby writes only a total: it still counts, as a floor (see cleanByDevice).
     // Another PC's 'local' (XP from before it had its id) never comes across.
-    xp: { total: xp.total, byDevice: cleanByDevice(r.xp?.byDevice, 0, { keepLocal: false }), legacyPending: r.xp?.legacyPending === true, log: xp.log, lastDay: xp.lastDay },
+    xp: { total: xp.total, byDevice: cleanByDevice(r.xp?.byDevice, 0, { keepLocal: false }), legacyPending: r.xp?.legacyPending === true, log: xp.log, lastDay: xp.lastDay, molt: xp.molt },
     days: strings(r.days, /^\d{4}-\d{2}-\d{2}$/, 400).sort(),
     // No folders, options or badges: those belong to each PC (stickers.js syncable).
     stickers: stickers.syncable(r.stickers),
@@ -126,7 +126,7 @@ function merge(aIn, bIn) {
       outfitAt: newerOutfit.wardrobe.outfitAt,
     },
     stats,
-    xp: { total: counts.total, byDevice: counts.byDevice, log, lastDay: [a.xp.lastDay, b.xp.lastDay].filter(Boolean).sort().pop() || null },
+    xp: { total: counts.total, byDevice: counts.byDevice, log, lastDay: [a.xp.lastDay, b.xp.lastDay].filter(Boolean).sort().pop() || null, molt: counts.molt },
     days: union(a.days, b.days).sort().slice(-400),
     stickers: stickers.merge(a.stickers, b.stickers),
     skin: newerSkin.skin, skinAt: newerSkin.skinAt,
@@ -154,7 +154,7 @@ function patchFor(merged, get, data = {}) {
     ...lived.patch,
     wardrobe: { ...w, unlocked: merged.wardrobe.unlocked, collected: merged.wardrobe.collected, outfit: merged.wardrobe.outfit },
     stats: merged.stats,
-    xp: { ...xp, total: merged.xp.total, byDevice: merged.xp.byDevice, legacyPending: false, log: merged.xp.log, lastDay: merged.xp.lastDay },
+    xp: { ...xp, total: merged.xp.total, byDevice: merged.xp.byDevice, legacyPending: false, log: merged.xp.log, lastDay: merged.xp.lastDay, molt: merged.xp.molt },
     streaks: { ...streaks, days: merged.days },
     // Merged into this PC's own, so its folders, options and badges stay.
     stickers: stickers.merge(get('stickers'), merged.stickers),

@@ -11,7 +11,7 @@ const voice = require('../voice');
 const { publicItem } = require('../wardrobe/service');
 const weatherRules = require('../weather');
 const workPose = require('../work-pose');
-const { levelFor } = require('../xp');
+const { levelFor, levelOf } = require('../xp');
 
 /** d: what main shares (main.js `shared`). */
 function wireCritter(d) {
@@ -65,11 +65,13 @@ function wireCritter(d) {
   // off (no network needed for that); north otherwise, as it always was.
   const seasonsWhere = () => ({ south: weatherRules.isSouth(weatherRules.normalizePlace(d.config?.get('weather')?.place)) });
 
+  // What unlocks are gated on: the level his total XP reaches. A molt never takes
+  // XP away, so this is the highest level ever reached (levels.js everLevel).
   const currentLevel = () => levelFor(d.config?.get('xp')?.total || 0).level;
-  // The level-up bubble's "LV 12" or "★3": the last level-up's, or his own before there's been one.
+  // The level-up bubble's "LV 12" or "★3": the last level-up's, or his own before there's been one (since his last molt).
   function bubbleLevel() {
     if (d.levelUpAt != null) return { level: d.levelUpAt, marks: d.levelUpMarks || 0 };
-    const { level, marks } = levelFor(d.config?.get('xp')?.total || 0);
+    const { level, marks } = levelOf(d.config?.get('xp'));
     return { level, marks };
   }
   const homesView = () => shells.homesView(d.config.get('home'), currentLevel());

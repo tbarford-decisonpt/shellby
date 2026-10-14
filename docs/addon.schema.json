@@ -86,6 +86,10 @@
           "properties": {
             "season": { "enum": ["halloween", "winter", "valentine", "spring", "summer", "autumn"] }
           }
+        },
+        {
+          "type": "object", "required": ["level"], "additionalProperties": false,
+          "properties": { "level": { "type": "integer", "minimum": 2, "maximum": 99 } }
         }
       ]
     },

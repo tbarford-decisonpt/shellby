@@ -191,8 +191,8 @@ function wireTimetrack(d) {
   // An edit from the Sticker Book. Only shells he can wear right now can be decorated.
   function editStickers(shell, fn) {
     const id = d.isStr(shell) ? shell : d.shellIdOf(d.stickerService.wornShellObj());
-    const sh = id === stickers.HOME ? null : shells.SHELLS.find(s => s.id === id);
-    if (id !== stickers.HOME && (!sh || !shells.unlockedAt(id, d.currentLevel()))) return { ok: false, error: 'He has to grow into that shell first.', view: stickersView() };
+    const sh = id === stickers.HOME ? null : shells.shellById(id);
+    if (id !== stickers.HOME && (!sh || !shells.unlockedAt(id, d.currentLevel(), d.config.get('home')))) return { ok: false, error: 'He has to grow into that shell first.', view: stickersView() };
     const slots = d.stickerService.shellSpots(d.activeSkin(), sh).slots.length;
     const next = fn(d.config.get('stickers'), id, slots, Date.now());
     d.config.set({ stickers: next });

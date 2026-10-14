@@ -241,7 +241,7 @@ function wireGithub(d) {
     const accessories = ['shell', 'neck', 'hat', 'face', 'held']
       .map(slot => card.outfit[slot] && d.wardrobe?.catalog.accessories.get(card.outfit[slot]))
       .filter(a => a && SLOT_OK.has(a.slot)).map(publicItem);
-    const home = card.home && shells.SHELLS.find(s => s.id === card.home) || null;
+    const home = card.home && shells.shellById(card.home) || null;
     // Their stickers by spot, onto however their crab looks here.
     const onShell = d.stickerService.placeStickers(skin, home, (card.stickers?.shell || []).map((e, i) => ({ ...e, id: `guest-${i}`, weather: 'fresh' })));
     return { skin, accessories, shell: shells.renderShell(home), level: card.level, stickers: onShell };
