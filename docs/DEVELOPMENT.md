@@ -152,6 +152,12 @@ node scripts/cli-compat.js --real --transcript test/fixtures/cli-transcripts/<ve
 
 Read it before committing it.
 
+### Everything it offers
+
+Breaking is one half; the other is noticing what's new. `src/main/cli-coverage.js` lists every flag and subcommand in `claude --help` and every built-in tool a session's init names, each marked `use` (and where), `skip` (and why) or `gap` (worth building, and what it would be). The same nightly run writes what the list doesn't account for, what Claude Code has dropped, and the open gaps, plus any slash-command drift from `commands:check`, and keeps one issue labelled `cli-new` open with that checklist, rewritten when it changes and closed once it's empty. It never fails the run.
+
+`test/cli-coverage.test.js` checks the list against `test/fixtures/claude-help.txt` and the recorded transcripts' tools. When Claude Code adds something, decide it in the list; when you build a gap, mark it `use`. To refresh the fixture: `claude --help > test/fixtures/claude-help.txt` (LF, no BOM).
+
 ### Slash commands
 
 The <kbd>/</kbd> menu lists Claude Code's own commands from `src/main/cli-commands.js`, a catalogue that says for each one how Shellby handles it: `cli` (sent as it is, it works in print mode), `shellby` (opens Shellby's screen for it, `src/renderer/panel/builtin-commands.js`) or `terminal` (it only works in Claude Code's terminal: he says why and offers **Open in a terminal**). It follows the live CLI on its own: a command a conversation's init lists that the catalogue doesn't know goes through to Claude Code as it is (`toolbox.js` `mergeInit`), and a `cli` one the init stops listing is hidden. When print mode answers a command with "isn't available in this environment" or "Unknown command", `stream.js` adds a plain-words reply (`headlessReply`).

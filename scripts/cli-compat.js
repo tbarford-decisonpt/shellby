@@ -4,7 +4,7 @@
 //
 //   node scripts/cli-compat.js [--out report.json] [--summary summary.md]
 //                              [--real] [--transcript file.jsonl]
-//                              [--badge-dir dir]
+//                              [--badge-dir dir] [--coverage coverage.md]
 //
 // Without an account it checks the flags, permission modes, effort levels and
 // the control protocol's handshake (Claude Code answers initialize before
@@ -13,7 +13,9 @@
 // audits every event it sent; --transcript keeps that turn, scrubbed (how
 // test/fixtures/cli-transcripts/ is recorded). --badge-dir reads the last
 // cli-compat-state.json there and writes the README badge's shields.io
-// endpoint (cli-compat.json) beside the new state.
+// endpoint (cli-compat.json) beside the new state. --coverage writes what the
+// CLI offers that src/main/cli-coverage.js doesn't account for, and its known
+// gaps (never a failure: the workflow keeps a `cli-new` issue for it).
 //
 // The CLI: SHELLBY_CLAUDE_PATH (claude.exe, or npm's claude.cmd shim, which is
 // swapped for the claude.exe beside it), else the global npm install, else
@@ -29,6 +31,7 @@ const processJob = require('../src/main/process-job');
 const { TASKKILL } = require('../src/main/system32');
 const { ClaudeSession, initHooks } = require('../src/main/session');
 const contract = require('../src/main/cli-contract');
+const coverage = require('../src/main/cli-coverage');
 
 const QUICK_MS = 30000;
 const LAUNCH_MS = 60000;
@@ -125,8 +128,11 @@ async function checkVersion(exe) {
   return { version, check: { name: 'version', ok: !!version, detail: version ? `claude ${version}` : `no version from --version: ${(r.stderr || r.err?.message || '').trim().slice(0, 300)}` } };
 }
 
+let helpText = null; // kept for the coverage list
+
 async function checkHelpText(exe) {
   const r = await run(exe, ['--help'], QUICK_MS);
+  helpText = r.stdout || null;
   const { ok, missing } = contract.checkHelp(r.stdout);
   return { name: 'flags in --help', ok, detail: ok ? `all ${contract.REQUIRED_FLAGS.filter(f => !f.hidden).length} documented flags present` : `missing: ${missing.join(', ')}` };
 }
@@ -238,6 +244,16 @@ async function realTurn(exe, cwd) {
 
 // ---------------------------------------------------------------- main
 
+// The tools a turn's init listed, or null when it listed none.
+function initTools(lines) {
+  for (const line of lines) {
+    let ev;
+    try { ev = JSON.parse(line); } catch { continue; }
+    if (ev?.type === 'system' && ev.subtype === 'init' && Array.isArray(ev.tools)) return ev.tools;
+  }
+  return null;
+}
+
 function writeOut(file, text) {
   if (!file) return;
   fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
@@ -268,6 +284,7 @@ async function main() {
         const turn = await attempt('real turn', () => realTurn(exe, cwd)).then(r => (r.checks ? r : { checks: [r], lines: [], unknown: [] }));
         report.checks.push(...turn.checks);
         report.unknown = turn.unknown;
+        report.tools = initTools(turn.lines);
         const out = opt('--transcript');
         if (out && turn.lines.length) writeOut(out, `${contract.scrubTranscript(turn.lines, { home: os.homedir(), user: os.userInfo().username }).join('\n')}\n`);
       } else {
@@ -281,6 +298,12 @@ async function main() {
   }
   report.ok = report.checks.every(c => c.ok || c.skipped);
 
+  if (helpText) {
+    report.coverage = coverage.coverageOf({ help: helpText, tools: report.tools || null });
+    report.coverage.attention = coverage.needsAttention(report.coverage);
+    writeOut(opt('--coverage'), `${coverage.coverageSummary(report.coverage, report.version)}
+`);
+  }
   writeOut(opt('--out') || 'cli-compat-report.json', `${JSON.stringify(report, null, 2)}\n`);
   const summary = contract.summaryOf(report);
   writeOut(opt('--summary'), `${summary}\n`);

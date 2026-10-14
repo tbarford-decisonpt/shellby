@@ -9,6 +9,12 @@ name: Claude Code compatibility
 # creates on its first run (main is protected; that branch isn't). A failure
 # opens an issue labelled cli-compat, or comments on the open one once per new
 # version; a pass closes it.
+#
+# It also lists what Claude Code offers that Shellby hasn't decided about: flags,
+# subcommands and tools missing from src/main/cli-coverage.js, its known gaps,
+# and slash commands missing from src/main/cli-commands.js. Those keep one
+# `cli-new` issue open, its checklist rewritten when the list changes, and
+# closed once it's empty. They never fail the run.
 on:
   schedule:
     - cron: '17 6 * * *'
@@ -70,19 +76,31 @@ jobs:
       - name: Check (no account)
         if: env.HAS_ANTHROPIC_API_KEY != 'true'
         continue-on-error: true
-        run: node scripts/cli-compat.js --out cli-compat/report.json --summary cli-compat/summary.md --badge-dir badges
+        run: node scripts/cli-compat.js --out cli-compat/report.json --summary cli-compat/summary.md --coverage cli-compat/coverage.md --badge-dir badges
 
       - name: Check, with one real turn on Haiku
         if: env.HAS_ANTHROPIC_API_KEY == 'true'
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: node scripts/cli-compat.js --out cli-compat/report.json --summary cli-compat/summary.md --transcript cli-compat/transcript.jsonl --badge-dir badges
+        run: node scripts/cli-compat.js --out cli-compat/report.json --summary cli-compat/summary.md --coverage cli-compat/coverage.md --transcript cli-compat/transcript.jsonl --badge-dir badges
+
+      - name: Slash commands
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          if ! out=$(node scripts/commands-check.js "$SHELLBY_CLAUDE_PATH" 2>&1); then
+            { echo; echo '### Slash commands (src/main/cli-commands.js)'; echo; echo '```'; echo "$out"; echo '```'; } >> cli-compat/coverage.md
+            echo 'drift' > cli-compat/commands-drift
+          fi
 
       - name: Summary
         if: always() && hashFiles('cli-compat/summary.md') != ''
         shell: bash
-        run: cat cli-compat/summary.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          cat cli-compat/summary.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -f cli-compat/coverage.md ]; then { echo; cat cli-compat/coverage.md; } >> "$GITHUB_STEP_SUMMARY"; fi
 
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
@@ -146,6 +164,48 @@ jobs:
             const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue.number, per_page: 100 });
             if ([issue.body, ...comments.map(c => c.body)].some(b => (b || '').includes(marker))) return;
             await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+
+      - name: Open, update or close the cli-new issue
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const fs = require('fs');
+            const read = f => { try { return fs.readFileSync(f, 'utf8'); } catch { return null; } };
+            const raw = read('cli-compat/report.json');
+            const list = read('cli-compat/coverage.md');
+            if (!raw || !list) { core.warning('No coverage: leaving the cli-new issue alone.'); return; }
+            const report = JSON.parse(raw);
+            const attention = !!report.coverage?.attention || fs.existsSync('cli-compat/commands-drift');
+            const { owner, repo } = context.repo;
+            const label = 'cli-new';
+            const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const version = report.version || 'unknown';
+
+            const open = (await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', labels: label, per_page: 100 }))
+              .filter(i => !i.pull_request);
+            const issue = open[0];
+
+            if (!attention) {
+              if (!issue) return;
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue.number,
+                body: `Everything Claude Code ${version} offers is accounted for. Closing.\n\n[Run](${run})` });
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' });
+              return;
+            }
+
+            const howTo = 'Decide each one in `src/main/cli-coverage.js` (use, skip with a reason, or gap) or `src/main/cli-commands.js`; build a gap and mark it use. This issue follows the list.';
+            const content = `${list.trim()}\n\n${howTo}`;
+            const body = `${content}\n\n[Latest run](${run})`;
+            if (!issue) {
+              try { await github.rest.issues.createLabel({ owner, repo, name: label, color: '7fd6c2', description: 'Something Claude Code offers that Shellby has not decided about yet' }); } catch { /* already there */ }
+              await github.rest.issues.create({ owner, repo, labels: [label], title: "New in Claude Code: what Shellby hasn't covered yet", body });
+              return;
+            }
+            // The run link changes every night: a night with nothing new edits nothing.
+            if ((issue.body || '').startsWith(content)) return;
+            await github.rest.issues.update({ owner, repo, issue_number: issue.number, body });
+            await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `The list changed with Claude Code ${version}.\n\n[Run](${run})` });
 
       - name: Fail when Claude Code is incompatible
         if: always()
