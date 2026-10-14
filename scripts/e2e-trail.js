@@ -109,7 +109,9 @@ fs.mkdirSync(claudeConfig);
     await ev("document.getElementById('input').focus()");
     await key('e', { ctrl: true, shift: true });
     check(await until("!document.getElementById('trail').hidden && document.body.classList.contains('trail-open')"), 'Ctrl+Shift+E opens the trail');
-    check(await until("document.getElementById('trail').classList.contains('empty')"), 'with nothing on it yet, it says what it will show');
+    check(await until("document.getElementById('trail').classList.contains('nothing-yet')"), 'with nothing on it yet, it says what it will show');
+    // The panel's .empty (the welcome screen's look) once rode on the drawer and pushed its header down.
+    check(await ev("Math.abs(document.querySelector('#trail .trail-head').getBoundingClientRect().top - document.getElementById('trail').getBoundingClientRect().top) <= 2"), 'its header stays at the top while it is empty');
     check(await until(`document.body.classList.contains('trail-over') || document.getElementById('chatView').getBoundingClientRect().width - document.getElementById('trail').getBoundingClientRect().width >= 330`),
       `the chat keeps room beside it (the panel went from ${widthBefore} px to ${await ev('window.innerWidth')} px)`);
     check(await ev("document.activeElement === document.getElementById('trailMap')"), 'the map has the keyboard');

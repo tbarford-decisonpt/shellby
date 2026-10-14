@@ -166,7 +166,7 @@
       stopPlay();
       replayAt = null;
       unland();
-      drawer.classList.remove('empty');
+      drawer.classList.remove('nothing-yet');
     }
     shows = name;
     if (!SB.solo) try { window.localStorage.setItem(TAB_KEY, name); } catch { /* lasts this session */ }
@@ -217,7 +217,7 @@
     const tab = tabNow();
     const s = tab?.trail;
     if (!s || !s.seq) { paintEmpty(tab); return; }
-    drawer.classList.remove('empty');
+    drawer.classList.remove('nothing-yet');
     const v = T.view(s, { upTo: replayAt ?? Infinity, scope, busy: !!tab.busy });
     paintScope();
     paintRows(tab, v);
@@ -228,7 +228,7 @@
   }
 
   function paintEmpty(tab) {
-    drawer.classList.add('empty');
+    drawer.classList.add('nothing-yet');
     paintScope();
     rowsEl.replaceChildren(h('div', { class: 'trail-empty' },
       h('p', { class: 'trail-empty-lead', text: tab?.busy ? 'Setting off…' : 'No tracks yet.' }),
