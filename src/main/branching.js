@@ -15,6 +15,7 @@ const { randomUUID } = require('crypto');
 const branch = require('./branch');
 const worktrees = require('./worktrees');
 const changes = require('./changes');
+const { installCopyDeps, depsSentence } = require('./copy-deps');
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 const snippet = t => {
@@ -93,7 +94,7 @@ function register(deps) {
     // The files: a copy of the repository as it was then.
     const made = await makeCopy({ entry, tab, p, turnId, at, sourceCwd });
     if (made.cancelled) return { ok: false, cancelled: true, error: 'Not branched.' };
-    const { copy, shared, filesNow } = made;
+    const { copy, shared, filesNow, tree } = made;
     const cwd = copy ? copy.cwd : sourceCwd;
     // Claude Code's record, carried to where the copy's conversation is
     // resumed from. Put back as it was if the branch doesn't happen after all.
@@ -108,6 +109,11 @@ function register(deps) {
       await undoCopy();
       return { ok: false, error: "Claude Code's record of this conversation couldn't be carried into the copy." };
     }
+
+    // Its packages, if your checkout has them (copy-deps.js), before Claude
+    // hears where it is: so its tests run straight away, and it never races npm.
+    const packages = copy ? await installCopyDeps(copy).catch(err => ({ installed: false, error: err.message })) : null;
+    if (packages?.error) deps.log.info(`branch: npm ci in the copy failed: ${packages.error}`);
 
     // Its History entry and transcript. Its diffs point at its own copy, so
     // View diff, Undo and Rewind all work there and never on the original.
@@ -130,8 +136,9 @@ function register(deps) {
       history.update(newId, {
         claudeSessionId: sessionId, resumeAt: p.fresh ? null : p.anchor, context: null,
         worktree: copy, fence,
-        branchOf: { id: tabId, title: sourceTitle, turnId, at },
-        preamble: preambleFor({ p, copy, shared, filesNow, sourceCwd, fence }),
+        // tree: where its copy started, so a comparison can say which try changed what.
+        branchOf: { id: tabId, title: sourceTitle, turnId, at, ...(tree ? { tree } : {}), ...(shared ? { shared: true } : {}) },
+        preamble: preambleFor({ p, copy, shared, filesNow, sourceCwd, fence, packages }),
       });
       if (!history.rewrite(newId, items)) throw new Error("couldn't save its conversation");
       deps.openTab({ tabId: newId, historyEntry: history.get(newId) });
@@ -143,7 +150,7 @@ function register(deps) {
     }
 
     // The original says where its branch went, so you can find it again.
-    const off = { t: Date.now(), kind: 'branched-off', to: newId, title: branch.branchTitle(sourceTitle), at, turnId, text: snippet(msg), ...(copy ? { branch: copy.branch } : {}) };
+    const off = { t: Date.now(), kind: 'branched-off', to: newId, title: branch.branchTitle(sourceTitle), at, turnId, text: snippet(msg), ...(copy ? { branch: copy.branch } : {}), ...(shared ? { shared: true } : {}) };
     // Asked now, not when it began: the original may have closed while it was made.
     if (manager.tabs.has(tabId)) manager.note(tabId, off); else history.append(tabId, off);
 
@@ -205,12 +212,16 @@ function register(deps) {
       return r === 0 ? { copy: null, shared: true, filesNow: false, repoRoot } : { cancelled: true };
     }
 
-    const attempt = async f => worktrees.createAt({
-      repoRoot, base, tree: f?.tree,
-      head: f?.head || await worktrees.startingPoint({ repoRoot, worktree: own }),
-      prefix, home: deps.worktreeHome(), slug: branch.branchSlug({ ...entry, title: tab?.title || entry.title }), named: !!entry.worktree?.named,
-      originalCwd: own?.originalCwd || sourceCwd,
-    });
+    let used = null;
+    const attempt = async f => {
+      used = f;
+      return worktrees.createAt({
+        repoRoot, base, tree: f?.tree,
+        head: f?.head || await worktrees.startingPoint({ repoRoot, worktree: own }),
+        prefix, home: deps.worktreeHome(), slug: branch.branchSlug({ ...entry, title: tab?.title || entry.title }), named: !!entry.worktree?.named,
+        originalCwd: own?.originalCwd || sourceCwd,
+      });
+    };
     let made = files ? await attempt(files) : { ok: false, error: "Couldn't take a look at the folder." };
     if (!made.ok && made.gone && !filesNow) {
       const r = await deps.ask({
@@ -222,7 +233,7 @@ function register(deps) {
       if (r !== 0) return { cancelled: true };
       made = await attempt(await now());
     }
-    if (made.ok) return { copy: made.worktree, shared: false, filesNow, repoRoot };
+    if (made.ok) return { copy: made.worktree, shared: false, filesNow, repoRoot, tree: used?.tree || null };
     const r = await deps.ask({
       icon: '⑂', title: 'Branch in the same folder?',
       message: `Shellby couldn't make a copy of the repository: ${made.error}`,
@@ -234,14 +245,14 @@ function register(deps) {
 
   // What Claude is told before the branch's first message: where it is now.
   // Its own memory says the original's folder, so it must hear otherwise.
-  function preambleFor({ p, copy, shared, filesNow, sourceCwd, fence }) {
+  function preambleFor({ p, copy, shared, filesNow, sourceCwd, fence, packages }) {
     if (p.fresh && !copy) return null;
     if (copy) {
       const was = fence?.paths?.length ? fence.paths.join(', ') : sourceCwd;
       return `Shellby has branched this conversation into a new tab, to try again from this point. You are now working in a separate copy of the repository at ${copy.path}, `
         + `on branch ${copy.branch}, with the files ${filesNow ? 'as they are in the original right now' : 'exactly as they were at this point of the conversation'}. `
         + `The original conversation carries on by itself in ${was}: anything it did after this point isn't here, and its folder is off limits. `
-        + `Use paths under ${copy.path} from now on. Ignored files (node_modules, build output) aren't in the copy; install or build again if you need them.`;
+        + `Use paths under ${copy.path} from now on. ${depsSentence(packages || { skipped: true }, copy).trim()}`;
     }
     if (shared) {
       return `Shellby has branched this conversation into a second tab, to try again from this point. Both share the folder ${sourceCwd}, `
@@ -284,13 +295,39 @@ function register(deps) {
     if (!(await changes.sameRepo(mine, theirs))) return { ok: false, error: 'Those two are not in the same repository, so there is nothing to compare.' };
     const [a, b] = await Promise.all([changes.snapshot(theirs), changes.snapshot(mine)]);
     if (!a || !b) return { ok: false, error: "Couldn't take a look at both folders." };
+    const entries = history.list();
+    // How each went since they split, and where the other one is (for "Combine them").
+    const story = (id, other) => {
+      const items = history.load(id);
+      return branch.outcome(items, branch.sinceSplit(items, branch.lineOf(entries, other).map(e => e.id)));
+    };
+    const w = manager.tabs.get(otherId)?.worktree || history.get(otherId)?.worktree;
+    const about = { mine: story(tabId, otherId), theirs: story(otherId, tabId), theirPath: theirs, theirBranch: ours(w) ? w.branch : null };
     const s = await changes.summarize({ root: a.root, tree: a.tree }, { root: a.root, tree: b.tree });
     const key = `${tabId}>${otherId}`;
-    if (!s) { compared.delete(key); return { ok: true, same: true }; }
-    compared.set(key, { root: s.root, before: s.before, after: s.after, files: new Set(s.files.map(f => f.path)) });
+    if (!s) { compared.delete(key); return { ok: true, same: true, ...about }; }
+    // Which of them changed each file since they split, when that point is known.
+    const base = branch.splitTree(entries, tabId, otherId, startOf);
+    const who = base ? await whoChanged(a.root, base, b.tree, a.tree) : null;
+    compared.set(key, { root: s.root, before: s.before, after: s.after, mineRoot: b.root, files: new Set(s.files.map(f => f.path)) });
     if (compared.size > 20) compared.delete(compared.keys().next().value);
-    return { ok: true, same: false, files: s.files, more: s.more, added: s.added, removed: s.removed };
+    return {
+      ok: true, same: false, files: who ? s.files.map(f => ({ ...f, who: who(f.path) })) : s.files,
+      more: s.more, added: s.added, removed: s.removed, split: !!who, ...about,
+    };
   });
+
+  // Where a try's own copy started: noted when it branched, or its first checkpoint.
+  const startOf = e => (e ? e.branchOf?.tree || branch.firstTree(history.load(e.id)) : null);
+
+  // path -> 'mine' | 'theirs' | 'both' | null: who changed it since `base`. null if git has lost it.
+  async function whoChanged(root, base, mineTree, theirTree) {
+    const [m, t] = await Promise.all([changes.changedFiles(root, base, mineTree), changes.changedFiles(root, base, theirTree)]);
+    if (!m || !t) return null;
+    const mm = new Set(m.map(f => f.path));
+    const tt = new Set(t.map(f => f.path));
+    return p => (mm.has(p) && tt.has(p) ? 'both' : mm.has(p) ? 'mine' : tt.has(p) ? 'theirs' : null);
+  }
 
   // One file's diff from the last comparison: only ever trees main worked out itself.
   ipcMain.handle('branch:compare-diff', async (_e, { tabId, otherId, file } = {}) => {
@@ -298,6 +335,28 @@ function register(deps) {
     if (!c) return { error: 'Compare them again: that comparison has gone.' };
     if (!isStr(file) || !c.files.has(file)) return { error: 'Not a file in this comparison.' };
     return changes.patchFor({ root: c.root, before: c.before, after: c.after, file });
+  });
+
+  // One file from the other try, as the last comparison saw it, into this
+  // one: the best of both without keeping either whole. Never over a change
+  // made here since that comparison.
+  ipcMain.handle('branch:take', async (_e, { tabId, otherId, file } = {}) => {
+    const c = isStr(tabId) && isStr(otherId) ? compared.get(`${tabId}>${otherId}`) : null;
+    if (!c) return { ok: false, error: 'Compare them again: that comparison has gone.' };
+    if (!isStr(file) || !c.files.has(file)) return { ok: false, error: 'Not a file in this comparison.' };
+    if (manager.tabs.get(tabId)?.session.busy) return { ok: false, error: 'Let him finish first.' };
+    const mine = folderOf(tabId);
+    const root = mine ? await changes.rootOf(mine) : null;
+    if (!root || path.resolve(root).toLowerCase() !== path.resolve(c.mineRoot).toLowerCase()) return { ok: false, error: 'This conversation has moved since you compared. Compare them again.' };
+    const now = await changes.snapshot(root);
+    const since = now ? await changes.changedFiles(root, c.after, now.tree) : null;
+    if (!since) return { ok: false, error: "Couldn't take a look at this folder as it is now." };
+    if (since.some(f => f.path === file)) return { ok: false, error: `${file} has changed here since you compared. Compare them again first.` };
+    const one = (await changes.changedFiles(root, c.before, c.after) || []).find(f => f.path === file);
+    if (!one) return { ok: false, error: "Couldn't find that file's change any more. Compare them again." };
+    const r = await changes.putBack(root, c.before, [one]);
+    if (r.ok) deps.stat('branch-took');
+    return r.ok ? { ok: true } : r;
   });
 
   // ------------------------------------------------------------ keeping one

@@ -67,6 +67,30 @@
   // Two tries side by side: the comparison's heading.
   const compareHead = (otherTitle, r) => (r.same ? `Same files as "${otherTitle}"` : `${files(r.files.length + (r.more || 0))} differ from "${otherTitle}"`);
 
+  // Who changed a file since the two tries split (branching.js whoChanged).
+  const WHO = { mine: 'changed here', theirs: 'changed there', both: 'both changed' };
+  const whoWord = who => WHO[who] || '';
+
+  // How a try went since the split (branch.js outcome), on one line. duration: SB's.
+  function tryLine(o, duration) {
+    if (!o) return '';
+    const c = o.checks;
+    const tests = !c ? 'tests not run'
+      : c.status === 'pass' ? '✅ checks pass'
+        : c.status === 'fail' ? `❌ ${c.failing ? `${c.failing} failing` : 'checks fail'}`
+          : c.status === 'timeout' ? '❌ tests ran out of time' : 'tests not run';
+    return [`${o.turns} turn${o.turns === 1 ? '' : 's'}`, o.ms ? duration(o.ms) : null, tests].filter(Boolean).join(' · ');
+  }
+
+  // "Combine them": what this try is asked to do with the other one.
+  function combinePrompt({ title, path, branch, files: names = [], more = 0 }) {
+    const list = names.slice(0, 12).join(', ') + (names.length > 12 || more ? ', and more' : '');
+    return `Another try at this, "${title}", works in ${path}${branch ? ` on branch ${branch}` : ''}. `
+      + `Compare it with this one${list ? ` (the files that differ: ${list})` : ''}, decide what each does better, and bring the best of it into this one. `
+      + 'Read its files there, but make every change here, never in its folder. '
+      + 'Run the tests if there are any, then tell me what you took from it, what you left, and why.';
+  }
+
   // ------------------------------------------------------------ permission cards
 
   // The "always" button for Claude Code's first suggestion.
@@ -235,7 +259,7 @@
   }
 
   const api = {
-    files, storySteps, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, suggestionLabel, modeAfterPlan, planNotesMessage,
+    files, storySteps, markFor, trimmedLine, shellName, branchedFrom, branchedOffWhere, compareHead, whoWord, tryLine, combinePrompt, suggestionLabel, modeAfterPlan, planNotesMessage,
     decisionVerdict, questionVerdict, resultLabel, diffRows, laneMeta, laneCostTitle, laneFirstLine,
     cutOffLine, cutOffToast, CARRY_ON, quizWorthy, quizResult, QUIZ_MIN_LINES,
   };

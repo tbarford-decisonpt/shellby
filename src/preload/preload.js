@@ -112,6 +112,7 @@ contextBridge.exposeInMainWorld('shellby', {
   branchFamily: invoke('branch:family'),
   compareBranches: (tabId, otherId) => ipcRenderer.invoke('branch:compare', { tabId, otherId }),
   compareDiff: (tabId, otherId, file) => ipcRenderer.invoke('branch:compare-diff', { tabId, otherId, file }),
+  takeBranchFile: (tabId, otherId, file) => ipcRenderer.invoke('branch:take', { tabId, otherId, file }),
   keepBranch: invoke('branch:keep'),
   // Try it N ways (wiring/tries.js): main always asks, with the cost, before any start
   startTries: (/** @type {string} */ tabId, /** @type {{ n?: number, text?: string, arg?: string, attachments?: string[] }} */ { n, text, arg, attachments } = {}) => ipcRenderer.invoke('tries:start', { tabId, n, text, arg, attachments }),
@@ -166,8 +167,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // between Shellby and a terminal (src/main/handoff.js), and Claude Code's background sessions (wiring/bg-sessions.js)
   continueInTerminal: invoke('handoff:terminal'), pickUpHere: invoke('handoff:pickup'),
   openCloud: invoke('handoff:cloud'), // a cloud session in a terminal: { kind: teleport | cloud | pr, value?, tabId? }
-  bringIntoShellby: (id, force = false) => ipcRenderer.invoke('handoff:bring', { id, force }),
-  bgSessions: invoke('bg:list'), bgLogs: invoke('bg:logs'), bgOpen: invoke('bg:open'), bgStop: invoke('bg:stop'), bgRespawn: invoke('bg:respawn'), bgRemove: invoke('bg:remove'), onBgSessions: on('bg-sessions'),
+  bringIntoShellby: (id, force = false) => ipcRenderer.invoke('handoff:bring', { id, force }), bgSessions: invoke('bg:list'), bgLogs: invoke('bg:logs'), bgOpen: invoke('bg:open'), bgStop: invoke('bg:stop'), bgRespawn: invoke('bg:respawn'), bgRemove: invoke('bg:remove'), onBgSessions: on('bg-sessions'),
 
   // Settings → Other computers: Claude Code over ssh (src/main/remote/)
   remoteView: invoke('remote:view'),

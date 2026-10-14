@@ -59,15 +59,47 @@
     // In the original: where a branch of it went.
     renderBranchedOff(item) {
       const where = F.branchedOffWhere(item);
+      // It has other tries now: the branch chip shows, to compare with them or keep one (tab-git.js).
+      if (!this.hasTries) { this.hasTries = true; if (SB.activeTab() === this) SB.applyFolderLabel(this.cwd, this); }
       this.append(h('div', { class: 'home-mark branch-mark' },
         h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⑂' }),
-        h('span', {}, 'Tried again in ', SB.historyLink(item.to, 'another tab'), ` ${where}${item.branch ? ` (${item.branch})` : ''}. This conversation is as it was.`)));
+        h('span', {}, 'Tried again in ', SB.historyLink(item.to, 'another tab'), ` ${where}${item.branch ? ` (${item.branch})` : ''}. `,
+          item.shared ? 'They share this folder, so changes either one makes, the other sees.' : 'This conversation is as it was.')));
     }
 
     // Two tries side by side: what this one has that the other doesn't, now.
     // Not kept in the transcript; compare again for a fresh look.
     renderCompare(other, r) {
       const head = F.compareHead(other.title, r);
+      const how = (title, o) => (o ? h('p', { class: 'small cmp-try' }, h('b', { text: title }), ` ${F.tryLine(o, SB.duration)}`, o.said ? h('span', { class: 'muted', text: ` · “${o.said}”` }) : null) : null);
+      const busy = () => {
+        if (this.busy) SB.toast('Let him finish first.');
+        return !!this.busy;
+      };
+      // One file of theirs into this one (branching.js branch:take).
+      const take = f => {
+        const btn = h('button', { class: 'btn slim-btn cmp-take', type: 'button', title: `Make ${f.path} here the same as in "${other.title}"`, onclick: async () => {
+          if (busy()) return;
+          btn.disabled = true;
+          const t = await api.takeBranchFile(this.id, other.id, f.path).catch(() => null);
+          if (!t?.ok) { btn.disabled = false; return SB.toast(t?.error || "Couldn't take it.", { ms: 8000 }); }
+          btn.replaceWith(h('span', { class: 'small muted cmp-took', text: 'taken ✓' }));
+          SB.toast(`${f.path} is now as it is in "${other.title}".`);
+        } }, 'Take theirs');
+        return btn;
+      };
+      const row = f => {
+        const li = this.changeRow(f, null, file => api.compareDiff(this.id, other.id, file));
+        const toggle = li.firstChild;
+        if (f.who) toggle.querySelector('.chg-path').after(h('span', { class: `cmp-who who-${f.who}`, text: F.whoWord(f.who) }));
+        li.prepend(h('div', { class: 'cmp-row' }, toggle, take(f)));
+        return li;
+      };
+      const combine = () => {
+        if (busy()) return;
+        SB.activate(this.id);
+        SB.send(F.combinePrompt({ title: other.title, path: r.theirPath, branch: r.theirBranch, files: r.files.map(f => f.path), more: r.more }));
+      };
       const el = h('details', { class: 'changes compare', open: !r.same && r.files.length <= 8 },
         h('summary', {},
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '⇄' }),
@@ -75,9 +107,13 @@
           r.same ? null : h('span', { class: 'chg-add', text: `+${r.added}` }),
           r.same ? null : h('span', { class: 'chg-del', text: `−${r.removed}` })),
         r.same ? h('p', { class: 'small muted', text: 'Both copies have exactly the same files right now.' }) : null,
-        r.same ? null : h('ul', { class: 'chg-files' }, r.files.map(f => this.changeRow(f, null, file => api.compareDiff(this.id, other.id, file)))),
+        how('This one:', r.mine), how(`"${other.title}":`, r.theirs),
+        r.same ? null : h('ul', { class: 'chg-files' }, r.files.map(row)),
         r.more ? h('p', { class: 'small muted chg-more', text: `…and ${r.more} more.` }) : null,
-        r.same ? null : h('p', { class: 'small muted', text: `+ is what this one has, − is what "${other.title}" has instead.` }));
+        r.same ? null : h('p', { class: 'small muted', text: `+ is what this one has, − is what "${other.title}" has instead.${r.split ? ' Here is this one, there is the other, since they split.' : ''}` }),
+        r.same || !r.theirPath ? null : h('div', { class: 'chg-actions' },
+          h('button', { class: 'btn slim-btn', type: 'button', title: 'Ask Claude, in this one, to bring the best of the other into it', onclick: combine }, 'Combine them'),
+          h('span', { class: 'small muted', text: 'He reads the other try and brings its best parts in here.' })));
       this.stuck = true;
       this.append(el);
     }

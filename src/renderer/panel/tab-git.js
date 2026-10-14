@@ -165,15 +165,8 @@
 
   // ------------------------------------------------------------ its own copy (worktrees.js)
 
-  $('branchChip').addEventListener('click', async () => {
-    const tab = SB.activeTab();
-    const w = tab?.worktree;
-    if (!w) return;
-    // Other tries at the same thing (branching.js): compare with them, or keep this one.
-    const family = $('branchMenu').hidden ? await api.branchFamily(tab.id).catch(() => []) : [];
-    // From Next up: open a draft pull request from here (backlog.js).
-    const fromBacklog = $('branchMenu').hidden ? await SB.backlog.copyMenuItems(tab) : [];
-    const others = family.filter(f => !f.current);
+  // fromBacklog: Next up's items for it (backlog.js).
+  function copyMenu(tab, w, fromBacklog) {
     const status = h('span', { class: 'mi-sub', text: 'Looking at the copy…' });
     api.worktreeStatus(tab.id).then(s => {
       if (!s?.ok) { status.textContent = s?.error || ''; return; }
@@ -183,7 +176,7 @@
       status.textContent = (bits.length ? `${bits.join(' and ')} not in ${w.base} yet.` : 'Nothing new in it yet.')
         + (s.ignored?.length ? ` Ignored files (${s.ignored.slice(0, 3).join(', ')}${s.ignored.length > 3 ? '…' : ''}) go with the copy.` : '');
     });
-    SB.openMenu($('branchMenu'), $('branchChip'), () => [
+    return [
       h('div', { class: 'menu-label', text: 'This conversation works in its own copy' }),
       h('div', { class: 'menu-item branch-info' },
         h('span', { class: 'mi-check', 'aria-hidden': 'true' }),
@@ -210,17 +203,34 @@
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); throwAway(tab); } },
         h('span', { class: 'mi-check', text: '✕' }),
         h('span', {}, h('div', { class: 'mi-title', text: 'Throw it away' }), h('div', { class: 'mi-sub', text: 'Delete the copy and its branch, without merging' }))),
+    ];
+  }
+
+  $('branchChip').addEventListener('click', async () => {
+    const tab = SB.activeTab();
+    const w = tab?.worktree;
+    // A tab in your checkout shows it only once it has other tries (feed-notes.js, tab-chips.js).
+    if (!w && !SB.hasTries(tab)) return;
+    // Other tries at the same thing (branching.js): compare with them, or keep this one.
+    const family = $('branchMenu').hidden ? await api.branchFamily(tab.id).catch(() => []) : [];
+    // From Next up: open a draft pull request from here (backlog.js).
+    const fromBacklog = w && $('branchMenu').hidden ? await SB.backlog.copyMenuItems(tab) : [];
+    const others = family.filter(f => !f.current);
+    // Its own copy's part of the menu: none for a tab in your checkout.
+    const copyItems = w ? copyMenu(tab, w, fromBacklog) : [h('div', { class: 'menu-label', text: 'This conversation works in your checkout' })];
+    SB.openMenu($('branchMenu'), $('branchChip'), () => [
+      ...copyItems,
       ...(others.length ? [
         h('div', { class: 'menu-sep' }),
         h('div', { class: 'menu-label', text: `Other tries at this (${others.length})` }),
-        ...others.slice(0, 7).map(o => h('button', { class: 'menu-item branch-family', onclick: () => { SB.closeMenus(); compareWith(tab, o); } },
+        ...others.map(o => h('button', { class: 'menu-item branch-family', onclick: () => { SB.closeMenus(); compareWith(tab, o); } },
           h('span', { class: 'mi-check', text: '⇄' }),
           h('span', {}, h('div', { class: 'mi-title', text: `Compare with "${o.title}"` }),
             h('div', { class: 'mi-sub', text: [o.tries ? 'another try' : o.depth === 0 ? 'the original' : o.at === 'after' ? 'branched after a reply' : 'branched before a message', o.copy ? o.copy.branch : 'in your checkout', o.busy ? 'working' : o.open ? 'open' : 'in History'].join(' · ') })))),
         others.some(o => o.copy)
           ? h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); keepThisOne(tab); } },
             h('span', { class: 'mi-check', text: '★' }),
-            h('span', {}, h('div', { class: 'mi-title', text: 'Keep this one' }), h('div', { class: 'mi-sub', text: `Bring it home into ${w.base}, and throw away the other tries' copies` })))
+            h('span', {}, h('div', { class: 'mi-title', text: 'Keep this one' }), h('div', { class: 'mi-sub', text: w ? `Bring it home into ${w.base}, and throw away the other tries' copies` : "Throw away the other tries' copies: this one is already in your checkout" })))
           : null,
       ] : []),
     ]);
