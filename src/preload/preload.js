@@ -91,7 +91,7 @@ contextBridge.exposeInMainWorld('shellby', {
   paneShapes: (list) => ipcRenderer.invoke('panes:shapes', list), // the layouts you saved by name: read them, or (a list) save them
   setTabEffort: (tabId, effort) => ipcRenderer.invoke('tab:effort', { tabId, effort }), // the effort chip, for one conversation
   markReviewed: (tabId, reviewed = true, after = null) => ipcRenderer.invoke('tab:reviewed', { tabId, reviewed, after }), // the review inbox
-  sendTask: (tabId, text, attachments, opts) => ipcRenderer.invoke('task:send', { tabId, text, attachments, selected: opts?.selected }), // opts.selected: the file picked in All files (files-select.js)
+  sendTask: (tabId, text, attachments, opts) => ipcRenderer.invoke('task:send', { tabId, text, attachments, selected: opts?.selected, fromQueue: opts?.fromQueue === true }), // opts.selected: the file picked in All files (files-select.js); opts.fromQueue: the queue sent it (Keep warm)
   stopTask: fire('task:stop'),
   steerTask: (tabId, turnId, items) => ipcRenderer.send('task:steer', { tabId, turnId, items }),
   unsteerTask: (tabId, id) => ipcRenderer.invoke('task:unsteer', { tabId, id }), // a queued message taken back, unless Claude has it
@@ -757,7 +757,7 @@ contextBridge.exposeInMainWorld('shellby', {
   fitPanel: invoke('panel:fit'), zoomFactor: () => webFrame.getZoomFactor(), // grow the panel until the panes fit ({ width, height } DIP); the page's zoom, for CSS px -> DIP
   onTabItem: on('tab:item'),
   onTabSteering: on('tab:steering'), // queued messages handed to Claude mid-turn
-  onTabs: on('tabs'),
+  onTabs: on('tabs'), keepWarmSet: invoke('keepwarm:set'), keepWarmGet: invoke('keepwarm:get'), onKeepWarm: on('keepwarm'), // Keep warm (keepwarm-service.js)
   onHomeLine: on('home:line'), // { tabId, title, base, status: 'sorting' | 'home' | 'stuck', ... }
   onLaneTrain: on('lanes:train'), // { tabId, index, phase, of } while lining copies up, then { done: true }
   onClashes: on('clashes'), // { clashes, fresh: [key] }: copies that changed the same files

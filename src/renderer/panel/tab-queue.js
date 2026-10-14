@@ -118,7 +118,7 @@
   async function drain(tab) {
     if (tab.busy || tab.queuePaused || !tab.queue.length) return;
     const next = tab.queue.shift();
-    if (!(await sendNow(tab, next.text, next.attachments, next.selected ? { selected: next.selected } : undefined))) tab.queue.unshift(next);
+    if (!(await sendNow(tab, next.text, next.attachments, { ...(next.selected ? { selected: next.selected } : {}), fromQueue: true }))) tab.queue.unshift(next);
     if (tab.isActive) syncBusyUi();
   }
 

@@ -78,6 +78,7 @@
 
   // Send to any tab: the active one, or a background tab draining its queue. opts: the file picked
   // in All files when you typed it (files-select.js); a message Shellby composed carries none.
+  // opts.fromQueue: the queue sending it by itself, which isn't you back at the PC (Keep warm).
   async function sendNow(tab, text, attachments, opts) {
     const r = await api.sendTask(tab.id, text, attachments, opts);
     if (!r.ok) {

@@ -327,6 +327,7 @@
         case 'shell': return this.renderShell(item, replay);
         case 'error': return this.append(this.troubleBlock(item.trouble, item.text));
         case 'lesson': return SB.renderLesson ? this.append(SB.renderLesson(item)) : undefined; // lessons.js
+        case 'keepwarm': return SB.renderKeepWarm?.(this, item); // keepwarm.js
         // What a mod shows (toolbox-mods.js): always under its own name, so it can't pass for Claude or Shellby.
         case 'modlog': return this.append(h('div', { class: 'home-mark mod-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '🧩' }),

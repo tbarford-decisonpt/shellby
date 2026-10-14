@@ -126,10 +126,13 @@ function registerTabsIpc(ipcMain, d) {
     try { d.isStr(tabId) && d.manager.setTabEffort(tabId, effort); return { ok: true }; } catch (err) { return { ok: false, error: err.message }; }
   });
 
-  ipcMain.handle('task:send', async (_e, { tabId, text, attachments, selected } = {}) => {
+  // fromQueue: the panel's queue sending what you left behind a turn, by itself.
+  ipcMain.handle('task:send', async (_e, { tabId, text, attachments, selected, fromQueue } = {}) => {
     text = String(text || '').trim().slice(0, d.PANEL_MAX_TEXT);
     const files = (Array.isArray(attachments) ? attachments : []).filter(d.isStr).slice(0, 20);
     if (!text && !files.length) return { ok: false, error: 'Type a task first.' };
+    // You're back: Keep warm's job is done. Not for a message you queued before you left.
+    if (fromQueue !== true) d.keepWarm?.userSent();
     try {
       // A folder on another computer runs Claude Code there, so this PC needn't have it.
       const ready = (d.claudeStatus?.installed && d.claudeStatus?.loggedIn) || !!d.remoteService?.placeOf(d.currentCwd());

@@ -28,6 +28,7 @@ function setup({ cwd, installed = false, loggedIn = false }) {
     },
     rememberPrompt: () => {},
     wake: () => {},
+    keepWarm: { told: 0, userSent() { this.told++; } },
   };
   d.openTab = ({ tabId = 'tab-1' } = {}) => {
     const tab = { id: tabId, session: { cwd: d.currentCwd() }, shellRuns: [] };
@@ -52,6 +53,15 @@ test('a conversation on this PC still needs Claude Code here', async () => {
   const r = await ipc.invoke('task:send', { text: 'hello there' });
   assert.equal(r.ok, false);
   assert.equal(sent.length, 0);
+});
+
+test('a message you send turns Keep warm off; one your queue sends by itself does not', async () => {
+  const { d, ipc, sent } = setup({ cwd: AWAY });
+  assert.equal((await ipc.invoke('task:send', { text: 'queued before lunch', fromQueue: true })).ok, true);
+  assert.equal(d.keepWarm.told, 0, 'the queue draining is not you coming back');
+  assert.equal((await ipc.invoke('task:send', { text: 'back now' })).ok, true);
+  assert.equal(d.keepWarm.told, 1);
+  assert.equal(sent.length, 2);
 });
 
 test('an open conversation on this PC says Claude Code is missing', () => {

@@ -63,7 +63,7 @@ function wireTimetrack(d) {
       // Where Claude is working right now: Shellby's busy tabs by folder, and
       // sessions elsewhere by the folder name the plugin sends.
       claudeAt: () => ({
-        dirs: [...(d.manager?.tabs.values() || [])].filter(t => t.session?.busy).map(t => t.worktree?.originalCwd || t.session?.cwd).filter(Boolean),
+        dirs: [...(d.manager?.tabs.values() || [])].filter(t => t.session?.busy && !t.pinging).map(t => t.worktree?.originalCwd || t.session?.cwd).filter(Boolean),
         names: (d.external?.summary.sessions || []).filter(s => s.state === 'working' || s.state === 'asking').map(s => s.project),
       }),
       resolve: dir => projectOf(dir),

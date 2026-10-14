@@ -241,10 +241,10 @@
   const drawStrip = SB.renderTabStrip;
   SB.renderTabStrip = () => {
     drawStrip();
-    // Split, the top strip hides: the list's button, and the review inbox's,
+    // Split, the top strip hides: the list's button, the review inbox's and Keep warm's
     // move to the end of the bar under it (review-view.js anchors to them).
     const where = SB.panes.count(state.grid) > 1 ? $('subbar') : $('tabstrip');
-    if (allBtn.parentElement !== where) where.append($('reviewBtn'), allBtn);
+    if (allBtn.parentElement !== where) where.append($('keepWarmBtn'), $('reviewBtn'), allBtn); // Keep warm covers every pane: it never hides
     const tabs = [...state.tabs.values()];
     allBtn.hidden = tabs.length < SHOW_LIST_AT;
     $('tabAllCount').textContent = String(tabs.length);
