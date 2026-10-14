@@ -30,7 +30,7 @@ function wireLogbook(d) {
     return {
       ...fromHub,
       xp: part('xp', () => d.xpView?.()),
-      quests: part('quests', () => hub?.get('quests') ?? d.questsPanelView?.()),
+      quests: part('quests', () => d.questsPanelView?.()), // a pure read: chapters open on level-ups and on `open`
       event: part('event', () => d.eventsView?.()),
       battles: part('battles', () => (d.config.get('bugBattles') === false ? null : d.bugdex?.battles?.())),
       week: part('week', () => d.weekView?.()),

@@ -85,7 +85,8 @@
     const box = $('xpQuests');
     box.hidden = off();
     if (box.hidden) return;
-    $('xpQuestCount').textContent = view.complete ? '· all found' : `· ${view.doneCount} of ${view.total}`;
+    const ch = view.chapter && view.chapter.n > 1 ? `chapter ${view.chapter.n}, ` : '';
+    $('xpQuestCount').textContent = view.complete ? '· all found' : `· ${ch}${view.doneCount} of ${view.total}`;
     const toggle = $('xpQuestShow');
     toggle.hidden = !view.hidden || view.complete;
     $('xpQuestList').replaceChildren(...view.list.map((q, i) => {

@@ -154,19 +154,24 @@
       received(v);
       quests = q;
       renderChapters();
+      // The newest chapter has been seen: its "New" mark goes.
+      if (q?.chapter?.isNew && SB.state.view === 'logbook') api.gameAct('quests', 'seen', q.chapter.id).catch(() => {});
     } catch (e) {
       const box = $('lbCards');
       if (box && !view) box.replaceChildren(h('p', { class: 'muted', text: 'The Logbook couldn’t load just now. Try again in a moment.' }));
     }
   }
 
+  // An arrival counts as opening it (the logbook-opened stat); a re-render while here doesn't.
+  let arrived = false;
+  const setView = SB.setView;
+  SB.setView = target => { arrived = target === 'logbook' && SB.state.view !== 'logbook'; setView(target); };
+
   SB.views.logbook = {
     render() {
       addTabs();
-      refresh();
-      act('open');
-      // The newest chapter has been seen: its "New" mark goes.
-      if (quests?.chapter?.isNew) api.gameAct('quests', 'seen', quests.chapter.id).catch(() => {});
+      if (arrived) act('open').then(refresh); else refresh();
+      arrived = false;
     },
   };
 
