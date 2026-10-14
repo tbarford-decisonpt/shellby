@@ -5,8 +5,8 @@ const rooms = require('../src/main/rooms');
 const fresh = () => rooms.initialRooms(false);
 const after = n => { let s = fresh(); for (let i = 0; i < n; i++) s = rooms.taskDone(s).state; return s; };
 
-test('someone new starts with no rooms open beyond Shellby and Chat', () => {
-  assert.deepEqual(rooms.openRooms(fresh()), []);
+test('someone new starts with no rooms open beyond Shellby, Chat and the Logbook', () => {
+  assert.deepEqual(rooms.openRooms(fresh()), ['logbook'], 'the Logbook says what to do next, so it is open from the start');
   assert.deepEqual(rooms.roomsView(fresh()).next, { id: 'history', name: 'History', tasksToGo: 1 });
 });
 
@@ -36,7 +36,7 @@ test('finished tasks open rooms in order and report each one once', () => {
 
 test('a room opened by hand stays open and is not announced again later', () => {
   const s = rooms.openRoom(fresh(), 'workflows');
-  assert.deepEqual(rooms.openRooms(s), ['workflows']);
+  assert.deepEqual(rooms.openRooms(s), ['logbook', 'workflows']);
   let t = s;
   const opened = [];
   for (let i = 0; i < 8; i++) { const r = rooms.taskDone(t); t = r.state; opened.push(...r.opened.map(x => x.id)); }
