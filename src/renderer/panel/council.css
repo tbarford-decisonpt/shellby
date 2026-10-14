@@ -178,8 +178,10 @@ body.crab-only [data-goto="council"] { display: none; }
   padding: 12px 14px; border-radius: var(--r-lg); border: 1px solid rgba(255, 193, 94, .35);
   background: linear-gradient(rgba(255, 193, 94, .08), transparent 60%), var(--reef);
 }
-.cc-verdict header { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: end; }
-.cc-eyebrow { grid-column: 1 / -1; margin: 0; color: var(--amber); font: 600 var(--fs-11) var(--font-pixel); overflow-wrap: anywhere; }
+.cc-verdict header { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.cc-verdict h3 { flex: 1 1 220px; }
+.cc-verdict-meta { display: flex; align-items: center; gap: 8px; }
+.cc-eyebrow { flex-basis: 100%; margin: 0; color: var(--amber); font: 600 var(--fs-11) var(--font-pixel); overflow-wrap: anywhere; }
 .cc-verdict h3 { margin: 0; font-size: var(--fs-15); line-height: 1.35; color: var(--sand); }
 .cc-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
 .cc-list h4 { margin: 0 0 3px; font-size: var(--fs-11); text-transform: uppercase; letter-spacing: .06em; color: var(--sand-dim); }
@@ -230,6 +232,67 @@ body.crab-only [data-goto="council"] { display: none; }
 .cc-history-open:hover, .cc-history-open:focus-visible { background: var(--reef-2); }
 .cc-history-open b, .cc-history-open span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------------------------------------------------------------- what he read: cards on the felt */
+/* A fanned row of parchment cards at the near edge of the table, one for each
+   fact, numbered as the advisors cite them. The seat with the floor lights
+   the cards it leans on. */
+.cc-deck {
+  position: absolute; z-index: 35; left: 50%; top: 83%; transform: translate(-50%, -50%);
+  display: flex; justify-content: center; margin: 0; padding: 0; list-style: none; pointer-events: none;
+}
+.cc-card {
+  width: 22px; height: 28px; margin-inline: -2px; display: grid; place-items: end center; padding-bottom: 3px;
+  border-radius: 2px; font: 700 var(--fs-10)/1 var(--font-pixel); color: #4a3519;
+  background: linear-gradient(#f3e3bd, #d8bf8c); box-shadow: 0 2px 0 rgba(0, 0, 0, .4);
+  rotate: calc((var(--i) - (var(--n) - 1) / 2) * 5deg);
+  transition: translate .2s var(--ease-out), box-shadow .2s, background .2s;
+}
+.cc-card.is-lit { translate: 0 -7px; background: linear-gradient(#fff4d6, #f0d9a8); box-shadow: 0 0 10px 2px rgba(255, 193, 94, .6), 0 2px 0 rgba(0, 0, 0, .4); }
+.cc-crab.is-reading .cc-crab-sprite { filter: drop-shadow(0 0 6px rgba(255, 217, 138, .7)); }
+
+/* The decision, sealed: on the scroll and atop the verdict. */
+.cc-stamp, .cc-seal {
+  display: inline-block; padding: 1px 8px; border-radius: 3px; rotate: -4deg;
+  font: 700 var(--fs-10-5)/1.6 var(--font-pixel); letter-spacing: .04em; text-transform: uppercase;
+  color: #fff6e6; background: var(--coral-deep); box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .18), 0 2px 0 rgba(0, 0, 0, .3);
+}
+.cc-stamp[hidden] { display: none; }
+.cc-stamp[data-decision="do"], .cc-seal[data-decision="do"] { background: #2f8a6f; }
+.cc-stamp[data-decision="first"], .cc-seal[data-decision="first"] { background: #b9822a; }
+
+/* Records: how an advisor's votes turned out on verdicts you followed. */
+.cc-record { padding: 0 4px; border-radius: 3px; font: 700 var(--fs-10)/1.5 var(--font-pixel); color: var(--abyss); background: var(--sand-dim); }
+.cc-record-line { grid-column: 2; color: var(--glass); font-size: var(--fs-11); }
+.cc-vote[data-changed="true"] { box-shadow: 0 0 0 2px var(--sand); }
+
+.cc-against { margin: 8px 0 0; padding: 6px 9px; border-left: 2px solid var(--coral); color: var(--sand); font-size: var(--fs-12); background: rgba(255, 122, 92, .07); }
+.cc-list.is-open h4 { color: var(--amber); }
+.cc-cites { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.cc-cite, .cc-fact-n {
+  padding: 0 5px; border: 0; border-radius: 3px; cursor: pointer;
+  font: 700 var(--fs-10)/1.6 var(--font-pixel); color: #4a3519; background: #e8d3a3;
+}
+.cc-cite:hover, .cc-fact-n:hover { background: #fff4d6; }
+.cc-cite:focus-visible, .cc-fact-n:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+.cc-changed { padding: 0 6px; border-radius: 99px; font-size: var(--fs-10-5); font-weight: 700; line-height: 1.7; color: var(--abyss); background: var(--sand); }
+.cc-cond, .cc-flip { margin: 4px 0 0; font-size: var(--fs-11-5); color: var(--sand-dim); }
+.cc-cond b { color: var(--amber); }
+.cc-flip b { color: var(--glass); }
+
+.cc-read { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.cc-read h4 { margin: 0 0 5px; font-size: var(--fs-11); text-transform: uppercase; letter-spacing: .06em; color: var(--sand-dim); }
+.cc-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: var(--fs-12); color: var(--sand); }
+.cc-facts li { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; align-items: baseline; padding: 2px 4px; border-radius: var(--r-sm); }
+.cc-facts li.is-flash { animation: cc-flash 1.2s var(--ease-out); }
+.cc-facts .cc-src, .cc-facts code { grid-column: 2; font-size: var(--fs-11); color: var(--glass); overflow-wrap: anywhere; }
+.cc-unknowns { margin: 6px 0 0; }
+
+.cc-outcome { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.cc-outcome-q { font-weight: 700; color: var(--sand); font-size: var(--fs-12); }
+.cc-outcome .btn.is-on { background: var(--reef-2); color: var(--sand); box-shadow: inset 0 0 0 1px var(--glass); }
+.cc-outcome .muted { flex-basis: 100%; }
+.cc-pick { margin: 6px 0 2px; }
+
 /* ---------------------------------------------------------------- motion (none for reduced motion) */
 @media (prefers-reduced-motion: no-preference) {
   .cc-crab .cc-crab-sprite { animation: cc-breathe 3.2s ease-in-out infinite; animation-delay: calc(var(--z) * -.37s); }
@@ -241,7 +304,15 @@ body.crab-only [data-goto="council"] { display: none; }
   .cc-scroll:not(:disabled) { animation: cc-unroll .5s var(--ease-out) both; }
   .cc-hit:hover ~ .cc-place .cc-plaque { transform: translateY(-2px); }
   .cc-plaque { transition: transform .15s var(--ease-out); }
+  .cc-card { animation: cc-deal .4s var(--ease-spring) backwards; animation-delay: calc(var(--i) * 90ms); }
+  .cc-crab.is-reading .cc-crab-sprite { animation: cc-read 1.4s ease-in-out infinite; }
+  .cc-vote[data-changed="true"]:not(:empty) { animation: cc-flip .6s var(--ease-spring) .3s backwards; }
+  .cc-stamp:not([hidden]) { animation: cc-stamp .35s var(--ease-spring) .4s backwards; }
 }
+@keyframes cc-deal { from { opacity: 0; translate: 0 18px; rotate: 0deg; } }
+@keyframes cc-read { 50% { transform: translateY(-2px) rotate(3deg); } }
+@keyframes cc-flip { from { transform: rotateY(180deg); } }
+@keyframes cc-stamp { from { opacity: 0; scale: 1.8; } }
 @keyframes cc-breathe { 50% { transform: translateY(-1.5px); } }
 @keyframes cc-think { 50% { transform: translateY(-3px) rotate(-2deg); } }
 @keyframes cc-flicker { 50% { box-shadow: 0 0 4px 1px rgba(255, 193, 94, .4); } }
