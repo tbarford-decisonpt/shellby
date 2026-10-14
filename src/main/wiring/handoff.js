@@ -213,7 +213,13 @@ function wireHandoff(d) {
     return { ok: true, shell: started.shell, text: `Opened ${handoff.SHELL_NAMES[started.shell] || 'a terminal'} ${CLOUD_SAYS[kind]}` };
   }
 
-  return { continueInTerminal, pickUp, bringIn, take, ultraReview, openCloud };
+  // A background session (claude --bg), stopped first by wiring/bg-sessions.js: it opens here as a tab.
+  function openBackground({ sessionId, cwd, name }) {
+    if (!handoff.isSessionId(sessionId)) return { ok: false, error: "That session's id doesn't look like Claude Code's, so Shellby can't pick it up." };
+    return openHere({ id: sessionId, cwd, project: name, client: 'the background' });
+  }
+
+  return { continueInTerminal, pickUp, bringIn, take, ultraReview, openCloud, openBackground };
 }
 
 module.exports = { wireHandoff };

@@ -43,6 +43,49 @@
       h('span', { class: 'bg-where', text: b.project }),
       h('time', { text: SB.relTime(b.at) }))));
   }
+  // Claude Code's background sessions (wiring/bg-sessions.js): main checks every
+  // id against its own listing and asks before stopping or removing anything.
+  function renderBgSessions(v) {
+    const list = v?.sessions || [];
+    $('bgsBox').hidden = !list.length;
+    $('bgsList').replaceChildren(...list.map(s => {
+      const act = (label, fn, cls = 'ghost') => h('button', { type: 'button', class: `btn ${cls} slim-btn`, 'aria-label': `${label}: ${s.name}`, onclick: () => fn(s) }, label);
+      return h('li', { class: `bgs-item ${s.state}` },
+        h('span', { class: 'ext-dot', 'aria-hidden': 'true' }),
+        h('b', { text: s.name }),
+        h('span', { class: 'ext-state', text: s.needs ? `${s.label}: ${s.needs}` : s.label }),
+        s.startedAt ? h('time', { text: SB.relTime(s.startedAt) }) : null,
+        h('span', { class: 'bgs-acts' },
+          s.sessionId && !SB.isCrabOnly() ? act('Open', bgOpen, '') : null,
+          act('Logs', bgLogs),
+          s.running ? act('Stop', s2 => bgDo(api.bgStop, s2, 'Stopped. Its conversation is kept.')) : null,
+          act('Respawn', s2 => bgDo(api.bgRespawn, s2, 'Restarted on the current Claude Code.')),
+          act('Remove', s2 => bgDo(api.bgRemove, s2, 'Removed.'))));
+    }));
+  }
+  async function bgDo(fn, s, said) {
+    const r = await fn(s.id);
+    if (r?.cancelled) return;
+    SB.toast(r?.ok ? said : r?.error || "Claude Code didn't do it.", { ms: 5000 });
+  }
+  async function bgOpen(s) {
+    const r = await api.bgOpen(s.id);
+    if (r?.cancelled) return;
+    if (r?.ok) return SB.toast('Opened in Shellby.');
+    SB.toast(r?.error || "Couldn't open it.", { ms: 5000 });
+  }
+  async function bgLogs(s) {
+    const r = await api.bgLogs(s.id);
+    if (!r?.ok) return SB.toast(r?.error || 'No logs.', { ms: 5000 });
+    $('bgsLogsTitle').textContent = `Logs: ${r.name}`;
+    $('bgsLogsText').textContent = r.text.trim() || 'Nothing yet.';
+    $('bgsLogs').hidden = false;
+  }
+  $('bgsLogsClose').addEventListener('click', () => { $('bgsLogs').hidden = true; });
+  $('bgsRefresh').addEventListener('click', async () => renderBgSessions(await api.bgSessions()));
+  api.onBgSessions(renderBgSessions);
+  api.bgSessions().then(renderBgSessions).catch(() => {});
+
   $('bgClear').addEventListener('click', async () => renderExternal(await api.clearBackground()));
   $('externalToggle').addEventListener('change', async e => {
     renderExternal(await api.setExternal(e.target.checked));

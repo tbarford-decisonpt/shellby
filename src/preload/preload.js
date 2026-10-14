@@ -163,10 +163,11 @@ contextBridge.exposeInMainWorld('shellby', {
   renameSession: (id, title) => ipcRenderer.invoke('session:rename', { id, title }),
   onSessionsSynced: on('sessions:synced'),
 
-  // between Shellby and a terminal (src/main/handoff.js)
+  // between Shellby and a terminal (src/main/handoff.js), and Claude Code's background sessions (wiring/bg-sessions.js)
   continueInTerminal: invoke('handoff:terminal'), pickUpHere: invoke('handoff:pickup'),
   openCloud: invoke('handoff:cloud'), // a cloud session in a terminal: { kind: teleport | cloud | pr, value?, tabId? }
   bringIntoShellby: (id, force = false) => ipcRenderer.invoke('handoff:bring', { id, force }),
+  bgSessions: invoke('bg:list'), bgLogs: invoke('bg:logs'), bgOpen: invoke('bg:open'), bgStop: invoke('bg:stop'), bgRespawn: invoke('bg:respawn'), bgRemove: invoke('bg:remove'), onBgSessions: on('bg-sessions'),
 
   // Settings → Other computers: Claude Code over ssh (src/main/remote/)
   remoteView: invoke('remote:view'),
@@ -557,7 +558,7 @@ contextBridge.exposeInMainWorld('shellby', {
   getInbox: invoke('projects:inbox'),
   dismissInboxItem: invoke('projects:inbox-dismiss'),
   deleteBranch: invoke('projects:delete-branch'),
-  removeCopy: invoke('projects:remove-copy'),
+  removeCopy: invoke('projects:remove-copy'), forgetClaude: invoke('projects:forget-claude'), // claude purge, asked in main
   chooseCloneFolder: invoke('projects:clone-folder'),
   cloneFolderAgain: invoke('projects:clone-again'),
   cloneTarget: invoke('projects:clone-target'),

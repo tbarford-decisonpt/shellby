@@ -16,7 +16,8 @@ const TOOL_VERBS = {
   AskUserQuestion: 'Asked you', EnterPlanMode: 'Started planning',
   TaskCreate: 'Added a to-do', TaskUpdate: 'Updated a to-do', TaskList: 'Checked the to-dos', TaskGet: 'Read a to-do',
   TaskStop: 'Stopped a background task', TaskOutput: 'Checked a background task', Monitor: 'Watching',
-  SendMessage: 'Messaged', RemoteTrigger: 'Cloud routines',
+  SendMessage: 'Messaged', RemoteTrigger: 'Cloud routines', ReportFindings: 'Reported findings',
+  PushNotification: 'Notified you', EnterWorktree: 'Moved into a worktree', ExitWorktree: 'Left the worktree',
 };
 
 // To-do statuses Claude Code uses (TaskUpdate, TodoWrite); 'deleted' drops one.
@@ -115,6 +116,13 @@ function describeTool(name = '', input = {}) {
     const [label, field] = SHELLBY_TOOLS[own[1]];
     return { label, detail: field && typeof i[field] === 'string' ? i[field].replace(/\s+/g, ' ').trim().slice(0, 400) : '' };
   }
+  if (name === 'ReportFindings') {
+    const n = Array.isArray(i.findings) ? i.findings.length : 0;
+    return { label: TOOL_VERBS.ReportFindings, detail: n === 1 ? '1 finding' : `${n} findings` };
+  }
+  if (name === 'PushNotification') return { label: TOOL_VERBS.PushNotification, detail: String(i.message ?? '').replace(/\s+/g, ' ').trim().slice(0, 400) };
+  if (name === 'EnterWorktree') return { label: TOOL_VERBS.EnterWorktree, detail: typeof i.name === 'string' ? i.name.slice(0, 120) : '' };
+  if (name === 'ExitWorktree') return { label: TOOL_VERBS.ExitWorktree, detail: i.action === 'remove' ? 'and removed it' : '' };
   let detail =
     i.command ?? i.file_path ?? i.notebook_path ??
     (i.pattern != null ? `${i.pattern}${i.path ? ` in ${i.path}` : ''}` : null) ??
@@ -195,10 +203,43 @@ function writeChars(name, input) {
   return typeof text === 'string' ? text.length : 0;
 }
 
+const MAX_FINDINGS = 32;
+const FINDING_TEXT = 1200;
+
+// A code review's findings (ReportFindings): { level, list: [{ file, line,
+// summary, short, scenario, verdict, category }] }, or null when there are none.
+function findingsOf(input) {
+  if (!Array.isArray(input?.findings)) return null;
+  const str = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+  const list = input.findings.filter(x => x && typeof x === 'object').slice(0, MAX_FINDINGS).map(x => ({
+    file: str(x.file, 500),
+    line: Number.isInteger(x.line) && x.line > 0 ? x.line : null,
+    summary: str(x.summary, FINDING_TEXT),
+    short: str(x.short_summary, 120),
+    scenario: str(x.failure_scenario, FINDING_TEXT),
+    verdict: /^(CONFIRMED|PLAUSIBLE)$/.test(x.verdict) ? x.verdict : null,
+    category: str(x.category, 40),
+  })).filter(x => x.summary || x.short);
+  return { level: str(input.level, 12), list };
+}
+
+// Where EnterWorktree put the session ({ entered, branch }), or where
+// ExitWorktree took it back to ({ left, removed }); null for anything else.
+function worktreeOf(r) {
+  if (!r || typeof r !== 'object') return null;
+  if (typeof r.restoredCwd === 'string' && r.restoredCwd) return { left: r.restoredCwd, removed: r.action === 'remove' };
+  if (typeof r.worktreePath === 'string' && r.worktreePath && typeof r.worktreeBranch === 'string') return { entered: r.worktreePath, branch: r.worktreeBranch.slice(0, 200) };
+  return null;
+}
+
 function toolItem(b, sub) {
   const input = b.input || {};
   const item = { kind: 'tool', id: b.id, name: b.name, ...describeTool(b.name, input), ...sub };
   if (b.name === 'ExitPlanMode') item.plan = input.plan;
+  if (b.name === 'ReportFindings') {
+    const findings = findingsOf(input);
+    if (findings) item.findings = findings;
+  }
   const todo = todoOf(b.name, input);
   if (todo) item.todo = todo;
   // A skill Claude reached for by itself: which one (feed.js says what it's for).
@@ -369,6 +410,9 @@ function toItems(ev) {
         if (out) item.outputFile = out[1];
         // Subagent results carry run stats alongside the text.
         const r = ev.tool_use_result;
+        // Claude moving itself into a worktree of its own (EnterWorktree), or back out (ExitWorktree).
+        const wt = item.isError ? null : worktreeOf(r);
+        if (wt) item.worktree = wt;
         if (r && typeof r === 'object' && r.agentId) {
           item.agentStats = { durationMs: r.totalDurationMs ?? null, tokens: r.totalTokens ?? null, toolUses: r.totalToolUseCount ?? null };
         }
@@ -443,4 +487,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { questionsOf, todoOf, todoIdOf, goalOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };
+module.exports = { worktreeOf, findingsOf, questionsOf, todoOf, todoIdOf, goalOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };

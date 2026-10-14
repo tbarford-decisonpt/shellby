@@ -58,6 +58,7 @@ const { wireDebugMode } = require('./wiring/debug-mode');
 const { wireShots } = require('./wiring/shots');
 const { wireCorrections } = require('./wiring/corrections');
 const { wireHandoff } = require('./wiring/handoff');
+const { wireBgSessions } = require('./wiring/bg-sessions');
 const { wireRemote } = require('./wiring/remote');
 const { wireJournal } = require('./wiring/journal');
 const { wireCrew } = require('./wiring/crew');
@@ -347,6 +348,7 @@ share({ debugMode: wireDebugMode(shared) }); // /debug: hypotheses, logging, you
 share(wireShots(shared));
 const { createCorrections } = share(wireCorrections(shared));
 share({ handoff: wireHandoff(shared) });
+share(wireBgSessions(shared)); // Claude Code's background sessions (claude --bg)
 const { createComputers } = share(wireRemote(shared)); // Claude Code on your other computers, over ssh
 const { journal } = share({ journal: wireJournal(shared) }); // handoff notes per project, read from Claude Code's own files
 share({ crewRoster: wireCrew(shared) }); // one lasting helper crab per agent type
@@ -421,6 +423,7 @@ app.whenReady().then(() => {
   setTimeout(eventsTick, 12 * 1000); // a tide event that started while he was closed: said once he's up
   shared.health.start();
   createExternal();
+  shared.bgSessions.start(every);
   createTimeTracker();
   createProjects();
   createCrabApi();

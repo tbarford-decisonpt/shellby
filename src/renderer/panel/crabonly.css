@@ -83,6 +83,20 @@ body.crab-only .work-mode-row { display: none; }
 .bg-where { color: var(--sand-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bg-item time { font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
 .bg-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); animation: hl-pulse 1.6s ease-in-out infinite; }
+/* Claude Code's background sessions (settings-everywhere.js). */
+.bgs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.bgs-item { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; padding: 6px 9px; border-radius: var(--r-sm); background: rgba(0, 0, 0, .18); font-size: var(--fs-12-5); }
+.bgs-item b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+.bgs-item .ext-state { color: var(--sand-dim); }
+.bgs-item time { font: 500 var(--fs-10-5) var(--font-mono); color: var(--sand-faint); }
+.bgs-item.working .ext-dot { background: var(--coral); animation: hl-pulse 1s ease-in-out infinite; }
+.bgs-item.blocked .ext-dot, .bgs-item.review .ext-dot { background: var(--amber); }
+.bgs-item.failed .ext-dot { background: var(--danger); }
+.bgs-acts { display: flex; gap: 4px; margin-left: auto; }
+.bgs-acts .slim-btn { height: 24px; }
+.bgs-logs { margin-top: 8px; }
+.bgs-logs pre { margin: 4px 0 0; max-height: 240px; overflow: auto; padding: 8px; border-radius: var(--r-sm); background: rgba(0, 0, 0, .28); font: 500 var(--fs-11) var(--font-mono); white-space: pre-wrap; word-break: break-word; }
+@media (prefers-reduced-motion: reduce) { .bgs-item.working .ext-dot { animation: none; } }
 
 /* Settings: Claude Code status line */
 .sl-card { margin-top: 10px; padding: 10px 12px; border-radius: var(--r); background: var(--reef); border: 1px solid var(--line-soft); }

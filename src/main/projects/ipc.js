@@ -7,6 +7,7 @@ const { checkRepo } = require('./remote');
 const doctorIo = require('../devservers/doctor-io');
 const runner = require('../devservers/runner');
 const { ID } = require('./todo');
+const { purgePlan, purgeArgs } = require('./purge');
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 2000;
 const isId = s => typeof s === 'string' && /^srv-[a-z0-9]{8}$/.test(s);
@@ -119,6 +120,28 @@ function registerProjectsIpc(ipcMain, d) {
     return r;
   });
   ipcMain.handle('projects:clone-cancel', () => { P()?.cancelClone(); return true; });
+
+  // Forget Claude's history here (claude purge): what would go, asked in main's
+  // own dialog, then gone. Only for a folder the Projects list holds.
+  ipcMain.handle('projects:forget-claude', async (_e, root) => {
+    const known = P()?.knowsRoot(root);
+    if (!known || !d.runClaude) return { ok: false };
+    const look = await d.runClaude(purgeArgs(known, { dryRun: true }), 30000);
+    if (look.notInstalled) return { ok: false, error: "Shellby can't find Claude Code on this PC." };
+    if (/No Claude Code project state found/i.test(`${look.stdout}\n${look.stderr}`)) return { ok: true, nothing: true };
+    const plan = purgePlan(look.stdout);
+    if (!look.ok || !plan.items) return { ok: false, error: 'Claude Code could not say what it keeps for this folder.' };
+    const yes = await d.ask({
+      icon: '🧹', danger: true,
+      title: "Forget Claude's history for this project?",
+      message: `Claude Code deletes what it keeps for ${known}: every conversation's transcript, its to-dos and file history${plan.memory ? ', and what Claude remembered about the project (its memory)' : ''}.\n\n${plan.lines.join('\n')}`,
+      note: "Your code and its git history aren't touched. Conversations here can't be resumed afterwards.",
+      buttons: [{ label: 'Forget it', style: 'danger' }, { label: 'Keep it' }], defaultId: 1, cancelId: 1,
+    });
+    if (yes !== 0) return { ok: false, cancelled: true };
+    const done = await d.runClaude(purgeArgs(known, { dryRun: false }), 60000);
+    return done.ok ? { ok: true, items: plan.items } : { ok: false, error: (done.stderr || done.stdout || 'claude purge failed').trim().slice(0, 300) };
+  });
 
   ipcMain.handle('projects:open-folder', (_e, root) => {
     const known = P()?.knowsRoot(root);

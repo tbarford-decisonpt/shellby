@@ -20,8 +20,9 @@ const use = where => ({ status: 'use', where });
 const skip = why => ({ status: 'skip', why });
 const gap = what => ({ status: 'gap', what });
 
-const BG = gap('Background sessions: list `claude agents`, open one as a tab (attach), show its logs, stop, respawn and remove it, and tell you when one finishes.');
-const BRIEF = gap('SendUserMessage (--brief): Claude sends short updates while it works, said by the crab in a bubble.');
+const BG = use('wiring/bg-sessions.js: Settings, Everywhere, Background sessions');
+// Claude Code 2.1.296 doesn't offer the tool with --brief in print mode (checked 2026-10-14), so there's nothing to show yet.
+const BRIEF = gap('SendUserMessage (--brief): Claude sends short updates while it works, said by the crab in a bubble. Not offered in print mode yet: build it once a session lists the tool.');
 const TERMINAL_ONLY = 'It drives a terminal UI, which Shellby replaces.';
 
 /** Every option in `claude --help`, by its long name. */
@@ -34,7 +35,7 @@ const FLAGS = Object.freeze({
   '--append-system-prompt': use('session.js, btw.js'),
   '--autocompact': skip('Set with /autocompact in the conversation (cli-commands.js).'),
   '--ax-screen-reader': skip(TERMINAL_ONLY),
-  '--bg': BG,
+  '--bg': skip('Shellby lists and manages background sessions (agents); starting one stays a terminal thing, where /fork and agent view are.'),
   '--bare': skip('Shellby wants hooks, plugins and CLAUDE.md loaded.'),
   '--betas': skip('API beta headers: for API-key users experimenting by hand.'),
   '--brief': BRIEF,
@@ -69,7 +70,7 @@ const FLAGS = Object.freeze({
   '--no-session-persistence': use('btw.js, backlog/trackers.js'),
   '--output-format': use('session.js'),
   '--permission-mode': use('session.js'),
-  '--permission-prompts': gap('Check whether it replaces --permission-prompt-tool, which Shellby launches with (cli-contract.js).'),
+  '--permission-prompts': skip('Its default, host, is the --permission-prompt-tool Shellby launches with; none would deny every prompt.'),
   '--plugin-dir': skip('Plugins are installed (marketplace.js); this loads one for a single session.'),
   '--plugin-url': skip('Plugins are installed (marketplace.js); this loads one for a single session.'),
   '--print': use('session.js'),
@@ -97,7 +98,7 @@ const FLAGS = Object.freeze({
 /** Every subcommand in `claude --help`. */
 const COMMANDS = Object.freeze({
   agents: BG,
-  attach: BG,
+  attach: skip('Opening one in Shellby stops it and resumes it as a tab (wiring/bg-sessions.js open), rather than attaching a terminal.'),
   auth: use('claude/cli.js: sign-in state'),
   'auto-mode': skip('Auto mode is set up with /auto-mode-setup in the conversation.'),
   doctor: use('toolbox-snippets.js'),
@@ -107,7 +108,7 @@ const COMMANDS = Object.freeze({
   logs: BG,
   mcp: use('mcpadmin.js'),
   plugin: use('marketplace.js'),
-  purge: gap('Forget a project: delete Claude Code\'s transcripts and history for it from the project\'s page, behind a confirm.'),
+  purge: use('projects/ipc.js: Forget Claude\'s history here, on a project\'s page'),
   respawn: BG,
   rm: BG,
   'setup-token': skip('Long-lived tokens are for CI; Shellby uses your sign-in.'),
@@ -127,9 +128,9 @@ const TOOLS = Object.freeze({
   DesignSync: skip('Claude Design\'s own tool; shown as a step like any other.'),
   Edit: use('stream.js, changes.js'),
   EnterPlanMode: use('stream.js, session.js'),
-  EnterWorktree: gap('When Claude moves into a worktree mid-conversation, the tab, its changes and its project should follow it.'),
+  EnterWorktree: use('wiring/sessions.js claudeWorktree: the changes view follows it'),
   ExitPlanMode: use('feed-asks.js: the plan card'),
-  ExitWorktree: gap('When Claude moves into a worktree mid-conversation, the tab, its changes and its project should follow it.'),
+  ExitWorktree: use('wiring/sessions.js claudeWorktree'),
   Glob: use('stream.js'),
   Grep: use('stream.js'),
   ListAgents: use('stream.js: shown as a step'),
@@ -137,12 +138,12 @@ const TOOLS = Object.freeze({
   Monitor: use('stream.js'),
   NotebookEdit: use('changes.js'),
   PowerShell: use('stream.js'),
-  PushNotification: gap('Claude asking to notify you: send it through the crab and your phone connections, not just a step in the feed.'),
+  PushNotification: use('wiring/sessions.js claudeNotified: he says it, a toast, your phone'),
   Read: use('stream.js'),
   ReadMcpResourceDirTool: use('stream.js: shown as a step'),
   ReadMcpResourceTool: use('stream.js: shown as a step'),
   RemoteTrigger: use('cloud-routines.js'),
-  ReportFindings: gap('Code-review findings: show them as a list of cards (file:line, Fix this) rather than a step.'),
+  ReportFindings: use('feed-native.js renderFindings'),
   ScheduleWakeup: use('stream.js: shown as a step'),
   SendMessage: use('session-crew.js'),
   SendUserMessage: BRIEF,

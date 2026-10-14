@@ -7,6 +7,7 @@ const { sendToBottom } = require('../desktop-layer');
 const confirm = require('../confirm');
 const native = require('../native-windows');
 const { registerProjectsIpc } = require('../projects/ipc');
+const { run: runCli } = require('../claude/cli');
 const shells = require('../shells');
 
 /**
@@ -68,6 +69,11 @@ function registerLifeIpc(ipcMain, d) {
     showItem: p => shell.showItemInFolder(p),
     openExternal: url => shell.openExternal(url),
     ask: spec => confirm.ask(d.panel, { ...d.dialogLook(), ...spec }),
+    runClaude: (args, timeout) => {
+      if (d.FAKE_CLI) return runCli(process.env.SHELLBY_NODE || 'node', [d.FAKE_CLI, ...args], timeout); // tests
+      const exe = d.claudeExe?.();
+      return exe ? runCli(exe, args, timeout) : Promise.resolve({ ok: false, notInstalled: true, stdout: '', stderr: '' });
+    },
     journal: () => d.journal,
     // The port doctor: who a pid is, and Shellby's own processes, which it never offers to stop.
     processInfo: native.processInfo,

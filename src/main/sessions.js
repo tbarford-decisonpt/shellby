@@ -537,6 +537,7 @@ class SessionManager extends EventEmitter {
       outcome: t.outcome, unread: t.unread, routineId: t.routineId, workflowRunId: t.workflowRunId || null, saved: t.saved, named: t.named, context: t.session.context, cache: t.session.cache,
       nudge: turncost.nudge(t.session.context, t.session.growths),
       worktree: t.worktree ? { branch: t.worktree.branch, base: t.worktree.base, originalCwd: t.worktree.originalCwd } : null,
+      claudeWorktree: t.claudeWorktree ? { branch: t.claudeWorktree.branch, path: t.claudeWorktree.path } : null, // Claude's own (EnterWorktree)
       branchOf: t.branchOf ? { id: t.branchOf.id, title: t.branchOf.title, at: t.branchOf.at } : null,
       // The last time Shellby ran its tests (wiring/checks.js): for anything that wants a verdict at a glance.
       checks: t.checks ? { status: t.checks.status, after: t.checks.after, at: t.checks.at } : null,

@@ -23,10 +23,33 @@
 //   (one-shot) a /btw side question: see SIDE below
 //   "... FAKE_JSON:{...}" -> replies with that object in a ```json block
 //   "steps <n> <ms> [late <ms>]" -> n tool calls in a row; see below for messages sent meanwhile
+//   "findings"   -> a code review's findings (ReportFindings)
+//   "notify <words>" -> Claude's own PushNotification
+//   "worktree in" / "worktree out" -> EnterWorktree / ExitWorktree, with Claude Code's results
 //   anything else -> replies "echo: <text>"
+//
+// Subcommands: `agents --json` prints the file SHELLBY_FAKE_BG names (else
+// []); `logs`, `stop`, `respawn` and `rm <id>` say what they did, and append it
+// to SHELLBY_FAKE_BG_LOG when set; `purge --dry-run|--yes -- <path>` plans
+// or does it.
 const readline = require('readline');
 
 const args = process.argv.slice(2);
+let workCwd = process.cwd(); // where EnterWorktree moved it (the next init says so, as Claude Code's does)
+if (['agents', 'logs', 'stop', 'respawn', 'rm', 'purge'].includes(args[0])) {
+  const fs = require('fs');
+  const id = args[args.length - 1];
+  if (process.env.SHELLBY_FAKE_BG_LOG && args[0] !== 'agents') fs.appendFileSync(process.env.SHELLBY_FAKE_BG_LOG, `${args.join(' ')}\n`);
+  if (args[0] === 'agents') {
+    let list = '[]';
+    try { list = fs.readFileSync(process.env.SHELLBY_FAKE_BG, 'utf8'); } catch { /* none */ }
+    process.stdout.write(list);
+  } else if (args[0] === 'logs') process.stdout.write(`fake log line for ${id}\nworking on it\n`);
+  else if (args[0] === 'purge' && args.includes('--dry-run')) {
+    process.stdout.write(`Purge plan for ${id}:\n\n  dir:    C:\\fake\\.claude\\projects\\x\n           project transcripts (.jsonl) and memory/\n\nDry run: 1 item(s) would be deleted.\n`);
+  } else process.stdout.write(`${args[0]}: ${id} ok\n`);
+  process.exit(0);
+}
 const sessionId = args.includes('--resume') ? args[args.indexOf('--resume') + 1] : 'fake-session-1';
 let mode = args.includes('--permission-mode') ? args[args.indexOf('--permission-mode') + 1] : 'default';
 let turn = 0;
@@ -280,7 +303,7 @@ function onLine(line) {
   }
   out({ type: 'system', subtype: 'hook_started' });
   // SHELLBY_FAKE_AGENTS=a,b: the agents it says it has (Toolbox → Chat as checks the name against them).
-  out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: process.cwd(), permissionMode: mode, args, ...(process.env.SHELLBY_FAKE_AGENTS ? { agents: process.env.SHELLBY_FAKE_AGENTS.split(',') } : {}) });
+  out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'fake-model', cwd: workCwd, permissionMode: mode, args, ...(process.env.SHELLBY_FAKE_AGENTS ? { agents: process.env.SHELLBY_FAKE_AGENTS.split(',') } : {}) });
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.25, resetsAt: 1790000000 }, seven_day: { utilization: 0.5, resetsAt: 1790500000 } } } });
 
   if (note) text(`noted: ${note}`);
@@ -484,6 +507,37 @@ function onLine(line) {
       text('the helper is done');
       result(true);
     }, Number(process.env.SHELLBY_FAKE_SAY_MS) || 300);
+    return;
+  }
+  // Claude Code 2.1.296's own shapes for these (test/cli-new-tools.test.js).
+  if (content === 'findings') {
+    const findings = [
+      { file: 'src/app.js', line: 12, summary: 'The loop never ends on an empty list.', failure_scenario: 'items = [] → spins forever', verdict: 'CONFIRMED' },
+      { file: 'src/util.js', line: 3, summary: 'Off by one at the end.', verdict: 'PLAUSIBLE' },
+    ];
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_find', name: 'ReportFindings', input: { findings, level: 'low' } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_find', content: '2 findings reported.' }] }, tool_use_result: { count: 2, level: 'low', findings }, parent_tool_use_id: null, session_id: sessionId });
+    text('reviewed');
+    result(true);
+    return;
+  }
+  if (content.startsWith('notify ')) {
+    const message = content.slice(7);
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_push', name: 'PushNotification', input: { message, status: 'proactive' } }] }, parent_tool_use_id: null, session_id: sessionId });
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_push', content: 'Not sent — this terminal is active.' }] }, tool_use_result: { message, pushSent: false, localSent: false, disabledReason: 'user_present' }, parent_tool_use_id: null, session_id: sessionId });
+    text('told you');
+    result(true);
+    return;
+  }
+  if (content === 'worktree in' || content === 'worktree out') {
+    const wt = require('path').join(process.cwd(), '.claude', 'worktrees', 'fake-wt');
+    const into = content === 'worktree in';
+    out({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_wt', name: into ? 'EnterWorktree' : 'ExitWorktree', input: into ? { name: 'fake-wt' } : { action: 'keep' } }] }, parent_tool_use_id: null, session_id: sessionId });
+    const r = into ? { worktreePath: wt, worktreeBranch: 'worktree-fake-wt', message: 'Created' } : { action: 'keep', originalCwd: process.cwd(), worktreePath: wt, worktreeBranch: 'worktree-fake-wt', restoredCwd: process.cwd() };
+    out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_wt', content: r.message || 'Exited' }] }, tool_use_result: r, parent_tool_use_id: null, session_id: sessionId });
+    workCwd = into ? wt : process.cwd();
+    text(into ? 'in the worktree' : 'back out');
+    result(true);
     return;
   }
   if (content === 'gitenv') { text(`gh:${process.env.GH_TOKEN ? 'yes' : 'no'} mcp:${process.env.GITHUB_PERSONAL_ACCESS_TOKEN ? 'yes' : 'no'} helpers:${process.env.GIT_CONFIG_COUNT || 0}`); result(true); return; }

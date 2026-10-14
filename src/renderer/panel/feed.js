@@ -260,6 +260,7 @@
           if (item.agent) return this.renderLane(item, replay);
           // One agent writing to another, a skill, a memory, Claude switching to planning (feed-native.js).
           if (item.message) return this.renderMessage(item, replay);
+          if (item.findings) return this.renderFindings(item, replay);
           if (item.name === 'EnterPlanMode' && !item.sub) this.renderPlanning(item);
           return this.renderTool(item, replay);
         case 'tool_result': return this.renderToolResult(item);
@@ -285,7 +286,7 @@
           this.wipe();
           if (this.isActive) SB.renderTodos?.(this);
           // falls through
-        case 'moved': case 'phone': case 'home': case 'home-wait': case 'pushed': case 'compacted': case 'fresh': case 'rewound': {
+        case 'moved': case 'wt-in': case 'wt-out': case 'phone': case 'home': case 'home-wait': case 'pushed': case 'compacted': case 'fresh': case 'rewound': {
           const mark = F.markFor(item, SB.compact);
           return this.append(h('div', { class: 'home-mark' }, h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: mark.icon }), mark.text));
         }

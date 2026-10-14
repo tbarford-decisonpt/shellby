@@ -49,6 +49,38 @@
       if (!replay && !item.sub) this.setStatus(`Messaged ${to}`);
     }
 
+    // A code review's findings (ReportFindings): one row each, its place in
+    // the code a link, and Fix this, which puts a prompt in the box (nothing is
+    // sent until you press Enter).
+    renderFindings(item, replay) {
+      const { list, level } = item.findings;
+      const where = f => (f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : '');
+      const ask = fs => SB.prefill(fs.length === 1
+        ? `Fix this finding${where(fs[0]) ? ` in ${where(fs[0])}` : ''}: ${fs[0].summary || fs[0].short}`
+        : `Fix these findings from the review:\n${fs.map((f, i) => `${i + 1}. ${where(f) ? `${where(f)}: ` : ''}${f.summary || f.short}`).join('\n')}`);
+      const row = f => {
+        const scenario = f.scenario ? h('details', { class: 'finding-why' }, h('summary', { text: 'How it goes wrong' }), h('div', { text: f.scenario })) : null;
+        return h('li', { class: 'finding' },
+          h('div', { class: 'finding-head' },
+            f.verdict ? h('span', { class: `finding-verdict ${f.verdict.toLowerCase()}`, text: f.verdict === 'CONFIRMED' ? 'Confirmed' : 'Plausible' }) : null,
+            f.file ? SB.fileLink(f.file, { line: f.line, text: `${SB.relPath(f.file, this.cwd)}${f.line ? `:${f.line}` : ''}`, cls: 'finding-where' }) : null,
+            h('button', { class: 'link-btn inline finding-fix', type: 'button', onclick: () => ask([f]) }, 'Fix this')),
+          h('div', { class: 'finding-text', text: f.summary || f.short }),
+          scenario);
+      };
+      const n = list.length;
+      const el = h('div', { class: `findings${item.sub ? ' sub' : ''}`, role: 'note', dataset: { toolId: item.id, quiet: '1' } },
+        h('div', { class: 'findings-head' },
+          h('span', { class: 'agent-msg-icon', 'aria-hidden': 'true', text: '🔎' }),
+          h('b', { text: n ? `${n} finding${n === 1 ? '' : 's'}` : 'No findings' }),
+          level ? h('span', { class: 'muted', text: ` · ${level} effort` }) : null,
+          n > 1 ? h('button', { class: 'btn slim-btn findings-fix-all', type: 'button', onclick: () => ask(list) }, 'Fix all') : null),
+        n ? h('ol', { class: 'findings-list' }, list.map(row)) : null);
+      this.tools.set(item.id, el);
+      this.append(el, item.parent);
+      if (!replay && !item.sub) this.setStatus(n ? `Found ${n} thing${n === 1 ? '' : 's'} to fix` : 'Found nothing to fix');
+    }
+
     // Claude's plan (ExitPlanMode), to read before anything changes. Any line of
     // it can take a note; notes go back together as the reason it wasn't
     // approved yet (feed-logic.js planNotesMessage), and Claude revises it.

@@ -12,6 +12,10 @@
   // or null for any other kind. compact: SB.compact, for token counts.
   function markFor(item, compact) {
     switch (item.kind) {
+      case 'wt-in':
+        return { icon: '⑂', text: `Claude moved into a worktree of its own: branch ${item.branch}. Changes here are its.` };
+      case 'wt-out':
+        return { icon: '⑂', text: item.removed ? 'Claude left its worktree and removed it' : 'Claude left its worktree and kept it' };
       case 'moved':
         return { icon: '⑂', text: `Moved into its own copy before changing anything: branch ${item.branch} (from ${item.base})` };
       case 'phone':

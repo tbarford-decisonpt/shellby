@@ -2006,6 +2006,18 @@
           <p class="small muted">Commands a turn put in the background. Shellby hears when they start, never when they stop, so these are worth a look rather than a promise.</p>
           <ul class="bg-list" id="bgList"></ul>
         </div>
+        <div class="bg-left bgs" id="bgsBox" hidden>
+          <div class="bg-head">
+            <b>Background sessions</b>
+            <button type="button" class="btn ghost slim-btn" id="bgsRefresh">Refresh</button>
+          </div>
+          <p class="small muted">Claude Code working on its own: <code>claude --bg</code>, or /fork in a terminal. He tells you when one needs you or finishes. Open carries the conversation on in Shellby.</p>
+          <ul class="bgs-list" id="bgsList"></ul>
+          <div class="bgs-logs" id="bgsLogs" hidden>
+            <div class="bg-head"><b id="bgsLogsTitle">Logs</b><button type="button" class="btn ghost slim-btn" id="bgsLogsClose">Close</button></div>
+            <pre id="bgsLogsText"></pre>
+          </div>
+        </div>
         <div class="sl-card" id="slCard">
           <div class="sl-head">
             <b>Status line</b>

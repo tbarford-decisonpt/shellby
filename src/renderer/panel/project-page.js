@@ -39,7 +39,8 @@
     const clones = section('clones', ...clonesPart(p));
     const present = new Set([...cards.map(([key]) => key), 'clones']);
     const foot = h('div', { class: 'row wrap pj-detail-foot' },
-      h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Remove from Projects', onclick: () => removeProject(p) }));
+      h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Remove from Projects', onclick: () => removeProject(p) }),
+      main && h('button', { type: 'button', class: 'btn ghost slim-btn', text: "Forget Claude's history here…", title: "Delete Claude Code's transcripts, to-dos and memory for this folder (claude purge). Your code isn't touched.", onclick: () => forgetClaude(p, main.root) }));
     SB.keepFocus($('pjDetailScreen'), () => $('pjDetailScreen').replaceChildren(
       head(p), needsStrip(p), jumpLinks(present), ...cards.map(([, el]) => el), clones, foot,
     ));
@@ -159,6 +160,15 @@
     if (!r?.ok) return SB.toast("Couldn't remove it.");
     SB.toast(`${p.name} is off the list. Its folder is untouched.`);
     P.closeProject();
+  }
+
+  // claude purge, asked about in main's own dialog (projects/ipc.js).
+  async function forgetClaude(p, root) {
+    const r = await api.forgetClaude(root);
+    if (r?.cancelled) return;
+    if (r?.nothing) return SB.toast(`Claude Code keeps nothing for ${p.name}.`);
+    if (!r?.ok) return SB.toast(r?.error || "Couldn't forget it.");
+    SB.toast(`Claude Code has forgotten ${p.name}. Your code is untouched.`);
   }
 
   P.renderDetail = renderDetail;

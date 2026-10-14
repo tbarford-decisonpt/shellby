@@ -17,11 +17,13 @@ const EVENTS = Object.freeze({
   ci: { label: 'A build goes red or green', default: false, priority: 'normal' },
   // A workflow's own "tell me on my phone" step: asked for by name, so on by default.
   workflow: { label: 'A workflow sends you a message', default: true, priority: 'normal' },
+  // Claude's own PushNotification tool: it decided this was worth a buzz.
+  claude: { label: 'Claude asks to let you know something', default: true, priority: 'normal' },
 });
 
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 
-const EMOJI = { asking: '🦀', done: '✅', limit: '😴', queue: '🌙', health: '🥵', ci: '🔴', workflow: '⚡', phone: '📱' };
+const EMOJI = { asking: '🦀', done: '✅', limit: '😴', queue: '🌙', health: '🥵', ci: '🔴', workflow: '⚡', phone: '📱', claude: '🔔' };
 
 /**
  * One event -> what every provider sends.
@@ -108,6 +110,12 @@ function describeEvent(event) {
         ...base, tags: ['crab', 'iphone'],
         title: clip(e.title, MAX_TITLE) || 'Shellby',
         body: String(e.body ?? '').split('\n').map(l => clip(l, MAX_BODY)).filter(Boolean).join('\n').slice(0, MAX_BODY * 2),
+      };
+    case 'claude':
+      return {
+        ...base, tags: ['crab', 'bell'],
+        title: project ? `Claude, in ${project}` : 'Claude',
+        body: clip(e.body, MAX_BODY) || '',
       };
     case 'workflow':
       return {

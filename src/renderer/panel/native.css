@@ -72,6 +72,26 @@
 .agent-msg-sum { font-size: var(--fs-11-5); }
 .agent-msg-text { margin-top: 3px; color: var(--sand-dim); white-space: pre-wrap; word-break: break-word; }
 
+/* A code review's findings (ReportFindings). */
+.findings {
+  margin: 6px 0 10px; padding: 7px 10px; border-radius: var(--r-sm);
+  background: var(--reef); border: 1px solid var(--line); border-left: 2px solid var(--amber);
+  font-size: var(--fs-12-5);
+}
+.findings.sub { margin-left: 4px; }
+.findings-head { display: flex; align-items: baseline; gap: 2px; flex-wrap: wrap; color: var(--sand); }
+.findings-fix-all { margin-left: auto; }
+.findings-list { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 8px; }
+.finding-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.finding-verdict { padding: 0 6px; border-radius: 999px; font: 700 var(--fs-10-5) var(--font-mono); text-transform: uppercase; border: 1px solid currentColor; }
+.finding-verdict.confirmed { color: var(--danger); }
+.finding-verdict.plausible { color: var(--amber); }
+.finding-where { font-family: var(--font-mono); font-size: var(--fs-11-5); }
+.finding-fix { margin-left: auto; }
+.finding-text { margin-top: 2px; color: var(--sand-dim); white-space: pre-wrap; word-break: break-word; }
+.finding-why summary { cursor: pointer; color: var(--sand-dim); font-size: var(--fs-11-5); }
+.finding-why div { margin-top: 2px; color: var(--sand-dim); white-space: pre-wrap; word-break: break-word; }
+
 /* A skill Claude reached for: what it's for. A memory it wrote down. */
 .tool.skill-use > summary .t-label { color: var(--glass); }
 .skill-why, .memory-why {

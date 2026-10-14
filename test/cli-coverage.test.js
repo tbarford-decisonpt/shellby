@@ -70,6 +70,6 @@ test('a new flag, command or tool is reported, and MCP tools never are', () => {
 test('a dropped flag is reported gone, and a shared gap is listed once', () => {
   const c = cov.coverageOf({ help: HELP.replace(/^ {2}--tmux .*$/m, ''), tools: null });
   assert.deepEqual(c.gone.flags, ['--tmux']);
-  const bg = c.gaps.filter(g => g.what.startsWith('Background sessions'));
-  assert.equal(bg.length, 1);
+  const brief = c.gaps.filter(g => g.what.startsWith('SendUserMessage'));
+  assert.equal(brief.length, 1, '--brief and SendUserMessage share one gap');
 });

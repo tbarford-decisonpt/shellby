@@ -53,6 +53,41 @@ function wireSessions(d) {
     d.speak(r?.kind === 'fixed' ? 'fixed' : voice.occasionForCommand(kind));
   }
 
+  // Claude's PushNotification tool. Claude Code itself declines to send one
+  // here ("this terminal is active"), so Shellby delivers it: he says it, a
+  // toast when the panel isn't in front, and your phone if you ticked it.
+  function claudeNotified(tabId, tab, message) {
+    const text = String(message || '').trim();
+    if (!text || d.CAPTURE) return;
+    d.sayText?.(text, 'claude-notify');
+    const title = tab?.title || 'a conversation';
+    if (!(d.panel?.isVisible() && d.panel?.isFocused())) d.notify?.(`Claude, in ${title}`, text.slice(0, 200), () => d.showPanel({ tabId }));
+    d.tellChannel?.({ kind: 'claude', project: tab?.title, body: text });
+  }
+
+  // Claude Code moving the conversation into a worktree of its own
+  // (EnterWorktree) and back (ExitWorktree). Claude Code keeps launching from
+  // the folder it started in, and finds the conversation's record there, so
+  // session.cwd stays; the changes view and the panel follow the worktree.
+  // A restarted conversation (its init) is back where it started.
+  function claudeWorktree(tabId, tab, item) {
+    const m = d.manager;
+    if (item.kind === 'init') {
+      if (item.cwd && path.resolve(item.cwd) === path.resolve(tab.claudeWorktree.path)) return;
+      tab.claudeWorktree = null;
+      return m.changed();
+    }
+    const w = item.worktree;
+    if (w.entered) {
+      tab.claudeWorktree = { path: w.entered, branch: w.branch };
+      m.note(tabId, { kind: 'wt-in', branch: w.branch, path: w.entered });
+    } else {
+      tab.claudeWorktree = null;
+      m.note(tabId, { kind: 'wt-out', removed: !!w.removed });
+    }
+    m.changed();
+  }
+
   function currentCwd() {
     const cwd = d.config.get('cwd');
     return cwd && fs.existsSync(cwd) ? cwd : os.homedir();
@@ -143,6 +178,7 @@ function wireSessions(d) {
         const waiting = item.toolbox.mcp_servers.filter(s => s.status === 'needs-auth' && !nudgedSignIn.has(s.name)).map(s => s.name);
         for (const n of waiting) nudgedSignIn.add(n);
         if (waiting.length) d.send(d.panel, 'mcp:needs-auth', { tabId, names: waiting });
+        if (tab.claudeWorktree) claudeWorktree(tabId, tab, item);
         return; // toolbox lists are large; the panel doesn't need them per tab
       }
       if (item.kind === 'commands') {
@@ -190,6 +226,8 @@ function wireSessions(d) {
       }
       if (item.kind === 'tool') changes.noteTool(touchOf(tabId)?.touch, item); // what this turn could have written
       if (item.kind === 'tool') d.onToolSpoken(item);
+      if (item.kind === 'tool' && item.name === 'PushNotification') claudeNotified(tabId, tab, item.detail);
+      if (item.kind === 'tool_result' && item.worktree && !item.parent) claudeWorktree(tabId, tab, item);
       // Claude writing code (or reading round): whatever bug is on the loose in that project is being worked on, and fought.
       if (item.kind === 'tool') d.bugdex?.tool(tabId, item);
       if (item.kind === 'tool_result' && d.pendingCommands.has(item.id)) {
@@ -276,7 +314,7 @@ function wireSessions(d) {
     const now = Date.now();
     touches = touches.filter(t => t.tabId !== tab.id && (t.end == null || now - t.end < TOUCH_KEEP_MS));
     touches.push({ tabId: tab.id, touch: changes.newTouch(), start: now, end: null });
-    const cwd = tab.session?.cwd;
+    const cwd = tab.claudeWorktree?.path || tab.session?.cwd;
     // The files of a folder on another computer are over there: no picture of them here.
     if (!cwd || d.CAPTURE || d.remoteService?.placeOf(cwd)) return null;
     // A picture of the dev server as it is, alongside and never in the way (wiring/shots.js).
@@ -306,7 +344,8 @@ function wireSessions(d) {
     turnStarts.delete(tabId);
     const mine = touchOf(tabId);
     if (mine) mine.end = Date.now();
-    const cwd = d.manager.tabs.get(tabId)?.session.cwd;
+    const t = d.manager.tabs.get(tabId);
+    const cwd = t?.claudeWorktree?.path || t?.session.cwd;
     if (cwd) fileIndex.forget(cwd); // what it created can be @-mentioned straight away
     if (!start) { d.shotsAfterTurn?.(tabId, null); return; }
     try {
