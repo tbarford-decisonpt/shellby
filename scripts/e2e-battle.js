@@ -120,8 +120,10 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     const blow = b?.moves.at(-3);
     check(b?.over === 'caught' && b.moves.slice(-2).map(m => m.fx).join() === 'ko,caught' && blow.move === 'tests' && blow.dmg > 0 && blow.hp === 0,
       `the passing suite lands the last blow, then it's out and in the jar (${b?.over}, ${blow?.move} ${blow?.fx} ${blow?.dmg})`);
-    check(b?.report?.qualities.rootCause === true && b.report.qualities.proof === false && blow.finisher === 'root',
-      `the fix report picks the finisher: Root Cut, no Proof Strike without a new test (${JSON.stringify(b?.report?.qualities)} ${blow?.finisher})`);
+    // Finishers land in order (battle.js finishersFor): Root Cut, then the helper's Crew Combo. Not first try: it took patches.
+    const finishers = (b?.moves || []).filter(m => m.finisher).map(m => m.finisher).join();
+    check(b?.report?.qualities.rootCause === true && b.report.qualities.proof === false && finishers === 'root,crew',
+      `the fix report picks the finishers: Root Cut, then Crew Combo, no Proof Strike without a new test (${JSON.stringify(b?.report?.qualities)} ${finishers})`);
     if (b?.over !== 'caught') console.log(JSON.stringify({ battles: await ev('shellby.getBugBattles()'), loose: (await ev('shellby.getBugdex()')).loose }).slice(0, 1500));
     if (SHOTS) {
       for (let i = 0; i < 6; i++) { await wait(1400); await snap(`finish-${i}`); }

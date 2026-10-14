@@ -108,7 +108,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await panel.ev("document.getElementById('xpLevel').textContent") === String(after.level), 'Trophies shows the level');
     check(await panel.ev("document.querySelectorAll('#xpLog li').length") >= 5, 'Trophies shows the XP log');
     const next = await panel.ev("document.getElementById('xpNext').parentElement.textContent");
-    check(/^[\d,]+ XP to level \d+ · (unlocks .+|.+ at level \d+, [\d,]+ XP to go)$/.test(next) && !/Shell shell/.test(next), `Trophies shows the next level and unlock on one line (${next})`);
+    // The next level on its line; what it unlocks on the levels-ui.js bar under it.
+    const bar = await panel.ev("document.querySelector('#lvNext .lv-next-text')?.textContent || ''");
+    check(/^[\d,]+ XP to level \d+$/.test(next) && /^Next: .+ at Lv \d+, [\d,]+ XP to go$/.test(bar) && !/Shell shell/.test(bar),
+      `Trophies shows the next level, and the next unlock on its bar (${next} | ${bar})`);
     check(await panel.ev("document.querySelector('.xp-ways-box').open") === false, 'the ways to earn start folded');
     check(await panel.ev("document.querySelectorAll('#xpBountyList li').length") === 3, "Trophies shows today's three bounties");
     check(await panel.ev("document.querySelectorAll('#xpSpark i').length") === 30, 'Trophies shows the last 30 days');
