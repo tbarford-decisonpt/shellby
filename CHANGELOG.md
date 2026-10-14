@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.84.0: Background sessions, server logs beside the chat, and combining tries
+
+### New
+- **Take one file from the other try.** Comparing two tries now has **Take theirs** on every file, so you can keep this one but use the other's version of a single file. It never overwrites a file you've changed since you compared.
+- **Combine them.** One button asks Claude to read the other try and bring its best parts into this one, then say what it took and why.
+- **See how each try went.** A comparison shows each try's turns, time, last test run and the last thing Claude said, and marks every file as changed here, changed there, or changed by both since they split.
+- **Background sessions.** Claude Code sessions running in the background (`claude --bg`, or /fork in a terminal) show up in Settings → Everywhere. He tells you when one needs input or finishes, by toast and on your phone. Each one has Open (it carries on as a tab here), Logs, Stop, Respawn and Remove.
+- **Review findings as cards.** When Claude reports what a review found, each finding is a card with its file and line as a link, how it goes wrong, and a Fix this button that puts the prompt in the box. Fix all does every one.
+- **Claude can tap you on the shoulder.** When Claude decides something is worth a notification, he says it, a toast pops up if the panel's out of sight, and your phone gets it if you've connected one (Settings → Connections, "Claude asks to let you know something").
+- **Forget Claude's history here.** A project's page can delete what Claude Code keeps for that folder: transcripts, to-dos, file history and memory. Shellby lists exactly what will go before you say yes, and your code isn't touched.
+- **A dev server's log beside the chat.** On a running server's card, **Show beside the chat** opens its log in a pane next to your conversations, so you can watch it while Claude works. It keeps up as the server prints, with Restart, Stop and Open to hand. If the server crashes, the error is right there, and **Ask Claude to fix it…** takes you to its card to send it. The pane's × closes it.
+
+### Fixed
+- **The original can compare with its branches.** A conversation in your own checkout now shows an **other tries** chip once it has been branched, so you can compare and keep one from there too, not only from a branch.
+- **Branches get their packages.** A branch's copy now gets `node_modules` the way a conversation's own copy does, so its tests run straight away.
+- **Shared folders are marked.** When a branch has to share the original's folder, both tabs show ⚠, since each sees the other's changes.
+- **Every other try is listed.** The branch chip no longer stops at seven.
+- Changing the folder in a pane that held only a new, empty conversation no longer folds that pane into the one beside it: the conversation in the new folder opens in the same pane.
+
+### Changed
+- When Claude moves itself into a worktree mid-conversation, the feed says so with its branch, and the conversation's changes are read from the worktree until it leaves.
+
 ## 0.83.0: The file viewer
 
 ### New
