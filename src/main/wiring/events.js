@@ -59,12 +59,27 @@ function wireEvents(d) {
     if (!r.moved.length) return;
     save(r.state);
     push();
+    if (goalFinished(r)) d.questDone?.('goal'); // quest chapters (wiring/quest-line.js)
     if (r.finished) finished(r.event, r.key);
+  }
+
+  // A goal the stat moved is now complete.
+  function goalFinished(r) {
+    const a = events.view(r.state, today(), where()).active;
+    return !!a && a.goals.some(g => g.done && r.moved.includes(g.id));
+  }
+
+  // Every goal done in the first half of the event: a perfect tide (its own trophy stat).
+  function wasPerfect() {
+    const a = events.view(state(), today(), where()).active;
+    return !!a && a.doneAt > 0 && a.doneAt - a.startsAt <= (a.endsAt - a.startsAt) / 2;
   }
 
   function finished(id, key) {
     const ev = events.eventById(id);
     const medal = events.medalOf(key);
+    if (wasPerfect()) d.stat('tide-perfect');
+    d.questDone?.('medal');
     d.log.info(`events: finished ${key}`);
     d.stat(`event-done-${id}`); // its trophy, and the reward item with it (wardrobe/achievements.js)
     d.stat('event-medal', { n: state().medals.length });

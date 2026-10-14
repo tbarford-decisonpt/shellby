@@ -200,6 +200,7 @@ function wireProgress(d) {
       const r = checkup.recordCheckup(d.config.get('checkups'), key, name, check, result, Date.now());
       if (!r.entry) return;
       d.config.set({ checkups: r.state });
+      d.questDone?.(r.patched ? 'patched' : 'checkup'); // quest chapters (wiring/quest-line.js)
       d.send(d.panel, 'checkups', checkupsView());
       if (r.pays) awardXp('deps', { project: name, label: r.patched ? 'Patched the dependencies' : AWARDS.deps.label });
       // Known vulnerabilities are a Barnacled Anchor in the Bugdex: seen, then caught once patched.
@@ -365,6 +366,7 @@ function wireProgress(d) {
     d.config.set({ flaky: flaky.setStatus(d.config.get('flaky'), key, id, act.status, Date.now()) });
     d.send(d.panel, 'flaky', flakyView());
     d.showPanel({ focusInput: false, tabId: res.tabId });
+    if (action === 'fix' || action === 'quarantine') d.questDone?.('flaky-look');
     return res;
   }
 
@@ -434,6 +436,7 @@ function wireProgress(d) {
   function noteAwayRun(ms, { held = false } = {}) {
     if (d.CAPTURE || !d.config) return;
     d.config.set({ weekly: weekly.recordAwayRun(d.config.get('weekly'), Date.now(), ms, { held }) });
+    if (!held) d.questDone?.('away');
   }
 
   // What the plan bought (the card's "What your plan bought you"): Claude's

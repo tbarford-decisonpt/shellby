@@ -164,7 +164,10 @@ function wireProjects(d) {
       config: d.config,
       projects: depProjects,
       isOff: () => !!d.config.get('crabOnly'),
-      toPanel: (channel, payload) => d.send(d.panel, channel, payload),
+      toPanel: (channel, payload) => {
+        d.send(d.panel, channel, payload);
+        if (channel === 'workflows:run-changed' && payload?.status === 'ok') d.questDone?.('workflow');
+      },
       notify: n => d.notify(n.title, n.body, showDepWatch, { urgent: n.urgent, action: 'Have a look' }),
     });
     d.depWatch.start();

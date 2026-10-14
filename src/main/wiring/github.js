@@ -375,6 +375,7 @@ function wireGithub(d) {
         canFix ? () => d.showBuildFix(pr.key) : open, { tone: 'problem', action: canFix ? 'Fix this build' : null });
     } else if (type === 'fixed') {
       d.stat('ci-fixed');
+      d.questDone?.('cifix');
       d.awardXp('cifix', { project: pr.repo, label: `CI back to green on ${where}` });
       d.flashState('cheer', 6500);
       d.tellChannel({ kind: 'ci', project: where, passing: true, body: `${pr.title}. Every check passes now.`, url: pr.url });

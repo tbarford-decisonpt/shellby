@@ -86,6 +86,7 @@ function registerCouncilIpc(ipcMain, d) {
       followUp: prior?.id || null, ...out, detail: undefined,
     };
     store.add(session);
+    d.questDone?.('council');
     return { ok: true, session };
   });
 }
