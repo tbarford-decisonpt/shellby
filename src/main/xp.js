@@ -447,6 +447,7 @@ function xpSummary(stateIn, now, streak = 0, { tierName = null, bounties = {} } 
   }
   return {
     ...v,
+    total: s.total, // every XP he has ever earned: a molt keeps it (v.xp counts from the last molt)
     log: s.log.slice(0, 15),
     unlock: unlockAhead(s, v, tierName),
     everLevel: levels.everLevel(s),

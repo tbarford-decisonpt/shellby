@@ -13,6 +13,7 @@ const path = require('path');
 const { savePng } = require('./lib/shot');
 const { xpForLevel } = require('../src/main/levels');
 const { tierShell } = require('../src/main/shells');
+const { ACHIEVEMENTS } = require('../src/main/wardrobe/achievements');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9431;
@@ -39,7 +40,9 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
   const d = new Date();
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const total = xpForLevel(99);
-  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ onboarded: true, xp: { total, lastDay: today } }));
+  // Reaching 99 is already his (its trophies and quest pay XP), so the molt keeps exactly `total`.
+  const unlocked = ACHIEVEMENTS.filter(a => a.stat === 'level' || a.stat === 'everLevel').map(a => a.id);
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ onboarded: true, xp: { total, lastDay: today }, wardrobe: { unlocked }, quests: { done: { 'ninety-nine': Date.now() } } }));
   const first = tierShell(1);
 
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`, '--force-prefers-no-reduced-motion'], {
@@ -79,7 +82,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     check(await until(panel, "document.getElementById('brandLevel').textContent === '1'"), `the badge shows level 1 (${await panel.ev("document.getElementById('brandLevel').textContent")})`);
     check(await until(panel, "document.getElementById('brandLevel').dataset.molt === 'I'"), 'the badge wears the molt ring I');
     const xp = await panel.ev('shellby.getXp()');
-    check(xp.level === 1 && xp.molts === 1 && xp.everLevel === 99 && xp.xp === total, `main: level 1, one molt, everLevel 99, ${total} XP kept`);
+    check(xp.level === 1 && xp.molts === 1 && xp.everLevel === 99 && xp.total - xp.xp === total, `main: level 1, one molt, everLevel 99, ${total} XP kept (${xp.total} total, ${xp.xp} since)`);
     const homes = await panel.ev('shellby.getHomes()');
     check(homes.worn === 'molt-1', `he wears tier shell I (${homes.worn})`);
     check(homes.shells.filter(s => !s.molt).every(s => !s.locked), 'every level shell is still unlocked');

@@ -35,12 +35,12 @@ async function connect(url) {
   const d = new Date();
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   // Level 99, one task short of his first mark (today's "day" XP already earned).
-  // The level trophies are already his: the day's first award reports his level,
-  // and a trophy's XP would cross the mark before the task does.
+  // The level trophies and the Reach level 99 quest are already his: the day's
+  // first award reports his level, and their XP would cross the mark before the task does.
   const short = AWARDS.task.xp - 1;
   const total = xpForLevel(99) + xpForMarks(1) - short;
-  const unlocked = ACHIEVEMENTS.filter(a => a.stat === 'level').map(a => a.id);
-  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ onboarded: true, xp: { total, lastDay: today }, wardrobe: { unlocked } }));
+  const unlocked = ACHIEVEMENTS.filter(a => a.stat === 'level' || a.stat === 'everLevel').map(a => a.id);
+  fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ onboarded: true, xp: { total, lastDay: today }, wardrobe: { unlocked }, quests: { done: { 'ninety-nine': Date.now() } } }));
 
   const app = spawn(path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe'), [ROOT, `--remote-debugging-port=${PORT}`], {
     stdio: 'ignore',
