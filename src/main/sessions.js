@@ -213,11 +213,13 @@ class SessionManager extends EventEmitter {
       const cost = { ...item.cost, share: Number.isFinite(share) ? share : null, ...(helpers ? { helpers } : {}) };
       item.cost = { ...cost, line: turncost.costLine(cost), detail: turncost.costDetail(cost), effortBadge: turncost.effortBadge(cost) };
     }
+    // Shellby's own /compact while the tab sat idle (wiring/idle-compact.js): its mark says so.
+    if (item.kind === 'compacted' && tab.idleCompacting) item = { ...item, trigger: 'idle' };
     if (item.kind === 'result') {
       // A note's Ask has its answer: whatever you say next is in your mode.
       if (item.ok && tab.startsIn && tab.startsIn !== 'plan') tab.session.setMode(this.followMode(tab));
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
-      tab.unread = true;
+      if (!(tab.idleCompacting && item.ok && !item.interrupted)) tab.unread = true;
       if (tab.saved) {
         this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
         this.history.markTurn?.(tab.id, null);
@@ -255,6 +257,7 @@ class SessionManager extends EventEmitter {
     if (tab.session.busy) throw new Error('Shellby is still working on the last task.');
     if (tab.inTerminal) throw new Error(IN_TERMINAL);
     tab.activeAt = Date.now();
+    tab.idleCompacting = false; // set again by wiring/idle-compact.js when the turn is its /compact
     if (!tab.saved) {
       this.history.create({ id: tab.id, title: tab.named ? tab.title : userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
       // A tab that opened in its own copy before its first message (a Next up draft):

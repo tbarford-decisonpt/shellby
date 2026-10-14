@@ -36,6 +36,7 @@ const DEFAULTS = {
   claudeInChrome: false, // conversations can use Claude in Chrome, when its extension is installed (session.js)
   shellAcknowledged: false, // ! in the box runs PowerShell commands; asked once in the confirm window (parity.js)
   claudePath: null, // set only when the user points at the CLI by hand (see claude/cli.js)
+  idleCompact: false, // compact a long conversation shortly before its hour-long cache runs out (wiring/idle-compact.js)
   planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude/cli.js)
   onboarded: false,
   firstTour: false,  // a new install's first New task offers Show me around until it's opened once (onboarding.js, feed.js)

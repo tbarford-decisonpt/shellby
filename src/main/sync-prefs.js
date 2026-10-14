@@ -56,7 +56,7 @@ const PREFS = {
   // An editor this PC doesn't have falls back to the one it does (filelinks.js pickEditor).
   editor: oneOf(filelinks.CHOICES),
   mutedSuggestions: v => (Array.isArray(v) ? [...new Set(v.filter(f => typeof f === 'string' && SUGGESTABLE[f]))] : undefined),
-  surprises: bool, tideEvents: bool, signCommits: bool, catchBugs: bool, bugBattles: bool, bugFollower: bool, checkEachTurn: bool, turnShots: bool, worktrees: bool, clashWarnings: bool, planOnly: bool,
+  surprises: bool, tideEvents: bool, signCommits: bool, catchBugs: bool, bugBattles: bool, bugFollower: bool, checkEachTurn: bool, turnShots: bool, worktrees: bool, clashWarnings: bool, planOnly: bool, idleCompact: bool,
   perch: oneOf(PERCH_SETTINGS),
   climb: oneOf(CLIMB_SETTINGS),
   mischief: oneOf(mischief.LEVELS),
@@ -101,7 +101,7 @@ const LABELS = Object.freeze({
   wander: 'wandering', onTop: 'always on top', sounds: 'his voice', soundFx: 'sound effects', needsOn: 'snacks and naps',
   forecast: 'forecast', spendGuard: 'limit guard', holdBigTasks: 'holding big tasks', flakyTests: 'flaky tests', surprises: 'surprises', tideEvents: 'tide events', signCommits: 'signed commits',
   catchBugs: 'bug catching', bugBattles: 'bug battles', bugFollower: 'his favourite catch', checkEachTurn: 'checks after each turn',
-  turnShots: 'turn screenshots', worktrees: 'copies', clashWarnings: 'clash warnings', planOnly: 'plan only', perch: 'perching',
+  turnShots: 'turn screenshots', worktrees: 'copies', clashWarnings: 'clash warnings', planOnly: 'plan only', idleCompact: 'idle compaction', perch: 'perching',
   climb: 'climbing', mischief: 'mischief', mischiefPranks: 'pranks', colony: 'pals', chatter: 'chatter', ambient: 'ambient sound',
   soundVolume: 'volume', spendReserve: 'limit reserve', spendMaxMinutes: 'limit wait', checkTimeoutMin: 'check time limit',
   workOverrides: 'Work mode', snippets: 'snippets', pinnedTools: 'pins',

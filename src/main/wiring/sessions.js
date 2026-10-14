@@ -10,6 +10,7 @@ const changeStory = require('../change-story');
 const checkup = require('../checkup');
 const ctx = require('../context');
 const fileIndex = require('../fileindex');
+const { compactIdleTabs } = require('./idle-compact');
 const prBadges = require('../github/pr-badge');
 const outputStyles = require('../outputstyles');
 const recap = require('../recap');
@@ -292,6 +293,8 @@ function wireSessions(d) {
     setInterval(() => {
       const stopped = d.manager.stopIdle(d.TAB_IDLE_STOP_MS);
       if (stopped.length) d.log.info('Stopped idle tabs', `${stopped.length} quiet for ${d.TAB_IDLE_STOP_MS / 60000} min`);
+      const compacted = compactIdleTabs(d);
+      if (compacted.length) d.log.info('Compacted idle tabs', `${compacted.length} before their cache ran out`);
     }, d.TAB_IDLE_CHECK_MS).unref?.();
   }
 

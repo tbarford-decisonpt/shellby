@@ -245,6 +245,12 @@ function wireTimetrack(d) {
     // What it cost, for estimates next time (usage/ledger.js). Never worth losing the rest of the turn's end over.
     try { d.usagePlan?.endTurn(tab, item); } catch (err) { d.log.info(`usage plan: ${err.message}`); }
     tab.guardRun = null;
+    // Shellby compacted it while it sat idle (wiring/idle-compact.js): nobody
+    // asked for it, so no toast, phone ping, XP or "finished" anywhere. One that
+    // failed is told like any other failed turn.
+    const idleCompacted = tab.idleCompacting;
+    tab.idleCompacting = false;
+    if (idleCompacted && item.ok && !item.interrupted) return;
     d.noteWorkTime(item.durationMs); // the week's "hours of Claude work", stopped or not
     const fresh = tab.freshWanted;
     tab.freshWanted = false;

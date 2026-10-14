@@ -282,6 +282,13 @@ test('powers: writing files and using the network are high, reading files is med
   assert.equal(M.powers({ hooks: ['tool.call'] }).list[0].risk, 'medium');
 });
 
+test('powers: reading what you attach to a message is its own medium power', () => {
+  // Claude Code 2.1.290+: $.prompt.media hands a mod the bytes of attached images and documents.
+  assert.deepEqual(M.powers({ calls: ['$.prompt.media'] }), {
+    list: [{ text: 'Reads the pictures and documents you attach', risk: 'medium' }], other: [],
+  });
+});
+
 test('powers: each power is listed once, and calls nothing describes go to other', () => {
   const p = M.powers({ calls: ['$.process.run', '$.process.spawn', '$.mystery.thing', '$.ui.log', '$.ui.toast'], hooks: ['not.a.known.hook'] });
   assert.equal(p.list.filter(x => x.text === 'Runs programs on your PC').length, 1);

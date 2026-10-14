@@ -1922,6 +1922,8 @@
         <p class="small muted">Claude gets a short note about Shellby and can make him talk, celebrate or dress up. The note never changes, so Claude Code caches it and it costs very little of your plan. When your usage passes 80%, Claude is told so it can keep things lean. Offers show up as cards and nothing happens unless you tap them. Changes apply to new conversations.</p>
         <label class="toggle"><input type="checkbox" id="plainCardsToggle"><span class="switch"></span>Say what Claude is doing in plain words</label>
         <p class="small muted">Permission cards and the Working bar say what a step does ("Run your tests in its own copy of the repo") and point out deletes, files outside the project, installs and anything that goes online. The command itself is still shown. Worked out by Shellby from the step itself, so it costs no usage.</p>
+        <label class="toggle"><input type="checkbox" id="idleCompactToggle" aria-describedby="idleCompactText"><span class="switch"></span>Compact long conversations while they're idle</label>
+        <p class="small muted" id="idleCompactText">A conversation of 200K tokens or more that sits quiet for 54 minutes gets compacted just before its prompt cache runs out. That way your next message doesn't send the whole conversation again at full price. It uses some of your plan while you're away, even on a tab you never go back to. A project whose Claude Code settings say "idleCompaction": false is left alone.</p>
         <div class="row wrap" id="mutedSuggestRow" hidden>
           <span class="small muted" id="mutedSuggestText"></span>
           <button type="button" class="btn slim-btn" id="unmuteSuggestBtn">Offer them again</button>
