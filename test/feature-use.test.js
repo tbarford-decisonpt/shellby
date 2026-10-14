@@ -21,7 +21,8 @@ test('only known screens count', () => {
 
 test('the rooms and the Shellby screen tabs are all counted', () => {
   const ids = F.SCREENS.map(s => s.id);
-  for (const id of ['history', 'bugdex', 'tank', 'beach', 'shop', 'routines', 'time', 'wardrobe', 'chat']) assert.ok(ids.includes(id), id);
+  for (const id of ['history', 'bugdex', 'tank', 'us', 'shop', 'routines', 'time', 'wardrobe', 'chat']) assert.ok(ids.includes(id), id);
+  assert.ok(!ids.includes('beach'), 'the beach is part of Us');
   assert.equal(new Set(ids).size, ids.length, 'no screen twice');
   assert.ok(F.SCREENS.every(s => s.name && s.text), 'each has a name and a line on what it is for');
 });
@@ -40,7 +41,7 @@ test('report: most used first, quiet after 30 days, and what was never opened', 
   const r = F.report(s, T0 + 2 * DAY);
   assert.deepEqual(r.used.map(x => [x.id, x.n]), [['chat', 5], ['projects', 2]]);
   assert.deepEqual(r.quiet.map(x => x.id), ['tank']);
-  assert.ok(r.never.some(x => x.id === 'beach'));
+  assert.ok(r.never.some(x => x.id === 'us'));
   assert.ok(!r.never.some(x => ['chat', 'projects', 'tank'].includes(x.id)));
   assert.equal(r.since, T0, 'counting began with the first visit recorded');
 });

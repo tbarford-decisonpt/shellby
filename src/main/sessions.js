@@ -214,6 +214,8 @@ class SessionManager extends EventEmitter {
       item.cost = { ...cost, line: turncost.costLine(cost), detail: turncost.costDetail(cost), effortBadge: turncost.effortBadge(cost) };
     }
     if (item.kind === 'result') {
+      // A note's Ask has its answer: whatever you say next is in your mode.
+      if (item.ok && tab.startsIn && tab.startsIn !== 'plan') tab.session.setMode(this.followMode(tab));
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
       tab.unread = true;
       if (tab.saved) {
@@ -393,7 +395,11 @@ class SessionManager extends EventEmitter {
   }
 
   respond(tabId, requestId, decision, message, answers, via) {
-    return this.tabs.get(tabId)?.session.respond(requestId, decision, message, answers, via) || false;
+    const tab = this.tabs.get(tabId);
+    if (!tab) return false;
+    // A note's Plan, approved: the work goes on in your mode, not Claude Code's default.
+    const planApproved = tab.startsIn === 'plan' && decision !== 'deny' && tab.session.pending.get(requestId)?.toolName === 'ExitPlanMode';
+    return tab.session.respond(requestId, decision, message, answers, via, planApproved ? this.followMode(tab) : null) || false;
   }
 
   interrupt(tabId) { this.tabs.get(tabId)?.session.interrupt(); }
@@ -487,6 +493,21 @@ class SessionManager extends EventEmitter {
 
   setMode(mode) {
     for (const tab of this.tabs.values()) if (!tab.pinnedMode) tab.session.setMode(mode);
+  }
+
+  // A note's Ask or Plan (ipc/notes.js) keeps the mode it opened in only to
+  // start: Ask's until its first answer is in, Plan's until you approve the
+  // plan. From then on it's an ordinary conversation, in your mode.
+  modeToStart(tabId) {
+    const tab = this.tabs.get(tabId);
+    if (tab?.pinnedMode) tab.startsIn = tab.session.mode;
+  }
+
+  // Its opening's done: it follows your mode from now on. -> that mode
+  followMode(tab) {
+    tab.startsIn = null;
+    tab.pinnedMode = false;
+    return this.getMode();
   }
 
   // The default changed: the conversations following it follow it now. One

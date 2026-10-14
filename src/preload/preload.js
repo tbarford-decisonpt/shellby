@@ -63,8 +63,8 @@ contextBridge.exposeInMainWorld('shellby', {
 
   // file links (Settings → Editor) and the panel's text size
   openFile: (tabId, target, /** @type {{ line?: number, reveal?: boolean }} */ { line, reveal } = {}) => ipcRenderer.invoke('file:open', { tabId, target, line, reveal }),
-  getEditors: invoke('editors:get'),
-  zoom: invoke('panel:zoom'),
+  getEditors: invoke('editors:get'), zoom: invoke('panel:zoom'),
+  viewerOpen: invoke('viewer:open'), viewerTree: invoke('viewer:tree'), viewerChanges: invoke('viewer:changes'), viewerRead: invoke('viewer:read'), viewerDiff: invoke('viewer:diff'), viewerLocate: invoke('viewer:locate'), viewerBranch: invoke('viewer:branch'), viewerClose: invoke('viewer:close'), viewerPlaces: invoke('viewer:places'), viewerSwitch: invoke('viewer:switch'), onViewerStale: on('viewer:stale'), // the file viewer (main's viewer.js), read-only
   claudeStatus: invoke('claude:status'),
   claudeLogin: invoke('claude:login'),
   claudeLogout: (opts = {}) => ipcRenderer.invoke('claude:logout', { thenSignIn: !!opts.thenSignIn }), // thenSignIn: "Switch account"
@@ -103,7 +103,7 @@ contextBridge.exposeInMainWorld('shellby', {
   runShell: (tabId, command) => ipcRenderer.invoke('shell:run', { tabId, command }),
   askBtw: (tabId, question) => ipcRenderer.invoke('btw:ask', { tabId, question }),
   rewindPoints: invoke('rewind:points'),
-  outline: invoke('outline:get'),             // every message and the files its turn touched (outline.js)
+  outline: invoke('outline:get'), trailTests: (tabId, files) => ipcRenderer.invoke('trail:tests', { tabId, files }), // every message and the files its turn touched (outline.js); the tests named after changed files (shared/trail.js)
   rewind: (tabId, turnId, opts) => ipcRenderer.invoke('rewind:run', { tabId, turnId, ...opts }),
   clearTab: invoke('tab:clear'), // /clear: a new conversation in this tab (not clearSessions, which empties History)
   exportSession: (id, to) => ipcRenderer.invoke('session:export', { id, to }),
@@ -195,9 +195,9 @@ contextBridge.exposeInMainWorld('shellby', {
   pickAnyFolder: invoke('folder:pick-any'),
   setFolder: invoke('folder:set'),
   reloadSkins: invoke('skins:reload'),
-  openSkinsFolder: fire('skins:open-folder'),
-  openDataFolder: fire('open-data-folder'),
+  openSkinsFolder: fire('skins:open-folder'), openDataFolder: fire('open-data-folder'),
   openExternal: fire('open-external'),
+  reportProblem: fire('feedback:problem'), suggestIdea: fire('feedback:idea'), // GitHub drafts (wiring/tray.js)
   pickTextMenu: fire('text-menu:pick'), // the right-click menu for text (textmenu.js, main/context-menu.js)
   onTextMenu: on('text-menu'),
 
@@ -526,7 +526,7 @@ contextBridge.exposeInMainWorld('shellby', {
   flakyAct: invoke('flaky:act'),
   forgetFlaky: invoke('flaky:forget'),
   onFlaky: on('flaky'),
-  onFlakyFocus: on('flaky:focus'),
+  onCodeHealthFocus: on('code-health:focus'),
   getWeek: invoke('week:get'),
   onWeekReady: on('week:ready'),
   // time on each project (src/main/timetrack-service.js)
@@ -624,6 +624,7 @@ contextBridge.exposeInMainWorld('shellby', {
   getStartupApps: invoke('health:startup'),
   askAboutStartup: invoke('health:ask-startup'),
   setStartupApp: invoke('health:set-startup'),
+  getLhmUpdate: invoke('health:lhm-update'),
   healthViewed: fire('health:viewed'),
   onHealth: on('health'),
   onHealthLog: on('health:log'),

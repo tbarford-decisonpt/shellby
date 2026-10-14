@@ -8,7 +8,8 @@
 
   // ------------------------------------------------------------ bar + gear
 
-  SB.goBack = () => SB.setView(SB.PARENT_VIEW[state.view] || SB.homeView());
+  // A view may name its own way back (the file viewer: where it was opened from).
+  SB.goBack = () => SB.setView(SB.views[state.view]?.parent?.() || SB.PARENT_VIEW[state.view] || SB.homeView());
 
   const navButtons = [...document.querySelectorAll('[data-view-btn]')];
   // In bar order, which Work mode changes (workmode.js), so Ctrl+1… follow it.
@@ -208,6 +209,7 @@
       idle && act('fresh', '↻', 'Start fresh with a summary', 'Claude writes a handoff note, then a new conversation picks it up in this tab', () => SB.startFresh(tab), null, 'context handoff new summary compact'),
       idle && act('clear', '⌫', 'Clear', 'A new conversation in this tab, with nothing carried over (/clear)', () => SB.clearConversation(tab), null, 'clear reset new context forget wipe'),
       act('outline', '☰', 'Outline', 'Every message you sent, and the files each turn touched. Pick one to go there', () => SB.openOutline(tab), 'outline', 'go to jump turns messages files symbol navigate'),
+      act('trail', '⋰', SB.trailOpen?.() ? 'Close the trail' : 'Trail', 'The files Claude has read, searched and changed, with him walking it, and a replay of every step', () => SB.toggleTrail(undefined, { focus: true }), 'trail', 'explorer files tree sidebar map where footprints walk replay'),
       act('problems', '⚠', 'Problems', 'The errors its checks found, file by file, each with Fix it', () => SB.openProblems(tab), 'problems', 'errors lint typecheck tsc diagnostics warnings failing'),
       SB.hasClosed?.() && act('reopen', '↺', 'Reopen the conversation you closed', 'Picked up from History, where you left it', () => SB.reopenClosed(), 'reopenTab', 'undo close restore bring back tab'),
       (tab.saved || !tab.isEmpty) && act('close', '×', 'Close this conversation', tab.saved ? 'It stays in History' : 'Nothing’s been sent yet', () => SB.closeTabSafely(tab.id), 'closeTab', 'tab'),
@@ -301,9 +303,8 @@
       claude() && { icon: '🏛️', title: 'Shellby: council', sub: 'Advisor crabs argue a decision out, and he rules on it', keys: 'council advisors debate decide decision opinions verdict vote board panel second opinion', run: go('council') },
       { icon: '🐚', title: 'Shellby: finds', sub: 'Everything he’s dug up for you', keys: 'gifts shelf treasure dig collection sets', run: go('finds') },
       claude() && { icon: '🫙', title: 'Shellby: Bugdex', sub: 'Every kind of bug Claude has fixed for you', keys: 'bugdex bugs errors caught collection dex', run: go('bugdex') },
-      { icon: '💞', title: 'Shellby: us', sub: 'How close you are, your story, games, your birthday', keys: 'bond friendship memories journal birthday temperament scenes', run: go('us') },
+      { icon: '💞', title: 'Shellby: us', sub: 'Your beach, how close you are, your story, games', keys: 'bond friendship memories journal birthday temperament scenes beach sandcastle castles shipped projects tide streak snapshot share', run: go('us') },
       { icon: '🪸', title: 'Shellby: tank', sub: 'Decorate his tank with castles, plants and his finds', keys: 'tank aquarium home decorate decor castle plants treasure chest room furniture', run: go('tank') },
-      { icon: '🏖️', title: 'Shellby: beach', sub: 'A sandcastle for every project you’ve shipped', keys: 'beach sandcastle castles shipped projects tide streak snapshot share', run: go('beach') },
       { icon: '🙈', title: 'Play hide and seek', sub: 'He hides behind your windows', keys: 'game play hide seek', run: () => SB.play('hide') },
       { icon: '🎾', title: 'Play fetch', sub: 'Throw him a pebble', keys: 'game play fetch ball throw', run: () => SB.play('fetch') },
       claude() && SB.isWorkMode?.() && { icon: '🦀', title: 'Leave Work mode', sub: 'Everything back as it was', keys: 'work mode off crab pet lively switch', run: () => SB.switchMode('claude') },

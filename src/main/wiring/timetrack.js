@@ -337,6 +337,12 @@ function wireTimetrack(d) {
   // and summed up afterwards. Urgent ones (a task waiting for your OK, a health
   // alert) still come through.
   let toastArt; // undefined until the first notification, null if it couldn't be copied
+  // A Notification that's been garbage-collected never hears its click, so a
+  // toast clicked later from the notification centre did nothing. The latest
+  // ones are kept (not until 'close': a toast that times out is still clickable there).
+  const KEPT_TOASTS = 20;
+  let keptToasts = [];
+  const keep = n => { keptToasts = [...keptToasts, n].slice(-KEPT_TOASTS); };
   // tone picks the banner (toast.TONES); urgent ones default to 'alert'. action
   // adds a button that does what clicking the notification does. pet: a trophy,
   // level or sticker, which Work mode leaves in the panel (workmode.js).
@@ -354,6 +360,7 @@ function wireTimetrack(d) {
     const plain = () => {
       const n = new Notification({ title: title.slice(0, 80), body, icon: d.ICON });
       if (onClick) n.on('click', onClick);
+      keep(n);
       n.show();
     };
     if (toastArt === undefined) toastArt = toast.prepareArt(path.join(d.ROOT, 'assets', 'toast'), path.join(app.getPath('userData'), 'toast-art'));
@@ -362,6 +369,7 @@ function wireTimetrack(d) {
     if (onClick) n.on('click', onClick);
     // If Windows ever turns the Shellby look down, say it plainly instead.
     n.once('failed', (_e, error) => { d.log.info(`themed notification failed: ${error}`); plain(); });
+    keep(n);
     n.show();
   }
 
@@ -372,13 +380,15 @@ function wireTimetrack(d) {
   // A task started by Shellby himself (e.g. "look into why the GPU is hot"): opens
   // in its own tab in the foreground, in the current permission mode. opts.cwd
   // runs it somewhere other than the current folder (a project review).
-  function startTask(prompt, title, { mode = null, cwd = null } = {}) {
+  // opts.copyLater: yours rather than his (a note's Ask): it starts here too,
+  // but moves into a copy if you go on to have it change things.
+  function startTask(prompt, title, { mode = null, cwd = null, copyLater = false } = {}) {
     if (d.config.get('crabOnly') || !d.claudeStatus?.installed || !d.claudeStatus?.loggedIn) return { ok: false, needsClaude: true, error: 'That needs Claude Code: set it up first.' };
     try {
       const tabId = d.randomUUID();
       // His own errands work in your real checkout: a copy would start from the
       // last commit, and "look over my changes" is about what isn't committed yet.
-      openTab({ tabId, title, mode, ...(cwd ? { cwd } : {}) }).noCopy = true;
+      openTab({ tabId, title, mode, ...(cwd ? { cwd } : {}) }).noCopy = !copyLater;
       d.manager.send(tabId, prompt, { kind: 'user', text: prompt, title });
       d.wake();
       d.send(d.panel, 'tab:opened', { tabId, entry: d.history.get(tabId), items: d.history.load(tabId), background: false });

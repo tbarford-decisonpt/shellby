@@ -12,6 +12,12 @@
 // Every pane in a column carries the column's width; h is a pane's height
 // within its column.
 //
+// A pane can instead hold one tool: a tab id with a kind in front, as
+// 'server:srv-…' (a dev server's log). A tool pane holds that tool alone, takes
+// no conversations and is never dragged; its x closes the tool. Tools aren't
+// conversations: tabIds leaves them out (main's order never sees them), and a
+// layout is saved and named without them.
+//
 // Pure: no DOM, no state. The panel keeps them in SB.state.grid and SB.state.paneSizes.
 (function (root) {
   const MAX_COLS = 4;
@@ -22,13 +28,24 @@
   const PANE_ID = /^p[1-9]\d{0,5}$/;
   const EDGES = ['left', 'right', 'top', 'bottom'];
 
+  const TOOL = /^(server):([a-z0-9-]{1,40})$/;
+
+  // ------------------------------------------------------------ tools
+
+  const isTool = id => typeof id === 'string' && TOOL.test(id);
+  const toolOf = id => { const m = isTool(id) && TOOL.exec(id); return m ? { kind: m[1], target: m[2] } : null; };
+  const isToolPane = p => !!p && p.tabs.some(isTool);
+
   // ------------------------------------------------------------ reading a grid
 
   const panesOf = grid => grid.flat();
   const paneIds = grid => panesOf(grid).map(p => p.id);
   const count = grid => panesOf(grid).length;
-  // Each pane's tabs in turn: the order main keeps (and openTabs is saved in).
-  const tabIds = grid => panesOf(grid).flatMap(p => p.tabs);
+  // Each pane's conversations in turn: the order main keeps (and openTabs is saved in).
+  const tabIds = grid => panesOf(grid).flatMap(p => p.tabs).filter(id => !isTool(id));
+  const toolIds = grid => panesOf(grid).flatMap(p => p.tabs).filter(isTool);
+  // The pane conversations go to: `into` unless it holds a tool, else the first that doesn't.
+  const convPane = (grid, into) => { const p = byId(grid, into); return p && !isToolPane(p) ? p : panesOf(grid).find(x => !isToolPane(x)) || null; };
   const shownTabs = grid => panesOf(grid).map(p => p.active);
   const byId = (grid, id) => panesOf(grid).find(p => p.id === id) || null;
   const paneWith = (grid, tabId) => panesOf(grid).find(p => p.tabs.includes(tabId)) || null;
@@ -70,7 +87,8 @@
     const own = paneWith(grid, tabId);
     if (own) return own.active === tabId ? grid : withPane(grid, own.id, { active: tabId });
     if (!grid.length) return [[{ id: 'p1', tabs: [tabId], active: tabId }]];
-    const p = byId(grid, into) || grid[0][0];
+    const p = convPane(grid, into);
+    if (!p) return [[{ id: nextId(grid), tabs: [tabId], active: tabId }], ...grid];
     const tabs = [...p.tabs];
     const at = tabs.indexOf(p.active);
     tabs.splice(at < 0 ? tabs.length : at + 1, 0, tabId);
@@ -81,7 +99,7 @@
   // another pane it shows there (its old pane closes if emptied); along its own
   // pane's strip it only moves. The same grid back when it's no move at all.
   function join(grid, tabId, paneId, before = null) {
-    if (!byId(grid, paneId) || before === tabId) return grid;
+    if (!byId(grid, paneId) || before === tabId || isTool(tabId) || isToolPane(byId(grid, paneId))) return grid;
     const own = paneWith(grid, tabId);
     const same = own?.id === paneId;
     const g = own && !same ? leave(grid, tabId) : grid;
@@ -117,7 +135,11 @@
     const at = find(grid, paneId);
     if (!at || count(grid) < 2) return { grid, into: null };
     const gone = grid[at.c][at.r];
-    const into = grid[at.c][at.r - 1]?.id ?? grid[at.c][at.r + 1]?.id ?? neighbor(grid, paneId, 'left') ?? neighbor(grid, paneId, 'right');
+    const side = [grid[at.c][at.r - 1]?.id, grid[at.c][at.r + 1]?.id, neighbor(grid, paneId, 'left'), neighbor(grid, paneId, 'right')].filter(Boolean);
+    // A tool's pane just goes; a conversation pane's tabs go to a neighbour that isn't a tool's.
+    if (isToolPane(gone)) return { grid: prune(grid.map(col => col.filter(p => p.id !== paneId))), into: side[0] ?? null };
+    const into = side.find(id => !isToolPane(byId(grid, id))) ?? panesOf(grid).find(p => p.id !== paneId && !isToolPane(p))?.id;
+    if (!into) return { grid, into: null };
     const order = paneIds(grid);
     const first = order.indexOf(paneId) < order.indexOf(into);
     const out = grid
@@ -132,17 +154,18 @@
   function settle(grid, openIds, into = null) {
     const open = new Set(openIds);
     let g = grid;
-    for (const id of tabIds(grid)) if (!open.has(id)) g = leave(g, id);
+    for (const id of tabIds(grid)) if (!open.has(id)) g = leave(g, id); // tools stay: the panel closes those
     const missing = openIds.filter(id => !paneWith(g, id));
     if (!missing.length) return g;
     if (!g.length) return [[{ id: 'p1', tabs: [...missing], active: missing[0] }]];
-    const target = byId(g, into) || g[0][0];
+    const target = convPane(g, into);
+    if (!target) return [[{ id: nextId(g), tabs: [...missing], active: missing[0] }], ...g];
     return withPane(g, target.id, { tabs: [...target.tabs, ...missing] });
   }
 
   // One pane holds its tabs in the strip's own order (main's); a split keeps its own.
   function follow(grid, openIds) {
-    if (count(grid) !== 1) return grid;
+    if (count(grid) !== 1 || isToolPane(grid[0][0])) return grid;
     const p = grid[0][0];
     const tabs = openIds.filter(id => p.tabs.includes(id));
     return tabs.length === p.tabs.length && tabs.every((x, i) => x === p.tabs[i]) ? grid : [[{ ...p, tabs }]];
@@ -176,7 +199,7 @@
   // pane, or, on its own pane, shows it there (not for the tab it already shows).
   function zones(grid, paneId, tabId) {
     const target = byId(grid, paneId);
-    if (!target) return [];
+    if (!target || isTool(tabId) || isToolPane(target)) return [];
     const own = paneWith(grid, tabId);
     const g = own ? leave(grid, tabId) : grid;
     const at = find(g, paneId);
@@ -330,9 +353,9 @@
   // -> { target, zone } for place, or null.
   function moveToward(grid, tabId, dir) {
     const own = paneWith(grid, tabId);
-    if (!own) return null;
+    if (!own || isTool(tabId)) return null;
     const to = neighbor(grid, own.id, dir);
-    if (to) return { target: to, zone: 'center' };
+    if (to && !isToolPane(byId(grid, to))) return { target: to, zone: 'center' };
     if (dir !== 'left' && dir !== 'right') return null;
     const at = find(grid, own.id);
     const target = own.tabs.length > 1 ? own.id : grid[at.c].find(p => p.id !== own.id)?.id;
@@ -355,7 +378,8 @@
     if (!saved || typeof saved !== 'object' || !Array.isArray(saved.grid)) return null;
     const open = openIds && new Set(openIds);
     const seenTabs = new Set();
-    const okTab = id => typeof id === 'string' && !!id && id.length <= MAX_ID && !(id in Object.prototype) && !seenTabs.has(id) && (!open || open.has(id));
+    // Tools aren't kept over a restart: the servers they show have stopped with Shellby.
+    const okTab = id => typeof id === 'string' && !!id && id.length <= MAX_ID && !(id in Object.prototype) && !seenTabs.has(id) && !isTool(id) && (!open || open.has(id));
     const keyOf = new Map();   // a pane -> what its sizes were saved under
     const toPane = entry => {
       const old = typeof entry === 'string';
@@ -447,8 +471,10 @@
   const slotsOf = shape => shape.cols.reduce((a, c) => a + c.rows.length, 0);
   // New conversations `grid` needs to fill `shape`: one for each pane it's
   // short. `lead`, as for fromShape: each takes a pane of its own.
+  const withoutTools = grid => toolIds(grid).reduce(leave, grid);
+
   function shapeNeeds(shape, grid, lead = []) {
-    let g = grid;
+    let g = withoutTools(grid);
     const first = lead.filter(id => paneWith(g, id)).slice(0, slotsOf(shape));
     for (const id of first) g = leave(g, id);
     return Math.max(0, slotsOf(shape) - first.length - count(g));
@@ -463,7 +489,7 @@
   // for its layout). -> { grid, sizes }, or null when there aren't enough to
   // go round.
   function fromShape(shape, grid, fresh = [], lead = []) {
-    let g = grid;
+    let g = withoutTools(grid);
     const first = lead.filter(id => paneWith(g, id) && !fresh.includes(id)).slice(0, slotsOf(shape));
     for (const id of [...fresh, ...first]) g = leave(g, id);
     const groups = [...first.map(id => ({ tabs: [id], active: id })), ...panesOf(g).map(p => ({ tabs: [...p.tabs], active: p.active }))];
@@ -487,8 +513,24 @@
     return grid.map(col => col.map(p => (p.id === a ? { ...p, tabs: pb.tabs, active: pb.active } : p.id === b ? { ...p, tabs: pa.tabs, active: pa.active } : p)));
   }
 
+  // Tool `toolId` on screen beside pane `beside`: shown where it is, or in a
+  // pane of its own to the right while there's a column to spare, else below.
+  // The same grid back when there's no room.
+  function openTool(grid, toolId, beside) {
+    if (!isTool(toolId)) return grid;
+    if (paneWith(grid, toolId)) return show(grid, toolId);
+    const at = find(grid, beside) ? beside : grid[0]?.[0]?.id;
+    if (!at) return grid;
+    const fresh = { id: nextId(grid), tabs: [toolId], active: toolId };
+    const { c, r } = find(grid, at);
+    if (grid.length < MAX_COLS) { const out = [...grid]; out.splice(c + 1, 0, [fresh]); return out; }
+    if (grid[c].length < MAX_ROWS) return grid.map((col, i) => (i === c ? [...col.slice(0, r + 1), fresh, ...col.slice(r + 1)] : col));
+    return grid;
+  }
+
   const api = {
     MAX_COLS, MAX_ROWS, MIN, MAX_SHAPES,
+    isTool, toolOf, isToolPane, toolIds, openTool,
     shapeOf, cleanShape, cleanShapes, shapeNeeds, fromShape, projectKey,
     paneIds, count, tabIds, shownTabs, byId, paneWith, find, nextId, layoutKey,
     leave, show, join, nudge, merge, settle, follow,

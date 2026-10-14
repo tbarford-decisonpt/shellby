@@ -1,10 +1,10 @@
 /* Shellby panel — Dependency watch: the weekly look at outdated and vulnerable
-   packages, at the foot of the Routines page (src/main/depwatch.js). */
+   packages, under the Projects list (src/main/depwatch.js). */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
   let view = null;
-  let shown = null;              // what the list was last built from: the Routines page re-renders every minute
+  let shown = null;              // what the list was last built from: the Projects page re-renders often
   let started = new Set();       // projects with a bump task going, until the next check
   let startedFor = null;         // ...which check that was
   const INTRO = [...$('depWatchSum').childNodes].map(n => n.cloneNode(true));
@@ -45,6 +45,7 @@
   async function makeRoutine(r) {
     const draft = await api.depRoutine(r.key, r.manager);
     if (!draft) return SB.toast('Check again first: that project is no longer in the list.');
+    SB.setView('routines');
     SB.views.routines.openEditor({ ...draft, isTemplate: true });
     SB.toast('Check it over, then press Save.');
   }
@@ -68,7 +69,7 @@
   function render(v = view) {
     if (!v) return;
     view = v;
-    if (state.view !== 'routines') return;
+    if (state.view !== 'projects') return;
     $('depWatchToggle').checked = v.enabled;
     $('depWatchCheck').hidden = !v.enabled;
     $('depWatchCheck').disabled = v.scanning;
@@ -93,6 +94,6 @@
   $('depWatchCheck').addEventListener('click', async () => render(await api.scanDeps()));
   api.onDepWatch(render);
 
-  const renderRoutines = SB.views.routines.render;
-  SB.views.routines.render = () => { renderRoutines(); api.getDepWatch().then(render); };
+  const renderProjects = SB.views.projects.render;
+  SB.views.projects.render = () => { renderProjects(); api.getDepWatch().then(render); };
 })();

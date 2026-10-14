@@ -192,6 +192,32 @@ function writtenPath(name, input) {
   return typeof p === 'string' ? p : null;
 }
 
+/**
+ * A read's file and the lines it asked for, or a search's folder and pattern.
+ * -> { path, lines?: [from, to] } | { path?, pattern, mode? } | null
+ */
+const TARGET_PATH = 1000;
+function targetOf(name, input) {
+  if (!input || typeof input !== 'object') return null;
+  const str = v => (typeof v === 'string' && v.trim() ? v.slice(0, TARGET_PATH) : null);
+  if (name === 'Read' || name === 'NotebookRead') {
+    const path = str(input.file_path ?? input.notebook_path);
+    if (!path) return null;
+    const from = Number.isInteger(input.offset) && input.offset > 0 ? input.offset : 1;
+    const many = Number.isInteger(input.limit) && input.limit > 0 ? input.limit : null;
+    return { path, ...(many || from > 1 ? { lines: [from, many ? from + many - 1 : null] } : {}) };
+  }
+  if (name === 'Grep' || name === 'Glob') {
+    const pattern = str(input.pattern);
+    if (!pattern) return null;
+    const path = str(input.path);
+    // How Grep lists what it found: its content lines have the path first, or none (one file).
+    const mode = name === 'Grep' && ['content', 'count', 'files_with_matches'].includes(input.output_mode) ? input.output_mode : null;
+    return { pattern: pattern.slice(0, 200), ...(path ? { path } : {}), ...(mode ? { mode } : {}) };
+  }
+  return null;
+}
+
 /** How much text a write tool is about to put on disk (0 for anything else). */
 function writeChars(name, input) {
   if (!WRITE_TOOLS.has(name) || !input) return 0;
@@ -257,6 +283,9 @@ function toolItem(b, sub) {
   if ((b.name === 'Bash' || b.name === 'PowerShell') && input.run_in_background === true) item.background = true;
   const fp = writtenPath(b.name, input);
   if (fp) { item.filePath = fp; item.writeChars = writeChars(b.name, input); item.edits = editsOf(b.name, input); }
+  // Where a read or a search went, whole: the detail is cut short and flattened (the trail, shared/trail.js).
+  const target = targetOf(b.name, input);
+  if (target) item.target = target;
   if (AGENT_TOOLS.has(b.name)) {
     item.agent = {
       type: typeof input.subagent_type === 'string' ? input.subagent_type : 'general-purpose',

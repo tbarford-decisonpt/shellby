@@ -28,6 +28,10 @@ The quick way: press **Let Claude set it up** in the Health view. It fills in a 
 
 Shellby only ever asks `http://127.0.0.1:<port>/data.json`, which is your own PC. If LHM's web server has authentication turned on, Shellby will tell you to turn it off. When LHM isn't running, Shellby tries again once a minute.
 
+### Keeping LibreHardwareMonitor up to date
+
+LHM doesn't update itself. With it installed, **Sensors** in the Health view shows the version you have, and at most once a day Shellby asks GitHub whether a newer release is out (**Check for updates** asks now). When one is, **Update it** fills in a task asking Claude to keep a copy of `LibreHardwareMonitor.config`, close LHM, update it with winget (or from the release zip if winget didn't install it), and start it again as administrator. As with setup, nothing runs until you send it.
+
 For AMD CPUs, Shellby uses the `Core (Tctl/Tdie)` sensor. For Intel CPUs it uses `CPU Package`. Otherwise it uses the hottest core.
 
 ### Already run HWiNFO?

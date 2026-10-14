@@ -211,5 +211,4 @@
 .next-chip { width: 100%; padding: 6px 10px; font-size: var(--fs-12); color: var(--sand-dim); animation: fadein .18s var(--ease-out); }
 .next-chip:hover, .next-chip:focus-visible { color: var(--sand); }
 .next-key { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--sand-faint); }
-.msg.assistant.live { white-space: pre-wrap; }
 @media (prefers-reduced-motion: reduce) { .goal-pin, .next-chip { animation: none; } }

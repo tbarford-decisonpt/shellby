@@ -113,7 +113,7 @@ The badge case, the league and the Hall of Fame are at the top of the Bugdex pag
 
 ## Friends
 
-Turn on **Share my Bugdex with friends** and your calling card says which kinds you've caught, how many badges you hold and whether you've made the Hall of Fame. Never counts, projects, times or errors. It needs **Visiting crabs** (see [Connections](CONNECTIONS.md)).
+Turn on **Share my Bugdex with friends** and your calling card says which kinds you've caught, how many badges you hold, whether you've made the Hall of Fame, and this month's tally for the friends' board (how many you caught, how many were sparkly, in which habitats). Never each bug's own count, projects, times or errors. It needs **Visiting crabs** (see [Connections](CONNECTIONS.md)).
 
 Friends who share theirs show up under **Friends' books**. A kind they've caught that you've never met shows as a silhouette with its name, reported by them. And when a friend who shares visits, they bring you a jar (one a day each, one you lack if they can), which can go in the tank. A gift jar is never a catch, and stays on this PC.
 

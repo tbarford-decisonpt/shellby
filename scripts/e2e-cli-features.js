@@ -63,12 +63,19 @@ async function connect(url) {
     await wait(3000);
     await ev("shellby.setSettings({ onboarded: true }).then(r => { SB.state.settings = r.settings; SB.setView('chat'); })");
 
+    // ---- 0. the start screen's suggestions hold still when his look changes
+    const startChips = "[...SB.activeTab().empty.querySelectorAll('.suggestion')]";
+    await ev(`window.__chips = ${startChips}; SB.refreshEmptyStates(); SB.refreshEmptyStates()`);
+    check(await ev(`window.__chips.length > 0 && ${startChips}.every((c, i) => c === window.__chips[i])`), 'a redraw keeps the same suggestions, not a fresh shuffle');
+
     // ---- 1. the reply as it's written
     const words = Array.from({ length: 40 }, (_, i) => `word${i}`).join(' ');
     await ev(`SB.send(${JSON.stringify(`stream ${words}`)})`);
     check(await until(panel, "!!SB.activeTab().el.querySelector('.msg.assistant.live')", 5000), 'the reply shows while Claude is still writing it');
     const midway = await ev("SB.activeTab().el.querySelector('.msg.assistant.live')?.textContent || ''");
     check(midway.startsWith('word0') && midway.length < words.length, `part of it, not yet all (${midway.length} of ${words.length} characters)`);
+    // Laid out as the finished reply is: a line break in the markdown isn't one on screen.
+    check(await ev("getComputedStyle(SB.activeTab().el.querySelector('.msg.assistant.live')).whiteSpace === 'normal'"), 'formatted as it is written, not as plain text');
     check(await until(panel, "document.getElementById('statusText').textContent === 'Writing…'", 2000), 'the Working bar says Claude is writing');
     await panel.shot('1-streaming');
     await idle();
@@ -79,10 +86,33 @@ async function connect(url) {
     // ---- 2. what you might ask next
     check(await until(panel, "!document.getElementById('nextPrompt').hidden && /Now add a test for it/.test(document.getElementById('nextPrompt').textContent)", 4000), 'what you might ask next shows by the box');
     await panel.shot('2-next');
+    await ev("window.__next = document.querySelector('#nextPrompt .next-chip'); SB.syncBusyUi(); SB.syncBusyUi()");
+    check(await ev("document.querySelector('#nextPrompt .next-chip') === window.__next"), 'the busy line redrawing leaves the chip be (no flash, the hover stays)');
     await ev("document.getElementById('input').focus(); document.getElementById('input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))");
     check(await ev("document.getElementById('input').value === 'Now add a test for it'"), 'Tab puts it in the box');
     check(await ev("document.getElementById('nextPrompt').hidden && !SB.activeTab().busy"), 'and nothing was sent');
     await ev("document.getElementById('input').value = ''; SB.autosize()");
+
+    // ---- 2b. a code block while the reply around it is still being written
+    // The fake CLI sends a piece per space every 40 ms: the block stays open for
+    // about 6 s, and the words after it run on for about 6 s more.
+    await fresh();
+    const code = Array.from({ length: 40 }, (_, i) => `const v${i} = ${i};`).join('\n');
+    const after = Array.from({ length: 150 }, (_, i) => `more${i}`).join(' ');
+    await ev(`SB.send(${JSON.stringify(`stream \`\`\`js\n${code}\n\`\`\`\n\n${after}`)})`);
+    const LIVE = "SB.activeTab().el.querySelector('.msg.assistant.live')";
+    check(await until(panel, `!!${LIVE}?.querySelector('.code-block code[data-open]') && /v3\\b/.test(${LIVE}.textContent)`, 5000), 'a code block shows while it is written');
+    await ev(`${LIVE}.querySelector('.code-wrap').click()`);
+    check(await until(panel, `/v20\\b/.test(${LIVE}?.textContent || '')`, 8000), 'and grows');
+    check(await ev(`!!${LIVE}.querySelector('.code-block > pre.wrap > code[data-open]')`), 'keeping Wrap, pressed while it was being written');
+    check(await until(panel, `/more2\\b/.test(${LIVE}?.textContent || '')`, 8000), 'the words after it arrive');
+    await ev(`window.__block = ${LIVE}.querySelector('.code-block')`);
+    check(await until(panel, `/more20\\b/.test(${LIVE}?.textContent || '')`, 5000), 'and keep coming');
+    check(await ev("window.__block.isConnected && !!window.__block.closest('.live')"), 'the finished block is the same one, not drawn again with each word');
+    check(await ev("window.__block.querySelector(':scope > pre').classList.contains('wrap')"), 'so Wrap stays on');
+    await until(panel, `!${LIVE}`, 12000);
+    await idle();
+    check(await ev("!!SB.activeTab().el.querySelector('.msg.assistant:not(.live) .code-block > pre.wrap')"), 'and the finished reply keeps it');
 
     // ---- 3. /goal
     await fresh();

@@ -120,13 +120,21 @@
       e.querySelector('.hotkey-hint').textContent = SB.prettyAccel(state.settings.hotkey) || 'The tray icon';
       // A quest card takes the third suggestion's room.
       // A new install's first tasks lead with a tour of a project, until it's opened once.
+      // Shuffled once per conversation. This runs again whenever his look changes
+      // (a new track, a sticker, a molt): reshuffled each time, the chips swapped
+      // and rose again under the pointer. They're rebuilt only when what they say changes.
       const tour = state.settings.firstTour && !SB.isCrabOnly();
-      const picks = [...SUGGESTIONS].sort(() => Math.random() - 0.5).slice(0, (SB.questCardShows?.() ? 2 : 3) - (tour ? 1 : 0));
-      const chip = (text, onclick, i) => h('button', { class: 'suggestion', type: 'button', style: `animation-delay:${i * 60}ms`, onclick },
-        h('span', { class: 'glyph', text: '›' }), text);
-      e.querySelector('.suggestions').replaceChildren(
-        ...(tour ? [chip('Show me around a project: what it is, how to run it, where to start', firstTour, 0)] : []),
-        ...picks.map((s, i) => chip(s, () => SB.send(s), i + (tour ? 1 : 0))));
+      this.shuffled ||= [...SUGGESTIONS].sort(() => Math.random() - 0.5);
+      const picks = this.shuffled.slice(0, (SB.questCardShows?.() ? 2 : 3) - (tour ? 1 : 0));
+      const shown = JSON.stringify([tour, picks]);
+      if (shown !== this.shownSuggestions) {
+        this.shownSuggestions = shown;
+        const chip = (text, onclick, i) => h('button', { class: 'suggestion', type: 'button', style: `animation-delay:${i * 60}ms`, onclick },
+          h('span', { class: 'glyph', text: '›' }), text);
+        e.querySelector('.suggestions').replaceChildren(
+          ...(tour ? [chip('Show me around a project: what it is, how to run it, where to start', firstTour, 0)] : []),
+          ...picks.map((s, i) => chip(s, () => SB.send(s), i + (tour ? 1 : 0))));
+      }
       SB.renderQuestCard?.(e.querySelector('.quest-card'));
       const pinned = state.pinned || [];
       e.querySelector('.pinned-row').hidden = !pinned.length;
@@ -195,10 +203,17 @@
 
     // ------------------------------------------------------------ items
     render(item, { replay = false } = {}) {
-      // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it).
-      if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item) && this.isActive) SB.renderTodos?.(this);
+      SB.trailTake?.(this, item, replay); // where he's been in the files (trail.js)
+      // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it;
+      // an unfocused pane keeps a line of it, tab-panes.js).
+      if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item)) {
+        if (this.isActive) SB.renderTodos?.(this);
+        else if (!replay && this.isShown) SB.refreshPaneHeads?.();
+      }
       // The reply as it was being written gives way to whatever comes next on
-      // the main thread: the finished words themselves, usually.
+      // the main thread: the finished words themselves, usually. Those keep the
+      // Wrap, Show all and scroll their code blocks had while being written.
+      const liveView = this.live && item.kind === 'text' && !item.sub ? SB.codeView?.([this.live]) : null;
       if (this.live && item.kind !== 'partial' && !item.sub) this.endLive();
       switch (item.kind) {
         case 'user':
@@ -246,7 +261,12 @@
               : 'Safe mode off: your CLAUDE.md, skills, plugins, hooks and MCP servers are back from the next message.'));
         case 'text': {
           const el = SB.linkifyPaths(SB.renderMarkdownInto(h('div', { class: `msg assistant${item.sub ? ' sub' : ''}` }), item.text));
-          return this.append(el, item.parent);
+          // Before append, so its height is final when the feed follows it down;
+          // again after, as a block's scroll only holds once it's on the page.
+          SB.restoreCodeView?.([el], liveView);
+          this.append(el, item.parent);
+          SB.restoreCodeView?.([el], liveView);
+          return el;
         }
         case 'thinking':
           if (!replay && !item.sub) this.setStatus('Thinking…');
@@ -327,7 +347,7 @@
     paintLive() {
       this.liveTimer = null;
       if (!this.live) return;
-      SB.linkifyPaths(SB.renderMarkdownInto(this.live, this.liveText));
+      SB.linkifyPaths(SB.patchMarkdownInto(this.live, this.liveText));
       if (this.stuck && this.isShown) this.scrollToEnd();
     }
 
@@ -349,6 +369,8 @@
       this.lanes.clear();
       this.taskLane.clear();
       this.todos = T.create();
+      this.trail = null; // taken in again from what's replayed next (rewind), or starts over (/clear)
+      SB.trailReset?.(this);
       this.trimmed = 0;
       this.trimmedNotice = null;
       this.shellPending = null;

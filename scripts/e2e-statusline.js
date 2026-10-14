@@ -10,6 +10,7 @@ const os = require('os');
 const path = require('path');
 const { savePng } = require('./lib/shot');
 const { COMMAND } = require('../src/main/statusline');
+const { AWARDS } = require('../src/main/xp');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9353;
@@ -57,8 +58,9 @@ const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '');
     await panel.ev("SB.send('wait 1500 hello')");
     line = await untilLine(/working/);
     check(/🦀💨 Shellby working/.test(line), `working shows in the status line ("${line}")`);
-    line = await untilLine(/\+10 XP/);
-    check(/\+10 XP/.test(line), `finished task shows its "+10 XP" ("${line}")`);
+    const gain = new RegExp(`\\+${AWARDS.task.xp} XP`);
+    line = await untilLine(gain);
+    check(gain.test(line), `finished task shows its "+${AWARDS.task.xp} XP" ("${line}")`);
 
     // 3. An outside session asks for permission.
     const post = b => fetch(`http://127.0.0.1:${HOOK}/v1/hook`, { method: 'POST', headers: { 'X-Shellby': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(b) });

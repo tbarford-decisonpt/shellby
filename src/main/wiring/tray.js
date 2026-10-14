@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const confirm = require('../confirm');
 const crashReport = require('../crash-report');
+const feedback = require('../feedback');
 const focus = require('../focus');
 const { Updates, fakeUpdater, installedBy, trayLabel: updateLabel } = require('../updates');
 const workmode = require('../workmode');
@@ -62,7 +63,10 @@ function wireTray(d) {
       ...(d.pranks?.menuItems() || []),
       { label: 'Reset position', click: d.resetCritterPos },
       { label: 'Data folder (history, skins)', click: () => shell.openPath(app.getPath('userData')) },
-      { label: 'Report a problem…', click: reportProblem },
+      { label: 'Send feedback', submenu: [
+        { label: 'Report a problem…', click: reportProblem },
+        { label: 'Suggest an idea…', click: suggestIdea },
+      ] },
       { type: 'separator' },
       { label: 'Quit Shellby', click: quit },
     ].filter(Boolean));
@@ -72,7 +76,7 @@ function wireTray(d) {
   // build, whether Claude Code was found, and the tail of the log (already scrubbed
   // of the home directory and anything token-shaped). It opens in the browser as a
   // draft, so nothing is sent anywhere until the user reads it and presses submit.
-  const ISSUES_URL = 'https://github.com/x-salmon/shellby/issues/new';
+  const ISSUES_URL = feedback.ISSUES_URL;
   const MAX_URL = 7000; // GitHub starts dropping very long query strings
 
   function reportProblem() {
@@ -109,6 +113,22 @@ function wireTray(d) {
       return;
     }
     shell.openExternal(url);
+  }
+
+  // The idea form, with the version filled in. Like a problem report, it's a
+  // draft in the browser until the user presses submit.
+  function suggestIdea() {
+    shell.openExternal(feedback.ideaUrl({ version: app.getVersion(), packaged: app.isPackaged }));
+  }
+
+  // Once ever, when the bond first reaches Buddies (life.js grow), he asks for an
+  // idea. After the level-up card, so the two don't land on top of each other.
+  const IDEA_ASK_DELAY_MS = 8000;
+  function askForIdea(level) {
+    if (!feedback.shouldAskForIdea({ asked: d.config.get('ideaAsked'), level })) return;
+    d.config.set({ ideaAsked: true });
+    setTimeout(() => d.notify('Got an idea for me?', 'You two know each other by now. Tell us what he should do next.',
+      suggestIdea, { action: 'Suggest an idea' }), IDEA_ASK_DELAY_MS);
   }
 
   // The first time something goes wrong, he asks before any report leaves. The
@@ -309,7 +329,7 @@ function wireTray(d) {
   }
 
   return {
-    askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit,
+    askForIdea, askToSend, buildMenu, createTray, drainCrashQueue, reportProblem, reportUncleanExit, suggestIdea,
     setupUpdates, updateView,
   };
 }

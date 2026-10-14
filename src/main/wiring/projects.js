@@ -172,7 +172,8 @@ function wireProjects(d) {
 
   function showDepWatch() {
     d.showPanel({ focusInput: false });
-    d.send(d.panel, 'panel:view', 'routines');
+    d.send(d.panel, 'panel:view', 'projects');
+    d.send(d.panel, 'code-health:focus', 'depwatch');
   }
 
   // A task that starts in a copy of its own (worktrees.js), whatever the

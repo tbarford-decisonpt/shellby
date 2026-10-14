@@ -84,6 +84,7 @@
       crashed && !fixed && s.kind === 'server' && act('Restart', () => serverAction('restartServer', s.id)),
       crashed && act('Dismiss', () => serverAction('dismissServer', s.id)),
       act(open ? 'Hide log' : 'Log', () => toggleLog(s.id)),
+      !SB.solo && act('Show beside the chat', () => SB.tools.openServer(s.id)),
     ].filter(Boolean);
     const card = h('li', { class: `pj-card ${s.status}`, id: `srv-card-${s.id}` },
       h('div', { class: 'pj-card-head' },

@@ -250,6 +250,7 @@
       api.healthViewed();
       load();
       H.loadStartup();
+      H.loadLhm();
     },
   };
   SB.refreshHealthCrab = () => { if (state.view === 'health') renderCrab(); };

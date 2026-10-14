@@ -165,6 +165,11 @@
 
   // ------------------------------------------------------------ its own copy (worktrees.js)
 
+  // The file viewer (viewer.js) on this conversation, opened on what changed.
+  const viewChangesItem = (tab, sub) => h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); SB.viewer?.openTab(tab.id, { side: 'changes' }); } },
+    h('span', { class: 'mi-check', text: '≡' }),
+    h('span', {}, h('div', { class: 'mi-title', text: 'View changes' }), h('div', { class: 'mi-sub', text: sub })));
+
   // fromBacklog: Next up's items for it (backlog.js).
   function copyMenu(tab, w, fromBacklog) {
     const status = h('span', { class: 'mi-sub', text: 'Looking at the copy…' });
@@ -182,6 +187,7 @@
         h('span', { class: 'mi-check', 'aria-hidden': 'true' }),
         h('span', {}, h('div', { class: 'mi-branch', text: w.branch }), h('div', { class: 'mi-sub', text: `from ${w.base}` }), status)),
       ...(SB.clashMenuItems?.(tab) || []), // other copies that changed the same files (clashes.js)
+      ...(SB.solo ? [] : [viewChangesItem(tab, `Every file changed since it came from ${w.base}, with its diff`)]), // a pop-out shows only its chat
       h('div', { class: 'menu-sep' }),
       h('button', { class: 'menu-item', onclick: () => { SB.closeMenus(); bringHome(tab); } },
         h('span', { class: 'mi-check', text: '↩' }),
@@ -209,15 +215,19 @@
   $('branchChip').addEventListener('click', async () => {
     const tab = SB.activeTab();
     const w = tab?.worktree;
-    // A tab in your checkout shows it only once it has other tries (feed-notes.js, tab-chips.js).
-    if (!w && !SB.hasTries(tab)) return;
+    if (!tab) return;
+    // A tab in your checkout has the menu for the file viewer, or once it has other tries (feed-notes.js, tab-chips.js).
+    const viewable = !w && SB.viewer?.canOpen(tab);
+    if (!w && !viewable && !SB.hasTries(tab)) return;
     // Other tries at the same thing (branching.js): compare with them, or keep this one.
     const family = $('branchMenu').hidden ? await api.branchFamily(tab.id).catch(() => []) : [];
     // From Next up: open a draft pull request from here (backlog.js).
     const fromBacklog = w && $('branchMenu').hidden ? await SB.backlog.copyMenuItems(tab) : [];
     const others = family.filter(f => !f.current);
     // Its own copy's part of the menu: none for a tab in your checkout.
-    const copyItems = w ? copyMenu(tab, w, fromBacklog) : [h('div', { class: 'menu-label', text: 'This conversation works in your checkout' })];
+    const copyItems = w ? copyMenu(tab, w, fromBacklog) : viewable
+      ? [h('div', { class: 'menu-label', text: SB.hasTries(tab) ? 'This conversation works in your checkout' : `On branch ${$('branchLabel').textContent}` }), viewChangesItem(tab, 'Files changed here, with their diffs')]
+      : [h('div', { class: 'menu-label', text: 'This conversation works in your checkout' })];
     SB.openMenu($('branchMenu'), $('branchChip'), () => [
       ...copyItems,
       ...(others.length ? [

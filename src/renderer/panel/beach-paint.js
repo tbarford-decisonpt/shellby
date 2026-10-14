@@ -1,8 +1,8 @@
 /* Shellby panel — painting the beach (src/main/beach.js lays it out). Everything
    is drawn in art pixels: the caller scales the context by a whole number so
-   each one comes out square, live on the Beach tab and in the snapshot. The
-   palettes are the Us diorama's (together.css), one per time of day, and
-   castles arrive as colour roles so they take the light of the hour. */
+   each one comes out square, live at the top of Us and in the snapshot. One
+   palette per time of day, and castles arrive as colour roles so they take
+   the light of the hour. */
 'use strict';
 (function () {
   const THEMES = {
@@ -32,6 +32,7 @@
   const ORB = ['..1111..', '.111111.', '11121111', '11111211', '11211111', '11111111', '.111121.', '..1111..'];
   const CLOUD = ['....1111.....', '..11111111.11', '1111111111111'];
   const HEART = ['.11.11.', '1221111', '1211111', '.11111.', '..111..', '...1...'];
+  const DRAWN = ['11.11', '11111', '.111.', '..1..']; // a heart he's pressed into the sand
 
   const timeOfDay = (hour = new Date().getHours()) => (hour >= 21 || hour < 5 ? 'night' : hour < 8 ? 'dawn' : hour < 17 ? 'day' : 'dusk');
 
@@ -243,6 +244,15 @@
     ctx.globalAlpha = 1;
   }
 
+  // Two hearts drawn in the sand in front of him, on the strip nearest you that
+  // nothing stands on (a closer bond: bond.js UNLOCKS).
+  function drawnHearts(ctx, T, v) {
+    const groove = sprite(DRAWN, { 1: mix(T.sand, '#120a02', 0.3) });
+    const y = v.world.height - DRAWN.length;
+    ctx.drawImage(groove, v.crab.x - 7, y);
+    ctx.drawImage(groove, v.crab.x - 14, y - 1);
+  }
+
   // ------------------------------------------------------------ what's on the sand
 
   function castlePalette(T, c) {
@@ -344,15 +354,17 @@
   /**
    * Paint the beach into ctx (already scaled to art pixels), from x0 to x1.
    * opts: { time, t (seconds), crab: { img, w, h, hop }, reveal: id -> 0..1,
-   *         pops: [{ x, y, age }] (hearts, age 0..1), still: no flicker }.
+   *         pops: [{ x, y, age }] (hearts, age 0..1), still: no flicker,
+   *         hearts: the ones he's drawn in the sand }.
    */
-  function paint(ctx, v, { time = timeOfDay(), t = 0, x0 = 0, x1 = v.paintWidth, crab = null, reveal = null, pops = [], still = false } = {}) {
+  function paint(ctx, v, { time = timeOfDay(), t = 0, x0 = 0, x1 = v.paintWidth, crab = null, reveal = null, pops = [], still = false, hearts = false } = {}) {
     const T = THEMES[time] || THEMES.night;
     ctx.imageSmoothingEnabled = false;
     x0 = Math.max(0, Math.floor(x0)); x1 = Math.ceil(x1);
     sky(ctx, T, v, x0, x1, t);
     sea(ctx, T, v, x0, x1, t);
     sand(ctx, T, v, x0, x1, t);
+    if (hearts) drawnHearts(ctx, T, v);
 
     // Back to front, by where each thing stands on the sand.
     const items = [
@@ -370,7 +382,8 @@
 
     for (const p of pops) {
       ctx.globalAlpha = Math.max(0, 1 - p.age);
-      ctx.drawImage(sprite(HEART, p.gold ? { 1: '#ffd23f', 2: '#fff2b8' } : { 1: '#ff8fab', 2: '#ffd1dc' }), Math.round(p.x), Math.round(p.y - p.age * 16));
+      // With motion turned down they fade where they are instead of floating up.
+      ctx.drawImage(sprite(HEART, p.gold ? { 1: '#ffd23f', 2: '#fff2b8' } : { 1: '#ff8fab', 2: '#ffd1dc' }), Math.round(p.x), Math.round(p.y - (still ? 0 : p.age * 16)));
     }
     ctx.globalAlpha = 1;
   }

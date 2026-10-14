@@ -308,6 +308,50 @@ test('SessionManager enforces the tab limit and pins routine modes', () => {
   mgr.closeAll();
 });
 
+test("a note's Ask starts in Ask first, then follows your mode once its answer is in", async () => {
+  let mode = 'autonomous';
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history: new History(tmp()), getMode: () => mode, getModel: () => '' });
+  try {
+    const tab = mgr.open({ tabId: 'ask-note', cwd: os.tmpdir(), mode: 'ask' });
+    mgr.modeToStart('ask-note');
+    mgr.setMode('smart');
+    assert.equal(tab.session.mode, 'ask', 'pinned for the opening');
+    mode = 'smart';
+    mgr.send('ask-note', 'hello', { kind: 'user', text: 'hello' });
+    await until(mgr, () => tab.outcome === 'ok');
+    assert.equal(tab.session.mode, 'smart');
+    mgr.setMode('autonomous');
+    assert.equal(tab.session.mode, 'autonomous', 'and keeps following it');
+  } finally {
+    mgr.closeAll();
+  }
+});
+
+test("a note's Plan, approved, carries on in your mode", () => {
+  const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history: new History(tmp()), getMode: () => 'autonomous', getModel: () => '' });
+  try {
+    const tab = mgr.open({ tabId: 'plan-note', cwd: os.tmpdir(), mode: 'plan' });
+    mgr.modeToStart('plan-note');
+    const sent = [];
+    tab.session.write = msg => sent.push(msg);
+    tab.session.pending.set('r1', { toolName: 'ExitPlanMode', input: { plan: 'p' }, suggestions: [] });
+    assert.ok(mgr.respond('plan-note', 'r1', 'allow'));
+    assert.deepEqual(sent[0].response.response.updatedPermissions, [{ type: 'setMode', mode: 'bypassPermissions', destination: 'session' }]);
+    assert.equal(tab.session.mode, 'autonomous');
+    assert.equal(tab.pinnedMode, false);
+
+    // A routine's own plan mode isn't a note's: approving it changes nothing of yours.
+    const own = mgr.open({ tabId: 'plan-routine', cwd: os.tmpdir(), mode: 'plan' });
+    own.session.write = msg => sent.push(msg);
+    own.session.pending.set('r2', { toolName: 'ExitPlanMode', input: { plan: 'p' }, suggestions: [] });
+    mgr.respond('plan-routine', 'r2', 'allow');
+    assert.equal(sent[1].response.response.updatedPermissions, undefined);
+    assert.equal(own.pinnedMode, true);
+  } finally {
+    mgr.closeAll();
+  }
+});
+
 test("a branch's note goes ahead of its first real message, once, and never in front of a /command", async () => {
   const history = new History(tmp());
   const mgr = new SessionManager({ getExe: () => process.execPath, argsPrefix: [FAKE], history, getMode: () => 'ask', getModel: () => '' });

@@ -33,9 +33,11 @@ async function cdp(wsUrl) {
   const ws = new WebSocket(wsUrl);
   let id = 0;
   const pending = new Map();
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } };
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (pending.has(m.id)) { pending.get(m.id).resolve(m); pending.delete(m.id); } };
+  // A window that closes mid-call never answers: fail now, not at the 300 s cap.
+  ws.onclose = () => { for (const p of pending.values()) p.reject(new Error(`${wsUrl} closed`)); pending.clear(); };
   await new Promise(r => { ws.onopen = r; });
-  const send = (method, params = {}) => new Promise(r => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
+  const send = (method, params = {}) => new Promise((resolve, reject) => { const i = ++id; pending.set(i, { resolve, reject }); ws.send(JSON.stringify({ id: i, method, params })); });
   const evaluate = async expr => {
     const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
     if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || 'eval failed');
@@ -71,7 +73,9 @@ async function answer(label, expect) {
   console.log('confirm:', JSON.stringify(d));
   if (d.title !== expect.title || !d.detail.includes(expect.command)) throw new Error('confirm window content wrong');
   if (d.focused !== 'Cancel') throw new Error('Cancel must be the default button');
-  await dlg.evaluate(`[...document.querySelectorAll('#actions button')].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
+  // Click after this call returns: the click closes the window, and on a slow CI
+  // box it went before the reply did, leaving the call waiting forever.
+  await dlg.evaluate(`{ const b = [...document.querySelectorAll('#actions button')].find(b => b.textContent === ${JSON.stringify(label)}); setTimeout(() => b.click(), 0); }`);
   dlg.close();
   // Gone before the next one is looked for: a slow CI box still lists this one
   // as it closes, and a connection to it never answers.

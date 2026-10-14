@@ -67,3 +67,23 @@ test('ask: an error, a timeout and silence each say so', async () => {
   assert.equal(quiet.ok, false);
   assert.match(quiet.detail, /why/);
 });
+
+test('ask: silence says what Claude Code or ssh said, when it said something we know', async () => {
+  const lost = await btw.ask({ question: 'q' }, async () => ({ stdout: '', stderr: 'No conversation found with session ID: abc' }));
+  assert.match(lost.error, /couldn't find this conversation/);
+  const away = await btw.ask({ question: 'q' }, async () => ({ stdout: '', stderr: 'ssh: connect to host box port 22: Connection timed out' }));
+  assert.match(away.error, /couldn't reach that computer/);
+});
+
+test('remoteCommand: a conversation on another computer is asked there, over ssh', () => {
+  const remote = { exe: 'ssh.exe', argsPrefix: ['-F', 'cfg'], host: 'homebox', dir: '~/code/app', extra: ['-o', 'X=1'] };
+  const c = btw.remoteCommand(remote, btw.args({ sessionId: 'sess-9' }));
+  assert.equal(c.exe, 'ssh.exe');
+  assert.deepEqual(c.args.slice(0, 2), ['-F', 'cfg']);
+  assert.ok(c.args.includes('homebox'));
+  assert.ok(c.args.includes('X=1'));
+  const script = Buffer.from(/printf %s (\S+) \| base64/.exec(c.args.at(-1))[1], 'base64').toString('utf8');
+  assert.match(script, /cd "\$HOME"\/'code\/app'/);
+  assert.match(script, /claude '-p' .*'--resume' 'sess-9' '--fork-session'/);
+  assert.match(script, /SHELLBY_OWNED='1'/);
+});

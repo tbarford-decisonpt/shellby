@@ -163,19 +163,21 @@ async function verifyClaude(file) {
 // opts.input: text for stdin, which `claude -p` with no prompt argument reads
 // as the prompt. Long prompts go this way: a Windows command line stops at
 // 32,767 characters.
+// opts.env: the whole environment, for ssh to a conversation's other computer
+// (btw.remoteCommand); Claude Code's own otherwise.
 /**
  * @param {string} exe
  * @param {string[]} args
  * @param {number} [timeout]
- * @param {{ cwd?: string, input?: string | null }} [opts]
+ * @param {{ cwd?: string, input?: string | null, env?: NodeJS.ProcessEnv }} [opts]
  */
-function run(exe, args, timeout = 15000, { cwd, input = null } = {}) {
+function run(exe, args, timeout = 15000, { cwd, input = null, env = claudeEnv() } = {}) {
   return new Promise(resolve => {
     let timedOut = false;
     let child;
     try {
       // Plugin catalogs can be several MB of JSON; the 1 MB default would truncate them.
-      child = execFile(exe, args, { env: claudeEnv(), windowsHide: true, cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      child = execFile(exe, args, { env, windowsHide: true, cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
         clearTimeout(timer);
         resolve({ ok: !err && !timedOut, stdout: String(stdout || ''), stderr: String(stderr || ''), err: err || (timedOut ? new Error('timed out') : null), timedOut });
       });

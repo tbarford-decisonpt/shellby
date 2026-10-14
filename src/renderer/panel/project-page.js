@@ -132,7 +132,8 @@
       h('div', { class: 'pj-clone-head' },
         h('code', { class: 'pj-path', text: SB.shortPath(c.root, 46), title: c.root }),
         p.local.length > 1 && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Open folder', onclick: () => api.openProjectFolder(c.root) }),
-        p.local.length > 1 && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'New conversation here', onclick: () => P.newHere(c.root) })),
+        p.local.length > 1 && h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'New conversation here', onclick: () => P.newHere(c.root) }),
+        h('button', { type: 'button', class: 'btn ghost slim-btn', text: 'Browse files', onclick: () => SB.viewer?.openWorktree(c.root, c.root) })),
       facts && h('p', { class: 'muted small pj-facts', text: facts }),
       atRisk && h('div', { class: 'pj-tidy' },
         h('span', { class: 'small', text: git.unpushed ? 'This work is only on this PC.' : 'Changes not committed yet.' }),
@@ -141,14 +142,18 @@
       P.serversSection(c));
   }
 
-  // Shellby's copies of the repo (worktrees.js): work that's easy to forget about.
+  // The repo's other worktrees (Shellby's copies, Claude Code's, your own): work
+  // that's easy to forget about, each a click from the file viewer (viewer.js).
   function copiesList(root, git) {
     const list = git?.copyList || [];
     if (!list.length) return null;
     const d = P.keptDetails(`copies:${root}`, L.copiesSummary(list),
-      h('ul', { class: 'pj-copy-list' }, list.map(w => h('li', {},
-        h('code', { text: w.branch || 'detached', title: w.path }),
-        w.changed ? h('span', { class: 'pj-chip warn', text: `${w.changed} changed` }) : h('span', { class: 'muted small', text: 'clean' })))));
+      h('ul', { class: 'pj-copy-list' },
+        list.map(w => h('li', {},
+          h('button', { type: 'button', class: 'pj-copy-open', title: `Browse ${w.path}`, onclick: () => SB.viewer?.openWorktree(root, w.path) },
+            SB.icon(SB.viewer?.ICON || '', { width: 1.3 }),
+            h('code', { text: w.branch || 'detached' }),
+            w.changed ? h('span', { class: 'pj-chip warn', text: `${w.changed} changed` }) : h('span', { class: 'muted small', text: 'clean' }))))));
     d.classList.add('pj-copies');
     return d;
   }

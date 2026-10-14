@@ -1,0 +1,2 @@
+### New
+- **A dev server's log beside the chat.** On a running server's card, **Show beside the chat** opens its log in a pane next to your conversations, so you can watch it while Claude works. It keeps up as the server prints, with Restart, Stop and Open to hand. If the server crashes, the error is right there, and **Ask Claude to fix it…** takes you to its card to send it. The pane's × closes it.

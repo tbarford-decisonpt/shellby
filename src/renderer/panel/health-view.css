@@ -203,6 +203,8 @@ body[data-view="health"] .view-health {
 .hl-auth { color: var(--amber) !important; }
 .hl-port { margin-left: auto; font-size: var(--fs-12); }
 .hl-port .field { width: 76px; }
+.hl-lhm-ver { margin-top: 10px; }
+.hl-lhm-ver .hl-fine { margin: 0 0 8px; }
 
 /* settings */
 .hl-thresholds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }

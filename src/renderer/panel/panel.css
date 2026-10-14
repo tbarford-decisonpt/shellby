@@ -295,14 +295,17 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
   padding: 10px 12px; border-radius: var(--r);
   border: 1px solid var(--line); background: linear-gradient(var(--reef), rgba(17, 35, 42, .6));
   font-size: var(--fs-13-5); text-align: left;
-  transition: border-color .15s, transform .2s var(--ease-spring), background .15s;
+  transition: border-color .15s, background .15s;
   animation: rise .5s var(--ease-out) backwards;
 }
 .suggestion:nth-child(2) { animation-delay: .06s; }
 .suggestion:nth-child(3) { animation-delay: .12s; }
 .suggestion:nth-child(4) { animation-delay: .18s; }
-.suggestion:hover { border-color: var(--coral); transform: translateX(3px); background: var(--reef-2); }
-.suggestion .glyph { font: 600 var(--fs-13) var(--font-pixel); color: var(--coral); width: 16px; text-align: center; }
+/* The › steps forward, not the button: a button that slid out from under a
+   pointer near its edge lost the hover, slid back, and flickered. */
+.suggestion:hover { border-color: var(--coral); background: var(--reef-2); }
+.suggestion .glyph { font: 600 var(--fs-13) var(--font-pixel); color: var(--coral); width: 16px; text-align: center; transition: transform .2s var(--ease-spring); }
+.suggestion:hover .glyph { transform: translateX(3px); }
 .empty-hint { margin-top: 20px; color: var(--sand-faint); font-size: var(--fs-12); }
 
 /* The next quest (quests.js): a note pinned above the suggestions, amber like a trophy. */
@@ -852,6 +855,18 @@ select.field option { background: var(--reef); }
 /* apps he's been told to stay off: one pill each, ✕ to let him back on */
 .perch-ignore { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; }
 .perch-ignore #perchIgnoreList { display: contents; }
+/* A label and its dropdown per row, the dropdowns lined up in one column. */
+.field-grid { display: grid; grid-template-columns: var(--field-label-w, max-content) auto; justify-content: start; align-items: center; gap: 6px 20px; padding: 4px 0; font-size: var(--fs-13-5); }
+.field-grid .field.slim { min-width: 120px; }
+.field-grid .perch-ignore { grid-column: 1 / -1; margin: 0 0 2px; }
+.sub-toggles.field-grid { padding: 2px 0 2px 10px; margin-top: 2px; }
+/* Wide enough for "Climbing the edges of the screen" under strolling's indent
+   (22px margin, 2px rule, 10px padding), so Pals' dropdown lines up with those. */
+#moveGroup { --field-label-w: 17.5em; }
+#moveGroup .sub-toggles.field-grid { grid-template-columns: calc(var(--field-label-w) - 34px) auto; }
+/* Climbing hangs off strolling: with strolling off the choices stay but go quiet. */
+.sub-toggles.off > label, .sub-toggles.off > select { opacity: .5; }
+.setting-group .move-tip { margin-top: 12px; }
 /* Mischief: its folded line says On in coral once you've let him loose, so it's
    easy to see at a glance that he's allowed to misbehave. */
 .mischief-group.on .fold-state { color: var(--coral); }

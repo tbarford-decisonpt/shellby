@@ -1,21 +1,29 @@
-/* Shellby panel — the Beach tab of Shellby's screen: a scene that only grows.
-   A sandcastle for every project you've shipped, the tide for your streak, his
-   finds washed up along the high-water line (src/main/beach.js lays it out,
-   beach-paint.js draws it). It's wider than the panel once you've shipped a
-   few: drag it, use the strip under it, or tab along it. What's new since you
-   last looked rises out of the sand while you watch. */
+/* Shellby panel — your beach, the scene at the top of Us: a scene that only
+   grows. A sandcastle for every project you've shipped, the tide for your
+   streak, his finds washed up along the high-water line (src/main/beach.js
+   lays it out, beach-paint.js draws it), and him beside the newest castle, to
+   pet. What your bond has opened up shows here too (bond.js UNLOCKS): his
+   favourite find held up beside him, hearts drawn in the sand. It's wider than
+   the panel once you've shipped a few: drag it, use the strip under it, or tab
+   along it. What's new since you last looked rises out of the sand while you
+   watch. together.js owns the rest of Us and opens this with it. */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
   const P = SB.beachPaint;
+  const VIEW = 'us';        // the screen it's on
   const ART = 3;            // css px per art pixel, rounded to whole device pixels
   const FPS = 12;           // the pixel world moves in steps, like the crab
   const RISE_MS = 1100;     // one castle coming up out of the sand
   const RISE_GAP = 420;     // ...and the next one starting
   const MAX_RISES = 16;
   const HEART_MS = 900;
+  const MUNCH_MS = 900;     // fed from Us (needs.js): a few chomps
   const MAP_MAX = 56;       // css px, the strip that shows the whole beach
   const SNAP_MAX = 6000;    // px, the widest snapshot (it stays well under main's 8 MB card limit)
+  const SHOWS_FIND_AT = 2;  // bond.js UNLOCKS: he shows off his favourite find
+  const HEARTS_AT = 3;      // ...draws you hearts in the sand
+  const GOLDEN_AT = 5;      // ...and golden hearts when you pet him
 
   const stage = $('bcStage'), canvas = $('bcCanvas'), hits = $('bcHits'), map = $('bcMap');
   const ctx = canvas.getContext('2d');
@@ -26,7 +34,8 @@
   let viewArt = 150;         // art pixels across the stage
   let pan = 0;               // art pixels from the left
   let follow = false;        // the camera is following castles going up
-  let crab = null, crabKey = null, petAt = 0;
+  let crab = null, crabKey = null, petAt = 0, munchAt = -Infinity;
+  let held = null, bondKey = null; // his favourite find, up in his claws
   const rises = new Map();   // castle id -> when it starts rising
   let pops = [];
   let selected = null;       // { kind, id }
@@ -48,8 +57,22 @@
   // The scene as painted: never narrower than the stage, with the sun or moon
   // fixed in the sky as you look along (it's a long way off).
   function scene(width = Math.max(v.world.width, Math.ceil(viewArt)), orbAt = pan + viewArt * 0.72) {
-    return { ...v, paintWidth: width, orbX: Math.round(orbAt) };
+    return { ...v, finds: findsShown(), paintWidth: width, orbX: Math.round(orbAt) };
   }
+
+  // ------------------------------------------------------------ what your bond shows
+
+  const bondLevel = () => state.life?.bond?.level?.index ?? 0;
+  const hearts = () => bondLevel() >= HEARTS_AT;
+
+  // Once he shows off his favourite find, it leaves the wrack line for his
+  // claws: just in front of him, on the sand nearest you.
+  function arrange() {
+    const fav = bondLevel() >= SHOWS_FIND_AT ? state.life?.finds?.favourite : null;
+    const f = fav && v.finds.find(x => x.id === fav);
+    held = f ? { ...f, x: v.crab.x + (crab?.w || 22) - 4, y: v.world.height, held: true } : null;
+  }
+  const findsShown = () => (held ? [...v.finds.filter(f => f.id !== held.id), held] : v.finds);
   const maxPan = () => Math.max(0, scene().paintWidth - viewArt);
   const centreOn = (x, w = 0) => clamp(x + w / 2 - viewArt / 2, 0, maxPan());
 
@@ -85,21 +108,23 @@
       crab = null; // the scene still stands without him
     }
     dirty = mapDirty = true;
-    if (v) renderHits();
+    if (v) { arrange(); renderHits(); }
     kick();
   }
 
   function crabArt(now, still) {
     if (!crab) return null;
-    const petting = now - petAt < 320;
-    return { ...crab, hop: petting ? 3 : !still && Math.floor(now / 800) % 4 === 0 ? 1 : 0 };
+    const petting = !still && now - petAt < 320;
+    const munching = now - munchAt < MUNCH_MS;
+    const hop = petting ? 3 : munching ? Math.floor((now - munchAt) / 150) % 2 * 2 : !still && Math.floor(now / 800) % 4 === 0 ? 1 : 0;
+    return { ...crab, hop };
   }
 
   function pet() {
     api.critter.pet();
     petAt = performance.now();
     if (!crab || pops.length >= 6) return kick();
-    const gold = (state.life?.bond?.level?.index ?? 0) >= 5;
+    const gold = bondLevel() >= GOLDEN_AT;
     pops.push({ x: v.crab.x + crab.w / 2 - 3 + Math.round(Math.random() * 10 - 5), y: v.crab.y - crab.h - 4, born: petAt, age: 0, gold });
     kick();
   }
@@ -116,9 +141,9 @@
 
   function frame(now) {
     raf = 0;
-    if (state.view !== 'beach' || !v || document.hidden) return;
+    if (state.view !== VIEW || !v || document.hidden) return;
     const still = reduced();
-    const busy = rises.size || pops.length || follow || drag || now - petAt < 400;
+    const busy = rises.size || pops.length || follow || drag || now - petAt < 400 || now - munchAt < MUNCH_MS;
     if (dirty || busy || !still) {
       draw(now, still);
       dirty = false;
@@ -151,7 +176,7 @@
     const dpr = K / u;
     const shift = Math.round(pan * K);
     ctx.setTransform(K, 0, 0, K, -shift, 0);
-    P.paint(ctx, scene(), { time, t, x0: pan - 1, x1: pan + viewArt + 1, crab: crabArt(now, still), reveal, pops, still });
+    P.paint(ctx, scene(), { time, t, x0: pan - 1, x1: pan + viewArt + 1, crab: crabArt(now, still), reveal, pops, still, hearts: hearts() });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     hits.style.transform = `translateX(${-shift / dpr}px)`;
     drawMap(time);
@@ -175,7 +200,7 @@
     if (mapDirty) {
       mapArt.width = s.paintWidth;
       mapArt.height = s.world.height;
-      P.paint(mapArt.getContext('2d'), scene(s.paintWidth, s.paintWidth * 0.72), { time, still: true, crab: crabArt(0, true) });
+      P.paint(mapArt.getContext('2d'), scene(s.paintWidth, s.paintWidth * 0.72), { time, still: true, crab: crabArt(0, true), hearts: hearts() });
       mapDirty = false;
     }
     const m = map.getContext('2d');
@@ -198,7 +223,7 @@
     const out = [
       ...v.castles.map(c => ({ kind: 'castle', id: c.id, x: c.x, y: c.y, w: c.w, h: c.h, name: c.name, label: `${c.name}, a ${c.kind.toLowerCase()} from ${plural(c.ships, 'ship')}` })),
       ...v.plots.map(p => ({ kind: 'plot', id: p.key, x: p.x, y: p.y, w: p.w, h: p.h, name: p.name, label: `${p.name}, a plot waiting for its castle` })),
-      ...v.finds.map(f => ({ kind: 'find', id: f.id, x: f.x, y: f.y, ...sizeOf(f.pixels), name: f.name, label: `${f.name}, washed up` })),
+      ...findsShown().map(f => ({ kind: 'find', id: f.id, x: f.x, y: f.y, ...sizeOf(f.pixels), name: f.name, label: f.held ? `${f.name}, his favourite` : `${f.name}, washed up` })),
       ...(v.pool ? [{ kind: 'pool', id: 'pool', x: v.pool.x, y: v.pool.y, w: v.pool.w, h: v.pool.h, name: 'Tide pool', label: poolLabel() }] : []),
     ];
     if (crab) out.push({ kind: 'crab', id: 'crab', x: v.crab.x, y: v.crab.y, w: crab.w, h: crab.h, name: 'Shellby', label: 'Pet Shellby' });
@@ -206,6 +231,8 @@
   }
 
   function renderHits() {
+    // A new beach rebuilds the buttons; whichever had the keyboard keeps it.
+    const had = hits.contains(document.activeElement) ? document.activeElement.dataset : null;
     hits.style.width = `${scene().paintWidth * u}px`;
     const pad = 1; // a little slack around small things
     hits.replaceChildren(...things().map(it => h('button', {
@@ -216,6 +243,7 @@
       'aria-pressed': it.kind === 'crab' ? null : String(selected?.kind === it.kind && selected.id === it.id),
       dataset: { name: it.name, kind: it.kind, id: it.id, x: String(it.x), w: String(it.w) },
     })), h('span', { class: 'bc-tag', id: 'bcTag', 'aria-hidden': 'true', hidden: true }));
+    if (had?.kind) hitFor({ kind: had.kind, id: had.id })?.focus({ preventScroll: true });
   }
 
   function tag(btn) {
@@ -445,6 +473,7 @@
         h('h3', { text: f.name }),
         h('p', { text: f.blurb }),
         h('p', { text: `Washed up ${when(f.first)}${f.count > 1 ? `, and ${plural(f.count - 1, 'more')} since` : ''}.` }),
+        held?.id === f.id ? h('p', { class: 'bc-detail-next', text: 'His favourite: he’s showing it off.' }) : null,
       ];
       actions = [h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => SB.setView('finds') }, 'See the shelf')];
     }
@@ -461,7 +490,7 @@
   // after another, the camera following along. The first time you open the
   // beach it puts itself by him; after that it stays where you left it.
   function show() {
-    if (state.view !== 'beach') return; // left before it arrived: keep it new for next time
+    if (state.view !== VIEW) return; // left before it arrived: keep it new for next time
     const fresh = v.castles.filter(c => (v.firstVisit || c.isNew || c.grew) && !risen.has(c.id)).slice(-MAX_RISES);
     fresh.forEach(c => risen.add(c.id));
     if (fresh.length && !reduced()) {
@@ -480,7 +509,7 @@
       $('bcLive').textContent = fresh.length && !v.firstVisit ? `${plural(fresh.length, 'castle')} new on your beach since you last looked.` : '';
       // Seen once it's on screen, not before.
       requestAnimationFrame(() => {
-        if (state.view !== 'beach') return;
+        if (state.view !== VIEW) return;
         const n = ++seq;
         api.beachSeen().then(next => { if (next && n === seq) { v = next; badge(); } });
       });
@@ -497,6 +526,8 @@
 
   function render() {
     size();
+    arrange();
+    bondKey = bondNow();
     renderTitle();
     renderKey();
     renderHits();
@@ -516,7 +547,7 @@
     if (!next) return;
     v = next;
     badge();
-    if (state.view !== 'beach') return;
+    if (state.view !== VIEW) return;
     render();
     if (v.news) show(); // shipped while you were watching: up it comes
   }
@@ -531,17 +562,37 @@
     show();
   }
 
+  // Life changed (together.js): a closer bond or a new favourite moves what he
+  // shows off. Nothing else on the beach depends on it.
+  const bondNow = () => `${hearts()}|${bondLevel() >= SHOWS_FIND_AT ? state.life?.finds?.favourite || '' : ''}`;
+  function refresh() {
+    if (!v || state.view !== VIEW || bondNow() === bondKey) return;
+    bondKey = bondNow();
+    arrange();
+    renderHits();
+    renderDetail(); // an open find may have just become, or stopped being, his favourite
+    dirty = mapDirty = true;
+    kick();
+  }
+
+  // Fed from Us (needs.js): he chomps, unless motion is turned down.
+  function munch() {
+    if (reduced()) return;
+    munchAt = performance.now();
+    kick();
+  }
+
   // Shipping, a find or a new day changes the beach. Fetch it again soon if
   // you're looking at it, or lazily (for the tab's dot) if you aren't.
   const later = () => {
     clearTimeout(refetch);
-    refetch = setTimeout(() => fetchBeach().then(apply), state.view === 'beach' ? 800 : 5000);
+    refetch = setTimeout(() => fetchBeach().then(apply), state.view === VIEW ? 800 : 5000);
   };
   api.onStickers(later);
   api.onLife(later);
   api.onStreaks(later);
-  api.onSkin?.(() => { crabKey = null; if (state.view === 'beach') loadCrab(); });
-  new ResizeObserver(() => { if (state.view === 'beach' && v) { size(); renderHits(); kick(); } }).observe(stage);
+  api.onSkin?.(() => { crabKey = null; if (state.view === VIEW) loadCrab(); });
+  new ResizeObserver(() => { if (state.view === VIEW && v) { size(); renderHits(); kick(); } }).observe(stage);
   document.addEventListener('visibilitychange', kick);
 
   $('bcShare').addEventListener('click', () => SB.beachCard.share());
@@ -552,7 +603,7 @@
     const K2 = SB.cardKit;
     await K2.loadFonts();
     const fresh = await fetchBeach();
-    if (fresh) { v = fresh; if (state.view === 'beach') render(); }
+    if (fresh) { v = fresh; if (state.view === VIEW) render(); else arrange(); }
     await loadCrab();
     // At least 1200 px wide, at most SNAP_MAX: a very long beach is shown from
     // its newest end, where he is.
@@ -566,7 +617,7 @@
     c.height = v.world.height * S + BAR;
     const g = c.getContext('2d');
     g.setTransform(S, 0, 0, S, -from * S, 0);
-    P.paint(g, scene(full, from + width * 0.72), { time: P.timeOfDay(), t: 0, x0: from, x1: full, still: true, crab: crabArt(0, true) });
+    P.paint(g, scene(full, from + width * 0.72), { time: P.timeOfDay(), t: 0, x0: from, x1: full, still: true, crab: crabArt(0, true), hearts: hearts() });
     g.setTransform(1, 0, 0, 1, 0, 0);
 
     const s = v.stats, td = v.tide;
@@ -605,6 +656,6 @@
   });
 
   SB.beachCard = { render: snapshot, share };
-  SB.views.beach = { render: () => { open(); } };
+  SB.beachScene = { open, refresh, munch };
   api.getBeach().then(apply);
 })();

@@ -7,7 +7,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { snapshot, summarize, scope, newTouch, noteTool, patchFor, undo, parseDiffSummary, checkRef, mapLimit, MAX_UNTRACKED, SKIPPED_TOO_MANY } = require('../src/main/changes');
+const { snapshot, summarize, scope, newTouch, noteTool, mayWrite, patchFor, undo, parseDiffSummary, checkRef, mapLimit, MAX_UNTRACKED, SKIPPED_TOO_MANY } = require('../src/main/changes');
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-changes-'));
@@ -233,4 +233,71 @@ test('checkRef refuses paths that leave the project', () => {
   assert.equal(checkRef({ ...ok, paths: ['src/a.js'] }), null);
   assert.ok(checkRef({ ...ok, paths: ['../x'] }));
   assert.ok(checkRef({ ...ok, paths: 'src/a.js' }));
+});
+
+test('mayWrite: file tools and unknown tools could write; reads and results could not', () => {
+  assert.equal(mayWrite({ kind: 'tool', name: 'Edit' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'Bash' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'mcp__someone__thing' }), true);
+  assert.equal(mayWrite({ kind: 'tool', name: 'Read' }), false);
+  assert.equal(mayWrite({ kind: 'tool', name: 'mcp__shellby__say' }), false);
+  assert.equal(mayWrite({ kind: 'tool_result', name: 'Edit' }), false);
+  assert.equal(mayWrite(null), false);
+});
+
+test('snapshot: an empty index (no commits, or everything un-staged) still lists the files as a tree', async () => {
+  const mk = () => {
+    const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-changes-empty-')));
+    const g = (...a) => execFileSync('git', ['-C', d, ...a], { encoding: 'utf8', windowsHide: true });
+    g('init', '-q');
+    g('config', 'user.email', 't@example.com');
+    g('config', 'user.name', 'T');
+    g('config', 'core.autocrlf', 'false');
+    fs.writeFileSync(path.join(d, 'a.txt'), 'one\n');
+    fs.writeFileSync(path.join(d, 'b.txt'), 'two\n');
+    return { d, g };
+  };
+  const files = async (d, tree) => (await execFileSync('git', ['-C', d, 'ls-tree', '-r', '--name-only', tree], { encoding: 'utf8' })).trim().split('\n').sort();
+  const fresh = mk();
+  const unborn = await snapshot(fresh.d, {}, { hooks: false });
+  assert.ok(unborn, 'no commits, nothing staged');
+  assert.equal(unborn.head, null);
+  assert.deepEqual(await files(fresh.d, unborn.tree), ['a.txt', 'b.txt']);
+  const committed = mk();
+  committed.g('add', '-A');
+  committed.g('commit', '-qm', 'init');
+  committed.g('rm', '-r', '-q', '--cached', '.');
+  const snap = await snapshot(committed.d, {});
+  assert.ok(snap, 'commits, but an empty index');
+  assert.deepEqual(await files(committed.d, snap.tree), ['a.txt', 'b.txt']);
+  fs.rmSync(fresh.d, { recursive: true, force: true });
+  fs.rmSync(committed.d, { recursive: true, force: true });
+});
+
+test('snapshot: a tracked file changed in a subfolder is in the tree, asked from that subfolder', async () => {
+  const r = realRepo();
+  try {
+    r.write('src/deep/x.txt', 'old\n');
+    r.g('add', '-A');
+    r.g('commit', '-qm', 'deep');
+    r.write('src/deep/x.txt', 'new\n');
+    const snap = await snapshot(path.join(r.dir, 'src'), {});
+    assert.ok(snap);
+    assert.equal(r.g('show', `${snap.tree}:src/deep/x.txt`), 'new\n');
+  } finally { r.done(); }
+});
+
+// The other half of viewer.test.js "looking at a repo never runs its hooks": a turn's snapshot,
+// hooks on, does run this one, so that test's hook is one that would fire.
+test("snapshot: a turn's snapshot runs the repo's own post-index-change hook", async () => {
+  const r = realRepo();
+  try {
+    r.g('config', 'core.hooksPath', '.git/hooks');
+    const marker = path.join(r.dir, '..', `${path.basename(r.dir)}-HOOK_RAN`).split(path.sep).join('/');
+    fs.writeFileSync(path.join(r.dir, '.git', 'hooks', 'post-index-change'), `#!/bin/sh\necho ran > "${marker}"\n`, { mode: 0o755 });
+    r.write('new.txt', 'x\n');
+    assert.ok(await snapshot(r.dir, {}));
+    assert.equal(fs.existsSync(marker), true);
+    fs.rmSync(marker, { force: true });
+  } finally { r.done(); }
 });

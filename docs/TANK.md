@@ -2,7 +2,7 @@
 
 Shellby has a home, and you decorate it. Put in a sandcastle, a rock cave, kelp, a treasure chest, the pebble he dug up last Tuesday. He wanders about among it all. Open it from **Shellby → Tank**, or press **Ctrl+K** and type *tank*.
 
-Stickers decorate his shell, and the Beach shows what you've shipped. The tank is the part you arrange yourself.
+Stickers decorate his shell, and the beach at the top of **Us** shows what you've shipped. The tank is the part you arrange yourself.
 
 ## Decorating
 

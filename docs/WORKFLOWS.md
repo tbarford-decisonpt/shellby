@@ -13,8 +13,8 @@ They live on the **Automate** page (the bottom bar, or <kbd>Ctrl</kbd>+<kbd>4</k
   goes red, find out why, and if it's simple fix it and ask me before
   pushing") and press **Draft it**. Claude writes the workflow and it opens
   in the editor for you to check. Nothing is saved until you press Save.
-- **Start from a template:** red build fixer, morning brief, site watch,
-  downloads sorter, release notes, disk space guard, broken build → issue,
+- **Start from a template:** red build fixer, issue helper, morning brief,
+  site watch, downloads sorter, release notes, disk space guard, broken build → issue,
   end-of-day digest, and two for [n8n](N8N.md).
 - **Build it** step by step in the editor, or paste one someone shared
   (**Import**).
@@ -109,17 +109,17 @@ Shellby remembers which you used last.
 
 | Trigger | Starts it… |
 |---|---|
-| Schedule | every day, on certain days, every few hours, or every 5-1440 minutes |
-| Build | when a pull request's checks fail, go green again, pass, merge, or ask for your review (needs GitHub CI turned on) |
-| Issue | when a GitHub issue is assigned to you, or labelled `shellby` (needs **Offer to take on issues** in Settings → GitHub) |
-| Shipped | when a project is pushed, deployed, released or has a pull request merged |
-| Task finished | when one of your Shellby tasks finishes (never a workflow's own) |
-| Health | when something overheats or a drive fills up |
-| Folder | when files arrive in (or change in) a folder, optionally matching a pattern like `*.pdf` |
-| After a workflow | when another workflow succeeds, fails or either |
-| Shellby starts | each time Shellby starts |
-| Web hook | when a script calls its address (see below) |
-| Claude Code | lets Claude Code (`run_workflow`) and `shellby flow run` start it |
+| On a schedule | every day, on certain days, every few hours, or every 5-1440 minutes |
+| When a build changes | when a pull request's (or GitLab merge request's) checks fail, go green again, pass, merge, or ask for your review (needs GitHub or GitLab CI turned on) |
+| When an issue comes in | when a GitHub issue is assigned to you, or labelled `shellby` (needs **Offer to take on issues** in Settings → GitHub) |
+| When something ships | when a project is pushed, deployed, released or has a pull request merged |
+| When a task finishes | when one of your Shellby tasks finishes (never a workflow's own) |
+| When the PC needs attention | when something overheats or a drive fills up |
+| When files change | when files arrive in (or change in) a folder, optionally matching a pattern like `*.pdf` |
+| After another workflow | when another workflow succeeds, fails or either |
+| When Shellby starts | each time Shellby starts |
+| From a script | a web hook: when a script calls its address (see below) |
+| When Claude Code asks | lets Claude Code (`run_workflow`) and `shellby flow run` start it |
 
 Every workflow can also be run by hand with **Run**.
 

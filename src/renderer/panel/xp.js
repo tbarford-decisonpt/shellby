@@ -12,16 +12,21 @@
   const fmt = n =>Number(n || 0).toLocaleString();
   const shortDay = key => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
 
+  // Past level 99 the XP goes to marks (★, xp.js), so "next" is the next mark.
+  const markWord = n => (n === 1 ? '1 mark' : `${n} marks`);
+  const levelLine = v => `Level ${v.level} ${v.title}${v.marks ? `, ${markWord(v.marks)}` : ''}`;
+  const nextName = v => (v.level >= 99 ? `★${(v.marks || 0) + 1}` : `level ${v.level + 1}`);
+
   function apply(v) {
     if (!v) return;
     state.xp = v;
     if (v.rank?.color) document.documentElement.style.setProperty('--rank', v.rank.color);
+    const marks = v.marks || 0;
     $('brandLevel').hidden = false;
-    $('brandLevel').textContent = String(v.level);
+    $('brandLevel').textContent = marks ? `${v.level}★${marks}` : String(v.level);
     $('brandXp').style.transform = `scaleX(${v.progress.toFixed(3)})`;
-    const progress = v.level >= 99 ? `Level 99 ${v.title}` : `Level ${v.level} ${v.title} · ${v.into}/${v.needed} XP to level ${v.level + 1}`;
-    $('brandLevel').title = `${progress}. Open Trophies & XP`;
-    $('brandLevel').setAttribute('aria-label', `Level ${v.level}: open Trophies and XP`);
+    $('brandLevel').title = `${levelLine(v)}${v.needed ? ` · ${fmt(v.into)}/${fmt(v.needed)} XP to ${nextName(v)}` : ''}. Open Trophies & XP`;
+    $('brandLevel').setAttribute('aria-label', `${levelLine(v)}: open Trophies and XP`);
     if (state.view === 'trophies') render();
   }
 
@@ -111,8 +116,9 @@
     $('xpCard').dataset.rank = v.rank?.name || '';
     $('xpBar').style.transform = `scaleX(${v.progress.toFixed(3)})`;
     $('xpBarWrap').setAttribute('aria-valuenow', Math.round(v.progress * 100));
-    $('xpEyebrow').textContent = v.rank?.name ? `Level · ${v.rank.name}` : 'Level';
-    $('xpNext').textContent = v.level >= 99 ? 'Max level. Every shell, title and badge is his!' : `${fmt(v.needed - v.into)} XP to level ${v.level + 1}`;
+    $('xpEyebrow').textContent = ['Level', v.rank?.name, v.marks ? `★${v.marks}` : ''].filter(Boolean).join(' · ');
+    const toGo = v.needed ? `${fmt(v.needed - v.into)} XP to ${nextName(v)}` : 'Every mark there is!';
+    $('xpNext').textContent = v.level >= 99 && !v.marks ? `Every shell, title and badge is his! ${toGo}` : toGo;
     const unlock = unlockLine(v);
     $('xpUnlock').hidden = !unlock;
     $('xpUnlock').textContent = unlock;
@@ -135,7 +141,10 @@
 
   api.onXp(apply);
   api.onXpBounty(b => SB.toast(`🎯 ${b.id === 'all' ? "All of today's bounties" : `Bounty done: ${b.text}`} · +${b.xp} XP`, { ms: 4000 }));
-  api.onLevelUp(e => SB.celebrate({
+  api.onLevelUp(e => SB.celebrate(e.marks && !e.shell ? {
+    eyebrow: 'New mark', icon: '★', title: `★${e.marks} · ${e.title}`,
+    text: `${markWord(e.marks)} past level 99. ${e.text}`,
+  } : {
     eyebrow: 'Level up', icon: e.shell ? '🐚' : '⭐', title: `Level ${e.level} · ${e.title}`,
     text: [e.shell ? `He outgrew his shell and moved into a ${e.shell.name}. Swap homes any time in Outfits → Homes.` : e.text, e.unlocked].filter(Boolean).join(' '),
     rewards: e.shell ? [e.shell] : [],

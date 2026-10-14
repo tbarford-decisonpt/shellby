@@ -18,6 +18,7 @@
   const PLUS_ICON = 'M8 3.5v9M3.5 8h9';
   const CLOSE_ICON = 'M4.5 4.5l7 7M11.5 4.5l-7 7';
   const ZOOM_ICON = 'M3 6.5V3h3.5M13 6.5V3H9.5M3 9.5V13h3.5M13 9.5V13H9.5';
+  const FILES_ICON = 'M1.8 4.2c0-.7.5-1.2 1.2-1.2h3l1.4 1.5H13c.7 0 1.2.5 1.2 1.2v6.1c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2z';
   const EDGES = new Set(['left', 'right', 'top', 'bottom']);
 
   // On screen: the tab a pane shows.
@@ -33,6 +34,8 @@
   let lastFocused = null;
   const homePane = () => focusedPane() ?? (P.byId(state.grid, lastFocused) ? lastFocused : null);
   const activeOf = paneId => P.byId(state.grid, paneId)?.active ?? null;
+  // What a pane shows: a conversation's feed, or a tool (tool-tabs.js).
+  const shownEl = id => state.tabs.get(id)?.el || (P.isTool(id) ? SB.tools.elOf(id) : null);
 
   // ------------------------------------------------------------ panes
 
@@ -60,9 +63,12 @@
       panes.set(pane.id, p);
     }
     const t = state.tabs.get(pane.active);
-    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot && el !== p.jump && el !== t?.el) { el.hidden = true; $('feeds').append(el); }
-    if (t && t.el.parentElement !== p.el) p.el.insertBefore(t.el, p.jump);
+    const shown = shownEl(pane.active);
+    for (const el of [...p.el.children]) if (el !== p.head && el !== p.slot && el !== p.jump && el !== shown) { el.hidden = true; $('feeds').append(el); }
+    if (shown && shown.parentElement !== p.el) p.el.insertBefore(shown, p.jump);
+    if (shown && !t) shown.hidden = false;
     p.el.dataset.tab = pane.active;
+    p.el.classList.toggle('tool', P.isTool(pane.active));
     if (t) SB.refreshJump(t);
     return p;
   }
@@ -102,7 +108,7 @@
     const n = P.count(next);
     const closedDown = paneCount > 1 && n === 1;
     paneCount = n;
-    if (closedDown) SB.orderTabs(next[0][0].tabs);
+    if (closedDown && P.tabIds(next).length) SB.orderTabs(P.tabIds(next));
     else next = P.follow(next, open);
     const changed = P.layoutKey(next) !== P.layoutKey(state.grid);
     state.grid = next;
@@ -128,10 +134,11 @@
     $('feeds').dataset.panes = live.size;
     document.body.classList.toggle('panes-split', live.size > 1);
     for (const id of [...panes.keys()]) if (!live.has(id)) dropPane(id);
+    SB.tools?.prune(P.toolIds(state.grid)); // a tool gone by any way (a layout, a merge) stops
     for (const t of state.tabs.values()) if (!shown.has(t.id)) t.el.hidden = true;
     const next = P.layoutKey(state.grid);
     // A tab made anew under an id already on screen (the screenshot demo) has a feed no pane holds yet.
-    const loose = state.grid.flat().some(p => state.tabs.get(p.active)?.el.parentElement !== panes.get(p.id)?.el);
+    const loose = state.grid.flat().some(p => shownEl(p.active)?.parentElement !== panes.get(p.id)?.el);
     if (next !== shape || loose) {
       shape = next;
       // Moving a feed in the page loses its scroll; put each back after.
@@ -214,7 +221,7 @@
     }
     for (const [id, p] of panes) {
       if (p.slot === into) continue;
-      if (!split) p.slot.replaceChildren();
+      if (!split || P.isTool(activeOf(id))) p.slot.replaceChildren(); // a tool has no conversation to type to
       else if (!p.slot.querySelector('.pane-standin')) p.slot.replaceChildren(standIn(id));
     }
   }
@@ -299,7 +306,7 @@
   }
 
   // A pane's header is its tab strip, with its own edge markers (tab-overview.js),
-  // then a new conversation in this pane, pop out the tab it shows, and close the pane.
+  // then a new conversation in this pane, its files, pop out the tab it shows, and close the pane.
   function paneHead(paneId) {
     const strip = h('div', { class: 'tabs pane-tabs', role: 'tablist', 'aria-label': 'Conversations in this pane' });
     const left = h('button', { type: 'button', class: 'tab-edge left', hidden: true });
@@ -312,9 +319,11 @@
         SB.icon(PLUS_ICON, { width: 1.6 })),
       h('button', { class: 'pane-btn pane-zoom', type: 'button', title: 'Fill the chat with this pane, and back (Ctrl+Alt+Enter)', 'aria-label': 'Zoom this pane', 'aria-pressed': 'false', onclick: () => SB.zoomFrom(paneId) },
         SB.icon(ZOOM_ICON, { width: 1.5 })),
+      h('button', { class: 'pane-btn pane-files', type: 'button', hidden: true, title: "Browse this conversation's files", 'aria-label': 'Browse files', onclick: () => { const id = activeOf(paneId); if (id) SB.viewer?.openTab(id); } },
+        SB.icon(FILES_ICON, { width: 1.3 })),
       h('button', { class: 'pane-btn', type: 'button', title: 'Open in its own window', 'aria-label': 'Open in its own window', onclick: () => { const id = activeOf(paneId); if (id) SB.popOut(id); } },
         SB.icon(POP_ICON)),
-      h('button', { class: 'pane-btn', type: 'button', title: 'Close this pane (its conversations move to the one beside it)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(paneId) },
+      h('button', { class: 'pane-btn pane-close', type: 'button', title: 'Close this pane (its conversations move to the one beside it)', 'aria-label': 'Close this pane', onclick: () => SB.closePane(paneId) },
         SB.icon(CLOSE_ICON, { width: 1.5 })));
     SB.wireStrip(strip);
     SB.watchEdges(strip, left, right);
@@ -380,7 +389,7 @@
     const here = focusedPane();
     for (const [id, p] of panes) {
       const t = state.tabs.get(activeOf(id));
-      if (!t) continue;
+      if (!t) { for (const el of [p.head, p.el]) el.classList.remove('focused', 'needs-you'); continue; } // a tool's pane
       const focused = split && id === here;
       p.head.classList.toggle('focused', focused);
       t.el.classList.toggle('focused', focused);
@@ -395,6 +404,7 @@
         // Working, asking or done: the same mark the strip shows (tab-strip.js tabIcon).
         stand.querySelector('.standin-meta').replaceChildren(...[SB.tabIcon(t), q ? `${q} queued` : null].filter(Boolean));
       }
+      paintTray(p, id, stand ? t : null);
       paintLane(p.head.querySelector('.pane-lane'), t);
       // A conversation in this pane asking for your OK that you aren't looking at: its header lights up.
       p.head.classList.toggle('needs-you', split && (P.byId(state.grid, id)?.tabs || []).some(x => x !== state.activeTab && asking(x)));
@@ -414,6 +424,22 @@
     // A popped-out window is named for its conversation, on the taskbar too.
     if (SB.solo && tab) document.title = $('winTitle').textContent = SB.shownTitle(tab);
   };
+
+  // The tray over the box (native-strip.js) shows only the focused pane's
+  // conversation; the others keep a line of it above their stand-in, so what
+  // they left running doesn't vanish when you click away. A click on it brings
+  // the box, and the whole tray with its output and Stop, to that pane.
+  function paintTray(p, paneId, t) {
+    const line = t && window.ShellbyTabLogic.paneTray(t.jobs, window.ShellbyTodos.summary(t.todos));
+    let el = p.slot.querySelector('.pane-tray');
+    if (!line) { el?.remove(); return; }
+    if (!el) {
+      el = h('button', { class: 'pane-tray', type: 'button', onclick: () => { const id = activeOf(paneId); if (id) SB.activate(id); } });
+      p.slot.prepend(el);
+    }
+    el.textContent = line.text;
+    el.title = line.title;
+  }
 
   // A pane's lane, beside its tabs: the branch of the copy its conversation
   // works in, and how its last checks went (turn-checks.js keeps them on the tab).
@@ -506,6 +532,7 @@
   // (panes.merge), so no conversation closes by accident. That pane keeps the
   // tab it shows, and takes the focus if the closed one had it.
   SB.closePane = (paneId) => {
+    if (P.isToolPane(P.byId(state.grid, paneId))) return SB.tools.close(activeOf(paneId));
     const { grid, into } = P.merge(state.grid, paneId);
     if (!into) return;
     const hadFocus = focusedPane() === paneId;
@@ -585,6 +612,7 @@
     for (const pane of state.grid.flat()) {
       const p = panes.get(pane.id);
       if (!p) continue;
+      if (P.isToolPane(pane)) { if (inside(p.el.getBoundingClientRect())) return null; continue; } // takes no conversations
       // Its header is its strip (hidden, a zero rect, with one pane): its own
       // tab moves along it, any other joins the pane there.
       if (inside(p.head.getBoundingClientRect())) {
@@ -683,7 +711,8 @@
   // rendering: the caller must activate the tab or render afterwards.
   function nextShown(was, heirId) {
     const split = P.count(state.grid) > 1;
-    return (split && (activeOf(was) || activeOf(heirId) || P.shownTabs(state.grid)[0])) || [...state.tabs.keys()].pop();
+    const conv = id => (state.tabs.has(id) ? id : null); // a tool's pane takes no box
+    return (split && (conv(activeOf(was)) || conv(activeOf(heirId)) || P.shownTabs(state.grid).find(conv))) || [...state.tabs.keys()].pop();
   }
   // For main's tab list (tabs.js syncTabs) arriving with no tab focused: the
   // focused one taken away under the panes, its replacement not here yet.

@@ -26,6 +26,7 @@
 //   "findings"   -> a code review's findings (ReportFindings)
 //   "notify <words>" -> Claude's own PushNotification
 //   "worktree in" / "worktree out" -> EnterWorktree / ExitWorktree, with Claude Code's results
+//   "crawl [ms]" -> reads, a search, a helper and edits through the folder (the trail); see below
 //   anything else -> replies "echo: <text>"
 //
 // Subcommands: `agents --json` prints the file SHELLBY_FAKE_BG names (else
@@ -696,6 +697,60 @@ function onLine(line) {
       }, Number(ms) || 200);
     };
     step();
+    return;
+  }
+
+  // "crawl [ms]" -> a turn that wanders through the working folder, a step every
+  // <ms> (the trail, shared/trail.js): reads src/app.js, searches src for
+  // "total", sends a helper to read docs/guide.md, opens .env and a file one
+  // folder up, edits src/app.js four times (one edit misses), runs git status.
+  // Expects src/app.js, src/util.js, docs/guide.md and .env to be there.
+  if (content === 'crawl' || content.startsWith('crawl ')) {
+    const fsx = require('fs');
+    const px = require('path');
+    const cwd = process.cwd();
+    const ms = Math.min(5000, parseInt(content.split(' ')[1], 10) || 60);
+    const at = (...p) => px.join(cwd, ...p);
+    const id = k => `tu_crawl_${turn}_${k}`;
+    const use = (k, name, input, parent = null) => out({ type: 'assistant', parent_tool_use_id: parent, message: { content: [{ type: 'tool_use', id: id(k), name, input }] }, session_id: sessionId });
+    const res = (k, body, { isError = false, parent = null, extra } = {}) => out({ type: 'user', parent_tool_use_id: parent, ...(extra || {}), message: { content: [{ type: 'tool_result', tool_use_id: id(k), is_error: isError, content: body }] }, session_id: sessionId });
+    const app = at('src', 'app.js');
+    const edit = (k, from, to) => {
+      const before = fsx.readFileSync(app, 'utf8');
+      use(k, 'Edit', { file_path: app, old_string: from, new_string: to });
+      if (!before.includes(from)) return res(k, 'String to replace not found in file.', { isError: true });
+      fsx.writeFileSync(app, before.replace(from, to));
+      res(k, `The file ${app} has been updated successfully.`);
+    };
+    const steps = [
+      () => { use('read', 'Read', { file_path: app }); res('read', '1\tlet total = 0;'); },
+      () => { use('grep', 'Grep', { pattern: 'total', path: 'src', output_mode: 'files_with_matches' }); res('grep', `Found 2 files\n${app}\n${at('src', 'util.js')}`); },
+      () => {
+        use('agent', 'Agent', { subagent_type: 'Explore', description: 'Map the docs', prompt: 'read the docs' });
+        out({ type: 'system', subtype: 'task_started', task_id: `crawl-${turn}`, tool_use_id: id('agent'), description: 'Map the docs', subagent_type: 'Explore', is_backgrounded: false, spawn_depth: 1 });
+        use('sub', 'Read', { file_path: at('docs', 'guide.md') }, id('agent'));
+        res('sub', '1\t# Guide', { parent: id('agent') });
+      },
+      () => { use('env', 'Read', { file_path: at('.env') }); res('env', '1\tAPI_KEY=…'); },
+      () => { use('up', 'Read', { file_path: px.join(cwd, '..', 'notes.md') }); res('up', '1\tnotes'); },
+      () => edit('e1', 'let total = 0;', 'let total = 1;'),
+      () => edit('e2', 'not in the file', 'nothing'),
+      () => edit('e3', 'let total = 1;', 'let total = 2;'),
+      () => edit('e4', 'let total = 2;', 'let total = 3;'),
+      () => {
+        out({ type: 'system', subtype: 'task_notification', task_id: `crawl-${turn}`, tool_use_id: id('agent'), status: 'completed', summary: 'one guide', usage: { total_tokens: 300, tool_uses: 1, duration_ms: 90 } });
+        res('agent', [{ type: 'text', text: 'one guide' }], { extra: { tool_use_result: { agentId: `crawl-${turn}`, totalDurationMs: 90, totalTokens: 300, totalToolUseCount: 1 } } });
+      },
+      () => { use('git', 'Bash', { command: 'git status' }); res('git', 'On branch main'); },
+    ];
+    let k = 0;
+    const next = () => {
+      if (k < steps.length) { steps[k++](); slow = setTimeout(next, ms); return; }
+      slow = null;
+      text('CRAWLED');
+      result(true);
+    };
+    next();
     return;
   }
 

@@ -24,6 +24,7 @@
     { id: 'prevTab', group: 'Conversations', keys: ['Ctrl+Shift+Tab', 'Ctrl+PgUp'], what: 'Previous conversation (in this pane, when they’re side by side)' },
     { id: 'moveTab', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+PgUp', 'Ctrl+Shift+PgDn'], what: 'Move this conversation left or right along its strip' },
     { id: 'tabList', group: 'Conversations', keys: ['Ctrl+Shift+A'], what: 'Every open conversation, grouped by what it needs from you' },
+    { id: 'reviewInbox', fixed: true, group: 'Conversations', keys: ['Ctrl+Shift+R'], what: 'Ready to review: the conversations whose changes you haven’t looked at yet' },
     { id: 'renameTab', fixed: true, group: 'Conversations', keys: ['F2'], what: 'Rename it (on its tab)' },
     { id: 'focusPane', fixed: true, group: 'Conversations', keys: ['Alt+←', 'Alt+→', 'Alt+↑', 'Alt+↓'], what: 'The pane beside this one, when they’re side by side' },
     { id: 'movePane', fixed: true, group: 'Conversations', keys: ['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'], what: 'Move this conversation into the pane beside it, with its tabs (at the left or right edge, into a column of its own)' },
@@ -40,6 +41,7 @@
     { id: 'showChanges', group: 'This conversation', keys: ['Ctrl+Shift+D'], what: 'Show what the last turn changed' },
     { id: 'bringHome', group: 'This conversation', keys: ['Ctrl+Shift+H'], what: 'Bring its own copy home (merge it back)' },
     { id: 'outline', group: 'This conversation', keys: ['Ctrl+Shift+O'], what: 'Outline: every message you sent and the files each turn touched' },
+    { id: 'trail', group: 'This conversation', keys: ['Ctrl+Shift+E'], what: 'Trail: the files Claude has read, searched and changed, with him walking it' },
     { id: 'problems', group: 'This conversation', keys: ['Ctrl+Shift+M'], what: 'Problems: the errors its checks found, file by file, each with Fix it' },
     { id: 'cycleMode', fixed: true, group: 'This conversation', keys: ['Shift+Tab'], what: 'Next permission mode (in the box)' },
 

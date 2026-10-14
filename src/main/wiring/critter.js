@@ -66,6 +66,12 @@ function wireCritter(d) {
   const seasonsWhere = () => ({ south: weatherRules.isSouth(weatherRules.normalizePlace(d.config?.get('weather')?.place)) });
 
   const currentLevel = () => levelFor(d.config?.get('xp')?.total || 0).level;
+  // The level-up bubble's "LV 12" or "★3": the last level-up's, or his own before there's been one.
+  function bubbleLevel() {
+    if (d.levelUpAt != null) return { level: d.levelUpAt, marks: d.levelUpMarks || 0 };
+    const { level, marks } = levelFor(d.config?.get('xp')?.total || 0);
+    return { level, marks };
+  }
   const homesView = () => shells.homesView(d.config.get('home'), currentLevel());
 
   function broadcastSkin() {
@@ -208,7 +214,7 @@ function wireCritter(d) {
       moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN),
       crewEnded: own.crewEnded || [], // how the helpers that just left got on (sessions.js)
       health: d.healthMood,
-      level: d.levelUpAt,
+      ...bubbleLevel(),
       ci: { failing: d.ci?.view().failing || 0 },
       background: agg.background.length,
       // Claude is planning (plan mode, or it switched itself), or has a plan for you to read.
@@ -268,7 +274,7 @@ function wireCritter(d) {
     if (d.CAPTURE || !d.config) return;
     const v = d.xpView();
     const s = {
-      ...d.lastStatus, health: d.healthMood, xp: { level: v.level, title: v.title, progress: v.progress }, lastXp: d.lastXp, now: Date.now(),
+      ...d.lastStatus, health: d.healthMood, xp: { level: v.level, marks: v.marks, title: v.title, progress: v.progress }, lastXp: d.lastXp, now: Date.now(),
       streak: streaks.streakOf(d.config.get('streaks'), Date.now()).current,
       ci: d.ci?.view().failing || 0,
       focus: d.focusState(),

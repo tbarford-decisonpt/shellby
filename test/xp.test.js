@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  xpForLevel, levelFor, award, classifyCommand, normalizeXp, AWARDS, TITLES, UNLOCKS, unlocksBetween, nextUnlock,
+  xpForLevel, xpForMarks, marksFor, MAX_MARKS, levelFor, award, classifyCommand, normalizeXp, AWARDS, TITLES, UNLOCKS, unlocksBetween, nextUnlock,
   streakMultiplier, withDevice, markRed, mergeXpCounts, xpSummary,
 } = require('../src/main/xp');
 const { pickFor, BOUNTIES, CLEAR_ALL_XP } = require('../src/main/bounties');
@@ -14,7 +14,7 @@ const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String
 
 test('level curve: 0, 100, 250, 450, 700 ... and titles', () => {
   assert.deepEqual([1, 2, 3, 4, 5, 10].map(xpForLevel), [0, 100, 250, 450, 700, 2700]);
-  assert.deepEqual(levelFor(0), { level: 1, title: 'Hatchling', rank: { name: 'Sunlit', color: '#ffd23f' }, xp: 0, floor: 0, next: 100, into: 0, needed: 100, progress: 0 });
+  assert.deepEqual(levelFor(0), { level: 1, marks: 0, title: 'Hatchling', rank: { name: 'Sunlit', color: '#ffd23f' }, xp: 0, floor: 0, next: 100, into: 0, needed: 100, progress: 0 });
   const l = levelFor(320);
   assert.deepEqual([l.level, l.title, l.into, l.needed], [3, 'Shell Seeker', 70, 200]);
   assert.equal(levelFor(2700).title, 'Coral Commander');
@@ -24,13 +24,14 @@ test('level curve: 0, 100, 250, 450, 700 ... and titles', () => {
 
 test('award adds XP, logs it, and reports level-ups', () => {
   let s = normalizeXp(null);
-  for (let i = 0; i < 9; i++) s = award(s, 'task', T0 + i * MIN).state;
-  assert.equal(s.total, 90);
-  const r = award(s, 'task', T0 + 10 * MIN, { label: 'Tidy Downloads', project: '3d-rack' });
-  assert.equal(r.gained, 10);
+  for (let i = 0; i < 19; i++) s = award(s, 'task', T0 + i * MIN).state;
+  assert.equal(s.total, 95);
+  const r = award(s, 'task', T0 + 20 * MIN, { label: 'Tidy Downloads', project: '3d-rack' });
+  assert.equal(r.gained, 5);
   assert.equal(r.levelUp, true);
+  assert.equal(r.markUp, false);
   assert.deepEqual([r.before.level, r.after.level], [1, 2]);
-  assert.deepEqual(r.state.log[0], { at: T0 + 10 * MIN, kind: 'task', xp: 10, label: 'Tidy Downloads', project: '3d-rack' });
+  assert.deepEqual(r.state.log[0], { at: T0 + 20 * MIN, kind: 'task', xp: 5, label: 'Tidy Downloads', project: '3d-rack' });
 });
 
 test('a new self-written trick is the biggest award', () => {
@@ -44,8 +45,8 @@ test('repeats within an hour pay less and less (tests: 6 full, 6 half, 12 quarte
   let s = null;
   const got = [];
   for (let i = 0; i < 30; i++) { const r = award(s, 'tests', T0 + i * MIN); s = r.state; got.push(r.gained); }
-  assert.deepEqual(got, [...Array(6).fill(25), ...Array(6).fill(13), ...Array(12).fill(6), ...Array(6).fill(0)]);
-  assert.equal(award(s, 'tests', T0 + 90 * MIN).gained, 25);
+  assert.deepEqual(got, [...Array(6).fill(15), ...Array(6).fill(8), ...Array(12).fill(4), ...Array(6).fill(0)]);
+  assert.equal(award(s, 'tests', T0 + 90 * MIN).gained, 15);
 });
 
 test('"day" counts once per calendar day', () => {
@@ -112,6 +113,35 @@ test('titles, badge colours and shells keep coming all the way to 99', () => {
   assert.deepEqual(unlocksBetween(20, 21), []);
   assert.equal(nextUnlock(20).level, 25);
   assert.equal(nextUnlock(99), null);
+});
+
+test('past 99, XP earns marks: 5,000 for the first, then 500 more each time', () => {
+  const top = xpForLevel(99);
+  assert.deepEqual([0, 1, 2, 3, 4].map(xpForMarks), [0, 5000, 10500, 16500, 23000]);
+  assert.equal(levelFor(top - 1).marks, 0, 'no marks below 99');
+  const at99 = levelFor(top);
+  assert.deepEqual([at99.level, at99.marks, at99.into, at99.needed], [99, 0, 0, 5000]);
+  const l = levelFor(top + 7000);
+  assert.deepEqual([l.level, l.marks, l.title, l.into, l.needed], [99, 1, 'Shellby Supreme', 2000, 5500]);
+  assert.equal(l.progress, 2000 / 5500);
+  for (let n = 1; n <= 200; n++) {
+    assert.equal(marksFor(xpForMarks(n)), n, `exactly enough for ${n}`);
+    assert.equal(marksFor(xpForMarks(n) - 1), n - 1, `one XP short of ${n}`);
+  }
+  assert.deepEqual([NaN, -50, 'junk'].map(marksFor), [0, 0, 0]);
+  const most = levelFor(1e15);
+  assert.deepEqual([most.level, most.marks, most.needed, most.progress], [99, MAX_MARKS, 0, 1], 'junk totals stop at the last mark');
+});
+
+test('crossing a mark is a markUp, not a levelUp, and merging PCs adds up to the same marks', () => {
+  const top = xpForLevel(99);
+  const r = award(normalizeXp({ total: top + 4990 }), 'deploy', T0);
+  assert.deepEqual([r.levelUp, r.markUp, r.before.marks, r.after.marks], [false, true, 0, 1]);
+  assert.equal(award(r.state, 'deploy', T0 + MIN).markUp, false);
+  // Marks come from the total, so a sync that adds another PC's XP brings its marks too.
+  const a = { byDevice: { 'pc-aaaa': top }, total: top };
+  const b = { byDevice: { 'pc-bbbb': 5500 }, total: 5500 };
+  assert.equal(levelFor(mergeXpCounts(a, b).total).marks, 1);
 });
 
 // What's in the gist has always been through a merge: nothing pending.
@@ -191,7 +221,7 @@ test('coming back after a few days away doubles XP until the rested pool is spen
   assert.equal(r.gained, 300);
   assert.equal(xpSummary(s, back).rested, 150, 'the card shows it waiting');
   assert.equal(award(r.state, 'deploy', back + MIN).gained, 50, 'the 150 pool went on the trick');
-  assert.equal(award(s, 'task', T0 + DAY).gained, 10, 'a day away is not a break');
+  assert.equal(award(s, 'task', T0 + DAY).gained, AWARDS.task.xp, 'a day away is not a break');
 });
 
 test('daily bounties: progress, completion XP and the clear-all bonus land in the log', () => {

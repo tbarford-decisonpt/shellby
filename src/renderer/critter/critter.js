@@ -135,8 +135,9 @@ api.onMolt(({ from, to, ms = 5200, fromStickers = [], toStickers = [] }) => {
 });
 
 let level = 1;
+let marks = 0; // past level 99 (xp.js)
 function bubbleFor() {
-  if (state === 'levelup') return `LV ${level}`;
+  if (state === 'levelup') return marks ? `★${marks}` : `LV ${level}`;
   if (molt) return molt.bubble;
   if (health && HEALTH_BUBBLE_STATES.has(state)) return health.text;
   if (limit && state === 'sleeping') return `⏳ ${timeLeft(limit.resetsAt)}`;
@@ -225,6 +226,7 @@ api.onState(msg => {
   state = msg.state;
   health = msg.health || null;
   level = msg.level || level;
+  if (Number.isFinite(msg.marks)) marks = msg.marks;
   ciFailing = msg.ci?.failing || 0;
   servers = msg.servers || null;
   limit = msg.limit || null;

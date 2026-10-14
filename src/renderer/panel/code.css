@@ -38,6 +38,25 @@
 .code-cut { font: var(--fs-10) var(--font-mono); color: var(--amber); }
 .code-copy:hover { background: var(--reef-3); color: var(--sand); }
 .code-copy:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+/* A long block (code.js FOLD_LINES) shows about 24 of its lines and scrolls until Show all. */
+.code-block > pre.fold:not(.full) { max-height: calc(24 * 1.6 * var(--fs-11-5) + 20px); overflow-y: auto; }
+
+/* ---------- a drawing in box characters (shared/textgrid.js)
+   Martian Mono has no box glyphs, so a drawing takes a font that has them all,
+   at the height where its vertical lines meet. A character that font lacks
+   (an emoji, ✦) sits in a cell of the columns a terminal gives it, so a
+   fallback font can't push the rest of its line over. */
+.msg.assistant pre.drawing code, pre.drawing code {
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, monospace; line-height: 1.16;
+}
+pre.drawing .cell {
+  display: inline-block; overflow: visible; text-align: center; vertical-align: top;
+  white-space: pre; line-height: inherit;
+}
+pre.drawing .cell.w0 { width: 0; }
+pre.drawing .cell.w1 { width: 1ch; }
+pre.drawing .cell.w2 { width: 2ch; }
+.code-block > pre.drawing.fold:not(.full) { max-height: calc(24 * 1.16 * var(--fs-11-5) + 20px); }
 
 /* ---------- a Mermaid diagram */
 .mm-wrap { margin: .4em 0 .8em; }

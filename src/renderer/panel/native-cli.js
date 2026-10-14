@@ -24,9 +24,16 @@
     await SB.sendNow(tab, '/goal clear', []); // it says itself if it couldn't
   }
 
+  // syncBusyUi calls this on every turn ending in any tab, every queue change and
+  // more. Rebuilt each time, the chip replayed its fade-in and was swapped out
+  // from under the pointer: it flashed and wouldn't stay hovered. Only a new
+  // guess (or the chip going away) touches it.
+  let shownNext = { tab: null, text: null };
   function renderNextPrompt(tab) {
     const box = $('nextPrompt');
     const text = tab && SB.activeTab() === tab && !tab.busy ? tab.nextPrompt : null;
+    if (text === shownNext.text && (!text || tab === shownNext.tab) && box.hidden === !text) return;
+    shownNext = { tab, text };
     box.hidden = !text;
     if (!text) { box.replaceChildren(); return; }
     box.replaceChildren(h('button', { class: 'suggestion next-chip', type: 'button', title: 'Put it in the box (Tab). Nothing is sent until you press Enter.', onclick: () => take(tab) },

@@ -329,6 +329,18 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev(`(() => { SB.state.tabs.get('${C}').draft = 'changed while away'; SB.renderTabStrip(); })()`);
     check(await until(`document.querySelector('.pane[data-tab="${C}"] .pane-standin')?.textContent.includes('changed while away')`), 'a stand-in shows a draft that changed while its pane was out of focus');
 
+    // ---- What a conversation left running stays in sight in its pane out of focus,
+    // and a click on that line brings the whole tray, with Output and Stop, to it.
+    await ev(`SB.activate('${A}')`);
+    await ev(`(() => { SB.state.tabs.get('${C}').jobs = [{ id: 'j1', status: 'running', description: 'npm run watch', startedAt: Date.now() }]; SB.renderTabStrip(); })()`);
+    check(await until(`document.querySelector('.pane[data-tab="${C}"] .pane-tray')?.textContent.includes('1 in the background: npm run watch')`), 'an unfocused pane shows what its conversation has running in the background');
+    check(await ev(`!document.querySelector('.pane[data-tab="${A}"] .pane-tray')`), 'and the focused pane has the full tray instead of the line');
+    const trayOf = id => ev(`(() => { const r = document.querySelector('.pane[data-tab="${id}"] .pane-tray').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await panel.click(await trayOf(C));
+    check(await until(`SB.state.activeTab === '${C}'`), 'clicking the line focuses its pane');
+    check(await until(`!document.getElementById('jobs').hidden && document.getElementById('jobs').textContent.includes('npm run watch') && !document.querySelector('.pane[data-tab="${C}"] .pane-tray')`), 'and its background tray opens in the box there');
+    await ev(`(() => { SB.state.tabs.get('${C}').jobs = []; SB.syncBusyUi(); })()`);
+
     // ---- Closing the focused pane keeps the box.
     await ev(`SB.activate('${B}')`);
     await ev(`SB.closePane(${PID(B)})`);

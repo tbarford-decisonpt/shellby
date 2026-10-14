@@ -211,6 +211,19 @@
     return { rows, needsSetup, summary };
   }
 
+  // LibreHardwareMonitor's version line under the sensors (main's lhmUpdate()):
+  // null when it isn't installed, else the line, whether to offer the update,
+  // and a few words for the fold's summary when there is one.
+  function lhmVersion(u, relTime) {
+    if (!u?.installed) return null;
+    const have = u.installed.version ? `LibreHardwareMonitor ${u.installed.version}` : 'LibreHardwareMonitor';
+    const checked = u.lastCheckAt ? ` Checked ${relTime(u.lastCheckAt)}.` : '';
+    if (u.available) return { text: `${have} is installed, and ${u.latest} is out.${checked}`, update: true, summary: `LHM ${u.latest} is out` };
+    if (u.error) return { text: `${have}. Couldn't check for a newer one: ${u.error}`, update: false, summary: null };
+    if (u.latest && u.installed.version) return { text: `${have}, the newest there is.${checked}`, update: false, summary: null };
+    return { text: `${have}.`, update: false, summary: null };
+  }
+
   // ------------------------------------------------------------ what's using it
 
   const HOG_MOODS = new Set(['hot', 'scorching', 'dizzy']);
@@ -282,7 +295,7 @@
 
   const api = {
     GB, fmt, gb, heroCopy, calmLine, heroWords, gaugeSpecs, windowOf, sparkX, sparkY, sparkPaths, stats, sparkKeyOf,
-    spaceRows, sources, metricOf, METRIC_LABEL, size, pct, hogsAuto, hogWords, endedLine, startupSummary, settingsSummary, logEntry,
+    spaceRows, sources, lhmVersion, metricOf, METRIC_LABEL, size, pct, hogsAuto, hogWords, endedLine, startupSummary, settingsSummary, logEntry,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ShellbyHealthLogic = api;

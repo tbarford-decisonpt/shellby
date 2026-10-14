@@ -3,13 +3,14 @@
    snapshot from main. */
 'use strict';
 (function () {
-  const { h, $ } = SB;
+  const { h, api, $ } = SB;
   const L = window.ShellbyHealthLogic;
   const H = SB.health;
   const { levelOf, setText, smooth, changed, ask } = H;
   const { gb } = L;
 
   let sensorsOpened = false;         // the Sensors fold opens itself once, when setup is needed
+  let lhmUpdate = null;              // main's lhmUpdate(): LHM's installed and latest versions
 
   // ------------------------------------------------------------ fans
 
@@ -87,7 +88,8 @@
     if (changed('sources', JSON.stringify(rows))) $('hlSources').replaceChildren(...rows.map(r => row(...r)));
     $('hlSetup').hidden = !needsSetup;
     $('hlAuth').hidden = src.lhm !== 'auth';
-    setText($('hlSensorsSum'), summary);
+    const lhmSum = L.lhmVersion(lhmUpdate, SB.relTime)?.summary;
+    setText($('hlSensorsSum'), [summary, lhmSum].filter(Boolean).join(' · '));
     // Open the fold the first time setup is needed; after that it's the user's.
     if (needsSetup && !sensorsOpened) { sensorsOpened = true; $('hlSensorsFold').open = true; }
     if (document.activeElement !== $('hlPort')) $('hlPort').value = view?.settings?.lhmPort || 8085;
@@ -98,5 +100,47 @@
     $('hlSetup').scrollIntoView({ behavior: smooth(), block: 'center' });
   }
 
-  Object.assign(H, { renderFans, renderDisks, renderSpace, renderSources, openSensors });
+  // ------------------------------------------------------------ LHM's version
+
+  // Main reads the installed exe and asks GitHub at most once a day, so this
+  // runs each time the view opens; the button asks GitHub now.
+  async function loadLhm(force = false) {
+    const btn = $('hlLhmCheck');
+    if (force) { btn.disabled = true; setText(btn, 'Checking…'); }
+    try {
+      lhmUpdate = await api.getLhmUpdate(force);
+    } catch {
+      lhmUpdate = null;
+    } finally {
+      btn.disabled = false;
+      setText(btn, 'Check for updates');
+    }
+    renderLhm();
+    renderSources();
+    return lhmUpdate;
+  }
+
+  function renderLhm() {
+    const words = L.lhmVersion(lhmUpdate, SB.relTime);
+    $('hlLhmVer').hidden = !words;
+    if (!words) return;
+    setText($('hlLhmVerText'), words.text);
+    $('hlLhmUpdate').hidden = !words.update;
+  }
+
+  $('hlLhmCheck').addEventListener('click', async () => {
+    const u = await loadLhm(true);
+    if (!u) return SB.toast("Couldn't check for a newer LibreHardwareMonitor");
+    if (!u.installed) return SB.toast("Shellby couldn't find LibreHardwareMonitor on this PC");
+    if (u.error) return SB.toast("Couldn't check for a newer LibreHardwareMonitor");
+    SB.toast(u?.available ? `LibreHardwareMonitor ${u.latest} is out` : 'LibreHardwareMonitor is up to date');
+  });
+  // Filled in, not sent: it stops a program running as administrator and runs
+  // winget, so you read what you're agreeing to first.
+  $('hlLhmUpdate').addEventListener('click', () => {
+    if (SB.isCrabOnly() || !lhmUpdate?.prompt) return api.openExternal('https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest');
+    SB.prefillNew(lhmUpdate.prompt);
+  });
+
+  Object.assign(H, { renderFans, renderDisks, renderSpace, renderSources, openSensors, loadLhm });
 })();

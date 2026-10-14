@@ -4,6 +4,8 @@ Thanks for helping the crab! Skins, fixes, and features are all welcome.
 
 ## Setup
 
+You need Windows and Node 22 or newer (`npm run setup` checks).
+
 ```powershell
 npm install
 npm run setup  # fetches Electron if npm skipped it, builds the panel

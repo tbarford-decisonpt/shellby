@@ -10,10 +10,15 @@ body[data-view="council"] .view-council { display: block; overflow-y: auto; padd
   --cc-wood: #6b4a2e; --cc-wood-hi: #8d6540; --cc-wood-lo: #3d2817;
   --cc-felt: #1f4a3c; --cc-felt-lo: #143229;
   --cc-flame: #ffd98a;
+  /* The hall is drawn in percentages of a 16:9.5 room. Past this width its
+     max-height would squash it flat and the crabs (13% of the width) would
+     dwarf the table, so on a wide panel the screen stays a centred column. */
+  --cc-max-w: calc(420px * 16 / 9.5);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
   mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
 }
 body.crab-only [data-goto="council"] { display: none; }
+.view-council > :not(.view-head) { max-width: var(--cc-max-w); margin-inline: auto; }
 
 /* ---------------------------------------------------------------- the hall */
 .cc-chamber {
@@ -38,6 +43,7 @@ body.crab-only [data-goto="council"] { display: none; }
   opacity: .85;
 }
 .cc-corner { position: absolute; z-index: 50; inset: 8px 8px auto; display: flex; justify-content: space-between; pointer-events: none; }
+.cc-corner-end { display: flex; gap: 6px; }
 .cc-corner-btn {
   pointer-events: auto; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line);
   background: rgba(7, 16, 18, .72); color: var(--sand-dim); font-size: var(--fs-11); font-weight: 700; cursor: pointer;

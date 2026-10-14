@@ -273,4 +273,13 @@
 .pane-standin.no-draft .standin-text { color: var(--sand-faint); }
 .standin-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .standin-meta { flex: none; color: var(--sand-faint); }
+/* What an unfocused pane's conversation has running, over its stand-in (tab-panes.js paintTray). */
+.pane-tray {
+  display: block; width: 100%; padding: 5px 10px; border: 0; border-top: 1px solid var(--line-soft);
+  background: var(--abyss); color: var(--sand-dim); font: inherit; font-size: 12px; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+.pane-tray:hover { color: var(--sand); }
+.pane-tray:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.pane-tray + .pane-standin { border-top-style: dashed; }
 .standin-meta:empty { display: none; }

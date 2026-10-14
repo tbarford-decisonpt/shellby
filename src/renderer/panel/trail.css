@@ -1,0 +1,203 @@
+/* The trail (Ctrl+Shift+E, trail.js): where Claude has been in your files,
+   docked beside the chat. Wet sand under a tidepool: the map is quiet so the
+   footprints and the crab carry it. Pale rows are earlier turns, the tide
+   having been over them. */
+
+body { --trail-w: 272px; }
+body.trail-open:not(.trail-over) .view-chat { padding-right: var(--trail-w); }
+
+.trail {
+  position: absolute; top: 0; right: 0; bottom: 0; z-index: 15; width: var(--trail-w);
+  display: flex; flex-direction: column; min-height: 0;
+  border-left: 1px solid var(--line);
+  /* Ripples left in the sand by the water going out. */
+  background:
+    repeating-linear-gradient(172deg, transparent 0 11px, rgba(243, 230, 204, .022) 11px 12px, transparent 12px 26px),
+    linear-gradient(180deg, var(--ink), var(--abyss));
+}
+body.trail-over .trail { box-shadow: -18px 0 36px rgba(0, 0, 0, .5); }
+.trail[hidden] { display: none; }
+
+/* The line on its left edge: drag it, or arrow keys on it, for a wider or narrower trail (trail.js). */
+.trail-grip { position: absolute; top: 0; bottom: 0; left: -3px; width: 6px; z-index: 3; cursor: col-resize; border-radius: 3px; outline: none; }
+.trail-grip:hover, .trail-grip:focus-visible, body.resizing-trail .trail-grip { background: color-mix(in srgb, var(--glass) 35%, transparent); }
+body.resizing-trail { user-select: none; cursor: col-resize; }
+
+/* ---------- head */
+.trail-head { display: flex; align-items: center; gap: 8px; padding: 8px 6px 6px 12px; border-bottom: 1px solid var(--line-soft); }
+.trail-title { margin: 0; font: 600 var(--fs-15) var(--font-pixel); color: var(--sand); letter-spacing: .02em; }
+.trail-scope { display: inline-flex; margin-left: auto; padding: 2px; border-radius: var(--r-sm); background: var(--reef); }
+.trail-scope button {
+  border: 0; background: none; color: var(--sand-faint); font: 500 var(--fs-11) var(--font-body);
+  padding: 3px 8px; border-radius: 4px; cursor: pointer;
+}
+.trail-scope button:hover { color: var(--sand); }
+.trail-scope button[aria-pressed="true"] { background: var(--reef-3); color: var(--sand); }
+.trail-scope button:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+
+/* ---------- what's worth a look */
+.trail-signals { display: grid; gap: 6px; padding: 0 8px; }
+.trail-signals:not(:empty) { padding: 8px; border-bottom: 1px solid var(--line-soft); }
+.trail-signal {
+  display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px;
+  border-radius: var(--r-sm); background: var(--reef); box-shadow: inset 2px 0 var(--sig, var(--glass));
+  animation: tr-signal .22s var(--ease-out);
+}
+.trail-signal.s-circles { --sig: var(--amber); }
+.trail-signal.s-tests { --sig: var(--glass); }
+.trail-signal.s-secret { --sig: var(--coral); }
+.tr-sig-text {
+  flex: 1; min-width: 0; border: 0; background: none; padding: 0; text-align: left; cursor: pointer;
+  font: 400 var(--fs-12) / 1.35 var(--font-body); color: var(--sand);
+}
+.tr-sig-text:hover { color: #fff; }
+.tr-sig-text:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 3px; }
+.trail-signal .slim-btn { flex: none; }
+@keyframes tr-signal { from { opacity: 0; transform: translateY(-4px); } }
+
+/* ---------- the map */
+.trail-map { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 6px 0 14px; outline: none; }
+.trail-map::-webkit-scrollbar-thumb { border-color: var(--abyss); }
+.tr-row {
+  display: flex; align-items: center; gap: 6px; height: 26px; min-width: 0;
+  padding: 0 6px 0 calc(10px + var(--d, 0) * 13px);
+  font: 500 var(--fs-11-5) var(--font-mono); font-stretch: 88%; color: var(--sand);
+  cursor: pointer; user-select: none;
+}
+.tr-row:hover { background: rgba(127, 214, 194, .06); }
+.tr-row[aria-selected="true"] { background: rgba(127, 214, 194, .10); }
+.trail-map:focus-visible .tr-row[aria-selected="true"] { box-shadow: inset 2px 0 var(--glass); }
+.tr-row.earlier { opacity: .5; }
+.tr-row.earlier:hover, .tr-row.earlier[aria-selected="true"] { opacity: .85; }
+.tr-row.tr-flash { animation: tr-flash 1.2s var(--ease-out) 2; }
+@keyframes tr-flash { 40% { background: rgba(255, 193, 94, .16); } }
+
+.tr-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-dir .tr-name { color: var(--sand-dim); }
+.tr-root .tr-name { font: 600 var(--fs-12) var(--font-body); color: var(--sand); }
+.tr-where { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; color: var(--sand-faint); font-size: var(--fs-10); }
+.tr-row.outside .tr-name { flex-shrink: 0; max-width: 62%; color: var(--amber); }
+.tr-group {
+  height: 24px; margin-top: 10px; padding-left: 12px; cursor: default;
+  font: 500 var(--fs-11) var(--font-body); color: var(--amber);
+  border-top: 1px dashed color-mix(in srgb, var(--amber) 30%, transparent);
+}
+.tr-group:hover { background: none; }
+
+.tr-chev { flex: none; width: 10px; height: 10px; display: grid; place-items: center; }
+.tr-chev::before {
+  content: ""; border: 4px solid transparent; border-left: 5px solid var(--sand-faint); border-right: 0;
+  transform: rotate(90deg); transition: transform .12s var(--ease-out);
+}
+.tr-dir[aria-expanded="false"] .tr-chev::before { transform: none; }
+.tr-root .tr-chev { display: none; }
+
+/* His footprints: prints where he read, dug over where he changed, a glint where a search found it. */
+.tr-prints { flex: none; width: 14px; display: grid; place-items: center; }
+.tr-prints svg { display: block; image-rendering: pixelated; }
+.tr-prints.p-seen svg { opacity: .7; }
+
+/* ---------- what happened there */
+.tr-marks { flex: none; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.tr-mark { flex: none; font: 500 var(--fs-10-5) var(--font-mono); font-stretch: 88%; white-space: nowrap; color: var(--sand-faint); }
+.tr-mark.dstat { gap: 4px; }
+.m-new { color: var(--glass); }
+.m-gone { text-decoration: line-through; }
+.m-edit { color: var(--coral); }
+.m-seen { color: color-mix(in srgb, var(--amber) 70%, var(--sand-faint)); }
+.m-miss { color: #ff8a7a; }
+.m-circles { color: var(--amber); font-weight: 700; }
+.m-secret { padding: 0 4px; border: 1px solid color-mix(in srgb, var(--coral) 55%, transparent); border-radius: 4px; color: var(--coral); }
+.m-ask {
+  padding: 1px 6px; border-radius: 999px; background: var(--coral); color: #2a0d05; font-weight: 700;
+  animation: tr-ask 1.2s steps(2, jump-none) infinite;
+}
+@keyframes tr-ask { 50% { background: var(--coral-deep); } }
+.m-search { color: var(--sand-dim); max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+.m-run { color: var(--sand-faint); }
+.tr-row.circling .tr-name { color: var(--amber); }
+.tr-lane { flex: none; width: 6px; height: 6px; border-radius: 50%; background: hsl(calc(12deg + var(--lane-hue, 0deg)) 90% 68%); }
+
+/* @ and Open, on the row you're on. */
+.tr-acts { flex: none; display: none; gap: 2px; }
+.tr-file:hover .tr-acts, .tr-file[aria-selected="true"] .tr-acts { display: inline-flex; }
+.tr-file:hover .tr-marks .tr-lane { display: none; }
+.tr-act {
+  display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px;
+  background: var(--reef-2); color: var(--sand-dim); font: 700 var(--fs-11) var(--font-mono); cursor: pointer;
+}
+.tr-act svg { width: 12px; height: 12px; }
+.tr-act:hover { background: var(--reef-3); color: var(--glass); }
+
+/* ---------- the crabs */
+.trail-crabs { position: absolute; left: 0; top: 0; width: 100%; height: 0; overflow: visible; pointer-events: none; z-index: 2; }
+.tr-crab {
+  position: absolute; left: 0; top: 0; width: 36px;
+  transform: translate3d(var(--x, 0), var(--y, 0), 0);
+  transition: transform .5s steps(8, end);
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .45));
+}
+.tr-crab.helper { width: 26px; }
+.tr-sprite { display: block; }
+.tr-sprite svg { display: block; width: 100%; height: auto; image-rendering: pixelated; overflow: visible; }
+.tr-crab.left .tr-sprite { transform: scaleX(-1); }
+/* Scuttling on the 166 ms work beat (DEVELOPMENT.md: the work beat), stepped, so the frame cap can skip what doesn't move. */
+.tr-crab.walking .part-legs-a { animation: tr-leg .333s steps(1) infinite; }
+.tr-crab.walking .part-legs-b { animation: tr-leg .333s steps(1) infinite reverse; }
+@keyframes tr-leg { 0% { transform: translateY(-1px); } 50% { transform: translateY(0); } }
+.tr-crab.main:not(.resting):not(.walking) .tr-sprite svg { animation: tr-work 1s steps(2, jump-none) infinite; }
+@keyframes tr-work { 50% { transform: translateY(-1px); } }
+.tr-crab.resting { opacity: .9; }
+.tr-crab.resting .tr-sprite svg { transform: translateY(1px); }
+
+/* The step the replay is on, in the feed. */
+.tool.trail-here { box-shadow: inset 2px 0 var(--amber); background: rgba(255, 193, 94, .06); border-radius: var(--r-sm); }
+
+/* ---------- the replay and the counts */
+.trail-foot { padding: 8px 10px 10px; border-top: 1px solid var(--line-soft); background: rgba(7, 16, 18, .6); }
+.trail-replay { display: flex; align-items: center; gap: 8px; }
+.trail-play {
+  flex: none; display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--reef); color: var(--sand); cursor: pointer;
+}
+.trail-play svg { width: 12px; height: 12px; }
+.trail-play .i-pause, .trail.playing .trail-play .i-play { display: none; }
+.trail.playing .trail-play .i-pause { display: inline; }
+.trail-play:hover:not(:disabled) { border-color: var(--glass); color: var(--glass); }
+.trail-play:disabled { opacity: .4; cursor: default; }
+.trail-play:focus-visible, .trail-live:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.trail-scrub {
+  flex: 1; min-width: 0; height: 16px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+.trail-scrub::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--glass) 0 var(--fill, 100%), var(--reef-3) var(--fill, 100%));
+}
+.trail.replaying .trail-scrub::-webkit-slider-runnable-track { background: linear-gradient(90deg, var(--amber) 0 var(--fill, 100%), var(--reef-3) var(--fill, 100%)); }
+.trail-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border-radius: 3px;
+  background: var(--sand); box-shadow: 0 0 0 2px var(--abyss);
+}
+.trail-scrub:disabled { opacity: .35; cursor: default; }
+.trail-scrub:focus-visible { outline: none; }
+.trail-scrub:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--abyss), 0 0 0 4px var(--glass); }
+.trail-live {
+  flex: none; padding: 3px 9px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--amber); color: #241703; font: 700 var(--fs-10-5) var(--font-body);
+}
+.trail-counts { margin: 6px 0 0; font: 500 var(--fs-10-5) var(--font-mono); font-stretch: 88%; color: var(--sand-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trail.replaying .trail-counts { color: var(--amber); }
+.trail.replaying .trail-map { background: rgba(255, 193, 94, .025); }
+
+/* ---------- nothing yet */
+.trail-empty { padding: 28px 18px; color: var(--sand-faint); font: 400 var(--fs-12) / 1.5 var(--font-body); }
+.trail-empty p { margin: 0 0 8px; }
+.trail-empty-lead { font: 600 var(--fs-14) var(--font-pixel); color: var(--sand-dim); }
+
+/* ---------- quiet when nobody's looking, still for reduced motion */
+body.calm .trail *, body.calm-deep .trail * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .tr-crab { transition: none; }
+  .trail * { animation: none !important; }
+  .tr-chev::before { transition: none; }
+}

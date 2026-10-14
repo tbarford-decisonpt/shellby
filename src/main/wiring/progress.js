@@ -134,8 +134,10 @@ function wireProgress(d) {
     setTimeout(d.refreshStatusLine, 15500); // let "+25 XP" fade from the status line
     if (character.isStatKind(r.kind)) newClassFound(r.state);
     d.send(d.panel, 'xp', xpView());
+    if (r.markUp && !r.levelUp) return markEarned(r);
     if (!r.levelUp) return r;
     d.levelUpAt = r.after.level;
+    d.levelUpMarks = r.after.marks;
     const text = (LEVELUP_TEXT[r.kind] || (() => `${AWARDS[r.kind].label}.`))(meta);
     // The new title is already the card's heading.
     const unlocked = unlockedText(unlocksBetween(r.before.level, r.after.level).filter(u => !(u.kind === 'title' && u.name === r.after.title)));
@@ -148,6 +150,23 @@ function wireProgress(d) {
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
       d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate', pet: true });
+    }
+    return r;
+  }
+
+  // Past level 99 (xp.js marks): each mark gets a level-up's party. There's
+  // nothing left to unlock, so it says how far off the next one is.
+  function markEarned(r) {
+    const { marks, title, rank, needed, into } = r.after;
+    d.levelUpAt = r.after.level;
+    d.levelUpMarks = marks;
+    d.flashState('levelup', 6500);
+    d.send(d.critter, 'critter:burst', d.outfit().confetti);
+    const text = needed ? `${(needed - into).toLocaleString()} XP to ★${marks + 1}.` : 'That was the last one there is!';
+    d.send(d.panel, 'xp:levelup', { level: r.after.level, marks, title, rank, text, unlocked: '', shell: null });
+    if (!(d.panel?.isVisible() && d.panel.isFocused())) {
+      const body = `${title}, ${marks === 1 ? 'one mark' : `${marks} marks`} past level 99. ${text}`;
+      d.notify(`Shellby earned ★${marks}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', 'trophies'); }, { tone: 'celebrate', pet: true });
     }
     return r;
   }
@@ -197,7 +216,7 @@ function wireProgress(d) {
   // ---- dependency checkups (checkup.js)
   //
   // Claude ran `npm audit`, `cargo outdated` or the like. Each project's latest
-  // result is kept for the Routines page; a clean audit pays XP (once a day per
+  // result is kept for the Projects page; a clean audit pays XP (once a day per
   // project) and earns the project's sticker its 🧼 Fresh mark.
 
   async function checkedUp(dir, check, result) {
@@ -253,7 +272,7 @@ function wireProgress(d) {
   }
 
   // Check one project's dependencies now, in a tab of its own (from the Sticker
-  // Book or the Routines page's dependency list).
+  // Book or the dependency list under Projects).
   function runCheckup(dir) {
     if (d.config.get('crabOnly')) return { ok: false, error: 'Checkups need Claude Code: Shellby is in just-the-crab mode.' };
     if (!d.isStr(dir) || !d.isFolder(dir)) return { ok: false, error: "That project's folder isn't there any more." };
@@ -338,11 +357,11 @@ function wireProgress(d) {
     }
   }
 
-  /** The panel, on the flaky list. */
+  /** The panel, on the flaky list under Projects. */
   function showFlaky() {
     d.showPanel({ focusInput: false });
-    d.send(d.panel, 'panel:view', 'routines');
-    d.send(d.panel, 'flaky:focus');
+    d.send(d.panel, 'panel:view', 'projects');
+    d.send(d.panel, 'code-health:focus', 'flaky');
   }
 
   const FLAKY_ACTIONS = {

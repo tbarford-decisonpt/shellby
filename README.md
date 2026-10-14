@@ -76,28 +76,28 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 </tr>
 </table>
 
-- **Helper crabs:** every subagent gets its own lane in the panel and its own crab on your desktop.
-- **Your crew:** each type of agent (Explore, a code reviewer, the ones you write yourself) is a lasting crab with a name, a hat and a record: *Level 14, 212 runs, 38 acted on*. They level up and earn new hats on **Shellby → Crew**.
-- **Tabs that don't collide:** each tab is its own Claude Code process, and can work in its own copy of the project on its own branch. **Bring it home** merges it back, and never force-pushes.
-- **Undo any turn:** each turn ends with the files it changed. Undo puts them back, including what a script or `npm install` did.
-- **Checks it himself:** **Run checks** on a turn runs your tests and stamps the verdict on it, with before/after pictures when your dev server is up. Optionally after every turn, and before a copy comes home.
-- **Crit hits and small surprises:** now and then, for a real win, a short fanfare. **Critical hit!** when one turn takes a red test suite all the way to green; **Clean landing** when a copy comes home with its checks green on the first try. Rare and never predictable, tied to quality and never to speed, and never for skipping or deleting tests. Each kind has a hidden trophy.
-- **Comment on the diff:** click a line number in any turn's diff (Shift+click for several) and say what should change: "no, keep this function pure". Comments collect across files and turns, then go back as one follow-up that quotes the code each one is about.
-- **What did that cost me:** each turn ends with its tokens, roughly how much of your 5-hour window it took, and how full the context is. The context chip adds up the whole conversation and its costliest turns, and he offers to make room a turn or two before it gets crowded.
-- **Learns from your corrections:** make the same review comment twice, Deny the same command twice, or undo changes in the same folder twice, and a card offers to add it as a rule to that project's `CLAUDE.md`, in your own words. Say no to the same command five times and he offers a permission deny rule instead. Each card shows exactly what goes in before anything is written, and **Not this one** means he won't suggest it again.
-- **Search inside past conversations:** History's search finds every message that says it, across projects and your other PCs, and opens the conversation right at that line.
-- **Up to twelve side by side:** **Split** (<kbd>Ctrl</kbd>+<kbd>\</kbd>) or drag tabs in, up to four columns of three, each pane with its own tabs. <kbd>Alt</kbd>+arrows go from pane to pane, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Enter</kbd> zooms the one you're in, and the layout comes back after a restart. Save a layout by name, or as a project's own, and use it again with whatever's open. Each pane's header shows its branch and how its checks went, lights up when a conversation in it needs your OK (<kbd>Alt</kbd>+<kbd>J</kbd> goes there), and drags onto another pane to swap them.
-- **Try it another way:** branch from any turn into a new tab, run two approaches side by side, and keep the one you like.
-- **Undo to here:** each step of a turn that changed files has a checkpoint. Press **Undo to here** on one and your files go back to just before it, later steps included, while the conversation stays put. <kbd>Esc</kbd> <kbd>Esc</kbd> shows your messages as a timeline to rewind to.
-- **Every slash command:** type `/` for all of Claude Code's own commands, each with what it does. The ones Shellby has a screen for open it (`/resume` opens History, `/doctor` Health, `/usage` your meters), and `/clear` starts the conversation over in the same tab.
-- **Every conversation at a glance:** <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> lists each one's lane: tests red or ready to merge, what its copy changed, and which others touched the same files. Several waiting on the same command get one **Allow all**, and finished copies get a merge order with **Line them up**.
-- **Put it to the Council:** a table of advisor crabs (Skeptic, Builder, Guard, Player and Elder) argue a decision from their own angles and vote, and Shellby, in the chair, unrolls a verdict: where they agree, where they split, and what to do next. **Quick** costs about one reply.
-- **A Toolbox for all of it:** every skill, agent, MCP server, mod, hook, rule and `CLAUDE.md`, with an editor for each, a Skill Shop, and **prompt snippets** you can call with `/review`.
-- **Talk instead of type:** hold <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> and say the task. Windows hears it, on your PC.
-- **Keyboard first:** <kbd>Ctrl</kbd>+<kbd>K</kbd> runs what the mouse can, by name: stop, undo the last turn, try it another way, bring it home, compact, change mode or effort, start the project's dev server, run a routine (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> opens it too, for VS Code hands). <kbd>Ctrl</kbd>+<kbd>F</kbd> finds text in a conversation, <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> size the panel's text, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> reopens what you closed, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> outlines the conversation, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> lists its problems, and <kbd>Ctrl</kbd>+<kbd>/</kbd> lists every shortcut, any of which you can give your own keys.
-- **In your terminal and editor too:** with the plugin he reacts to Claude Code in VS Code, Cursor, Windsurf, Zed, JetBrains and Windows Terminal, and sits in its status line.
-- **On your other computers:** keep Claude Code and your files on a server or a PC that stays on, and work with it from here. **Settings → Connections → Other computers** connects over ssh, through a VPS or any other computer in between, and walks you through the rest: Windows' ssh agent switched on for a key with a passphrase, a key set up from your password, Claude Code installed and signed in over there. Add a folder there, and conversations in it run there. Claude Code doesn't have to be on this PC at all (a locked-down work PC, say): pick **Claude Code on another computer** when Shellby first starts.
-- **To the terminal and back:** **Continue in a terminal** carries a conversation on in Windows Terminal with `claude --resume`, and **Bring it into Shellby** (or `/shellby:handoff`) brings a terminal session into a tab.
+**Work in parallel**
+
+<img src="docs/img/screenshot-panes.png" alt="Four Claude conversations in a 2x2 grid: fixing a login bug, writing tests, reviewing a PR and updating the README">
+<p align="center"><sub>Drag a tab into the chat to split it: up to twelve conversations side by side, or pop one out into its own window</sub></p>
+
+- **Helper crabs:** every subagent gets a lane in the panel and a crab on your desktop, and each kind levels up into a named crew member.
+- **Tabs on their own branches:** each one works in its own copy of the repo. **Bring it home** merges it back, never with a force-push.
+- **Up to twelve side by side,** or branch from any turn to **try it another way**.
+
+**Keep your code safe**
+- **Undo any turn,** or any step within one, including what a script or `npm install` did.
+- **Run checks** stamps your test results on a turn, with before and after pictures.
+- **Comment on the diff,** line by line, and send all your comments back as one follow-up.
+- **Learns from your corrections:** correct Claude the same way twice and he offers to add it to `CLAUDE.md` as a rule.
+
+**See what it costs**
+- Every turn shows its tokens and its share of your 5-hour window, and **Lean Shell** shows what each new conversation carries before you type.
+
+**Work your way**
+- <kbd>Ctrl</kbd>+<kbd>K</kbd> for everything, every slash command, and push-to-talk.
+- A **Toolbox** for your skills, agents, MCP servers and hooks, and a **Council** of advisor crabs for big decisions.
+- Hand a conversation to the terminal and back, or run Claude Code on another computer over ssh.
 
 **[Everything he does with Claude Code →](docs/CLAUDE-CODE.md)** · **[Already use Claude Code in a terminal or editor? Here's what he adds →](docs/WHY-SHELLBY.md)**
 
@@ -202,7 +202,7 @@ None of this needs Claude or an account.
 - **Hide and seek, fetch,** and friends' crabs who drop by and chat.
 - **A tank to decorate:** a sandcastle, a rock cave, kelp, a treasure chest and the finds he's dug up, arranged where you want them, with him wandering about among it all. Some pieces are gauges in disguise: a tide gauge for your 5-hour window, a thermometer reading your GPU, a chest that glints when a pull request merges. Pieces come from the start, from trophies, from the seasons and from his digging, never from a shop. Decorate with the mouse or the keyboard alone. [More about his tank](docs/TANK.md).
 - **Snacks and naps:** he gets peckish, sandy, sleepy, and a little mopey if you ignore him. Feed him plankton you earn by getting things done. Gentle by design: it never goes below a floor, never drops while you're away, and never costs you anything.
-- **Your beach,** a scene that only grows: a sandcastle for every project you ship (a tower house at 5 ships, a keep at 15, a citadel at 40), the tide coming in with your streak, a line of seaweed where your best one reached, and his finds washed up along it. New castles rise out of the sand while you watch. Drag along it, then share a snapshot of the whole thing.
+- **Your beach,** at the top of the Us page, a scene that only grows: a sandcastle for every project you ship (a tower house at 5 ships, a keep at 15, a citadel at 40), the tide coming in with your streak, a line of seaweed where your best one reached, and his finds washed up along it. New castles rise out of the sand while you watch. Drag along it, then share a snapshot of the whole thing.
 
 <p align="center"><img src="docs/img/beach-card.png" width="860" alt="A pixel beach at night: fourteen sandcastles of different sizes with flags and lit windows, finds washed up along a line of seaweed, plots with buckets and spades, and Shellby by the newest castle"></p>
 
@@ -293,46 +293,46 @@ Want a quieter crab in one click? **Work mode** switches off the climbing, pals 
 <tr>
 <td width="33%" valign="top">
 
-**🏛️ The Council** · 0.78<br>
-<sub>Put a decision to a table of advisor crabs. Each argues their own angle and votes, and Shellby unrolls a verdict. Quick costs about one reply. [See](CHANGELOG.md#0780-the-council-every-slash-command-and-undo-to-here)</sub>
+**👣 The trail** · 0.82<br>
+<sub><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> opens a map of the files Claude has touched, with him walking it: footprints where he read, dug-over files where he changed things, and a replay of every step. [See](CHANGELOG.md#0820-the-trail)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**⏪ Undo to here** · 0.78<br>
-<sub>Every step that changed your files gets a checkpoint, so you can put them back to just before it. Plus every Claude Code slash command in the box, and <code>/clear</code>. [How](docs/CLAUDE-CODE.md#conversations)</sub>
+**★ Marks past 99** · 0.81<br>
+<sub>XP keeps counting after the top level: each mark shows as 99★1, 99★2…, with its own countdown and celebration. [See](CHANGELOG.md#0810-marks-past-99-zoomed-panes-and-named-layouts)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**🗂️ Every conversation at a glance** · 0.78<br>
-<sub><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> shows each one's tests, changes and overlaps, answers many at once, and lines finished copies up to merge. [See](CHANGELOG.md#0780-the-council-every-slash-command-and-undo-to-here)</sub>
+**🪟 Twelve panes** · 0.80<br>
+<sub>Up to twelve conversations side by side, each pane with its own tabs and box. Zoom one, name a layout or keep one per project, and <kbd>Alt</kbd>+<kbd>J</kbd> finds the one waiting for you. [See](CHANGELOG.md#0800-twelve-panes-each-with-its-own-tabs)</sub>
 
 </td>
 </tr>
 <tr>
 <td width="33%" valign="top">
 
-**🐛 Seventeen new bugs** · 0.78<br>
-<sub>The Bugdex has 83 to catch now, from React render loops to sulking Docker daemons, and bug battles act up between moves. [See](docs/BUGDEX.md)</sub>
+**🎨 Code in colour** · 0.79<br>
+<sub>Replies stream in as Claude writes them, code is coloured by language, Mermaid diagrams are drawn, and diffs go side by side with <b>Undo this part</b>. [How](docs/CLAUDE-CODE.md)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**✨ A glow-up** · 0.77<br>
-<sub>Shellby, every skin, shell and outfit reshaded with a fine dark line, so he stands out on any wallpaper. Same crab, crisper. [See](CHANGELOG.md#0770-sign-ins-shared-tools-and-a-glow-up)</sub>
+**🧭 Outline, Problems and Debug mode** · 0.79<br>
+<sub><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> for every message and the files it touched, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> for the errors your checks found, and <code>/debug</code> to fix a bug from live logs. [See](CHANGELOG.md#0790-routines-that-follow-you-live-replies-and-code-in-colour)</sub>
 
 </td>
 <td width="33%" valign="top">
 
-**🧰 Tools in bulk** · 0.77<br>
-<sub>Pick many skills at once, park the ones you don't use instead of deleting them, share a set as one file, and sign in to MCP servers without a terminal. [How](docs/CLAUDE-CODE.md#toolbox)</sub>
+**🔁 Routines that follow you** · 0.79<br>
+<sub>Your routines and workflows sync to your other PCs, arriving switched off so nothing runs twice. [See](CHANGELOG.md#0790-routines-that-follow-you-live-replies-and-code-in-colour)</sub>
 
 </td>
 </tr>
 </table>
 
-<sub>And before that: helpers that report back, one-click modes, Search Settings, bug battles, other computers over ssh, his tank, Next up, the Bugdex, mods, <code>/tries</code>, MCP servers in workflows, the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets and time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
+<sub>And before that: the Council, undo to here, every conversation at a glance, seventeen new bugs, a glow-up, tools in bulk, helpers that report back, one-click modes, Search Settings, bug battles, other computers over ssh, his tank, Next up, the Bugdex, mods, <code>/tries</code>, MCP servers in workflows, the weekly crab card, Lean Shell, projects and dev servers, the flaky test detective, prompt snippets and time on each project. Everything is in the [changelog](CHANGELOG.md).</sub>
 
 ## Install
 
@@ -397,7 +397,7 @@ Your own Claude Code allow/deny rules in `~/.claude/settings.json` still apply i
 
 ## Build from source
 
-`git clone`, `npm install`, `npm start`. The full setup, every test and maintenance script, and a map of the code are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every image in this README is rendered from the real app: `npm run screenshots`, `npm run reel`, `npm run tricks` and `python scripts/make-banners.py`.
+With Node 22 or newer: `git clone`, `npm install`, `npm run setup`, `npm start`. The full setup, every test and maintenance script, and a map of the code are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every image in this README is rendered from the real app: `npm run screenshots`, `npm run reel`, `npm run tricks` and `python scripts/make-banners.py`.
 
 ## Privacy
 
@@ -406,7 +406,9 @@ Everything stays on your PC. Conversation history lives in `%APPDATA%\Shellby\se
 - Claude Code talking to Anthropic, and the updater checking GitHub Releases.
 - GitHub, only if you sign in: your profile, the sync gist, pack pull requests, the CI status of your pull requests, with Visiting crabs on, your public calling card and your friends' cards, with Profile card on, the public gist holding your profile card picture, and with Built with Shellby on, the public `shellby-badge` repository holding his picture and the badge at the bottom of pull requests your tabs open.
 - Phone notifications, only if you turn them on, straight to the service you picked (ntfy, Pushover, Telegram, Discord, Slack or your own endpoint).
-- Things you ask for: ssh to the computers you add under **Other computers**, community packs, plugins and MCP servers, `git` fetches and pushes, workflow web requests, and the weekly npm dependency check.
+- The npm registry once a day, to say when a newer Claude Code is out (**Leave it to me** in **Settings → About** stops it).
+- Crash reports to Sentry, only when you say so: he asks first, and **Settings → About → Crash reports** changes it.
+- Things you ask for: ssh to the computers you add under **Other computers**, community packs, plugins and MCP servers, `git` fetches and pushes, workflow web requests, and the weekly dependency check (npm, pnpm, Yarn, pip-audit, cargo-audit and Go's, whichever your projects use).
 - Things that never leave your PC: the time tracker (it reads the title of the window in front to tell which project you're in, keeps only the project, the day and the minutes, and never syncs them; a day goes to Toggl, Clockify or Harvest only when you send it), push-to-talk audio (Windows' offline speech recognizer hears it, and the microphone is only open while you hold the shortcut), your PC's health readings, OpenRGB, the OBS overlay, the Stream Deck keys (behind a token only the plugin has), and the port the `shellby` command and the plugin use — all on `127.0.0.1`.
 
 See [SECURITY.md](SECURITY.md) for the renderer sandboxing details.

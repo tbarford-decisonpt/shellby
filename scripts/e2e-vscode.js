@@ -113,6 +113,18 @@ fs.mkdirSync(claudeConfig);
     check(await ev(`[...document.querySelectorAll('${FEED} .msg.assistant .mm-wrap svg text')].map(t => t.textContent).join(',')`) === 'Ask,Ok?,Done,yes', 'with its labels as text');
     await shot('2-code', '.feed:not([hidden]) .msg.assistant:last-of-type .code-block');
 
+    const foldAt = await ev('SB.CODE_FOLD_LINES');
+    const longCode = Array.from({ length: foldAt + 10 }, (_, i) => `const v${i} = ${i};`).join('\n');
+    // Words after the fence, so the fake CLI's "(mode=…)" lands outside the block.
+    await ev(`SB.send(${JSON.stringify(`Long:\n\`\`\`js\n${longCode}\n\`\`\`\n\nend`)})`);
+    await idle();
+    const LONG = `[...document.querySelectorAll('${FEED} .msg.assistant .code-block')].pop()`;
+    check(await until(`${LONG}?.querySelector('pre.fold')`), `a block over ${foldAt} lines is folded`);
+    check(await ev(`${LONG}.querySelector('pre').clientHeight < ${LONG}.querySelector('pre').scrollHeight`), 'it scrolls inside its height');
+    await ev(`${LONG}.querySelector('.code-fold').click()`);
+    check(await ev(`${LONG}.querySelector('pre').classList.contains('full') && ${LONG}.querySelector('pre').clientHeight >= ${LONG}.querySelector('pre').scrollHeight`), 'Show all opens it to its full height');
+    check(await ev(`${LONG}.querySelector('.code-fold').textContent === 'Show less'`), 'and the button says Show less');
+
     // ---- 3. Ctrl+Shift+T
     const closedId = await ev('SB.activeTab().id');
     await ev('SB.newTab()');

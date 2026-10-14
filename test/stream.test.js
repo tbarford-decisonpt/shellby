@@ -138,6 +138,21 @@ test('write tools carry the path and how much they write', () => {
   assert.equal(read.writeChars, undefined);
 });
 
+test('a read or a search says where it went, whole, for the trail', () => {
+  const tool = (name, input) => toItems({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't', name, input }] } })[0];
+  assert.deepEqual(tool('Read', { file_path: 'C:\\p\\a b.js' }).target, { path: 'C:\\p\\a b.js' });
+  assert.deepEqual(tool('Read', { file_path: 'a.js', offset: 120, limit: 40 }).target, { path: 'a.js', lines: [120, 159] });
+  assert.deepEqual(tool('Read', { file_path: 'a.js', offset: 300 }).target, { path: 'a.js', lines: [300, null] });
+  assert.deepEqual(tool('Grep', { pattern: 'TODO', path: 'src', output_mode: 'content' }).target, { pattern: 'TODO', path: 'src', mode: 'content' });
+  assert.deepEqual(tool('Grep', { pattern: 'TODO', output_mode: 'weird' }).target, { pattern: 'TODO' });
+  assert.deepEqual(tool('Glob', { pattern: '**/*.test.js' }).target, { pattern: '**/*.test.js' });
+  // Nothing to go on, or a tool that goes nowhere: no target.
+  assert.equal(tool('Read', {}).target, undefined);
+  assert.equal(tool('Grep', { path: 'src' }).target, undefined);
+  assert.equal(tool('Bash', { command: 'ls' }).target, undefined);
+  assert.equal(tool('Read', { file_path: 'x'.repeat(5000) }).target.path.length, 1000);
+});
+
 test('writeChars reads each write tool, and MultiEdit sums its edits', () => {
   assert.equal(writeChars('Write', { content: 'abc' }), 3);
   assert.equal(writeChars('Edit', { new_string: 'abcd' }), 4);

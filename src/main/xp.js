@@ -1,8 +1,9 @@
 // XP and levels. Shellby earns XP when tasks finish, tests pass, code ships or
 // deploys, and most of all when he writes himself a new skill or agent; and,
 // with or without Claude, when you pet him, play with him, he digs you up a
-// gift or the two of you grow closer. Enough XP and he levels up. Turning failing tests green, the first push of the day
-// to a project, a running streak and coming back after a break all pay extra;
+// gift or the two of you grow closer. Enough XP and he levels up, and past
+// level 99 he earns marks (★). Turning failing tests green, the first push of
+// the day to a project, a running streak and coming back after a break all pay extra;
 // doing the same thing over and over pays less and less. Pure: no I/O, no
 // clock (callers pass `now`). See test/xp.test.js.
 //
@@ -44,19 +45,20 @@ const AWARDS = Object.freeze({
   // for cheaper tasks, shorter replies or fewer turns, which would reward cutting corners.
   tidy: { xp: 30, perHour: 6, label: 'Tidied his toolbox', way: 'Turns off a plugin or MCP server that sits idle', claude: true },
   treasure: { xp: 30, perHour: 2, label: 'He dug up something rare', way: 'Digs up something rare' },
-  tests: { xp: 25, perHour: 6, label: 'Tests passed', way: 'Tests pass', claude: true },
   home: { xp: 20, perHour: 6, label: 'Brought work home green', way: "Brings a copy's work home with its tests passing", claude: true },
   helped: { xp: 15, perHour: 6, label: "Put a helper's find to use", way: 'Acts on what one of his helper agents found', claude: true },
   trophy: { xp: 20, perHour: 30, label: 'Earned a trophy', way: 'Earns a trophy' },
   fresh: { xp: 20, perHour: 2, label: 'Started a crowded chat fresh', way: 'Starts a crowded conversation fresh with a summary', claude: true },
+  tests: { xp: 15, perHour: 6, label: 'Tests passed', way: 'Tests pass', claude: true },
   quiz: { xp: 15, perHour: 3, label: "Passed a quiz on Claude's work", way: 'You pass a quiz on a change Claude made', claude: true },
   focus: { xp: 15, perHour: 3, label: 'Finished a focus session', way: 'Finishes a focus session' },
   // Swaps with friends (swaps.js).
   swap: { xp: 15, perHour: 3, label: 'Swapped finds with a friend', way: 'Swaps a find with a friend' },
-  task: { xp: 10, perHour: 60, label: 'Finished a task', way: 'Finishes a task', claude: true },
   catch: { xp: 10, perHour: 6, label: 'Caught a bug', way: 'Fixes a bug and catches it for the Bugdex', claude: true },
   play: { xp: 10, perHour: 4, label: 'Played a game with him', way: 'Plays hide and seek or fetch with you' },
   find: { xp: 8, perHour: 4, label: 'He dug you up a gift', way: 'Digs you up a gift' },
+  // Tasks and test runs come by the dozen on a busy day, so they pay the least of Claude's work.
+  task: { xp: 5, perHour: 60, label: 'Finished a task', way: 'Finishes a task', claude: true },
   day: { xp: 5, perHour: 1, label: 'Another day together', way: 'Each day you use him' },
   feed: { xp: 3, perHour: 3, label: 'Fed Shellby a snack', way: 'You feed him a snack' },
   care: { xp: 3, perHour: 2, label: 'Looked after Shellby', way: 'You rinse him or tuck him in' },
@@ -81,6 +83,11 @@ const RANKS = [
   [80, 'Abyss', '#8c9eff'], [90, 'Prism', '#ff9ec4'],
 ];
 const MAX_LEVEL = 99;
+// Past the top level, XP keeps counting in marks (★): the first costs MARK_XP,
+// and each one after costs MARK_STEP more than the one before.
+const MARK_XP = 5000;
+const MARK_STEP = 500;
+const MAX_MARKS = 999;
 const LOG_MAX = 40;
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -129,15 +136,37 @@ function nextUnlock(level) {
   return first ? { level: first.level, unlocks: UNLOCKS.filter(u => u.level === first.level) } : null;
 }
 
-/** { level, title, rank, xp, floor, next, into, needed, progress (0..1) } for a total. */
+/** XP past level 99 needed for `n` marks (1 = 5,000, 2 = 10,500, 3 = 16,500). */
+function xpForMarks(n) {
+  const m = Math.max(0, Math.min(MAX_MARKS, Math.floor(n)));
+  return m * MARK_XP + (MARK_STEP * m * (m - 1)) / 2;
+}
+
+/** How many marks `over` XP past level 99 has earned. */
+function marksFor(overIn) {
+  const over = Math.max(0, Number(overIn) || 0);
+  // xpForMarks(n) = (STEP/2)n² + (XP - STEP/2)n: solve for n, then step off any rounding.
+  const b = MARK_XP - MARK_STEP / 2;
+  let n = Math.min(MAX_MARKS, Math.floor((Math.sqrt(b * b + 2 * MARK_STEP * over) - b) / MARK_STEP));
+  while (n > 0 && xpForMarks(n) > over) n--;
+  while (n < MAX_MARKS && xpForMarks(n + 1) <= over) n++;
+  return n;
+}
+
+/**
+ * { level, marks, title, rank, xp, floor, next, into, needed, progress (0..1) } for
+ * a total. At level 99, floor/next/progress are toward the next mark.
+ */
 function levelFor(total) {
   const xp = Math.max(0, Math.floor(Number(total) || 0));
   let level = 1;
   while (level < MAX_LEVEL && xp >= xpForLevel(level + 1)) level++;
-  const floor = xpForLevel(level);
-  const next = level < MAX_LEVEL ? xpForLevel(level + 1) : floor;
+  const top = xpForLevel(MAX_LEVEL);
+  const marks = level === MAX_LEVEL ? marksFor(xp - top) : 0;
+  const floor = level < MAX_LEVEL ? xpForLevel(level) : top + xpForMarks(marks);
+  const next = level < MAX_LEVEL ? xpForLevel(level + 1) : marks < MAX_MARKS ? top + xpForMarks(marks + 1) : floor;
   return {
-    level, title: titleFor(level), rank: rankFor(level), xp, floor, next,
+    level, marks, title: titleFor(level), rank: rankFor(level), xp, floor, next,
     into: xp - floor, needed: next - floor,
     progress: next > floor ? (xp - floor) / (next - floor) : 1,
   };
@@ -276,8 +305,8 @@ function addTo(map, key, n) { return n > 0 ? { ...map, [key]: own(map, key) + n 
 
 /**
  * Award XP for one event. Returns { state, gained, before, after, levelUp,
- * kind, bonuses, bounties, changed } (state is a new object; the old one is
- * never mutated).
+ * markUp, kind, bonuses, bounties, changed } (state is a new object; the old
+ * one is never mutated).
  *   kind: one of AWARDS ('tests' becomes 'fixed' after a failure in that project)
  *   meta: { label?, project?, streak? (current streak in days),
  *           sameCode? (a test pass on the very code that failed: a flake, so not 'fixed'),
@@ -286,7 +315,7 @@ function addTo(map, key, n) { return n > 0 ? { ...map, [key]: own(map, key) + n 
 function award(stateIn, kindIn, now, meta = {}) {
   const state = normalizeXp(stateIn);
   const before = levelFor(state.total);
-  const none = { state, gained: 0, before, after: before, levelUp: false, kind: kindIn, bonuses: [], bounties: [], changed: false };
+  const none = { state, gained: 0, before, after: before, levelUp: false, markUp: false, kind: kindIn, bonuses: [], bounties: [], changed: false };
   if (!AWARDS[kindIn]) return none;
   const t = now instanceof Date ? now.getTime() : Number(now);
   if (!Number.isFinite(t)) return none;
@@ -358,7 +387,7 @@ function award(stateIn, kindIn, now, meta = {}) {
   const after = levelFor(next.total);
   const changed = gained > 0 || JSON.stringify(next) !== JSON.stringify(state);
   return {
-    state: next, gained, before, after, levelUp: after.level > before.level, kind, bonuses,
+    state: next, gained, before, after, levelUp: after.level > before.level, markUp: after.marks > before.marks, kind, bonuses,
     bounties: [...b.completed.map(x => ({ id: x.id, text: x.text, xp: x.xp })), ...(b.cleared ? [{ id: 'all', text: "All of today's bounties", xp: CLEAR_ALL_XP }] : [])],
     changed,
   };
@@ -412,7 +441,7 @@ function classifyCommand(cmd) {
 }
 
 module.exports = {
-  AWARDS, TITLES, RANKS, UNLOCKS, MAX_LEVEL, LEGACY,
-  xpForLevel, titleFor, rankFor, levelFor, unlocksBetween, nextUnlock, streakMultiplier,
+  AWARDS, TITLES, RANKS, UNLOCKS, MAX_LEVEL, MAX_MARKS, LEGACY,
+  xpForLevel, xpForMarks, marksFor, titleFor, rankFor, levelFor, unlocksBetween, nextUnlock, streakMultiplier,
   normalizeXp, withDevice, markRed, award, xpSummary, mergeXpCounts, cleanByDevice, classifyCommand,
 };

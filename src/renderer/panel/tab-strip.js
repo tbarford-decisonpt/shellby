@@ -111,7 +111,8 @@
       $('tabs').replaceChildren();
       for (const p of state.grid.flat()) {
         const strip = SB.paneStripOf(p.id);
-        if (strip) drawTabs(strip, p.tabs, p.active);
+        if (strip && SB.panes.isToolPane(p)) strip.replaceChildren(SB.tools.chip(p.active));
+        else if (strip) drawTabs(strip, p.tabs, p.active);
       }
     } else {
       for (const p of state.grid.flat()) SB.paneStripOf(p.id)?.replaceChildren();
@@ -121,6 +122,7 @@
     const running = [...state.tabs.values()].filter(t => t.busy).length;
     document.body.classList.toggle('busy', running > 0);
     SB.refreshPaneHeads(); // the panes' headers show the same names and marks
+    SB.viewer?.syncButtons(); // the Files buttons follow what each pane shows (viewer.js)
   };
   const shownTitle = L.shownTitle;
   SB.shownTitle = shownTitle;

@@ -110,6 +110,13 @@
           <label class="inline-label hl-port">Port <input class="field slim" id="hlPort" type="number" min="1024" max="65535" inputmode="numeric"></label>
         </div>
       </div>
+      <div class="hl-lhm-ver" id="hlLhmVer" hidden>
+        <p class="hl-fine" id="hlLhmVerText" aria-live="polite"></p>
+        <div class="row wrap">
+          <button type="button" class="btn primary" id="hlLhmUpdate" hidden title="Fills in a task asking Claude to update LibreHardwareMonitor; nothing runs until you send it">Update it</button>
+          <button type="button" class="btn ghost slim-btn" id="hlLhmCheck" title="Ask GitHub for LibreHardwareMonitor's latest release">Check for updates</button>
+        </div>
+      </div>
     </details>
 
     <details class="setting-group hl-settings hl-fold" id="hlSettingsFold">

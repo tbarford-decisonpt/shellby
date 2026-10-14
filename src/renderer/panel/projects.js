@@ -332,7 +332,8 @@
   api.onProjectInstalled(({ project }) => { SB.toast(`Dependencies installed in ${project}.`); load(); });
 
   // The crab's sign, a toast or the tray: straight to that server's card.
-  api.onProjectsShow(async ({ serverId } = {}) => {
+  api.onProjectsShow(({ serverId } = {}) => showServer(serverId));
+  async function showServer(serverId) {
     if (!data) await load();
     servers = await api.getServers();
     const s = servers?.servers.find(x => x.id === serverId);
@@ -344,7 +345,8 @@
     const card = document.getElementById(`srv-card-${s.id}`);
     card?.scrollIntoView({ block: 'center' });
     card?.querySelector('button')?.focus();
-  });
+  }
+  P.showServer = showServer; // a server's log beside the chat sends you to its card (tool-tabs.js)
 
   // ------------------------------------------------------------------ controls
 

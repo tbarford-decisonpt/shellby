@@ -15,6 +15,7 @@ const fileIndex = require('./fileindex');
 const shellCmd = require('./shellcmd');
 const rewind = require('./rewind');
 const { outline } = require('./outline');
+const trail = require('../renderer/shared/trail');
 const exporter = require('./exporter');
 const claudeSetup = require('./claude/setup');
 const mcpAdmin = require('./mcpadmin');
@@ -28,6 +29,9 @@ const { run: runCli, skipSettings } = require('./claude/cli');
 const MAX_PROMPTS = 100;
 const MAX_PROMPT_CHARS = 4000;
 const MCP_TIMEOUT_MS = 60000;
+// The trail asks after this many changed files at most, each a relative path.
+const TRAIL_FILES = 60;
+const TRAIL_PATH = 1000;
 // After the sign-in page opens: look for "connected" every 3 s for 5 minutes.
 const SIGNIN_POLL_MS = 3000;
 const SIGNIN_POLLS = 100;
@@ -133,17 +137,27 @@ function register(deps) {
 
   // ---- /btw: a side question, answered from a fork of the conversation (btw.js)
   // The tab's own CLI (the fake one in tests), in its folder, so --resume finds it.
+  // A conversation on another computer is asked there, where its transcript is,
+  // and with that computer's settings (this PC's say nothing about its sign-in).
+  function btwRun(s, remote) {
+    if (!remote) return (args, timeout, opts) => runCli(s.exePath(), [...(s.argsPrefix || []), ...args], timeout, opts);
+    return (args, timeout, { input }) => {
+      const c = btw.remoteCommand(remote, args);
+      return runCli(c.exe, c.args, timeout, { cwd: os.homedir(), input, env: { ...process.env, ...remote.env } });
+    };
+  }
   ipcMain.handle('btw:ask', async (_e, { tabId, question } = {}) => {
     const tab = tabOf(tabId);
     if (!tab) return { ok: false, error: 'That conversation is closed.' };
     if (tab.btwAsking) return { ok: false, error: 'One side question at a time: the last one is still being answered.' };
     const s = tab.session;
+    const remote = s.remote?.() || null;
     tab.btwAsking = true;
     let r;
     try {
       r = await btw.ask({
-        question, sessionId: s.sessionId, resumeAt: s.resumeAt, model: s.model, cwd: s.cwd, lean: skipSettings(os.homedir()),
-      }, (args, timeout, opts) => runCli(s.exePath(), [...(s.argsPrefix || []), ...args], timeout, opts));
+        question, sessionId: s.sessionId, resumeAt: s.resumeAt, model: s.model, cwd: s.cwd, lean: remote ? [] : skipSettings(os.homedir()),
+      }, btwRun(s, remote));
     } finally { tab.btwAsking = false; }
     if (r.detail) deps.log?.warn?.(`btw: ${r.detail}`);
     if (r.ok) deps.stat('btw');
@@ -170,6 +184,17 @@ function register(deps) {
   ipcMain.handle('outline:get', (_e, tabId) => {
     const tab = tabOf(tabId);
     return { turns: tab?.saved ? outline(history.load(tab.id)) : [] };
+  });
+
+  // The trail's untested check: the tests named after each changed file, among
+  // the files in the conversation's folder (what git knows, as for @ mentions).
+  ipcMain.handle('trail:tests', async (_e, { tabId, files } = {}) => {
+    const wanted = (Array.isArray(files) ? files : []).filter(f => isStr(f) && f.length < TRAIL_PATH).slice(0, TRAIL_FILES);
+    if (!wanted.length) return { tests: {} };
+    try {
+      const index = trail.testIndex(await fileIndex.list(cwdOf(tabId))); // one pass, however many changed
+      return { tests: Object.fromEntries(wanted.map(f => [f, trail.testsFor(f, index)]).filter(([, t]) => t.length)) };
+    } catch { return { tests: {} }; }
   });
 
   ipcMain.handle('rewind:run', async (_e, { tabId, turnId, conversation = true, code = true } = {}) => {

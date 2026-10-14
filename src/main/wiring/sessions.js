@@ -225,6 +225,7 @@ function wireSessions(d) {
         if (d.pendingCommands.size > 200) d.pendingCommands.delete(d.pendingCommands.keys().next().value);
       }
       if (item.kind === 'tool') changes.noteTool(touchOf(tabId)?.touch, item); // what this turn could have written
+      d.viewerWrites?.(item, tab.session?.cwd); // the file viewer looks again once a writing tool is done (ipc/viewer.js)
       if (item.kind === 'tool') d.onToolSpoken(item);
       if (item.kind === 'tool' && item.name === 'PushNotification') claudeNotified(tabId, tab, item.detail);
       if (item.kind === 'tool_result' && item.worktree && !item.parent) claudeWorktree(tabId, tab, item);

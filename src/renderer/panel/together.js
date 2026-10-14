@@ -1,8 +1,9 @@
 /* Shellby panel — Finds and Us, two tabs of Shellby's screen about the two of
    you, none of which needs Claude. Finds is the shelf of everything he's dug up
-   (src/main/gifts.js); Us is how close you are, his temperament, games, your
-   birthday, the scenes you've caught him in and the moments he remembers
-   (bond.js, playtime.js, scenes.js). Main sends one view for both (life.js). */
+   (src/main/gifts.js); Us is your beach (beach.js draws it, with him on it),
+   how close you are, his temperament, games, your birthday, the scenes you've
+   caught him in and the moments he remembers (bond.js, playtime.js,
+   scenes.js). Main sends one view for both (life.js). */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;
@@ -100,60 +101,9 @@
   }
 
   // ------------------------------------------------------------ Us
-  // The hero is a little diorama: him on the sand at the tide line, under a sky
-  // that follows your clock. What he's unlocked shows up in it (hearts drawn in
-  // the sand, his favourite find beside him). It's patched, not rebuilt, so his
-  // breathing and the waves don't restart every time life sends an update.
-  const PIX = {
-    drawn: ['.11.11.', '1..1..1', '1.....1', '.1...1.', '..1.1..', '...1...'],
-    heart: ['.11.11.', '1221111', '1211111', '.11111.', '..111..', '...1...'],
-    orb: ['..1111..', '.111111.', '11121111', '11111211', '11211111', '11111111', '.111121.', '..1111..'],
-  };
-  const ORB = { night: ['#f3e6cc', '#cdbf9f'], dawn: ['#ff9a6b', '#ffc39e'], day: ['#ffc15e', '#ffe0a3'], dusk: ['#ff7a5c', '#ffb08f'] };
-  const HEARTS_AT = 3;     // bond.js UNLOCKS: he draws you hearts in the sand
-  const SHOWS_FIND_AT = 2; // ...and shows off his favourite find
-  const GOLDEN_AT = 5;     // ...and golden hearts when you pet him
-  const MAX_POPS = 6;
-  let crabKey = null, propsKey = null;
-
-  const timeOfDay = (hour = new Date().getHours()) => (hour >= 21 || hour < 5 ? 'night' : hour < 8 ? 'dawn' : hour < 17 ? 'day' : 'dusk');
-  const pix = (rows, a, b, px) => SB.Sprite.grid(rows, { 1: a, 2: b || a }, { px });
-
-  function renderStage(v) {
-    const b = v.bond;
-    const stage = $('usStage');
-    const time = timeOfDay();
-    if (stage.dataset.time !== time || !$('usOrb').firstChild) {
-      stage.dataset.time = time;
-      $('usOrb').replaceChildren(pix(PIX.orb, ...ORB[time], 3));
-    }
-    const look = `${state.skin?.name}|${JSON.stringify(state.outfit || {})}`;
-    if (look !== crabKey && state.skin) { crabKey = look; $('usCrab').replaceChildren(SB.sprite()); }
-
-    const fav = b.level.index >= SHOWS_FIND_AT ? v.finds.finds.find(f => f.id === v.finds.favourite && f.owned) : null;
-    const key = `${b.level.index}|${fav?.id || ''}`;
-    if (key === propsKey) return;
-    propsKey = key;
-    const hearts = b.level.index >= HEARTS_AT ? [['h1', 3], ['h2', 2]].map(([cls, px]) => h('span', { class: `us-drawn ${cls}` }, pix(PIX.drawn, 'currentColor', null, px))) : [];
-    $('usProps').replaceChildren(...hearts, fav ? h('span', { class: `us-fav rarity-${fav.rarity}`, title: `${fav.name}, his favourite` }, art(fav.sprite || fav, fit(fav.sprite || fav, 30), { owned: true })) : '');
-  }
-
-  // A heart floats up from him; main counts the pet (and ignores spam).
-  function pet() {
-    api.critter.pet();
-    const crab = $('usCrab');
-    crab.classList.remove('petted');
-    void crab.offsetWidth; // restart the hop
-    crab.classList.add('petted');
-    const pops = $('usPops');
-    if (pops.childElementCount >= MAX_POPS) return;
-    const gold = (life()?.bond.level.index ?? 0) >= GOLDEN_AT;
-    const pop = h('span', { class: 'us-pop', style: `--dx:${Math.round(Math.random() * 36 - 18)}px` },
-      pix(PIX.heart, gold ? '#ffd23f' : '#ff8fab', gold ? '#fff2b8' : '#ffd1dc', 3));
-    pop.addEventListener('animationend', () => pop.remove());
-    pops.append(pop);
-  }
-
+  // The scene at the top is your beach (beach.js): him beside the newest
+  // castle, to pet, with what your bond has opened up drawn into it. This
+  // file fills in the words over it and everything under it.
   function renderBond(v) {
     const b = v.bond;
     const t = v.temperament;
@@ -222,7 +172,7 @@
   function renderUs() {
     const v = life();
     if (!v) return;
-    renderStage(v);
+    SB.beachScene?.refresh(); // a closer bond or a new favourite shows on the beach
     renderBond(v);
     SB.renderNeeds?.(v); // How he's doing (needs.js)
     renderPlay(v);
@@ -286,7 +236,6 @@
   // ------------------------------------------------------------ wiring
   $('fdDig').addEventListener('click', () => play('dig'));
   document.querySelectorAll('.us-play [data-play]').forEach(b => b.addEventListener('click', () => play(b.dataset.play)));
-  $('usCrab').addEventListener('click', pet);
   async function play(kind) {
     const r = await api.play(kind);
     if (!r?.ok) return SB.toast(r?.error || 'He can’t right now.');
@@ -342,6 +291,6 @@
   });
 
   SB.views.finds = { render: () => { renderFinds(); noticeFinds(); api.getLife().then(v => { apply(v); noticeFinds(); }); } };
-  SB.views.us = { render: () => { renderUs(); api.getLife().then(apply); } };
+  SB.views.us = { render: () => { renderUs(); SB.beachScene?.open(); api.getLife().then(apply); } };
   api.getLife().then(apply);
 })();

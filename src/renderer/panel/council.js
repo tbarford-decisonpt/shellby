@@ -115,6 +115,7 @@
     const text = $('ccScrollText'), tally = $('ccTally'), scroll = $('ccScroll');
     tally.replaceChildren();
     scroll.disabled = !session?.chair;
+    $('ccNewBtn').hidden = live !== null || (!session && !followUp);
     if (live) { text.textContent = live.debating ? 'The council is arguing it out…' : live.status.chair === 'thinking' ? 'Shellby is weighing it up…' : 'The council is thinking…'; return; }
     if (!session) { text.textContent = followUp ? 'Ask a follow-up: the council remembers its last verdict.' : 'The council is waiting for a question.'; return; }
     text.textContent = session.chair?.verdict || 'The chair couldn’t reach a verdict. The advisors’ answers are below.';
@@ -237,6 +238,21 @@
   function clearFollowUp() {
     followUp = null;
     $('ccQuestion').placeholder = 'Put another decision to the council.';
+  }
+
+  // Clears the table for a fresh question, with no follow-up on the last one.
+  // The old sitting stays in Past sessions.
+  function newSession() {
+    if (live) return;
+    clearTimeout(rollTimer);
+    session = null;
+    focusSeat = null;
+    speaking = null;
+    clearFollowUp();
+    $('ccQuestion').value = '';
+    renderTable();
+    renderMinutes();
+    $('ccQuestion').focus();
   }
 
   // ------------------------------------------------------------ asking
@@ -389,6 +405,7 @@
   $('ccQuestion').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('ccAsk').requestSubmit(); });
   $('ccModes').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && view) save({ mode: b.dataset.mode }); });
   $('ccScroll').addEventListener('click', () => pickSeat('chair'));
+  $('ccNewBtn').addEventListener('click', newSession);
   $('ccSeatsBtn').addEventListener('click', () => toggleDrawer($('ccSeatsBtn'), $('ccSeatsEditor'), renderSeatEditor));
   $('ccHistoryBtn').addEventListener('click', () => toggleDrawer($('ccHistoryBtn'), $('ccHistory'), renderHistory));
   $('ccCustomForm').addEventListener('submit', addCustom);

@@ -157,6 +157,8 @@ async function windows() {
     await panel.ev("SB.setView('us')");
     check(await until(panel, "document.querySelector('#usHero h3')?.textContent.length > 0", 3000), 'the Us page shows how close you are');
     check(await panel.ev("/Your crab is/.test(document.getElementById('usHero').textContent)"), '...and his temperament');
+    check(await until(panel, "!!document.querySelector('#usHero #bcHits .bc-hit-crab')", 4000), '...on your beach, with him on it to pet');
+    check(await panel.ev("!document.querySelector('[data-goto=\"beach\"]')"), '...and no Beach tab of its own');
     check(await panel.ev("document.querySelectorAll('#usStory li').length >= 2"), '...and your story so far');
     check(await panel.ev(`document.querySelectorAll('#usUnlocks li').length === ${UNLOCKS.length}`), '...and what opens up as you get closer');
     await panel.shot('4-us');

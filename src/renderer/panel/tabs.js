@@ -72,6 +72,7 @@
     if (state.activeTab !== tabId) api.shownTab(tabId); // the Stream Deck's Stop and Bring it home follow it
     state.activeTab = tabId;
     SB.renderPanes();
+    SB.trailFollow?.(); // the trail shows the conversation you're in (trail.js)
     input.value = tab.draft || '';
     autosize();
     renderAttachments();
@@ -256,6 +257,7 @@
     showChanges: tab => SB.showChanges(tab),
     bringHome: tab => (tab.worktree ? SB.bringHome(tab) : SB.toast('This conversation works in your own checkout, so there’s nothing to bring home.')),
     outline: tab => SB.openOutline?.(tab),     // outline.js
+    trail: () => SB.toggleTrail?.(undefined, { focus: true }), // trail.js
     problems: tab => SB.openProblems?.(tab),   // problems.js
   };
 
@@ -298,7 +300,9 @@
       if (e.defaultPrevented || e.target.closest?.('.title-edit') || !dir || !state.activeTab || state.view !== 'chat' || SB.panes.count(state.grid) < 2 || SB.overlayOpen()) return;
       e.preventDefault();
       if (K.matches(e, 'movePane')) { SB.movePane(state.activeTab, dir); return; }
-      const to = SB.panes.neighbor(state.grid, SB.focusedPane(), dir);
+      // A tool's pane takes no box: on past it, the same way.
+      let to = SB.panes.neighbor(state.grid, SB.focusedPane(), dir);
+      while (to && SB.panes.isToolPane(SB.panes.byId(state.grid, to))) to = SB.panes.neighbor(state.grid, to, dir);
       if (to) SB.activate(SB.panes.byId(state.grid, to).active);
       return;
     }

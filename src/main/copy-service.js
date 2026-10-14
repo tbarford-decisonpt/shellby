@@ -97,7 +97,8 @@ function createCopies(d) {
     session.beforeWork = null;
     history.update(tab.id, { cwd: w.cwd, worktree: w });
     d.log.info(`worktree: ${w.branch} for ${path.basename(w.root)}`);
-    manager.note(tab.id, { kind: 'moved', branch: w.branch, base: w.base });
+    // from / cwd: the trail (shared/trail.js) finds what was done before the move in the copy.
+    manager.note(tab.id, { kind: 'moved', branch: w.branch, base: w.base, from, cwd: w.cwd });
     manager.changed();
     // Its packages, if your checkout has them (copy-deps.js), so its tests run straight away.
     const deps = await installCopyDeps(w);

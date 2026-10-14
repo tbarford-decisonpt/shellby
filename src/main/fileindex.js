@@ -105,13 +105,20 @@ function mention(entry) {
   return /\s/.test(entry) ? `@"${entry}"` : `@${entry}`;
 }
 
+// Who wants to know when a folder's list goes stale: something in it may have
+// changed (the file viewer looks again; ipc/viewer.js).
+const forgetters = [];
+function onForget(fn) { if (typeof fn === 'function') forgetters.push(fn); }
+
 /** Drop a folder's cached list (a turn or a command just changed its files). */
 function forget(cwd) {
-  if (typeof cwd === 'string') cache.delete(path.resolve(cwd).toLowerCase());
+  if (typeof cwd !== 'string') return;
+  cache.delete(path.resolve(cwd).toLowerCase());
+  for (const fn of forgetters) { try { fn(cwd); } catch { /* a listener's trouble is its own */ } }
 }
 
 async function suggest(cwd, q, limit = 12) {
   return rank(await list(cwd), q, limit);
 }
 
-module.exports = { list, rank, mention, suggest, forget, withFolders };
+module.exports = { list, rank, mention, suggest, forget, onForget, withFolders };

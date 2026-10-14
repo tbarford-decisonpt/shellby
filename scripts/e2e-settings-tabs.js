@@ -40,6 +40,9 @@ async function launch(profile) {
     ws.send(JSON.stringify({ id: i, method, params }));
   });
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }))?.result?.value;
+  // Booted (boot.js marks it), not a fixed wait: under a full e2e run the panel's
+  // scripts can take longer than any guess to load.
+  for (let t = 0; t < 30000 && !(await ev("performance.getEntriesByName('shellby:panel-ready').length > 0")); t += 150) await wait(150);
   return { app, send, ev };
 }
 
@@ -72,7 +75,6 @@ const TABS = {
   let run = await launch(newProfile({ crabOnly: false }));
   try {
     const panel = run;
-    await wait(2500);
     await panel.ev("SB.setView('settings')");
     await wait(500);
     check(await selected(panel) === 'claude', 'Settings opens on the Claude tab');
@@ -181,7 +183,6 @@ const TABS = {
   // ---- just the crab
   run = await launch(newProfile({ crabOnly: true }));
   try {
-    await wait(2500);
     await run.ev("SB.setView('settings')");
     await wait(400);
     check(await selected(run) === 'shellby', 'just-the-crab opens Settings on the Shellby tab');

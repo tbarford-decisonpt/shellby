@@ -14,6 +14,12 @@ body:
     attributes:
       label: What would it save you?
       description: What you do today instead, however small.
+  - type: input
+    id: version
+    attributes:
+      label: Shellby version
+      description: Filled in when you suggest it from Shellby (right-click him → Send feedback).
+      placeholder: 0.18.0
   - type: markdown
     attributes:
       value: |

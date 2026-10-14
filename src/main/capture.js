@@ -52,6 +52,42 @@ const DEMO_TABS = [
   ] },
 ];
 
+// Four conversations side by side for the split-panes shot (README "Work in parallel").
+const REPO = `${HOME}\\code\\tidepool`;
+const PANE_TABS = [
+  { id: 'pane-bug', title: 'Fix the login redirect loop', cwd: REPO, busy: true, status: 'Running the auth tests…', items: [
+    { kind: 'user', text: 'Signing in with Google sends me back to /login forever. Find out why.' },
+    { kind: 'tool', id: 'b1', name: 'Grep', label: 'Searched', detail: 'redirectTo in src/' },
+    { kind: 'tool_result', id: 'b1', text: '4 matches' },
+    { kind: 'text', text: "Found it: `middleware.ts` checks the session cookie before the OAuth callback sets it, so `/auth/callback` itself gets redirected to `/login`. I'll let the callback route through." },
+    { kind: 'tool', id: 'b2', name: 'Edit', label: 'Edited', detail: 'src/middleware.ts', filePath: `${REPO}\\src\\middleware.ts` },
+    { kind: 'tool_result', id: 'b2', text: 'Updated' },
+    { kind: 'tool', id: 'b3', name: 'PowerShell', label: 'Ran', detail: 'npm test -- auth' },
+  ] },
+  { id: 'pane-tests', title: 'Tests for the pricing module', cwd: REPO, outcome: 'ok', items: [
+    { kind: 'user', text: 'Write tests for src/lib/pricing.ts. Cover the discount edge cases.' },
+    { kind: 'tool', id: 't1', name: 'Write', label: 'Created', detail: 'test/pricing.test.ts', filePath: `${REPO}\\test\\pricing.test.ts` },
+    { kind: 'tool_result', id: 't1', text: 'File created' },
+    { kind: 'tool', id: 't2', name: 'PowerShell', label: 'Ran', detail: 'npm test -- pricing' },
+    { kind: 'tool_result', id: 't2', text: '18 passing' },
+    { kind: 'text', text: '**18 tests, all passing.** One found a real bug: a 100% coupon on a $0 plan returned `NaN`. I fixed it in `applyDiscount` and kept the test.' },
+    { kind: 'result', ok: true, durationMs: 72400, turns: 11 },
+  ] },
+  { id: 'pane-review', title: 'Review the checkout PR', cwd: REPO, outcome: 'ok', items: [
+    { kind: 'user', text: 'Review my checkout branch before I open the PR.' },
+    { kind: 'tool', id: 'r1', name: 'PowerShell', label: 'Ran', detail: 'git diff main...HEAD --stat' },
+    { kind: 'tool_result', id: 'r1', text: '9 files changed, 312 insertions(+), 41 deletions(-)' },
+    { kind: 'text', text: 'Looks good overall. Two things worth fixing first:\n\n1. `createOrder` trusts the price sent by the client. Read it from the cart on the server.\n2. The retry in `chargeCard` can double-charge on a timeout. Pass an idempotency key.' },
+    { kind: 'result', ok: true, durationMs: 39100, turns: 5 },
+  ] },
+  { id: 'pane-docs', title: 'Update the README for v2', cwd: REPO, busy: true, status: 'Writing…', items: [
+    { kind: 'user', text: 'Update the README for the v2 config format, with a migration section.' },
+    { kind: 'tool', id: 'd1', name: 'Read', label: 'Read', detail: 'src/config/schema.ts', filePath: `${REPO}\\src\\config\\schema.ts` },
+    { kind: 'tool_result', id: 'd1', text: '148 lines' },
+    { kind: 'text', text: 'v2 renames `server.port` to `listen` and moves the plugin list under `extensions`. Adding a before-and-after table to the migration section now.' },
+  ] },
+];
+
 const DEMO_TOOLBOX = {
   scannedAt: now,
   skills: [
@@ -82,7 +118,8 @@ const DEMO_USAGE = { kind: 'usage', fiveHour: { pct: 23, resetsAt: now + 2.5 * 3
 const LEARNED = [{ kind: 'skill', name: 'rename-screenshots', at: now - 3600e3 }];
 const PINNED = [{ kind: 'skill', name: 'rename-screenshots' }, { kind: 'skill', name: 'csv-cleaner' }, { kind: 'agent', name: 'folder-auditor' }];
 
-const wait = ms => new Promise(r => setTimeout(r, ms));
+const PANES_SIZE = { width: 1400, height: 860 }; // room for a 2x2 grid of readable chats
+const wait = ms =>new Promise(r => setTimeout(r, ms));
 
 // The panel's own boot (boot.js init) restores a tab of its own; a demo sent
 // before it finishes is replaced by it, so the first shot waits for the mark.
@@ -165,6 +202,15 @@ async function run({ app, critter, panel, showPanel, send, ROOT, setCrewSlots, w
     send(panel, 'demo', { ...base, tabs: DEMO_TABS, active: 'demo-crew', view: 'settings' });
     await wait(900);
     await shot(panel, path.join(out, 'screenshot-settings.png'));
+
+    // Split panes: four conversations in a 2x2 grid, in a panel wide enough for them.
+    const bounds = panel.getBounds();
+    panel.setBounds({ ...bounds, width: PANES_SIZE.width, height: PANES_SIZE.height });
+    send(panel, 'demo', { ...base, tabs: PANE_TABS, active: 'pane-bug', grid: [['pane-bug', 'pane-review'], ['pane-tests', 'pane-docs']] });
+    await wait(1600);
+    await shot(panel, path.join(out, 'screenshot-panes.png'));
+    panel.setBounds(bounds);
+    await wait(400);
 
     // Desktop critter: solo states, then with a crew of helpers.
     const crew = [
@@ -365,8 +411,7 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
     playView: () => require('./play').normalize(config.get('play')),
   });
   fake('life:get', () => life.view());
-  await show('us');
-  await shot(panel, path.join(out, 'screenshot-us.png'));
+  // Us is shot last, once its beach is built (below).
   await show('finds');
   await shot(panel, path.join(out, 'screenshot-finds.png'));
 
@@ -437,12 +482,12 @@ async function capturePages({ panel, send, out, config, base, makeTimeTracker })
   await shot(panel, path.join(out, 'screenshot-devserver-fix.png'));
   await js("document.querySelector('#pjDetailScreen .pj-detail-head button')?.click()");
 
-  // The beach, built and at night (the brand's hour), then its snapshot.
-  // Last, because its seed replaces the stickers and streaks.
+  // Us, its beach built and at night (the brand's hour), then the beach's
+  // snapshot. Last, because its seed replaces the stickers and streaks.
   config.set(demo.demoBeach(now));
   await js("SB.beachPaint.timeOfDay = () => 'night'; 1");
-  await show('beach', 1800);
-  await shot(panel, path.join(out, 'screenshot-beach.png'));
+  await show('us', 1800);
+  await shot(panel, path.join(out, 'screenshot-us.png'));
   const beachCard = await js('SB.beachCard.render().then(r => r.canvas.toDataURL("image/png"))');
   fs.writeFileSync(path.join(out, 'beach-card.png'), Buffer.from(beachCard.split(',')[1], 'base64'));
   console.log('wrote', path.relative(process.cwd(), path.join(out, 'beach-card.png')));

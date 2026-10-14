@@ -172,6 +172,7 @@ const DEFAULTS = {
   claudeUpdates: null, // { mode, latest, lastCheckAt, … }: keeping Claude Code itself current (see claude/update.js); null -> tell me
   notes: null,        // { general, projects }: ideas to plan, build or ask about (see notes.js)
   health: null,       // health monitor settings (see health/service.js); null -> defaults
+  lhmUpdate: null,    // { latest, lastCheckAt, lastAttemptAt }: LibreHardwareMonitor's latest release (see health/lhm-update.js)
   healthLog: [],      // recent health alerts, newest first
   channels: null,     // where to send "he needs you" when you're away (see channels.js)
   obs: null,          // { enabled, port }: the browser source for a stream (see obs.js)
@@ -196,6 +197,7 @@ const DEFAULTS = {
   channelsConfirmed: null, // the destination you said yes to in the confirm window; nothing goes anywhere else (main.js channelPlace)
   crashReports: 'ask',        // ask | always | never: whether crash reports go to Sentry (crash-report.js)
   crashReportDecisions: [],   // [{ until, send }]: each Send / Don't send answer and what it covered
+  ideaAsked: false,           // he's asked for an idea once, at Buddies (feedback.js); never again
 };
 
 // A second copy of the settings, from the last boot that read them fine (and
