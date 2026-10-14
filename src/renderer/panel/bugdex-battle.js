@@ -181,6 +181,7 @@
     const tabBtn = b.tabId ? h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => { close(); SB.activate?.(b.tabId); } }, 'Open the conversation') : null;
     const frame = h('div', { class: 'bb-frame' },
       h('header', { class: 'bb-head' }, h('span', { class: 'bb-title', id: 'bbTitle', text: 'BUG BATTLE' }), h('span', { class: 'bb-where', text: where }), closeBtn),
+      SB.bugReport?.banner(b) || null, // a rematch: last time's fix (bugdex-report.js)
       screen,
       h('footer', { class: 'bb-foot' }, skip, tabBtn),
       h('details', { class: 'bb-log-box' }, h('summary', { text: 'Battle log' }), log));
@@ -753,6 +754,7 @@
       h('p', { class: 'bb-reg-name', text: jar.badge && b.badge ? `The ${b.badge.name}` : `#${String(b.no).padStart(3, '0')} ${b.name}` }),
       h('p', { class: 'bb-reg-sub', text: jar.fame ? 'Every badge, the Deep Four and the champion.' : jar.badge ? `You beat the boss of ${b.habitatName}.` : b.blurb || '' }),
       forms.length ? h('p', { class: 'bb-reg-forms', text: forms.join('  ') }) : null,
+      SB.bugReport?.card(b.report) || null, // what kind of fix it was (bugdex-report.js)
       h('div', { class: 'bb-reg-actions' },
         h('button', { type: 'button', class: 'btn primary slim-btn', onclick: () => { close(); SB.focusBug?.(b.species); } }, 'See it in the Bugdex'),
         h('button', { type: 'button', class: 'btn ghost slim-btn', onclick: () => close() }, 'Done')));

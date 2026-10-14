@@ -220,6 +220,20 @@
 .bb-reg .btn.ghost:hover, .bb-reg .btn.ghost:focus-visible { background: rgba(255, 255, 255, .75); }
 .bb-reg.fame { background: linear-gradient(#fff6d6, #f1dc93); }
 
+/* the fix report under the jar, and the rematch ribbon (bugdex-report.js) */
+.bb-report { width: 100%; margin-top: 2px; padding: 5px 6px; border: 2px solid rgba(38, 50, 58, .35); border-radius: 4px; background: rgba(255, 255, 255, .45); }
+.bb-report-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-10); letter-spacing: .12em; }
+.bb-report-grade { letter-spacing: 0; font-size: var(--fs-11); color: #4b5961; }
+.bb-report-grade.g3, .bb-report-grade.g4 { color: #a07800; }
+.bb-report-rows { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin: 4px 0 0; padding: 0; list-style: none; }
+.bb-report-rows li { display: grid; justify-items: center; font-size: var(--fs-9-5); }
+.bb-report-rows li.no { opacity: .38; filter: grayscale(1); }
+.bb-report-icon { font-size: var(--fs-14); }
+.bb-report-crew { margin-top: 3px !important; font-size: var(--fs-10); color: #4b5961; }
+.bb-rematch { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 4px 10px; background: #3a2340; color: #fdfaf2; font-size: var(--fs-11); }
+.bb-rematch b { letter-spacing: .14em; color: #ffd23f; }
+.bb-rematch-tip { margin-left: auto; opacity: .75; }
+
 /* ---------------------------------------------------------------- habitats: each paints its own water */
 .hab-shallows { --w1: #2a9fc4; --w2: #0f5672; --pad1: #f3e6cc; --pad2: #cdb68c; --glow: rgba(255, 244, 214, .55); }
 .hab-shallows .bb-caustics { opacity: .3; }

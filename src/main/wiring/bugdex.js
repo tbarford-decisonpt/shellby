@@ -213,7 +213,7 @@ function wireBugdex(d) {
     if (r.isNew) d.log.info(`bugdex: spotted ${enc.species}`);
     if (r.escaped) d.log.info(`bugdex: ${enc.species} got away`);
     const e = r.state.open.find(x => lifecycle.encId(x) === lifecycle.encId(enc));
-    if (e && r.isNew) battleOf(e, now, again?.failed ?? null);
+    if (e && r.isNew) { d.bugNests?.opened(e, now); battleOf(e, now, again?.failed ?? null); } // history and nests first: a rematch starts stronger
     else if (e) fight(e, b => battle.act(b, { move: again?.kind || 'run', failed: again?.failed ?? null, at: now }));
     return r;
   }
@@ -343,7 +343,7 @@ function wireBugdex(d) {
       const lines = patch.split('\n');
       const added = lines.filter(l => l.startsWith('+') && !l.startsWith('+++')).length;
       const removed = lines.filter(l => l.startsWith('-') && !l.startsWith('---')).length;
-      caught.push({ e: { ...e, trimmed: removed > added }, remedy });
+      caught.push({ e: { ...e, trimmed: removed > added, fix: { files, patch, judged: verdict, counts: { before: e.passed, after: r.passed } } }, remedy }); // fix: for the report (bugdex-nests.js)
     }
     // One pass, one moment: the rarest is the catch, the rest come along quietly.
     caught.sort((a, b) => RARITY_ORDER[speciesById(b.e.species).rarity] - RARITY_ORDER[speciesById(a.e.species).rarity]);

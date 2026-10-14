@@ -36,6 +36,7 @@ function makeReward({ d, view, names, openPage }) {
     const caughtIds = Object.keys(book).filter(id => bugdex.caughtOf(book[id]) > 0);
     d.stat('bug-species', { n: caughtIds.filter(id => LIVE.has(id) && id !== 'missingno').length });
     d.stat('ghost-species', { n: caughtIds.filter(id => speciesById(id)?.habitat === 'wreck').length });
+    d.bugNests?.caught(e, r); // history, nests, the fix report's pay-outs (wiring/bugdex-nests.js)
     d.noteWeek('caught');
     if (r.isNew) d.noteWeek('newbug');
     d.noteRecap?.(recap.bugEvent(e.species, r.isNew)); // "3 bugs caught" in the while-you-were-away card

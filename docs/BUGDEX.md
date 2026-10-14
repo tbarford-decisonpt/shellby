@@ -78,9 +78,47 @@ The bug's HP follows the failing tests, or the error count of a type check, lint
 - **A miss:** the same number of failures, or still failing with no count to go on. The bug strikes back, with a move of its own for each type.
 - **It resists:** a "fix" the Bugdex won't take, like a skipped test, gives HP back, and the text box says why.
 
-Nothing but the real fix takes it below its last sliver of HP. Only the proven fix knocks it out cold: it's a finishing blow you watch land. Then it goes belly-up, a specimen jar comes down on a line, it drifts up in, the cork goes on, and its card shows. If the conversation closes first, it **fled**.
+Nothing but the real fix takes it below its last sliver of HP. Only the proven fix knocks it out cold, and how it lands depends on the kind of fix it was (see [The fix report](#the-fix-report)). Then it goes belly-up, a specimen jar comes down on a line, it drifts up in, the cork goes on, and its card shows. If the conversation closes first, it **fled**.
 
 Battles are kept only while Shellby runs, so a restart starts each one afresh at full HP. The catch itself never depends on the battle: it's the same proven fix either way.
+
+### The fix report
+
+When the fix is proven, Shellby reads the change behind it (the same diff the Bugdex checked to make sure it wasn't a cheat) and writes a **fix report** on the catch card. It has four marks:
+
+- 🧪 **Proof:** a new test case was added that proves the fix, and the test count went up (or the test file is new). Editing an assertion doesn't count.
+- 🌱 **Root cause:** real source code changed, with nothing silenced (no `@ts-ignore`, `eslint-disable`, `as any` and the like), no limit just raised, and not only snapshots, config or a lockfile.
+- 🎯 **First try:** the first re-run after it surfaced passed.
+- 🌊 **Wider:** the passing run covered more tests than were failing.
+
+A fix the Bugdex refuses never gets a report, so none of these can come from a skipped test or a silenced error.
+
+The report picks the finishing blows, up to three, in this order:
+
+- **Proof Strike** for a new test
+- **Root Cut** for a fix at the root
+- **First Try** for a pass on the first re-run
+- **Crew Combo** when helpers joined the fight and there's room
+
+A fix with none of them is the plain "It passes" blow. A fix with a new test at the root (🧪 and 🌱) also earns the **clean fix** XP award.
+
+### Rematches
+
+The Bugdex remembers each kind of bug in each project. When one you've caught there before comes back, it's a **rematch**: "It's back! Ghost Moth, rematch #2. Last time: no test." It's a couple of levels stronger for each time, and a ribbon over the screen shows last time's report. Win a rematch with a new test and it's **Sealed**, which counts toward the rematch trophies and clears its nest twice as fast.
+
+A catch that stays fixed for **14 days**, with that bug not seen in that project since, is noticed and earns the **held** XP award.
+
+### Nests
+
+When the same kind of bug turns up **3 times in 30 days** in one project, it has a **nest** there. Nests are listed at the top of the Bugdex page, each with a ring that fills toward clearing. A nest is a to-do list, never a penalty:
+
+- Catch it, then keep it away for **14 days** since it was last seen, and the nest clears. If the last catch was sealed (a rematch won with a new test), it takes **7 days**.
+- If it comes back before then, the clock starts again once it's caught.
+- A cleared nest stays to your credit for good. If one forms again later, it's a new nest, and the old clear still counts.
+
+Clearing a nest pays the **nest** XP award. Nests also feed each project's reef, and **Rematch history** under the nests lists every bug you've fought more than once, with the marks from each fix.
+
+Clean fixes, held fixes, sealed rematches and cleared nests all count toward trophies, which can unlock pieces for the tank.
 
 ### Your crew pitches in
 
@@ -133,3 +171,7 @@ All under **Settings → Shellby → Games**:
 ## What's kept
 
 No error text, command or output is ever kept: for each catch, only which kind of bug it was, a short fingerprint and the project. Your catches sync between your PCs like XP, if you sync: each PC keeps its own count of every kind, so catches from two PCs add up and nothing is lost. Projects, fingerprints and open bugs stay on the PC that saw them. The battles live only in memory.
+
+Bug history and nests (`bugNests` in settings) stay on this PC and don't sync: for each kind of bug in each project, how often it was seen, when, and up to 10 past catches with their fix report marks. Never the code, the diff or the error. At most 200 kinds per PC are kept, the quietest let go first (never one with a nest).
+
+For contributors: the report is `src/main/bugdex/quality.js`, history `bugdex/history.js` and nests `bugdex/nests.js` (all pure), wired up in `src/main/wiring/bugdex-nests.js`, which serves the `nests` game view and calls `d.reefNote(project, 'nest', { open, cleared })`.
