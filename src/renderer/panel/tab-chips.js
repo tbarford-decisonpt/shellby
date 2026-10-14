@@ -115,11 +115,13 @@
     // A blank tab moves to the new folder; a conversation in progress keeps its own.
     const tab = SB.activeTab();
     if (SB.isBlankTab(tab) && !SB.solo) {
+      // The new one opens beside it first: a pane holding only the blank tab
+      // would close with it, and the new tab land in the pane next door.
+      const fresh = await SB.newTab({ reuse: false });
+      if (!fresh) return;
+      SB.forgetTab(tab.id); // tab-panes.js: out of its pane, which still has the new one
       await api.closeTab(tab.id);
-      tab.destroy();
-      state.tabs.delete(tab.id);
-      state.activeTab = null;
-      await SB.newTab();
+      SB.renderTabStrip();
       SB.toast(`Now working in ${SB.remotePlace(r.cwd) || SB.basename(r.cwd)}`);
     } else {
       applyFolderLabel(tab?.cwd || r.cwd);

@@ -449,7 +449,17 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     const K2 = await ev(`(async () => { const tab = SB.activeTab(); await SB.api.closeTab(tab.id); tab.destroy(); SB.state.tabs.delete(tab.id); SB.state.activeTab = null; return (await SB.newTab()).id; })()`);
     await ev('SB.renderTabStrip()');
     check(await ev(`SB.panes.paneWith(SB.state.grid, '${K2}')?.id === '${kPane}' && SB.state.activeTab === '${K2}' && SB.panes.count(SB.state.grid) === 4`), 'a focused tab taken away under the panes: its replacement opens in the same pane, which stays');
-    await ev(`SB.closeTab('${K2}')`);
+    // A pane whose only tab is blank, and the folder changes: the new tab takes
+    // its place there, rather than the pane closing into the one beside it.
+    const panesBefore = await ev('SB.panes.count(SB.state.grid)');
+    await ev(`(() => { SB.state.grid = SB.panes.place(SB.state.grid, '${K2}', ${PID(K2)}, 'bottom'); SB.renderPanes(); SB.renderTabStrip(); })()`);
+    const kAlone = await ev(PID(K2));
+    check(await ev(`SB.panes.byId(SB.state.grid, '${kAlone}')?.tabs.length === 1 && SB.panes.count(SB.state.grid) === ${panesBefore + 1}`), 'the blank tab sits alone in a pane of its own');
+    await ev(`shellby.setFolder(SB.state.cwd).then(SB.folderChanged)`);
+    check(await until(`!SB.state.tabs.has('${K2}') && SB.panes.byId(SB.state.grid, '${kAlone}')?.tabs.length === 1 && SB.panes.count(SB.state.grid) === ${panesBefore + 1}`), 'a folder change in a pane holding only a blank tab keeps the pane');
+    const K3 = await ev(`SB.panes.byId(SB.state.grid, '${kAlone}').active`);
+    check(await ev(`SB.state.activeTab === '${K3}'`), 'and its new tab has the focus');
+    await ev(`SB.closeTab('${K3}')`);
     await ev(`SB.closeTab('${G1}')`);
 
     // Closing the last tab of the focused bottom pane: the focus goes to the pane above it.
