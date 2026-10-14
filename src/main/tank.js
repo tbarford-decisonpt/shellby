@@ -43,8 +43,9 @@ const CATEGORIES = Object.freeze([
 ]);
 const CATEGORY_ORDER = new Map(CATEGORIES.map(([id], i) => [id, i]));
 
-// A decor key (a built-in "castle-keep" or a pack's "my-pack/castle"), "find:<id>", "jar:<species>" or "sticker:<project>" (tank/glass.js).
-const REF_RE = /^(?:sticker:[0-9a-f]{12}|(?:find|jar):[a-z0-9][a-z0-9-]{0,39}|(?:[a-z0-9][a-z0-9-]{1,39}\/)?[a-z0-9][a-z0-9-]{0,39})$/;
+// A decor key (a built-in "castle-keep" or a pack's "my-pack/castle"), "find:<id>", "jar:<species>",
+// "sticker:<project>" (tank/glass.js) or "coral:<project>" (a watched reef, reef.js).
+const REF_RE = /^(?:(?:sticker|coral):[0-9a-f]{12}|(?:find|jar):[a-z0-9][a-z0-9-]{0,39}|(?:[a-z0-9][a-z0-9-]{1,39}\/)?[a-z0-9][a-z0-9-]{0,39})$/;
 
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const isRef = v => typeof v === 'string' && REF_RE.test(v);
@@ -129,7 +130,7 @@ const sizeOfPixels = pixels => ({ w: Math.max(1, ...pixels.map(r => r.length)), 
  * is a specimen jar, as many as times it's been caught, plus any jars friends
  * brought of it (bugdex.js addGift), which can be of bugs you've not caught.
  */
-function library({ decor = [], findState = null, finds = [], bugState = null } = {}) {
+function library({ decor = [], findState = null, finds = [], bugState = null, coral = [] } = {}) {
   const lib = new Map();
   for (const d of decor) {
     if (!d || !isRef(d.key) || !d.category || !Array.isArray(d.pixels)) continue;
@@ -169,6 +170,18 @@ function library({ decor = [], findState = null, finds = [], bugState = null } =
       category: 'jar', layer: 'floor',
       palette: jar.palette, pixels: jar.pixels, frames: [], fps: 0, spots: [],
       ...sizeOfPixels(jar.pixels), max: have, locked: null, isNew: bugs.unseen.includes(id),
+      unlock: null,
+    });
+  }
+  // Each watched reef's coral (reef.js corals()): one per project, grown by its bests, paler when it struggles.
+  for (const c of Array.isArray(coral) ? coral : []) {
+    if (!c || !/^[0-9a-f]{12}$/.test(c.id) || !Array.isArray(c.art?.pixels)) continue;
+    lib.set(`coral:${c.id}`, {
+      ref: `coral:${c.id}`, kind: 'coral', name: `${c.name} coral`, rarity: c.stage >= 5 ? 'rare' : 'common',
+      description: `${c.stageName || 'Settling'} · ${c.polyps} ${c.polyps === 1 ? 'polyp' : 'polyps'}. Grows with each new best on its reef.`,
+      category: 'plant', layer: 'floor',
+      palette: c.art.palette, pixels: c.art.pixels, frames: c.art.frames || [], fps: c.art.fps || 0, spots: [],
+      ...sizeOfPixels(c.art.pixels), max: 1, locked: null, isNew: false,
       unlock: null,
     });
   }

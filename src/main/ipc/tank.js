@@ -27,6 +27,7 @@ const LIVED_GAP_MS = 5000;
  *   cardChanged()  optional: what's on your calling card changed, publish it soon
  *   speak(occasion, opts)  optional: a word on the desktop (voice.js; chatter applies)
  *   life()         optional: his life (life.js), for moments in the bond journal (bond.js MEMORIES)
+ *   reefCorals()   optional: each watched reef's coral (reef.js corals())
  * }
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
  * @param d
@@ -37,6 +38,7 @@ function registerTankIpc(ipcMain, d) {
     findState: gifts.normalize(d.config.get('finds')),
     finds: gifts.FINDS,
     bugState: d.config.get('bugdex'),
+    coral: d.reefCorals?.() || [], // each watched reef's coral (wiring/reef.js)
   }), d.config.get('stickers')); // and his stickers, for the front glass
   // The Health porthole looks at his favourite piece, once he has one (tank/life.js).
   const view = (l = lib()) => {

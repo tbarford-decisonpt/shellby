@@ -20,6 +20,7 @@ function registerCorrectionsIpc(ipcMain, d) {
       await d.noteCorrection(tabId, { kind: 'comment', text: c.body.slice(0, 4000), files: d.isStr(c.file) ? [c.file] : [], batch });
     }
     if (d.manager?.tabs.has(tabId) && comments.some(c => c && d.isStr(c.body))) d.questDone?.('comment');
+    if (d.manager?.tabs.has(tabId)) d.reviewComments?.(tabId, comments.slice(0, MAX_COMMENTS)); // review mastery (wiring/review.js)
     return true;
   });
   ipcMain.handle('lesson:state', (_e, id) => (isId(id) ? d.lessonState(id) : null));

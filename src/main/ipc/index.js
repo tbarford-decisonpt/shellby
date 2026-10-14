@@ -184,6 +184,7 @@ function registerIpc(electronIpcMain, d) {
     level: () => d.currentLevel(),
     shipped: () => stickers.stats(d.stickerState()).stickers,
     cardChanged: () => d.friends?.republish().catch(() => {}),
+    reefCorals: () => d.reefCorals?.() || [],
   });
   d.tankRemark = tankIpc.remark; // a word about his tank for the desktop (life.js)
   // ...its saved layouts, and switching with the seasons (tank-layouts.js)

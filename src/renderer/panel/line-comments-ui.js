@@ -395,7 +395,7 @@
     // What went is still shown where it was left, marked sent, until the panel reloads.
     const ids = new Set(list.map(c => c.id));
     // Each comment is a correction: the same one in two reviews and he offers to make it a rule.
-    api.noteReviewComments(tab.id, list.map(c => ({ file: c.file, body: c.body })), list[0].id).catch(() => {});
+    api.noteReviewComments(tab.id, list.map(c => ({ file: c.file, body: c.body, start: c.start, end: c.end, side: c.side, after: c.after })), list[0].id).catch(() => {});
     tab.sentReview = [...(tab.sentReview || []), ...list];
     setComments(tab, commentsOf(tab).filter(c => !ids.has(c.id)));
   }

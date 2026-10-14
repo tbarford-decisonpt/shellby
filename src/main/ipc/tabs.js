@@ -242,7 +242,7 @@ function registerTabsIpc(ipcMain, d) {
     } finally { tab.quizAsking = false; }
     if (r.detail) d.log.warn(`quiz: ${r.detail}`);
     if (!r.ok) return { ok: false, error: r.error };
-    tab.quiz = { after: ref.after, ...quiz.start(r.questions) };
+    tab.quiz = { after: ref.after, lines: (Number(item.added) || 0) + (Number(item.removed) || 0), ...quiz.start(r.questions) };
     return { ok: true, questions: quiz.view(r.questions) };
   });
   ipcMain.handle('quiz:pick', (_e, { tabId, after, question, choice } = {}) => {
@@ -253,6 +253,7 @@ function registerTabsIpc(ipcMain, d) {
     tab.quiz = r.state;
     if (r.done) {
       if (quiz.passed(r.state)) d.awardXp('quiz', { label: tab.title });
+      d.reviewQuiz?.({ tabId, after, lines: r.state.lines, passed: quiz.passed(r.state) }); // review mastery (wiring/review.js)
       tab.quiz = null;
     }
     return { right: r.right, answer: r.answer, why: r.why, done: r.done, score: r.score };
