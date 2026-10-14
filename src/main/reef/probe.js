@@ -17,9 +17,21 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 // What's never counted: other people's code and built files.
 const EXCLUDE = [':!node_modules', ':!vendor', ':!dist', ':!build', ':!*.min.*', ':!third_party'];
 
+// Never a program the repository chooses: no fsmonitor, no hooks, no external
+// diff or textconv drivers, and no optional locks taken on its index.
+const SAFE_CONFIG = ['-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`, '--no-optional-locks'];
+const NO_DRIVERS = ['--no-ext-diff', '--no-textconv'];
+
+/** The full argument list for one git command in `root` (exported for test/reef-probe.test.js). */
+function gitArgs(root, args) {
+  const [cmd, ...rest] = args;
+  const drivers = cmd === 'diff' ? NO_DRIVERS : cmd === 'grep' ? ['--no-textconv'] : [];
+  return [...SAFE_CONFIG, '-C', root, cmd, ...drivers, ...rest];
+}
+
 function git(root, args, { timeout = TIMEOUT_MS, maxBuffer = 1024 * 1024 } = {}) {
   return new Promise(resolve => {
-    execFile('git', ['-c', 'core.fsmonitor=false', '-C', root, ...args], { windowsHide: true, timeout, maxBuffer }, (err, stdout) => {
+    execFile('git', gitArgs(root, args), { windowsHide: true, timeout, maxBuffer }, (err, stdout) => {
       // git grep says 1 when nothing matched: that's a count of 0, not a failure.
       if (err && !(args[0] === 'grep' && err.code === 1)) return resolve(null);
       resolve(String(stdout || ''));
@@ -63,7 +75,7 @@ async function escapes(root) {
  * over every line `base` had. 0 when either commit can't be read.
  */
 async function deletedShare(root, base, head) {
-  if (!/^[0-9a-f]{40}$/.test(base || '') || !/^[0-9a-f]{40}$/.test(head || '') || base === head) return 0;
+  if (!okDir(root) || !/^[0-9a-f]{40}$/.test(base || '') || !/^[0-9a-f]{40}$/.test(head || '') || base === head) return 0;
   const [all, since] = await Promise.all([
     git(root, ['diff', '--shortstat', '--no-renames', EMPTY_TREE, base, '--', '.', ...EXCLUDE]),
     git(root, ['diff', '--shortstat', '--no-renames', base, head, '--', '.', ...EXCLUDE]),
@@ -96,4 +108,4 @@ async function coverage(root, sinceMtime = 0) {
   return null;
 }
 
-module.exports = { escapes, deletedShare, coverage, headOf, MAX_TRACKED, TIMEOUT_MS, MAX_COVERAGE_BYTES };
+module.exports = { gitArgs, escapes, deletedShare, coverage, headOf, MAX_TRACKED, TIMEOUT_MS, MAX_COVERAGE_BYTES };
