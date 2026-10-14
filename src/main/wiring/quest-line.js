@@ -21,6 +21,7 @@ const STAT_QUESTS = Object.freeze({
   'rematch-won': 'rematch',
   'nest-cleared': 'nest',
   'review-caught': 'caught',
+  'reef-best': 'reef-best',
   'review-tier': p => (Number(p?.n) >= 2 ? 'tier2' : null),
   'quiz-streak': p => (Number(p?.n) >= 3 ? 'quiz3' : null),
   'reef-thriving': p => (Number(p?.n) >= 1 ? 'thriving' : null),
