@@ -27,12 +27,20 @@
     $('brandXp').style.transform = `scaleX(${v.progress.toFixed(3)})`;
     $('brandLevel').title = `${levelLine(v)}${v.needed ? ` · ${fmt(v.into)}/${fmt(v.needed)} XP to ${nextName(v)}` : ''}. Open Trophies & XP`;
     $('brandLevel').setAttribute('aria-label', `${levelLine(v)}: open Trophies and XP`);
+    moltRing($('brandLevel'), v);
     if (state.view === 'trophies') render();
   }
 
-  // One line for "what's next": the XP to the next level, then what it unlocks,
-  // or the next level that unlocks anything when that's further off.
+  // After a molt, a ring round the level badge in the tier's colour, with its numeral (molting.js moltBadge).
+  function moltRing(el, v) {
+    const b = v.molts ? v.moltBadge || { text: String(v.molts) } : null;
+    el.classList.toggle('molted', !!b);
+    if (b) { el.dataset.molt = b.text; el.style.setProperty('--molt', b.color || 'var(--rank)'); } else delete el.dataset.molt;
+  }
+
+  // One line for "what's next" when levels-ui.js isn't drawing its bar: what the next level unlocks.
   function unlockLine(v) {
+    if (SB.levelsUi) return '';
     const u = v.unlock;
     if (!u) return v.level >= 99 ? '' : ' · everything is unlocked';
     // "Snail Shell" already says shell; "Tidecaller" needs "title".
@@ -40,23 +48,44 @@
     return u.level === v.level + 1 ? ` · unlocks ${names}` : ` · ${names} at level ${u.level}, ${fmt(u.xpToGo)} XP to go`;
   }
 
-  // Short pills; the full sentence is on hover and for screen readers.
+  const WEEKEND = [0, 6];
+  const weekendsOff = s => WEEKEND.every(d => (s?.restDays || []).includes(d));
+
+  // Short pills; the full sentence is on hover and for screen readers. The streak
+  // never punishes: rest days and a tide-out a week hold it, and the bonus eases off.
   function boosts(v) {
     const list = [];
-    if (v.streak?.multiplier > 1) list.push({ icon: '🔥', text: `×${v.streak.multiplier.toFixed(2)}`, title: `${v.streak.days}-day streak: ×${v.streak.multiplier.toFixed(2)} XP` });
-    else if (v.streak?.days) list.push({ icon: '🔥', text: `${v.streak.days}/7`, title: `${v.streak.days}-day streak. Keep it to 7 days for ×1.05 XP` });
+    const s = v.streak || {};
+    const weeks = s.weeks ? `${s.weeks} full week${s.weeks === 1 ? '' : 's'}` : 'no full week yet';
+    if (s.multiplier > 1) list.push({ icon: '🔥', text: `×${s.multiplier.toFixed(2)}`, title: `${s.days} worked days, ${weeks}: ×${s.multiplier.toFixed(2)} XP. After a break it eases off 5% a missed day, never all at once` });
+    else if (s.days) list.push({ icon: '🔥', text: `${s.days}`, title: `${s.days} worked days. A week with 3 or more worked days adds ×0.05 XP` });
+    if (s.tideOutsLeft != null && s.days) {
+      list.push({ icon: '🌊', text: `${s.tideOutsLeft}`, title: s.tideOutsLeft ? `${s.tideOutsLeft} tide-out day${s.tideOutsLeft === 1 ? '' : 's'} left this week: miss a working day and the streak holds` : 'This week\'s tide-out is used: it held your streak' });
+    }
+    if (s.restToday) list.push({ icon: '🏖️', text: 'day off', title: 'A rest day: the streak holds without you' });
     if (v.rested > 0) list.push({ icon: '😴', text: `2× ${fmt(v.rested)}`, title: `Rested: the next ${fmt(v.rested)} XP counts double` });
     return list;
+  }
+
+  // Weekends off (the default) or not: rest days hold the streak, from today on.
+  async function toggleWeekends() {
+    const off = weekendsOff(state.xp?.streak);
+    const next = off ? (state.xp.streak.restDays || []).filter(d => !WEEKEND.includes(d)) : [...new Set([...(state.xp?.streak?.restDays || []), ...WEEKEND])];
+    await api.setStreaks({ restDays: next });
+    SB.toast(off ? 'Weekends count as working days now (from today)' : 'Weekends off: Saturday and Sunday hold the streak');
   }
 
   function renderBounties(b) {
     $('xpBounties').hidden = !b?.list?.length;
     if (!b?.list?.length) return;
-    $('xpBountyBonus').textContent = b.cleared ? '· all done!' : `· +${b.bonus} for all three`;
+    $('xpBountyBonus').textContent = b.cleared ? '· all done!' : `· +${b.bonus} for all ${b.list.length === 4 ? 'four' : 'three'}`;
+    // The bounty-reroll perk: swap one not yet done, once a day.
+    const reroll = async id => { const r = await api.gameAct('unlocks', 'reroll', { id }); if (!r?.ok) SB.toast('Today\'s reroll is used'); };
     $('xpBountyList').replaceChildren(...b.list.map(x => h('li', { class: x.done ? 'done' : '' },
       h('span', { class: 'xp-bounty-check', 'aria-hidden': 'true', text: x.done ? '✓' : '' }),
       h('span', { text: x.text }),
       h('small', { text: x.goal > 1 ? `${x.count}/${x.goal}` : '' }),
+      b.canReroll && !x.done ? h('button', { type: 'button', class: 'icon-btn xp-reroll', title: 'Swap this bounty for another (once a day)', 'aria-label': `Swap "${x.text}" for another bounty`, onclick: () => reroll(x.id) }, '🎲') : null,
       h('b', { text: `+${x.xp}` }),
       h('span', { class: 'sr-only', text: x.done ? 'done' : 'not done yet' }))));
   }
@@ -111,6 +140,7 @@
     if (!v) return;
     renderSheet(v.character);
     $('xpLevel').textContent = v.level;
+    moltRing($('xpLevel'), v);
     $('xpTitle').textContent = v.title;
     $('xpTotal').textContent = `${fmt(v.xp)} XP`;
     $('xpCard').dataset.rank = v.rank?.name || '';
@@ -123,9 +153,14 @@
     $('xpUnlock').hidden = !unlock;
     $('xpUnlock').textContent = unlock;
     const b = boosts(v);
-    $('xpBoosts').hidden = !b.length;
+    const off = weekendsOff(v.streak);
+    $('xpBoosts').hidden = false;
     $('xpBoosts').replaceChildren(...b.map(x => h('li', { title: x.title },
-      h('span', { 'aria-hidden': 'true', text: `${x.icon} ${x.text}` }), h('span', { class: 'sr-only', text: x.title }))));
+      h('span', { 'aria-hidden': 'true', text: `${x.icon} ${x.text}` }), h('span', { class: 'sr-only', text: x.title }))),
+    h('li', { class: 'xp-rest' }, h('button', {
+      type: 'button', class: 'xp-rest-btn', 'aria-pressed': String(off), onclick: toggleWeekends,
+      title: off ? 'Weekends off: Saturday and Sunday hold the streak. Click to count them as working days' : 'Weekends count as working days. Click to take them off',
+    }, off ? '🏖️ weekends off' : '🗓️ 7-day weeks')));
     renderBounties(v.bounties);
     renderHistory(v);
     // Just the crab: only the ways that don't need Claude.
@@ -141,14 +176,16 @@
 
   api.onXp(apply);
   api.onXpBounty(b => SB.toast(`🎯 ${b.id === 'all' ? "All of today's bounties" : `Bounty done: ${b.text}`} · +${b.xp} XP`, { ms: 4000 }));
-  api.onLevelUp(e => SB.celebrate(e.marks && !e.shell ? {
+  // A milestone level (levels.js milestone: 20, 30 … 99) gets the full ceremony (levels-ui.js).
+  api.onLevelUp(e => (e.milestone && e.milestone.tier !== 'minor' && SB.levelCeremony ? SB.levelCeremony(e) : SB.celebrate(e.marks && !e.shell ? {
     eyebrow: 'New mark', icon: '★', title: `★${e.marks} · ${e.title}`,
     text: `${markWord(e.marks)} past level 99. ${e.text}`,
   } : {
     eyebrow: 'Level up', icon: e.shell ? '🐚' : '⭐', title: `Level ${e.level} · ${e.title}`,
     text: [e.shell ? `He outgrew his shell and moved into a ${e.shell.name}. Swap homes any time in Outfits → Homes.` : e.text, e.unlocked].filter(Boolean).join(' '),
     rewards: e.shell ? [e.shell] : [],
-  }));
+    action: e.canMolt && SB.openMolt ? { label: '🐚 Molt…', run: () => SB.openMolt() } : undefined,
+  })));
   api.onXpClass(c => SB.celebrate({
     eyebrow: 'New class', icon: c.icon, title: c.name,
     text: `${c.blurb} That's what his stats say now.`,

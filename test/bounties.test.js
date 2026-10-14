@@ -1,6 +1,22 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { BOUNTIES, CLEAR_ALL_XP, pickFor, normalizeBounties, progressBounties, bountiesView } = require('../src/main/bounties');
+const { BOUNTIES, CLEAR_ALL_XP, pickFor, normalizeBounties, progressBounties, bountiesView, reroll } = require('../src/main/bounties');
+
+test('perks: a fourth bounty keeps the first three, and a reroll swaps one once a day', () => {
+  const day = '2026-10-14';
+  const three = pickFor(day);
+  const four = pickFor(day, 4);
+  assert.equal(four.length, 4);
+  assert.deepEqual(four.slice(0, 3), three);
+  const r = reroll(null, day, three[0]);
+  assert.equal(r.ok, true);
+  const now = pickFor(day, 3, r.state.rerolled);
+  assert.ok(!now.includes(three[0]) && now.includes(r.to));
+  const kinds = now.flatMap(id => BOUNTIES.find(b => b.id === id).kinds);
+  assert.equal(new Set(kinds).size, kinds.length, 'still never two of a kind');
+  assert.equal(reroll(r.state, day, now[1]).ok, false, 'once a day');
+  assert.equal(bountiesView(r.state, day, { canReroll: true }).canReroll, false);
+});
 
 const days = n => Array.from({ length: n }, (_, i) => { const d = new Date(2026, 9, 1 + i); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
 

@@ -10,7 +10,9 @@
 // XP is kept per PC (byDevice) so sync can add PCs together without counting
 // anything twice: each PC only ever grows its own count, and merging takes the
 // larger of each. XP earned before that existed sits in the 'legacy' bucket.
-const shells = require('./shells');
+// Titles, badge colours, the level curve and what each level unlocks live in levels.js.
+const levels = require('./levels');
+const { TITLES, RANKS, UNLOCKS, MAX_LEVEL, xpForLevel, titleFor, rankFor, unlocksBetween, nextUnlock } = levels;
 const { progressBounties, bountiesView, CLEAR_ALL_XP } = require('./bounties');
 const { characterSheet } = require('./character');
 
@@ -78,22 +80,6 @@ const AWARDS = Object.freeze({
 // Log-only kinds: paid by the day's bounties, not by an event.
 const LOG_KINDS = new Set([...Object.keys(AWARDS), 'bounty']);
 
-const TITLES = [
-  [1, 'Hatchling'], [2, 'Tide-pooler'], [3, 'Shell Seeker'], [4, 'Reef Runner'], [5, 'Claw Coder'],
-  [6, 'Kelp Hacker'], [7, 'Shell Engineer'], [8, 'Reef Architect'], [9, 'Deep Diver'], [10, 'Coral Commander'],
-  [12, 'Abyssal Admin'], [15, 'Leviathan'], [20, 'Legend of the Tides'],
-  [25, 'Tidecaller'], [30, 'Reef Warden'], [35, 'Current Rider'], [40, 'Trench Explorer'], [45, 'Pearl Diver'],
-  [50, 'Kraken Tamer'], [55, 'Storm Shell'], [60, 'Lighthouse Keeper'], [65, 'Sunken Sage'], [70, 'Maelstrom'],
-  [75, 'Tsunami'], [80, 'Ocean Sovereign'], [85, 'Mariana Monarch'], [90, 'Elder of the Deep'], [95, 'Mythic Mariner'],
-  [99, 'Shellby Supreme'],
-];
-// The level badge changes colour every ten levels.
-const RANKS = [
-  [1, 'Sunlit', '#ffd23f'], [10, 'Coral', '#ff8c69'], [20, 'Lagoon', '#3fd0c9'], [30, 'Kelp', '#7bd389'],
-  [40, 'Deep', '#4ea8ff'], [50, 'Amethyst', '#b388ff'], [60, 'Ruby', '#ff5d73'], [70, 'Pearl', '#f3eadf'],
-  [80, 'Abyss', '#8c9eff'], [90, 'Prism', '#ff9ec4'],
-];
-const MAX_LEVEL = 99;
 // Past the top level, XP keeps counting in marks (★): the first costs MARK_XP,
 // and each one after costs MARK_STEP more than the one before.
 const MARK_XP = 5000;
@@ -112,40 +98,13 @@ const STREAK_STEP = 0.05;        // +5% per full week of streak...
 const STREAK_MAX = 0.25;         // ...up to +25%
 const RESTED_AFTER = 3 * DAY;    // away this long and the next XP is doubled...
 const RESTED_POOL = 150;         // ...until this much extra has been paid
+const RESTED_POOL_MAX = 200;     // the rested-plus perk's pool (levels.js PERKS), passed in as meta.restedPool
+const MAX_MOLT_STAMPS = 50;
 const DAILY_DAYS = 30;
 const CLASS_RE = /^[a-z-]{1,24}$/;
 const MAX_CLASSES = 16;
 // Within an hour: full XP up to perHour, then half, then a quarter, then none.
 const FALLOFF = [[1, 1], [2, 0.5], [4, 0.25]];
-
-/** Total XP needed to reach `level` (level 1 = 0, 2 = 100, 3 = 250, 5 = 700, 10 = 2,700). */
-function xpForLevel(level) {
-  const l = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-  return 25 * (l - 1) * (l + 2);
-}
-
-const lastAtOrBelow = (list, level) => list.reduce((hit, row) => (level >= row[0] ? row : hit), list[0]);
-const titleFor = level => lastAtOrBelow(TITLES, level)[1];
-function rankFor(level) {
-  const [, name, color] = lastAtOrBelow(RANKS, level);
-  return { name, color };
-}
-
-// Everything a level can unlock, lowest first: titles, badge colours and shells.
-const UNLOCKS = Object.freeze([
-  ...TITLES.filter(([l]) => l > 1).map(([level, name]) => ({ level, kind: 'title', name })),
-  ...RANKS.filter(([l]) => l > 1).map(([level, name, color]) => ({ level, kind: 'rank', name: `${name} badge`, color })),
-  ...shells.SHELLS.map(s => ({ level: s.level, kind: 'shell', name: s.name, id: s.id })),
-].sort((a, b) => a.level - b.level || a.kind.localeCompare(b.kind)).map(u => Object.freeze(u)));
-
-/** What a level-up from `before` to `after` unlocks. */
-const unlocksBetween = (before, after) => UNLOCKS.filter(u => u.level > before && u.level <= after);
-
-/** The next level that unlocks anything, with everything it unlocks; null at the top. */
-function nextUnlock(level) {
-  const first = UNLOCKS.find(u => u.level > level);
-  return first ? { level: first.level, unlocks: UNLOCKS.filter(u => u.level === first.level) } : null;
-}
 
 /** XP past level 99 needed for `n` marks (1 = 5,000, 2 = 10,500, 3 = 16,500). */
 function xpForMarks(n) {
@@ -167,15 +126,16 @@ function marksFor(overIn) {
 /**
  * { level, marks, title, rank, xp, floor, next, into, needed, progress (0..1) } for
  * a total. At level 99, floor/next/progress are toward the next mark.
+ *   molts: how many times he has molted. Then `total` is the XP since the last
+ *   molt (levelOf does the subtraction) on that molt's curve (levels.js curveMult).
  */
-function levelFor(total) {
+function levelFor(total, molts = 0) {
   const xp = Math.max(0, Math.floor(Number(total) || 0));
-  let level = 1;
-  while (level < MAX_LEVEL && xp >= xpForLevel(level + 1)) level++;
-  const top = xpForLevel(MAX_LEVEL);
+  const level = levels.levelNumber(xp, molts);
+  const top = xpForLevel(MAX_LEVEL, molts);
   const marks = level === MAX_LEVEL ? marksFor(xp - top) : 0;
-  const floor = level < MAX_LEVEL ? xpForLevel(level) : top + xpForMarks(marks);
-  const next = level < MAX_LEVEL ? xpForLevel(level + 1) : marks < MAX_MARKS ? top + xpForMarks(marks + 1) : floor;
+  const floor = level < MAX_LEVEL ? xpForLevel(level, molts) : top + xpForMarks(marks);
+  const next = level < MAX_LEVEL ? xpForLevel(level + 1, molts) : marks < MAX_MARKS ? top + xpForMarks(marks + 1) : floor;
   return {
     level, marks, title: titleFor(level), rank: rankFor(level), xp, floor, next,
     into: xp - floor, needed: next - floor,
@@ -185,6 +145,34 @@ function levelFor(total) {
 
 /** The streak bonus as a multiplier: 1 + 5% per full week, at most 1.25. */
 const streakMultiplier = days => 1 + Math.min(STREAK_MAX, STREAK_STEP * Math.floor(Math.max(0, Number(days) || 0) / 7));
+
+// ------------------------------------------------------------------ molting
+// xp.molt (molting.js): { count, base (the total at the last molt), at: [when] }.
+// Kept in the XP state so it syncs with it.
+
+function normalizeMolt(raw) {
+  const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const at = (Array.isArray(src.at) ? src.at : []).filter(t => Number.isFinite(t) && t > 0).slice(-MAX_MOLT_STAMPS);
+  return { count: Math.min(9999, count(src.count)), base: count(src.base), at };
+}
+
+/**
+ * Two PCs' molts: the side that molted more wins; for the same count, the lower
+ * base (the earlier molt, so no XP since it is lost from the new level).
+ */
+function mergeMolt(a, b) {
+  const x = normalizeMolt(a), y = normalizeMolt(b);
+  if (x.count !== y.count) return x.count > y.count ? x : y;
+  const win = x.base <= y.base ? x : y;
+  return { ...win, at: [...new Set([...x.at, ...y.at])].sort((p, q) => p - q).slice(-MAX_MOLT_STAMPS) };
+}
+
+/** levelFor for a whole XP state: the XP since the last molt, on that molt's curve. */
+function levelOf(stateIn) {
+  const s = stateIn?.molt && Number.isFinite(stateIn.total) ? stateIn : normalizeXp(stateIn);
+  const m = normalizeMolt(s.molt);
+  return levelFor(Math.max(0, s.total - m.base), m.count);
+}
 
 // ------------------------------------------------------------------ per-PC XP
 
@@ -229,7 +217,7 @@ function mergeXpCounts(a, b) {
   for (const k of new Set([...Object.keys(x), ...Object.keys(y)])) if (k !== LEGACY) merged[k] = Math.max(own(x, k), own(y, k));
   const floor = Math.max(0, ...[[a, x], [b, y]].filter(([, m]) => !Object.keys(m).length).map(([s]) => count(s?.total)));
   const byDevice = cleanByDevice(merged, floor);
-  return { byDevice, total: sum(byDevice) };
+  return { byDevice, total: sum(byDevice), molt: mergeMolt(a?.molt, b?.molt) };
 }
 
 // ------------------------------------------------------------------ state
@@ -279,7 +267,8 @@ function normalizeXp(raw) {
     .filter(([k, v]) => k.length <= 80 && typeof v === 'string' && DAY_RE.test(v)).slice(-MAX_RED));
   return {
     total: sum(byDevice), device, byDevice, legacyPending, recent, log, lastDay,
-    lastAt: count(src.lastAt), rested: Math.min(RESTED_POOL, count(src.rested)),
+    lastAt: count(src.lastAt), rested: Math.min(RESTED_POOL_MAX, count(src.rested)),
+    molt: normalizeMolt(src.molt),
     red, shipped,
     daily: numberMap(src.daily, DAY_RE, DAILY_DAYS),
     dailyKinds: cleanDailyKinds(src.dailyKinds),
@@ -319,13 +308,17 @@ function addTo(map, key, n) { return n > 0 ? { ...map, [key]: own(map, key) + n 
  * markUp, kind, bonuses, bounties, changed } (state is a new object; the old
  * one is never mutated).
  *   kind: one of AWARDS ('tests' becomes 'fixed' after a failure in that project)
- *   meta: { label?, project?, streak? (current streak in days),
+ *   meta: { label?, project?,
+ *           mult? (the streak bonus to pay, already ebbed: streaks.js ebbMultiplier; at most 1.25),
+ *           streak? (current streak in days, when there's no mult: older callers),
+ *           restedPool? (the rested-plus perk's bigger pool, at most 200),
+ *           bounties?: { count } (4 with the fourth-bounty perk, bounties.js),
  *           sameCode? (a test pass on the very code that failed: a flake, so not 'fixed'),
  *           boost?: { by: 1.5, label: 'Harvest Moon' } (a tide event's, events.js; at most 2×) }
  */
 function award(stateIn, kindIn, now, meta = {}) {
   const state = normalizeXp(stateIn);
-  const before = levelFor(state.total);
+  const before = levelOf(state);
   const none = { state, gained: 0, before, after: before, levelUp: false, markUp: false, kind: kindIn, bonuses: [], bounties: [], changed: false };
   if (!AWARDS[kindIn]) return none;
   const t = now instanceof Date ? now.getTime() : Number(now);
@@ -358,20 +351,22 @@ function award(stateIn, kindIn, now, meta = {}) {
       next.shipped = { ...next.shipped, [project]: today };
     }
     // Back after a break: double XP until the rested pool runs out.
-    const rested = state.lastAt && t - state.lastAt >= RESTED_AFTER ? RESTED_POOL : next.rested;
+    const pool = Math.min(RESTED_POOL_MAX, Math.max(RESTED_POOL, Math.floor(Number(meta.restedPool) || 0)));
+    const rested = state.lastAt && t - state.lastAt >= RESTED_AFTER ? pool : next.rested;
     const extra = Math.min(rested, base);
     if (extra) bonuses.push({ label: 'rested', xp: extra });
     next.rested = rested - extra;
     next.lastAt = Math.max(state.lastAt, t);
   }
   // Only what still pays counts toward the day's bounties, so spamming can't clear them.
-  const b = base > 0 ? progressBounties(next.bounties, today, kind, project) : { state: next.bounties, completed: [], cleared: false, xp: 0 };
+  const b = base > 0 ? progressBounties(next.bounties, today, kind, project, { count: meta.bounties?.count }) : { state: next.bounties, completed: [], cleared: false, xp: 0 };
   next.bounties = b.state;
   // A tide event that pays more (events.js boosts): on what the event itself would pay.
   const by = Math.min(2, Number(meta.boost?.by) || 1);
   if (base > 0 && by > 1) bonuses.push({ label: clip(meta.boost.label) || 'tide event', xp: Math.round(base * (by - 1)) });
   const raw = base + bonuses.reduce((n, x) => n + x.xp, 0);
-  const mult = streakMultiplier(meta.streak);
+  const given = Number(meta.mult);
+  const mult = Number.isFinite(given) ? Math.min(1 + STREAK_MAX, Math.max(1, given)) : streakMultiplier(meta.streak);
   const gainedEvent = raw > 0 ? Math.round(raw * mult) : 0;
   if (gainedEvent > raw) bonuses.push({ label: `×${mult.toFixed(2)} streak`, xp: gainedEvent - raw });
   const gained = gainedEvent + b.xp;
@@ -395,7 +390,7 @@ function award(stateIn, kindIn, now, meta = {}) {
     ];
     next.log = [...entries, ...state.log].slice(0, LOG_MAX);
   }
-  const after = levelFor(next.total);
+  const after = levelOf(next);
   const changed = gained > 0 || JSON.stringify(next) !== JSON.stringify(state);
   return {
     state: next, gained, before, after, levelUp: after.level > before.level, markUp: after.marks > before.marks, kind, bonuses,
@@ -404,12 +399,45 @@ function award(stateIn, kindIn, now, meta = {}) {
   };
 }
 
-/** Everything the XP card shows. */
-function xpSummary(stateIn, now, streak = 0) {
+/** The streak chip: from a day count (older callers) or streaks.js streakOf(). */
+function streakChip(streak) {
+  const o = streak && typeof streak === 'object' ? streak : { current: streak };
+  const days = Math.max(0, Math.floor(Number(o.current) || 0));
+  const mult = Number(o.mult);
+  return {
+    days,
+    multiplier: Number.isFinite(mult) ? Math.min(1 + STREAK_MAX, Math.max(1, mult)) : streakMultiplier(days),
+    tideOutsLeft: Number.isInteger(o.tideOutsLeftThisWeek) ? o.tideOutsLeftThisWeek : null,
+    tideOutDays: Array.isArray(o.tideOutDays) ? o.tideOutDays.filter(d => DAY_RE.test(d)) : [],
+    restToday: o.restToday === true,
+    restDays: Array.isArray(o.restDays) ? o.restDays.filter(n => Number.isInteger(n) && n >= 0 && n <= 6) : [0, 6],
+    weeks: Math.max(0, Math.floor(Number(o.weeks) || 0)),
+  };
+}
+
+/**
+ * What the progress bar under the XP bar works toward. Before the first molt,
+ * the next level unlock; after it every level unlock is his, so the next
+ * tier shell at 99 (tierName: molting.js tierShell(k + 1).name).
+ */
+function unlockAhead(s, v, tierName) {
+  const m = s.molt;
+  const into = Math.max(0, s.total - m.base);
+  if (!m.count) return nextUnlock(v.level, { xp: into, molts: 0 });
+  if (v.level >= MAX_LEVEL) return null;
+  const hi = xpForLevel(MAX_LEVEL, m.count);
+  return {
+    level: MAX_LEVEL, fromLevel: 1, xpToGo: Math.max(0, hi - into), progress: hi ? Math.min(1, into / hi) : 1,
+    unlocks: [{ level: MAX_LEVEL, kind: 'shell', icon: '🐚', name: tierName || `Molt ${m.count + 1} shell`, molt: m.count + 1 }],
+  };
+}
+
+/** Everything the XP card shows. streak: a day count, or streaks.js streakOf(). tierName: see unlockAhead. */
+function xpSummary(stateIn, now, streak = 0, { tierName = null, bounties = {} } = {}) {
   const s = normalizeXp(stateIn);
   const t = now instanceof Date ? now.getTime() : Number(now);
   const today = dayKey(new Date(t));
-  const v = levelFor(s.total);
+  const v = levelOf(s);
   const days = [];
   for (let i = DAILY_DAYS - 1; i >= 0; i--) {
     const d = new Date(t);
@@ -417,14 +445,16 @@ function xpSummary(stateIn, now, streak = 0) {
     const k = dayKey(d);
     days.push({ day: k, xp: s.daily[k] || 0 });
   }
-  const up = nextUnlock(v.level);
   return {
     ...v,
     log: s.log.slice(0, 15),
-    unlock: up && { ...up, xpToGo: Math.max(0, xpForLevel(up.level) - s.total) },
-    streak: { days: Math.max(0, Math.floor(Number(streak) || 0)), multiplier: streakMultiplier(streak) },
+    unlock: unlockAhead(s, v, tierName),
+    everLevel: levels.everLevel(s),
+    molts: s.molt.count,
+    milestone: levels.milestone(v.level),
+    streak: streakChip(streak),
     rested: s.lastAt && t - s.lastAt >= RESTED_AFTER ? RESTED_POOL : s.rested,
-    bounties: bountiesView(s.bounties, today),
+    bounties: bountiesView(s.bounties, today, bounties),
     daily: days,
     byKind: Object.entries(s.byKind).map(([kind, xp]) => ({ kind, xp })),
     character: characterSheet(s, t),
@@ -455,4 +485,5 @@ module.exports = {
   AWARDS, TITLES, RANKS, UNLOCKS, MAX_LEVEL, MAX_MARKS, LEGACY,
   xpForLevel, xpForMarks, marksFor, titleFor, rankFor, levelFor, unlocksBetween, nextUnlock, streakMultiplier,
   normalizeXp, withDevice, markRed, award, xpSummary, mergeXpCounts, cleanByDevice, classifyCommand,
+  levelOf, normalizeMolt, mergeMolt, everLevel: levels.everLevel, RESTED_POOL, RESTED_POOL_MAX,
 };

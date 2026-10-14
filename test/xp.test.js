@@ -13,7 +13,7 @@ const DAY = 24 * HOUR;
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 test('level curve: 0, 100, 250, 450, 700 ... and titles', () => {
-  assert.deepEqual([1, 2, 3, 4, 5, 10].map(xpForLevel), [0, 100, 250, 450, 700, 2700]);
+  assert.deepEqual([1, 2, 3, 4, 5, 10].map(l => xpForLevel(l)), [0, 100, 250, 450, 700, 2700]);
   assert.deepEqual(levelFor(0), { level: 1, marks: 0, title: 'Hatchling', rank: { name: 'Sunlit', color: '#ffd23f' }, xp: 0, floor: 0, next: 100, into: 0, needed: 100, progress: 0 });
   const l = levelFor(320);
   assert.deepEqual([l.level, l.title, l.into, l.needed], [3, 'Shell Seeker', 70, 200]);
@@ -105,13 +105,13 @@ test('classifyCommand: tests, pushes and deploys across ecosystems', () => {
 test('titles, badge colours and shells keep coming all the way to 99', () => {
   assert.equal(levelFor(xpForLevel(99)).title, 'Shellby Supreme');
   assert.equal(levelFor(xpForLevel(50)).rank.name, 'Amethyst');
-  // never more than 5 levels without something new
+  // never more than 5 levels without something new (levels.test.js checks 20-99 much tighter)
   const levels = [1, ...new Set(UNLOCKS.map(u => u.level)), 99];
   for (let i = 1; i < levels.length; i++) assert.ok(levels[i] - levels[i - 1] <= 5, `gap ${levels[i - 1]} -> ${levels[i]}`);
   assert.deepEqual(TITLES.map(t => t[0]), [...TITLES.map(t => t[0])].sort((a, b) => a - b));
-  assert.deepEqual(unlocksBetween(29, 30).map(u => u.kind).sort(), ['rank', 'shell', 'title']);
-  assert.deepEqual(unlocksBetween(20, 21), []);
-  assert.equal(nextUnlock(20).level, 25);
+  assert.deepEqual(unlocksBetween(29, 30).map(u => u.kind).sort(), ['chapter', 'rank', 'shell', 'size', 'title']);
+  assert.deepEqual(unlocksBetween(20, 21).map(u => u.id), ['lagoon-lantern']);
+  assert.equal(nextUnlock(20).level, 21);
   assert.equal(nextUnlock(99), null);
 });
 
@@ -229,7 +229,7 @@ test('daily bounties: progress, completion XP and the clear-all bonus land in th
   while (!pickFor(dayKey(t)).some(id => id.startsWith('focus'))) t += DAY;
   const ids = pickFor(dayKey(t));
   let s = markRed(null, 'p1', t);
-  const events = [['focus'], ['focus'], ['tests', 'p1'], ['tests', 'p2'], ['tests', 'p3'], ['deploy'], ['deps', 'p1']];
+  const events = [['focus'], ['focus'], ['tests', 'p1'], ['tests', 'p2'], ['tests', 'p3'], ['deploy'], ['deps', 'p1'], ['caught'], ['cleanfix']];
   for (let i = 0; i < 30; i++) events.push(['task']);
   for (let i = 0; i < 3; i++) events.push(['ship', `p${i}`]);
   let bountyXp = 0;
