@@ -166,7 +166,11 @@
     const show = n => btn.querySelector('.tk-thumb')?.replaceChildren(SB.tankPaint.thumb({ ...t, pixels: pictures[n] }, THUMB));
     const start = () => {
       if (timer || STILL()) return;
-      timer = setInterval(() => { i = (i + 1) % pictures.length; show(i); }, Math.round(1000 / Math.max(1, t.fps || 2)));
+      timer = setInterval(() => {
+        if (!btn.isConnected) { clearInterval(timer); timer = null; return; } // the tray re-rendered under the pointer
+        i = (i + 1) % pictures.length;
+        show(i);
+      }, Math.round(1000 / Math.max(1, t.fps || 2)));
     };
     const stop = () => {
       if (!timer) return;

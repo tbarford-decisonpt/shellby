@@ -85,9 +85,9 @@ test('levels, medals and molts count only what went up within the year', () => {
   s = Y.note(s, 'stat', stat('level', { n: 12 }), at(2026, 1, 5));   // first sighting: the baseline
   s = Y.note(s, 'stat', stat('level', { n: 12 }), at(2026, 1, 6));
   s = Y.note(s, 'stat', stat('level', { n: 14 }), at(2026, 2, 1));
-  s = Y.note(s, 'stat', stat('event-medal', { n: 3 }), at(2026, 2, 1)); // baseline
-  s = Y.note(s, 'stat', stat('event-medal', { n: 4 }), at(2026, 4, 1));
-  s = Y.note(s, 'stat', stat('molted', { n: 0 }), at(2026, 4, 1));
+  s = Y.note(s, 'stat', stat('event-medal', { n: 1 }), at(2026, 2, 1)); // the first medal ever, nothing seeded: one
+  s = Y.note(s, 'stat', stat('event-medal', { n: 1 }), at(2026, 2, 2)); // the same total again: nothing
+  s = Y.note(s, 'stat', stat('event-medal', { n: 2 }), at(2026, 4, 1));
   s = Y.note(s, 'stat', stat('molted', { n: 1 }), at(2026, 9, 1));
   s = Y.note(s, 'stat', stat('level', { n: 1 }), at(2026, 9, 1));  // a Molt starts the number again
   s = Y.note(s, 'stat', stat('level', { n: 3 }), at(2026, 9, 2));
@@ -95,12 +95,22 @@ test('levels, medals and molts count only what went up within the year', () => {
   assert.equal(y.startLevel, 12);
   assert.equal(y.endLevel, 3);
   assert.equal(y.levelsGained, 4, '12 → 14, then 1 → 3');
-  assert.equal(y.medals, 1);
-  assert.equal(y.molts, 1);
+  assert.equal(y.medals, 2);
+  assert.equal(y.molts, 1, 'the first molt counts');
   // The next year starts where this one ended.
-  s = Y.note(s, 'stat', stat('event-medal', { n: 5 }), at(2027, 1, 3));
+  s = Y.note(s, 'stat', stat('event-medal', { n: 3 }), at(2027, 1, 3));
   assert.equal(s.years['2027'].startLevel, 3);
   assert.equal(s.years['2027'].medals, 1);
+});
+
+test('backfill seeds the medal and molt totals, so an old total reported again adds nothing', () => {
+  let s = Y.backfill(undefined, { medals: 5, molts: 2 }, at(2026, 6, 1));
+  s = Y.note(s, 'stat', stat('event-medal', { n: 5 }), at(2026, 6, 2));
+  s = Y.note(s, 'stat', stat('molted', { n: 2 }), at(2026, 6, 2));
+  assert.equal(s.years['2026'].medals, 0);
+  assert.equal(s.years['2026'].molts, 0);
+  s = Y.note(s, 'stat', stat('event-medal', { n: 6 }), at(2026, 7, 1));
+  assert.equal(s.years['2026'].medals, 1);
 });
 
 test('trophies and tank pieces earned are listed once each', () => {
@@ -224,7 +234,7 @@ test('slides leave out what has nothing to say, and always start with the year a
   const busy = Y.summary(s, 2026);
   const ctx = { speciesName: id => (id === 'nullfish' ? 'Nullfish' : null), pieceName: () => 'Cairn of Ten Nests', deepCuts: true };
   const list = slides(busy, ctx);
-  assert.deepEqual(list.map(x => x.id), ['year', 'days', 'when', 'shipped', 'bugdex', 'fixes', 'reef', 'review', 'pieces', 'deep', 'card']);
+  assert.deepEqual(list.map(x => x.id), ['year', 'days', 'when', 'shipped', 'bugdex', 'fixes', 'reef', 'review', 'tides', 'pieces', 'deep', 'card']);
   assert.ok(list.find(x => x.id === 'bugdex').lines.some(l => l.includes('Nullfish')));
   assert.equal(list.find(x => x.id === 'pieces').pieces[0].name, 'Cairn of Ten Nests');
   assert.ok(list.find(x => x.id === 'when').heat.hours.length === 24);

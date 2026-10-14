@@ -111,10 +111,16 @@
   }
 
   /** Open a year's Wrapped (the one due, or the newest, when none is named). */
-  async function open(year) {
+  let opening = null; // the load-time check and main's "due" can both arrive at once
+  function open(year) {
+    if (!opening) opening = openYear(year).finally(() => { opening = null; });
+    return opening;
+  }
+  async function openYear(year) {
     const list = await refreshYears();
     const y = year ?? list?.due ?? years[0]?.year;
     if (y == null) return SB.toast('No Wrapped yet. Your first one opens on January 2nd.');
+    if (!sheet.hidden && view?.year === y) return;
     const v = await api.getGame('wrapped', y).catch(() => null);
     if (!v?.slides?.length) return SB.toast("Couldn't open that year.");
     view = v;

@@ -129,12 +129,14 @@ const markTime = (y, now) => ({
   weekdays: y.weekdays.map((n, i) => (i === now.getDay() ? n + 1 : n)),
 });
 
-// A total some stat reports (medals ever, molts ever): the year counts what it went up by.
+// A total some stat reports (medals ever, molts ever) as one more is won: the year
+// counts what it went up by. With no total known yet (backfill seeds it), the
+// report itself is the one more.
 function fromTotal(s, y, field, lastKey, n) {
-  const was = s.last[lastKey];
   const total = count(n);
-  const s2 = { ...s, last: { ...s.last, [lastKey]: Math.max(was ?? 0, total) } };
-  if (was === null || total <= was) return { s: s2, y };
+  const was = s.last[lastKey] ?? Math.max(0, total - 1);
+  const s2 = { ...s, last: { ...s.last, [lastKey]: Math.max(was, total) } };
+  if (total <= was) return { s: s2, y };
   return { s: s2, y: { ...y, [field]: y[field] + (total - was) } };
 }
 
@@ -241,6 +243,7 @@ function markShown(state, year) {
  *   bugMonths    { 'YYYY-MM': { device: { jars, shinies } } }   bugdex.js months
  *   bugFirsts    [first catch time, ms]  one per species caught
  *   level        the level now
+ *   medals, molts  tide medals and molts so far, so the next one counts as one
  * `since` becomes the earliest day found and the year is marked partial, so its
  * Wrapped says "since Aug 5". Counts already recorded are kept, never doubled:
  * a day already in dayXp keeps its own.
@@ -271,7 +274,13 @@ function backfill(state, sources = {}, now = new Date()) {
   if (level && !y.startLevel) y = { ...y, startLevel: level, endLevel: Math.max(y.endLevel, level) };
   const earliest = [...y.days, y.since].filter(Boolean).sort()[0] || dayOf(when);
   y = { ...y, since: earliest, partial: true };
-  return { ...s, years: { ...s.years, [key]: y }, last: { ...s.last, level: s.last.level ?? (level || null) }, backfilled: true };
+  const seed = v => (Number.isInteger(v) && v >= 0 ? Math.min(MAX_COUNT, v) : null);
+  const last = {
+    level: s.last.level ?? (level || null),
+    medals: s.last.medals ?? seed(sources.medals),
+    molts: s.last.molts ?? seed(sources.molts),
+  };
+  return { ...s, years: { ...s.years, [key]: y }, last, backfilled: true };
 }
 
 // ------------------------------------------------------------------ reading a year

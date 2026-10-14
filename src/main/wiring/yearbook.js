@@ -19,6 +19,7 @@ const FIRST_CHECK_MS = 20 * 1000;      // after launch: the panel has had time t
 const CHECK_EVERY_MS = 60 * 60 * 1000; // ...then hourly, for a PC left on over New Year
 const DEEP_CUTS_LEVEL = 88;            // the wrapped-extra perk (docs/GAMIFICATION-PLAN.md 2.3)
 const FOIL_LEVEL = 77;                 // the card-foil perk
+const WARDROBE_LOOK_MS = 2000;         // how often to look for the wardrobe until boot has made it
 const YEAR_RE = /^\d{4}$/;
 
 /** d: what main shares (main.js `shared`): config, log, stat, gameHub, onAward, onStat, everLevel, wardrobe. */
@@ -39,8 +40,11 @@ function wireYearbook(d) {
     if (s.backfilled || !d.config) return s;
     const xp = normalizeXp(d.config.get('xp'));
     const bugs = bugdex.normalize(d.config.get('bugdex'));
+    const stats = normalizeStats(d.config.get('stats'));
     const next = yearbook.backfill(s, {
-      days: [...streaks.normalize(d.config.get('streaks')).days, ...normalizeStats(d.config.get('stats')).activeDays],
+      days: [...streaks.normalize(d.config.get('streaks')).days, ...stats.activeDays],
+      medals: stats.eventMedals,
+      molts: stats.molts,
       xpDaily: xp.daily,
       xpDailyKinds: xp.dailyKinds,
       bugMonths: bugs.months,
@@ -51,10 +55,19 @@ function wireYearbook(d) {
     return next;
   }
 
+  // Before any hook can fire: an award is saved (xp.daily, the Bugdex) before its
+  // listeners hear it, so a backfill run from inside one would count it twice.
+  try {
+    if (!d.CAPTURE) backfillOnce();
+  } catch (e) {
+    d.log.warn('yearbook backfill failed', e?.message || String(e));
+  }
+
   function note(event, payload) {
     if (d.CAPTURE || !d.config) return;
+    hearWardrobe();
     try {
-      write(yearbook.note(backfillOnce(), event, payload, now()));
+      write(yearbook.note(read(), event, payload, now()));
     } catch (e) {
       d.log.warn('yearbook note failed', e?.message || String(e));
     }
@@ -78,9 +91,15 @@ function wireYearbook(d) {
     }));
   }
 
+  // ...and until it's there, look every couple of seconds, so an early trophy isn't missed.
+  const lookForWardrobe = setInterval(() => {
+    hearWardrobe();
+    if (wardrobeHeard) clearInterval(lookForWardrobe);
+  }, WARDROBE_LOOK_MS);
+  lookForWardrobe.unref?.();
+
   d.onAward?.(r => note('xp', { kind: r?.kind, gained: r?.gained, project: r?.meta?.project }));
   d.onStat?.((event, payload) => {
-    hearWardrobe();
     if (typeof event !== 'string' || event === 'wrapped-seen') return;
     const p = payload && typeof payload === 'object' ? payload : {};
     const extra = event === 'bug-caught' && typeof p.species === 'string' ? { fresh: freshCatch(p.species) } : {};
@@ -139,8 +158,12 @@ function wireYearbook(d) {
     };
   }
 
+  // Only a year that has a Wrapped, and only the first time: wrapped-seen counts years.
   function markShown(year) {
-    const next = yearbook.markShown(read(), year);
+    const s = read();
+    if (!yearbook.available(s, now()).some(a => String(a.year) === String(year))) return listView();
+    const next = yearbook.markShown(s, year);
+    if (next.shown.length === s.shown.length) return listView();
     write(next);
     d.stat?.('wrapped-seen', { n: next.shown.length });
     return listView();
