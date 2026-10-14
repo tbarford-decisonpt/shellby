@@ -166,7 +166,8 @@ const nestOf = (b, nests) => arr(nests).find(n => n.species === b.species && (!n
 function looseCard(battles, nestsPart, eventPart, activeProject) {
   if (!Array.isArray(battles)) return notYet('loose', '🪲', 'Bugs on the loose', 'bugdex');
   const live = battles.filter(b => b && !b.over);
-  const nests = arr(obj(nestsPart)?.nests);
+  const np = obj(nestsPart);
+  const nests = arr(np?.open || np?.nests);
   const active = obj(obj(eventPart)?.active) || null;
   if (!live.length) {
     return card('loose', {
@@ -218,7 +219,8 @@ function reefCard(reefPart) {
   const sorted = [...list].sort((a, b) => num(b.stage) - num(a.stage) || a.project.localeCompare(b.project));
   const best = sorted[0], worst = sorted[sorted.length - 1];
   const worstSig = Object.entries(obj(worst.signals) || {}).filter(([, v]) => num(v) > 0).sort((a, b) => num(b[1]) - num(a[1]))[0];
-  const fix = worstSig && (Object.hasOwn(SIGNAL_TEXT, worstSig[0]) ? SIGNAL_TEXT[worstSig[0]] : `Bringing down ${worstSig[0]} lifts the reef.`);
+  // The reef view gives each project its next step; a plain { signal: count } map is the fallback.
+  const fix = obj(worst.next)?.text ? `${worst.next.text}.` : worstSig && (Object.hasOwn(SIGNAL_TEXT, worstSig[0]) ? SIGNAL_TEXT[worstSig[0]] : `Bringing down ${worstSig[0]} lifts the reef.`);
   return card('reef', {
     icon: '🪸', title: 'Reef',
     text: list.length === 1 ? `${best.project}: stage ${num(best.stage)}${best.fading ? ', fading' : ''}.`
@@ -230,19 +232,26 @@ function reefCard(reefPart) {
   });
 }
 
+// The review view says what's left per goal ({ points, caught, quizBest }); older views sent one number of catches.
+const needTotal = n => (typeof n === 'object' && n ? num(n.points) + num(n.caught) + num(n.quizBest) : num(n));
+function needText(n) {
+  if (!n || typeof n !== 'object') return `${num(n)} more caught in review`;
+  const parts = [num(n.caught) && `${num(n.caught)} more caught in review`, num(n.points) && `${num(n.points)} more points`, num(n.quizBest) && `a quiz run ${num(n.quizBest)} longer`].filter(Boolean);
+  return parts.join(', ') || 'Nearly there';
+}
 function reviewCard(reviewPart) {
   const r = obj(reviewPart);
   if (!r) return notYet('review', '🦅', 'Review track', 'trophies');
   const nx = obj(r.next);
-  const need = nx ? num(nx.need) : 0;
+  const need = nx ? needTotal(nx.need) : 0;
   return card('review', {
     icon: '🦅', title: 'Review track',
     text: `${r.tierName || `Tier ${num(r.tier)}`}. ${num(r.caught)} caught in review, quiz streak ${num(r.quizStreak)}.`,
-    progress: nx ? { n: Math.max(0, num(r.caught)), of: Math.max(1, num(r.caught) + need) } : null,
+    progress: nx ? { n: Math.max(0, num(r.points ?? r.caught)), of: Math.max(1, num(r.points ?? r.caught) + (typeof nx.need === 'object' ? num(nx.need?.points) : need)) } : null,
     urgency: URGENT.low + (nx && need <= 1 ? 20 : 5),
     go: go('trophies'),
     feeds: [
-      nx && feed('trophies', `${need} more caught in review → ${nx.name || `tier ${num(nx.tier)}`}${nx.reward ? ` → ${nx.reward}` : ''}.`),
+      nx && feed('trophies', `${needText(nx.need)} → ${nx.name || `tier ${num(nx.tier)}`}${nx.reward ? ` → ${nx.reward}` : ''}.`),
       feed('bugdex', 'What’s caught in review never becomes a nest.'),
     ],
   });

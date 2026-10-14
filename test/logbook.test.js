@@ -100,7 +100,7 @@ test('feeds: a decor unlock goes in the tank; the reef names its worst signal; r
   const r = byId(logbook.logbookView(full({ reef }), NOW), 'reef');
   assert.match(r.text, /Needs care: site/);
   assert.match(r.feeds[0].text, /site: Fixing a flaky test pays Fixed a flaky test/);
-  assert.match(byId(v, 'review').feeds[0].text, /^5 more caught in review → tier 2/);
+  assert.match(byId(v, 'review').feeds[0].text, /^18 more points, a quiz run 1 longer → Diff Diver → Diver's Goggles Stand/);
 });
 
 test('the quest card shows the chapter in progress and links each screen the quest feeds', () => {
