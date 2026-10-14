@@ -197,3 +197,68 @@ test('the finishing blow is the move that proved the fix', () => {
   const b = battle.finish(fresh(), { at: T0 + S, outcome: 'caught', move: 'remedy' });
   assert.equal(battle.view(b, 'Nullfish').moves.at(-3).line, 'Claude tries Remedy! That did it: a finishing blow!');
 });
+
+// ---- fix reports and rematches (docs/GAMIFICATION-PLAN.md 2.5)
+
+const report = (q, crew = 0) => ({ qualities: { proof: false, firstTry: false, rootCause: false, wider: false, ...q }, q: '', crew });
+const blows = b => b.moves.filter(m => m.finisher || m.fx === 'finish');
+
+test('without a report the catch is the plain finishing blow', () => {
+  const b = battle.finish(fresh(), { at: T0 + S, outcome: 'caught', move: 'tests' });
+  const f = blows(b);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].fx, 'finish');
+  assert.match(battle.view(b, 'Nullfish').moves.find(m => m.fx === 'finish').line, /It passes/);
+});
+
+test('finishers land in order with their fx, and the last takes the bug to 0', () => {
+  const b = battle.finish(fresh(), { at: T0 + S, outcome: 'caught', move: 'tests', report: report({ proof: true, rootCause: true, firstTry: true }) });
+  const f = blows(b);
+  assert.deepEqual(f.map(m => m.finisher), ['proof', 'root', 'first']);
+  assert.deepEqual(f.map(m => m.fx), ['super', 'crit', 'crit']);
+  assert.equal(f.at(-1).hp, 0);
+  assert.ok(f.every(m => m.dmg > 0));
+  assert.equal(b.over, 'caught');
+  const lines = battle.view(b, 'Nullfish').moves.map(m => m.line);
+  assert.ok(lines.some(l => /Proof Strike/.test(l)));
+  assert.ok(lines.some(l => /Root Cut/.test(l)));
+});
+
+test('at most three finishers; the crew only when there is room', () => {
+  assert.deepEqual(battle.finishersFor(report({ proof: true, rootCause: true, firstTry: true }, 2)), ['proof', 'root', 'first']);
+  assert.deepEqual(battle.finishersFor(report({ proof: true }, 2)), ['proof', 'crew']);
+  assert.deepEqual(battle.finishersFor(report({})), []);
+  assert.deepEqual(battle.finishersFor(null), []);
+});
+
+test('the view carries the report for the card', () => {
+  const b = battle.finish(fresh(), { at: T0 + S, outcome: 'caught', report: report({ proof: true }) });
+  const v = battle.view(b, 'Nullfish');
+  assert.equal(v.report.qualities.proof, true);
+  assert.equal(v.report.score, 1);
+  assert.equal(battle.view(fresh(), 'Nullfish').report, null);
+});
+
+test('a rematch is stronger and remembers last time', () => {
+  const b = fresh({ rematch: { n: 2, last: { at: T0 - 1000, q: 'f' } } });
+  assert.equal(b.level, fresh().level + 2 * battle.REMATCH_LEVELS);
+  const v = battle.view(b, 'Ghost Moth');
+  assert.deepEqual(v.rematch, { n: 2, last: { at: T0 - 1000, q: 'f' } });
+  assert.equal(v.moves[0].line, 'It’s back! Ghost Moth, rematch #2. Last time: no test.');
+  assert.equal(fresh({ rematch: { n: 0 } }).rematch, null);
+});
+
+test('a rematch won with a proof ends Sealed; without one it does not', () => {
+  const r = fresh({ rematch: { n: 1, last: null } });
+  const sealed = blows(battle.finish(r, { at: T0 + S, outcome: 'caught', report: report({ proof: true }) }));
+  assert.deepEqual(sealed.map(m => m.finisher), ['proof', 'sealed']);
+  assert.equal(sealed.at(-1).fx, 'finish');
+  const plain = blows(battle.finish(r, { at: T0 + S, outcome: 'caught', report: report({ rootCause: true }) }));
+  assert.deepEqual(plain.map(m => m.finisher), ['root']);
+});
+
+test('last time reads the report letters', () => {
+  assert.equal(battle.lastTime('pr'), 'a test proved it, fixed at the root');
+  assert.equal(battle.lastTime('r'), 'fixed at the root, but no test');
+  assert.equal(battle.lastTime(''), 'no test');
+});
