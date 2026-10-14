@@ -110,4 +110,4 @@ const REASONS = Object.freeze({
   'tests-only': 'only the tests changed',
 });
 
-module.exports = { judge, flagsOf, splitPatch, isTestFile, onlyBiggerNumbers, REASONS, TEST_PATH };
+module.exports = { judge, flagsOf, splitPatch, isTestFile, onlyBiggerNumbers, REASONS, TEST_PATH, SUPPRESS_ADD };
