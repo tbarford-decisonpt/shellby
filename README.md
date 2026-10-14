@@ -93,9 +93,11 @@ You start with just him and a chat box. The rest of his shell opens as he works:
 
 **See what it costs**
 - Every turn shows its tokens and its share of your 5-hour window, and **Lean Shell** shows what each new conversation carries before you type.
+- **Keep warm while you're away:** press the mug in the tab strip before lunch. Each conversation of 200k tokens or more gets one tiny message just before its cache's hour runs out, so your first message back reads the conversation from the cache instead of writing it all again. It turns itself off when you're back, or after 3 hours.
 
 **Work your way**
 - <kbd>Ctrl</kbd>+<kbd>K</kbd> for everything, every slash command, and push-to-talk.
+- **All files** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>): the whole project beside the chat, each file with its git mark, lit up as Claude reads, writes and commits. Click a file and it goes along with your messages, so "this" means that file.
 - A **Toolbox** for your skills, agents, MCP servers and hooks, and a **Council** of advisor crabs for big decisions.
 - Hand a conversation to the terminal and back, or run Claude Code on another computer over ssh.
 
