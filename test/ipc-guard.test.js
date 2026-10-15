@@ -60,12 +60,34 @@ test('guarded handlers refuse the wrong window: invoke rejects, send is dropped,
   ipc.on('critter:click', () => { ran++; });
 
   assert.equal(await raw.handlers.get('task:send')({ sender: panel }, 21), 42);
-  assert.throws(() => raw.handlers.get('task:send')({ sender: critter }, 1), /Not allowed/);
-  assert.throws(() => raw.handlers.get('task:send')({ sender: critter }, 1), /Not allowed/);
+  await assert.rejects(() => raw.handlers.get('task:send')({ sender: critter }, 1), /Not allowed/);
+  await assert.rejects(() => raw.handlers.get('task:send')({ sender: critter }, 1), /Not allowed/);
   raw.listeners.get('critter:click')({ sender: critter });
   raw.listeners.get('critter:click')({ sender: stranger });
   assert.equal(ran, 2);
   assert.deepEqual(refused, ['task:send', 'critter:click']);
+});
+
+test('a handler that fails is reported with its channel: an invoke still rejects with its words, a send goes no further', async () => {
+  const raw = fakeIpcMain();
+  const failed = [];
+  const ipc = guardIpc(raw, allow, { onFailed: (c, err, { answered }) => failed.push([c, err.message, answered]) });
+  ipc.handle('task:send', () => { throw new Error('Shellby is still working on the last task.'); });
+  ipc.handle('git:status', async () => { throw new Error('git is not installed'); });
+  ipc.on('panel:sync', () => { throw new Error('sync boom'); });
+  ipc.on('panel:async', async () => { throw new Error('async boom'); });
+
+  await assert.rejects(() => raw.handlers.get('task:send')({ sender: panel }), /still working/);
+  await assert.rejects(() => raw.handlers.get('git:status')({ sender: panel }), /not installed/);
+  assert.doesNotThrow(() => raw.listeners.get('panel:sync')({ sender: panel }));
+  raw.listeners.get('panel:async')({ sender: panel });
+  await new Promise(r => setImmediate(r));
+  assert.deepEqual(failed, [
+    ['task:send', 'Shellby is still working on the last task.', true],
+    ['git:status', 'git is not installed', true],
+    ['panel:sync', 'sync boom', false],
+    ['panel:async', 'async boom', false],
+  ]);
 });
 
 test('every channel the crab\'s bridge uses is one main lets him reach', () => {
