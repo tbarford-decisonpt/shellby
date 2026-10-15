@@ -245,6 +245,20 @@ function ownedPids() {
   return out;
 }
 
+/**
+ * Sweep every job not swept yet: the last thing Shellby does as he quits, so a
+ * task whose owner never got to end it (a one-off claude run, a workflow's MCP
+ * server, a sign-in, an install in a new copy) doesn't outlive him. Job handles
+ * close with the process anyway, but closing one ends nothing (no
+ * KILL_ON_JOB_CLOSE, see the top): without this they ran on.
+ * -> the names ended, across all of them.
+ */
+function sweepAll() {
+  const ended = [];
+  for (const job of [...live]) ended.push(...(sweep(job)?.ended || []));
+  return ended;
+}
+
 const available = () => !!load();
 
-module.exports = { adopt, sweep, members, ownedPids, available, giveWay, givingWay: givingWayNow, shareOf, KEEP, GAME_CPU_PERCENT, MIN_JOB_PERCENT };
+module.exports = { adopt, sweep, sweepAll, members, ownedPids, available, giveWay, givingWay: givingWayNow, shareOf, KEEP, GAME_CPU_PERCENT, MIN_JOB_PERCENT };

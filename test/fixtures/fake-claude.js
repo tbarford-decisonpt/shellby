@@ -406,6 +406,20 @@ function onLine(line) {
     return;
   }
 
+  // "orphans <n>" -> starts n long-lived processes through cmd, which exits at
+  // once and leaves them with no parent (how uvx leaves serena's python), then
+  // answers with their count. "orphans-crash <n>" does the same and dies mid-turn.
+  if (content.startsWith('orphans')) {
+    const n = parseInt(content.split(' ')[1], 10) || 1;
+    for (let i = 0; i < n; i++) {
+      const cmd = `/d /s /c "start "" /b "${process.execPath}" -e "setInterval(function () {}, 1000)""`;
+      require('child_process').spawn(process.env.ComSpec || 'cmd.exe', [cmd], { stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true });
+    }
+    if (content.startsWith('orphans-crash')) { setTimeout(() => process.exit(3), 500); return; }
+    setTimeout(() => { text(`orphans: ${n}`); result(true); }, 500);
+    return;
+  }
+
   // "big <tokens>" -> the conversation now fills <tokens> of a 200k context window
   if (content.startsWith('big ')) {
     const tokens = parseInt(content.split(' ')[1], 10) || 1000;
