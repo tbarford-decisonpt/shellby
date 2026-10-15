@@ -1,4 +1,7 @@
 const { app, ipcMain: electronIpcMain, screen, session: electronSession, powerMonitor } = require('electron');
+// e2e runs only: every window off screen, never focused over your app. First, so every
+// module that takes BrowserWindow from require('electron') gets the one that does it.
+if (require('./test-desktop').keepsOffScreen(process.env, app.isPackaged)) require('./offscreen-windows').keepOffScreen(require('electron'));
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
