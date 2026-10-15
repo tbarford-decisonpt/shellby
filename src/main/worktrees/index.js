@@ -28,6 +28,8 @@ const BRANCH = /^shellby\/[a-z0-9-]{1,40}-[0-9a-f]{6}$/;
 // Auto-edit without a prompt, and git would then run it with your rights when
 // you click. A push stays yours: its hooks run as from a terminal.
 const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
+// What execFile says when there's no git to run.
+const NO_GIT = /\bENOENT\b|not recognized as an internal or external command/i;
 
 // fsmonitor off: a repository's own config could name a program to run on
 // every status (one Shellby never asked for).
@@ -274,6 +276,8 @@ async function create(dir, { home, title, named = false, start = 'HEAD' }) {
   // here would trip over 8.3 short names (C:\Users\RUNNER~1\...) that git
   // has already expanded.
   const top = await git(dir, ['rev-parse', '--show-toplevel', '--show-prefix'], { timeout: 5000 });
+  // No git at all reads the same as "not a repository" unless it's told apart.
+  if (!top.ok && NO_GIT.test(top.error)) return { ok: false, error: "Couldn't make a copy: git isn't installed, or isn't on PATH.", detail: top.error };
   const [topLine, prefix = ''] = top.ok ? top.out.split(/\r?\n/) : [];
   if (!topLine?.trim()) return null;
   const root = path.resolve(topLine.trim());
@@ -289,7 +293,14 @@ async function create(dir, { home, title, named = false, start = 'HEAD' }) {
   // <home>/<suffix>/<repo name>: the folder keeps the project's own name, so
   // streaks, XP and the status line still say "shellby", not "shellby-1a2b3c".
   const wt = path.join(home, branch.slice(-6), path.basename(root));
-  fs.mkdirSync(path.dirname(wt), { recursive: true });
+  // Shellby's folder of copies can be unwritable, full, or too deep for Windows:
+  // said as a sentence like git's own refusals, never thrown at the caller.
+  try {
+    fs.mkdirSync(path.dirname(wt), { recursive: true });
+  } catch (err) {
+    const known = COPY_REFUSALS.find(([re]) => re.test(err.message));
+    return { ok: false, error: `Couldn't make a copy: ${known ? known[1] : "Shellby's folder of copies couldn't be made"}.`, detail: err.message };
+  }
   const add = await git(root, ['worktree', 'add', '--no-track', '-b', branch, wt, start], { timeout: 120000 });
   if (!add.ok) return { ok: false, error: copyRefusal(add.error), detail: lastLines(add.error) || undefined };
   const rel = prefix.trim().replace(/\/$/, '');
