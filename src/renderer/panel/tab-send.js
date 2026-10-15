@@ -32,6 +32,7 @@
     SB.renderNextPrompt?.(tab);
     SB.renderTodos?.(tab); // Claude's to-do list and its background commands (native-strip.js)
     SB.renderJobs?.(tab);
+    SB.renderUltraChip?.(tab); // whether Ultracode is on here (ultracode.js)
     tickClock();
     renderQueue();
   }
@@ -145,6 +146,13 @@
       if (r && !r.ok) { SB.toast(r.error); return false; }
       if (r?.newTab && !tab.isEmpty) return sendInNewTab(tab, text, r, attachments);
       if (r) { snippet = r.name; text = r.prompt; }
+    }
+    // Ultracode on here (or the word typed): the word goes in, where you can see
+    // it, and the first one in a conversation asks first (ultracode.js).
+    if (SB.ultraWords) {
+      const words = await SB.ultraWords(tab, text);
+      if (words === null) return false;
+      text = words;
     }
     // "Hold big tasks for the reset" (Settings): one that usually takes more than
     // the window has left waits for the reset instead (outlook.js).

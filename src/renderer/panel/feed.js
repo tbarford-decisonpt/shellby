@@ -298,6 +298,7 @@
         case 'shots': return SB.renderShots?.(this, item);     // turn-checks.js
         case 'tries': return SB.renderTries?.(this, item, replay); // tries.js
         case 'debug': return SB.renderDebug?.(this, item, replay); // debug-mode.js
+        case 'ultracode': return SB.renderUltracode?.(this, item, replay); // ultracode.js
         // Shellby's own one-line notes: cleared, moved into a copy, from the phone,
         // brought home, pushed, compacted, started fresh, rewound. /clear empties
         // the screen first, as in the terminal: live or replayed, so a

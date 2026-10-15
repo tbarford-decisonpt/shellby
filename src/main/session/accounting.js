@@ -27,6 +27,7 @@ const accounting = {
       if (s.parent) this.helperOf(s.parent).weight += weight - before;
     }
     this.emit('spend', { messageId: s.messageId, weight: weight - before });
+    if (s.parent) this.runSpent(s.parent, weight - before); // under an ultracode run's Workflow call (session/ultra.js)
   },
 
   // The running turn's tokens so far, counted as its result's cost will count

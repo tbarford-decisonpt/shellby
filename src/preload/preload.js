@@ -262,10 +262,13 @@ contextBridge.exposeInMainWorld('shellby', {
   writeTeamPack: invoke('team:write'),
   revealTeamPack: fire('team:reveal'),
   refreshMcp: invoke('mcp:refresh'),
-  // What Claude Code does by itself (ipc/native.js): background commands, auto memory, cloud routines, the ultra review.
+  // What Claude Code does by itself (ipc/native.js): background commands, ultracode runs, auto memory, cloud routines, the ultra review.
   jobOutput: (tabId, jobId) => ipcRenderer.invoke('jobs:output', { tabId, jobId }),
   justSawTake: () => ipcRenderer.invoke('justsaw:take'),
   stopJob: (tabId, jobId) => ipcRenderer.invoke('jobs:stop', { tabId, jobId }),
+  stopUltracode: (tabId, runId) => ipcRenderer.invoke('ultracode:stop', { tabId, runId }),
+  ultracodeStatus: (tabId, runId) => ipcRenderer.invoke('ultracode:status', { tabId, runId }),
+  confirmUltracode: invoke('ultracode:confirm'),
   listMemory: invoke('memory:list'),
   saveMemory: (tabId, file, body, mtimeMs) => ipcRenderer.invoke('memory:save', { tabId, file, body, mtimeMs }),
   forgetMemory: (tabId, file) => ipcRenderer.invoke('memory:forget', { tabId, file }),

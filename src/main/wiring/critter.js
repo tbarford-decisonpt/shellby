@@ -213,7 +213,7 @@ function wireCritter(d) {
       work,
       // Each helper as its crew member: name, level, colour and hat (wiring/crew.js).
       crew: dressCrew(agg.crew.slice(0, d.MAX_CREW_SHOWN)),
-      moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN),
+      moreCrew: Math.max(0, agg.crew.length - d.MAX_CREW_SHOWN) + (own.hiddenCrew || 0), // and an ultracode run's agents kept in (ultracode.js)
       crewEnded: own.crewEnded || [], // how the helpers that just left got on (sessions.js)
       health: d.healthMood,
       ...bubbleLevel(),

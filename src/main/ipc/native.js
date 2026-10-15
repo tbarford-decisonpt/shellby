@@ -10,6 +10,7 @@ const { clipboard, nativeImage, shell } = require('electron');
 const attach = require('../attachments');
 const confirm = require('../confirm');
 const jobs = require('../jobs');
+const ultraWords = require('../../renderer/shared/ultracode');
 const justSaw = require('../just-saw');
 const automemory = require('../automemory');
 const cloud = require('../cloud-routines');
@@ -113,6 +114,38 @@ function registerNativeIpc(ipcMain, d) {
     const tab = tabOf(tabId);
     if (!tab || !d.isStr(jobId)) return { ok: false, error: 'That conversation is closed.' };
     return tab.session.stopJob(jobId);
+  });
+
+  // ---- ultracode runs (Claude Code's Workflow tool, ultracode.js)
+
+  ipcMain.handle('ultracode:stop', async (_e, { tabId, runId } = {}) => {
+    const tab = tabOf(tabId);
+    if (!tab || !d.isStr(runId) || !ID.test(runId)) return { ok: false, error: 'That conversation is closed.' };
+    return tab.session.stopRun(runId);
+  });
+
+  // A card replayed from History: the run as it is now, or null when this process never saw it.
+  ipcMain.handle('ultracode:status', (_e, { tabId, runId } = {}) => {
+    const tab = tabOf(tabId);
+    return tab && d.isStr(runId) && ID.test(runId) ? tab.session.runView(runId) : null;
+  });
+
+  // Before the first ultracode message in a conversation: asked in the confirm window,
+  // which the panel's own code can't click through.
+  ipcMain.handle('ultracode:confirm', async (_e, tabId) => {
+    const tab = tabOf(tabId);
+    if (!tab) return { ok: false, error: 'That conversation is closed.' };
+    const model = tab.session.runModel?.() || '';
+    const e = ultraWords.expect(model);
+    const response = await confirm.ask(d.panel, {
+      ...d.dialogLook(), icon: '🦀',
+      title: 'Send this with Ultracode?',
+      message: 'Claude may start a run of many agents in the background. Each one is a helper crab, and each spends from your plan.',
+      detail: `A run is often ${e.agents[0]} to ${e.agents[1]} agents. As a rough guess that's ${ultraWords.money(e.low)} to ${ultraWords.money(e.high)}${model ? ` on ${model}` : ''}, and it can fill a good part of your 5-hour window.`,
+      note: 'The card in the conversation shows what it has spent so far, and Stop ends it.',
+      buttons: [{ label: 'Send with Ultracode', style: 'primary' }, { label: 'Cancel' }], defaultId: 1, cancelId: 1,
+    });
+    return response === 0 ? { ok: true } : { ok: false, cancelled: true };
   });
 
   // ---- what Claude remembers (auto memory)
