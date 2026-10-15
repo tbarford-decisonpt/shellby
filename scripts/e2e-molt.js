@@ -57,6 +57,9 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await until(panel, "!document.getElementById('brandLevel').hidden");
 
     // 1. At 99: the Molt button on the XP card, and the sheet offering tier shell I.
+    // The badge shows before the panel's start is over, and its start ends on the chat (boot.js):
+    // Trophies opened sooner is left at once.
+    check(await until(panel, "performance.getEntriesByName('shellby:panel-ready').length > 0", 20000), 'the panel has started');
     await panel.ev("SB.setView('trophies')");
     // `=== false`, not `!…?.hidden`: before the XP card is drawn there is no button, and that must not pass.
     check(await until(panel, "document.querySelector('.lv-molt-btn')?.hidden === false"), 'the XP card offers the Molt');

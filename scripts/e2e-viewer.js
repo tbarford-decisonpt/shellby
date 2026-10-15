@@ -104,7 +104,13 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     await ev('SB.newTab()');
     await ev(`SB.send(${JSON.stringify(`edit ${MADE[0].file} ${MADE[0].words}`)})`);
     await idle();
-    check(await until("!document.getElementById('branchChip').hidden"), 'the conversation works in its own copy');
+    // In its copy and done there: the branch chip alone shows for the checkout's own branch too, and
+    // idle() can pass while the move is still under way (it stops the turn, then carries it on in the copy).
+    check(await until("!document.getElementById('branchChip').hidden && !!SB.activeTab().worktree && !SB.activeTab().busy", 30000), 'the conversation works in its own copy');
+    const copyDir = await ev('SB.activeTab().cwd');
+    for (let t = 0; t < 15000 && !fs.existsSync(path.join(copyDir, MADE[0].file)); t += 150) await wait(150);
+    check(fs.existsSync(path.join(copyDir, MADE[0].file)), 'its first file is written in the copy');
+    await idle();
     const copyTab = await ev('SB.state.activeTab');
     await ev('SB.splitPane()');
     check(await until('SB.panes.count(SB.state.grid) === 2'), 'two panes side by side');
