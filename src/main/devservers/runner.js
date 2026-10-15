@@ -18,6 +18,13 @@ const { spawn, execFile } = require('child_process');
 const { StringDecoder } = require('string_decoder');
 const { CMD, TASKKILL } = require('../system32');
 const native = require('./launch');
+const processJob = require('../process-job');
+
+// pid -> the job holding a server this session started (process-job.js), so
+// stopping it ends what lost its parent too (npm exits, its node lives on),
+// which taskkill /T can't find. A server picked back up after a restart has
+// none, and taskkill alone does what it can.
+const jobs = new Map();
 
 const READ_CHUNK = 256 * 1024;
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
@@ -66,6 +73,8 @@ function start({ root, command, logFile, env = {}, launchImpl = native.launch, c
       },
     });
     if (!r?.pid) return { ok: false, error: "The server couldn't be started." };
+    const job = processJob.adopt(r.pid, { outlives: true });
+    if (job) jobs.set(r.pid, job);
     return { ok: true, pid: r.pid };
   } catch (e) {
     return { ok: false, error: String(e?.message || e).slice(0, 200) };
@@ -99,6 +108,9 @@ function isAlive(pid, createdAt, info, { trustBare = false } = {}) {
 function stop(pid, { execFileImpl = execFile, spawnImpl = spawn, detached = false } = {}) {
   return new Promise(resolve => {
     if (!Number.isInteger(pid) || pid <= 0) return resolve();
+    const job = jobs.get(pid);
+    jobs.delete(pid);
+    processJob.sweep(job); // synchronous: holds even while Shellby quits
     const args = ['/PID', String(pid), '/T', '/F'];
     if (detached) {
       try { spawnImpl(TASKKILL, args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref(); } catch { /* best effort */ }

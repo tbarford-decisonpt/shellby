@@ -16,7 +16,7 @@
 // in what the remote has first, then pushes your checkout's branch.
 //
 // execFile with fixed arguments, short timeouts, nothing thrown to the caller.
-const { execFile } = require('child_process');
+const { execFileTree: execFile } = require('../exec-tree'); // a timeout ends git's whole tree
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');

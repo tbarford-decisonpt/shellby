@@ -57,7 +57,8 @@ async function tabWithOrphans(prompt = `orphans ${ORPHANS}`) {
 test('closing a tab ends what its conversation left running', { skip }, async () => {
   const { mgr, seen, pids } = await tabWithOrphans();
   assert.ok(await until(() => seen.some(i => i.kind === 'result')), 'the turn ends');
-  assert.ok(pids.every(alive), 'they outlive the turn');
+  // (A conhost among them can come and go on its own: count what's still there.)
+  assert.ok(pids.filter(alive).length >= ORPHANS, 'they outlive the turn');
   mgr.close('t1');
   assert.ok(await until(() => !pids.some(alive)), 'nothing is left running');
 });
