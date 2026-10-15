@@ -67,7 +67,12 @@ const CARDS = "[...document.querySelectorAll('#lbCards .lb-card')].map(c => c.da
       // 1. The tab is there from the start, on every page of his screen.
       await ev("SB.setView('wardrobe')");
       check(await until("!!document.querySelector('#wardrobeView .shellby-tabs [data-goto=\"logbook\"]') && !SB.isRoomLocked('logbook')"), 'a brand-new user has the Logbook tab on his screen');
-      check(await ev("[...document.querySelectorAll('.shellby-tabs')].every(n => n.querySelector('[data-goto=\"logbook\"]'))"), 'every page of his screen has the tab');
+      const everyPage = await ev("[...document.querySelectorAll('.shellby-tabs')].every(n => n.querySelector('[data-goto=\"logbook\"]'))");
+      check(everyPage, 'every page of his screen has the tab');
+      // What the page looked like, when it didn't: this has only failed on CI.
+      if (!everyPage) console.log(await ev(`JSON.stringify({ view: SB.state.view, waiting: SB.isGameWaiting?.(), lbCards: document.querySelectorAll('#lbCards .lb-card').length,
+        tabs: [...document.querySelectorAll('.shellby-tabs')].map(n => (n.closest('[id]')?.id || '?') + ':' + [...n.querySelectorAll('[data-goto]')].map(b => b.dataset.goto).join(',')),
+        logbookLoaded: typeof SB.renderLogbook, errors: window.__shellbyErrors || null })`));
       check(await ev("document.querySelector('#wardrobeView .shellby-tabs button').dataset.goto === 'logbook'"), 'it is the first tab');
 
       // 2. Cards for every system, none of them broken.
