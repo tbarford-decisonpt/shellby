@@ -1,2 +1,0 @@
-### New
-- **Keep warm while you're away.** Before lunch, press the mug in the tab strip. While you're gone, Shellby sends each conversation of 200k tokens or more whose cache is still warm one tiny message just before its hour runs out. Your first message back then reads the conversation from the cache instead of writing it all again. Smaller conversations are left alone: they cost little to write again. It turns itself off when you're back, or after 3 hours, and leaves a dim line in each conversation saying what it did.
