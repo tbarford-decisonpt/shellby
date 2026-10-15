@@ -14,6 +14,8 @@ const reef = require('../reef');
 const probe = require('../reef/probe');
 const gitinfo = require('../gitinfo');
 const flaky = require('../flaky');
+const nests = require('../bugdex/nests');
+const { speciesById } = require('../bugdex/species');
 
 const TICK_MS = 10 * 60 * 1000;   // how often the scheduler looks
 const IDLE_MS = 10 * 60 * 1000;   // away this long before the daily grep runs
@@ -64,11 +66,28 @@ function wireReef(d) {
     return r;
   }
 
+  // Where a reading's count came from, for Fix this (reef/detail.js): kept only
+  // when the reading itself counted (not another lint command, say).
+  const SKIPPED = new Set(['off', 'unknown', 'unreadable', 'other-command']);
+  function keepDetail(id, sig, r, det) {
+    if (!det || !r || SKIPPED.has(r.reason)) return;
+    save(reef.setDetail(d.config.get('reef'), id, sig, det));
+  }
+
   // A reading for whatever project `dir` belongs to, if its reef is watched.
-  async function noteFor(dir, sig, value, ctx) {
+  async function noteFor(dir, sig, value, ctx, det) {
     const proj = await projectOf(dir);
     if (!proj || !state().projects[proj.id]?.on) return null;
-    return note(proj.id, sig, value, ctx);
+    const r = note(proj.id, sig, value, ctx);
+    if (det) keepDetail(proj.id, sig, r, det(proj));
+    return r;
+  }
+
+  // A reading and where it came from, for a project already known to be watched.
+  function noteWith(id, sig, value, ctx, det) {
+    const r = note(id, sig, value, ctx);
+    keepDetail(id, sig, r, det);
+    return r;
   }
 
   // ---------------------------------------------------------------- the commands Claude ran
@@ -80,7 +99,9 @@ function wireReef(d) {
       if (!dir || typeof r.command !== 'string') return;
       if (r.kind === 'lint') {
         const n = reef.signals.lintCount(output, { ok: !!r.ok });
-        if (n !== null) noteFor(dir, 'lint', n, { cmd: r.command.trim().replace(/\s+/g, ' ') }).catch(e => d.log.warn('reef lint', e?.message));
+        const cmd = r.command.trim().replace(/\s+/g, ' ');
+        const where = proj => ({ ...reef.detail.lintDetail(output, proj.root || dir), cmd });
+        if (n !== null) noteFor(dir, 'lint', n, { cmd }, where).catch(e => d.log.warn('reef lint', e?.message));
       } else if (r.kind === 'tests') {
         const n = reef.signals.testCount(output);
         if (n !== null) noteFor(dir, 'tests', n).catch(e => d.log.warn('reef tests', e?.message));
@@ -92,12 +113,22 @@ function wireReef(d) {
 
   // Bug nests and anything else that has a number for a reef: (project, sig, value).
   // project: its id, { id } or a folder in it.
-  d.onReefNote?.((project, sig, value) => {
+  // The Bugdex sends ('nest', { open, cleared }): the reef's nests signal is the open count.
+  d.onReefNote?.((project, rawSig, rawValue) => {
+    const isNest = rawSig === 'nest' || rawSig === 'nests';
+    const sig = isNest ? 'nests' : rawSig;
+    const value = isNest && rawValue && typeof rawValue === 'object' ? rawValue.open : rawValue;
     const id = typeof project === 'string' && ID_RE.test(project) ? project : project && typeof project === 'object' && ID_RE.test(project.id) ? project.id : null;
-    if (id) { if (state().projects[id]?.on) note(id, sig, value); return; }
+    if (id) { if (state().projects[id]?.on) noteWith(id, sig, value, {}, isNest ? nestDetail(id) : null); return; }
     const dir = typeof project === 'string' ? project : project?.root;
-    if (dir) noteFor(dir, sig, value).catch(() => {});
+    if (dir) noteFor(dir, sig, value, {}, isNest ? proj => nestDetail(proj.id) : null).catch(() => {});
   });
+
+  // The open nests behind the count, from the Bugdex's own ledger (config bugNests).
+  function nestDetail(id) {
+    const raw = d.config.get('bugNests')?.nests;
+    return { nests: reef.detail.openNests(nests.normalizeNests(raw), id, sp => speciesById(sp)?.name || sp) };
+  }
 
   // ---------------------------------------------------------------- what's read from the folder
 
@@ -107,7 +138,7 @@ function wireReef(d) {
     const c = await probe.coverage(p.root, p.covMtime);
     if (!c) return;
     save(reef.mark(d.config.get('reef'), id, { covMtime: c.mtime }));
-    note(id, 'coverage', c.pct);
+    noteWith(id, 'coverage', c.pct, {}, { file: c.file, files: c.files || [] });
   }
 
   async function readEscapes(id) {
@@ -120,17 +151,20 @@ function wireReef(d) {
     // Only worth asking git how much was deleted when this would be a new best.
     const better = sig && reef.signals.beats('escapes', sig.best, r.count);
     const deletedShare = better && p.head ? await probe.deletedShare(p.root, p.head, r.head) : 0;
-    note(id, 'escapes', r.count, { head: r.head, deletedShare });
+    noteWith(id, 'escapes', r.count, { head: r.head, deletedShare }, r.detail);
   }
 
   // The ledgers Shellby keeps anyway: open flaky tests, vulnerable packages, CI runs.
   function readLedgers(id) {
     const p = state().projects[id];
     if (!p?.on) return;
-    const fl = reef.signals.openFlaky(flaky.normalizeFlaky(d.config.get('flaky')), id);
-    if (fl !== null) note(id, 'flaky', fl);
-    const vulns = reef.signals.vulnsFor(d.depWatch?.view?.()?.results, p.root ? [p.root] : []);
-    if (vulns !== null) note(id, 'deps', vulns);
+    const flakyState = flaky.normalizeFlaky(d.config.get('flaky'));
+    const fl = reef.signals.openFlaky(flakyState, id);
+    if (fl !== null) noteWith(id, 'flaky', fl, {}, { tests: reef.detail.flakyTests(flakyState, id) });
+    const results = d.depWatch?.view?.()?.results;
+    const roots = p.root ? [p.root] : [];
+    const vulns = reef.signals.vulnsFor(results, roots);
+    if (vulns !== null) noteWith(id, 'deps', vulns, {}, reef.detail.vulnPackages(results, roots));
     readCi(id);
   }
 
@@ -140,13 +174,19 @@ function wireReef(d) {
     const repo = p.remote.split('/').slice(1).join('/').toLowerCase();
     let s = d.config.get('reef');
     let changed = false;
-    for (const pr of d.ci?.view?.()?.prs || []) {
+    const prs = d.ci?.view?.()?.prs || [];
+    // The checks failing now, kept for Fix this (the last ones seen stay once they pass).
+    const failing = reef.detail.ciFailing(prs, repo);
+    if (failing.jobs.length) { s = reef.setDetail(s, id, 'ci', failing); changed = true; }
+    let runs = false;
+    for (const pr of prs) {
       if (String(pr.repo || '').toLowerCase() !== repo || !pr.sha || (pr.state !== 'passing' && pr.state !== 'failing')) continue;
       const r = reef.noteCiRun(s, id, pr.sha, pr.state === 'passing');
-      if (r.changed) { s = r.state; changed = true; }
+      if (r.changed) { s = r.state; changed = true; runs = true; }
     }
     if (!changed) return;
     save(s);
+    if (!runs) return;
     const rate = reef.signals.ciRate(reef.normalize(s).projects[id].ciRuns);
     if (rate !== null) note(id, 'ci', rate);
   }
@@ -206,9 +246,20 @@ function wireReef(d) {
       if (!ID_RE.test(id || '') || !state().projects[id]?.on) return view();
       return readAll(id, { grep: state().projects[id].grepDay !== reef.dayKey(now()) }).then(view);
     }
+    // Fix this (a signal) or Fix the worst ('worst'): the prompt and the folder
+    // to open a conversation in. Nothing is sent from here.
+    if (action === 'fix') {
+      const id = payload?.id;
+      const sig = payload?.sig;
+      if (!ID_RE.test(id || '') || !(sig === 'worst' || reef.signals.isSignal(sig))) return { error: 'Nothing to fix there.' };
+      const p = state().projects[id];
+      const f = p && reef.fixPrompt(d.config.get('reef'), id, sig);
+      if (!f) return { error: 'That one is already at its best.' };
+      return { sig: f.sig, prompt: f.prompt, root: p.root, name: p.name };
+    }
     // Test runs only: a reading as if it had come in (scripts/e2e-reef.js).
     if (action === 'dev-reading' && testRun()) {
-      const r = note(payload?.id, payload?.sig, payload?.value, payload?.ctx || {});
+      const r = noteWith(payload?.id, payload?.sig, payload?.value, payload?.ctx || {}, payload?.detail || null);
       return { ...view(), result: r && { best: r.best, paid: r.paid, baseline: r.baseline, reason: r.reason } };
     }
     return null;

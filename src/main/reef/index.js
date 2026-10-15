@@ -8,12 +8,15 @@
 // State (config `reef`, this PC only, never synced):
 //   { projects: { [id]: { on, name, root, remote, polyps, lastPaidDay, startedAt, head,
 //       lintCmd, ciRuns: [[key, ok]], grepDay, covMtime,
-//       signals: { [sig]: { best, bestAt, last, lastAt, series: [[dayKey, v]] } } } } }
+//       signals: { [sig]: { best, bestAt, last, lastAt, series: [[dayKey, v]] } },
+//       detail: { [sig]: where the last count came from (reef/detail.js), names and counts only } } } }
 // id: the project's key (stickers.projectId, the same for a repo and its copies).
 //
 // Pure: no I/O, no clock (callers pass `now`). See test/reef.test.js.
 
 const signals = require('./signals');
+const detail = require('./detail');
+const prompts = require('./prompts');
 
 const { SIGNALS, SIGNAL_IDS, isSignal, beats, nearBest, needFor } = signals;
 
@@ -55,6 +58,16 @@ function normalizeSignal(raw) {
   };
 }
 
+function detailsOf(raw) {
+  const out = {};
+  if (!isObj(raw)) return out;
+  for (const id of SIGNAL_IDS) {
+    const d = detail.normalizeDetail(raw[id]);
+    if (d) out[id] = d;
+  }
+  return out;
+}
+
 function normalizeProject(raw) {
   if (!isObj(raw)) return null;
   const sigs = {};
@@ -78,6 +91,7 @@ function normalizeProject(raw) {
     grepDay: str(raw.grepDay, 10),
     covMtime: pos(raw.covMtime),
     signals: sigs,
+    detail: detailsOf(raw.detail),
   };
 }
 
@@ -202,6 +216,32 @@ function mark(state, id, patch = {}) {
   if (pos(patch.covMtime)) keep.covMtime = patch.covMtime;
   if (/^[0-9a-f]{40}$/.test(patch.head || '')) keep.head = patch.head;
   return { projects: { ...s.projects, [id]: { ...p, ...keep } } };
+}
+
+/**
+ * Where a signal's last count came from (reef/detail.js), for Fix this. A
+ * detail with nothing in it clears what was there. Unknown signals are ignored.
+ */
+function setDetail(state, id, sig, raw) {
+  const s = normalize(state);
+  const p = s.projects[id];
+  if (!p || !isSignal(sig)) return s;
+  const d = detail.normalizeDetail(raw);
+  const next = { ...p.detail };
+  if (d) next[sig] = d; else delete next[sig];
+  return { projects: { ...s.projects, [id]: { ...p, detail: next } } };
+}
+
+/**
+ * The Fix this prompt for one signal of a project, or for its worst one
+ * (sig 'worst'): -> { sig, prompt } or null when there's nothing to fix.
+ */
+function fixPrompt(state, id, sig) {
+  const p = normalize(state).projects[id];
+  if (!p) return null;
+  const which = sig === 'worst' ? prompts.worstOf(p) : sig;
+  const prompt = which ? prompts.promptFor(p, which) : null;
+  return prompt ? { sig: which, prompt } : null;
 }
 
 // ------------------------------------------------------------------ health
@@ -361,6 +401,7 @@ function signalView(sig, s, now) {
     atBest: s.last === s.best, near: nearBest(sig, s.best, s.last),
     trend: trendOf(sig, s, now),
     series: s.series.slice(-30).map(([, v]) => v),
+    fixable: prompts.canImprove(sig, s),
     nextStep: (() => { const need = needFor(sig, s.best, s.last); return need ? d.next(Math.ceil(need), s.best) : null; })(),
   };
 }
@@ -373,6 +414,7 @@ function projectView(id, p, now) {
     signals: SIGNAL_IDS.filter(sig => p.signals[sig]).map(sig => signalView(sig, p.signals[sig], now)),
     waiting: SIGNAL_IDS.filter(sig => !p.signals[sig]).map(sig => ({ id: sig, label: SIGNALS[sig].label, hint: SIGNALS[sig].hint })),
     next: nextImprovement(p),
+    worst: prompts.worstOf(p),
     paidToday: p.lastPaidDay === dayKey(now),
     art: coralArt(stage, p.polyps, id),
   };
@@ -402,6 +444,6 @@ function corals(state, now) {
 
 module.exports = {
   STAGES, THRIVING, DELETED_SHARE, MAX_PROJECTS, FRESH_DAYS, ID_RE,
-  dayKey, normalize, enable, reading, noteCiRun, mark, healthOf, trendOf, thrivingCount,
-  nextImprovement, coralArt, reefView, corals, signals,
+  dayKey, normalize, enable, reading, noteCiRun, mark, setDetail, fixPrompt, healthOf, trendOf, thrivingCount,
+  nextImprovement, coralArt, reefView, corals, signals, detail, prompts,
 };

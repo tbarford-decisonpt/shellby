@@ -80,6 +80,45 @@ test('reef: a lint run Claude did is read, and a new best pays and adds a polyp'
   assert.equal(pushed[0].payload.event.sig, 'lint');
 });
 
+test('reef: Fix this keeps where the lint problems are and writes a prompt naming them', async t => {
+  t.after(restore);
+  stub(gitinfo, 'projectOf', async () => ({ id: ID, root: ROOT, name: 'shellby', remote: '' }));
+  stub(probe, 'coverage', async () => null);
+  stub(probe, 'escapes', async () => ({ skipped: 'too-big' }));
+  const { d, store } = fakeD();
+  wireReef(d);
+  await d.gameHub.act('reef', 'watch', { root: ROOT });
+  const output = `${ROOT}\\src\\a.js\n  3:5  error  'x' is never used  no-unused-vars\n\n✖ 1 problem (1 error, 0 warnings)`;
+  d.command({ kind: 'lint', command: 'npm run lint', dir: ROOT, ok: false, output });
+  await settle();
+  assert.deepEqual(store.reef.projects[ID].detail.lint.files, [['src/a.js', 1]]);
+  // Another lint command's output doesn't replace it.
+  d.command({ kind: 'lint', command: 'npx eslint other', dir: ROOT, ok: false, output: `${ROOT}\\b.js\n  1:1  error  x  semi\n\n✖ 1 problem` });
+  await settle();
+  assert.deepEqual(store.reef.projects[ID].detail.lint.files, [['src/a.js', 1]]);
+  const f = await d.gameHub.act('reef', 'fix', { id: ID, sig: 'lint' });
+  assert.equal(f.root, ROOT);
+  assert.match(f.prompt, /src\/a\.js \(1 problem\)/);
+  assert.equal((await d.gameHub.act('reef', 'fix', { id: ID, sig: 'worst' })).sig, 'lint');
+  assert.ok((await d.gameHub.act('reef', 'fix', { id: ID, sig: 'escapes' })).error);
+  assert.ok((await d.gameHub.act('reef', 'fix', { id: 'nope', sig: 'lint' })).error);
+});
+
+test('reef: the Bugdex sends nest with { open, cleared }; it reads as nests with the nests named', async t => {
+  t.after(restore);
+  stub(gitinfo, 'projectOf', async () => ({ id: ID, root: ROOT, name: 'shellby', remote: '' }));
+  stub(probe, 'coverage', async () => null);
+  stub(probe, 'escapes', async () => ({ skipped: 'no-repo' }));
+  const { d, store } = fakeD();
+  store.bugNests = { nests: { [`${ID}|nosuchspecies`]: { project: ID, species: 'nosuchspecies', seen: [1], nest: { since: 1, count: 3 }, cleared: [] } } };
+  wireReef(d);
+  await d.gameHub.act('reef', 'watch', { root: ROOT });
+  d.reefNote(ID, 'nest', { open: 1, cleared: 0 });
+  assert.equal(store.reef.projects[ID].signals.nests.best, 1);
+  assert.equal(store.reef.projects[ID].detail.nests.nests[0].count, 3);
+  assert.match((await d.gameHub.act('reef', 'fix', { id: ID, sig: 'nests' })).prompt, /nosuchspecies: seen 3 times/);
+});
+
 test('reef: notes from the Bugdex by project id, and corals for the tank', async t => {
   t.after(restore);
   stub(gitinfo, 'projectOf', async () => ({ id: ID, root: ROOT, name: 'shellby', remote: '' }));

@@ -4,7 +4,8 @@
 // on the Projects page offers "Watch this reef", watching it reads the first
 // escape-hatch count from git, a better reading (the test-only dev-reading
 // action) is a new best with a polyp, its coral is in the tank's tray and on
-// the Tank page, and Trophies shows the review tier ladder. No Claude account,
+// the Tank page, Fix this and Fix the worst put a prompt naming the file in a
+// new conversation's box (not sent), and Trophies shows the review tier ladder. No Claude account,
 // no usage, and nothing in the project is run.
 //   node scripts/e2e-reef.js [screenshotDir]
 const { spawn, execFileSync } = require('child_process');
@@ -98,6 +99,15 @@ function makeRepo() {
     check(worse?.result?.best === false && p2.polyps === 1, 'a worse reading takes nothing away');
     check(/escape hatch/.test(await text('#reefNext')), `the next step names what to do ("${await text('#reefNext')}")`);
     await panel.shot('reef-best');
+
+    // 3b. Fix this: a prompt naming the file the escape hatches are in, in a new conversation, not sent.
+    check(await until("!!document.querySelector('#reefSignals [data-sig=\"escapes\"] .reef-fix')"), 'the escape-hatch row offers Fix this');
+    const fixed = await panel.ev(`shellby.gameAct('reef', 'fix', { id: '${id}', sig: 'escapes' })`);
+    check(/app\.ts \(2 escapes\)/.test(fixed?.prompt || ''), `the prompt names the file the probe found (${JSON.stringify(fixed?.prompt?.slice(0, 200))})`);
+    check(await until("!!document.querySelector('#reefActions .reef-fix-worst')"), 'the card offers Fix the worst');
+    await panel.ev("document.querySelector('#reefActions .reef-fix-worst').click()");
+    check(await until("SB.state.view === 'chat' && /reef: escape hatches/.test(document.getElementById('input').value)"), 'Fix the worst puts the prompt in the box of a new conversation');
+    await panel.ev("SB.setView('projects')");
 
     // 4. Its coral is in the tank's tray, on the Plants shelf, and on the Tank page.
     const tankView = await panel.ev('shellby.getTank()');

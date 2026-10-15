@@ -8,6 +8,7 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const signals = require('./signals');
+const detail = require('./detail');
 
 const TIMEOUT_MS = 5000;
 const MAX_TRACKED = 20000;          // bigger repos aren't grepped at all
@@ -57,7 +58,7 @@ async function trackedCount(root) {
 
 /**
  * Escape hatches (ts-ignore, any, eslint-disable, noqa…) in HEAD's tracked text
- * files: -> { count, head } | { skipped: 'too-big' | 'no-repo' | 'failed' }.
+ * files: -> { count, head, detail: { files, kinds } } | { skipped: 'too-big' | 'no-repo' | 'failed' }.
  */
 async function escapes(root) {
   const head = await headOf(root);
@@ -65,9 +66,11 @@ async function escapes(root) {
   const files = await trackedCount(root);
   if (files === null) return { skipped: 'failed' };
   if (files > MAX_TRACKED) return { skipped: 'too-big' };
-  const out = await git(root, ['grep', '-h', '-I', '-E', '--no-color', signals.ESCAPE_GREP, head, '--', '.', ...EXCLUDE], { maxBuffer: GREP_BUFFER });
+  // Each line comes as "<head>:<path>:<text>": the path is kept for Fix this, the text never is.
+  const out = await git(root, ['grep', '-I', '-E', '--no-color', signals.ESCAPE_GREP, head, '--', '.', ...EXCLUDE], { maxBuffer: GREP_BUFFER });
   if (out === null) return { skipped: 'failed' };
-  return { count: signals.countEscapes(out), head };
+  const scan = detail.escapeScan(out, head);
+  return { count: scan.count, head, detail: { files: scan.files, kinds: scan.kinds } };
 }
 
 /**
@@ -86,7 +89,7 @@ async function deletedShare(root, base, head) {
 
 /**
  * Line coverage from the first coverage file that's there, read only when it's
- * newer than `sinceMtime` and under 5 MB: -> { pct, mtime, file } | null.
+ * newer than `sinceMtime` and under 5 MB: -> { pct, mtime, file, files: [[path, pct, uncovered]] } | null.
  * Never follows a link out of the repo.
  */
 async function coverage(root, sinceMtime = 0) {
@@ -101,8 +104,9 @@ async function coverage(root, sinceMtime = 0) {
       const st = await fs.promises.stat(real);
       if (!st.isFile() || st.size > MAX_COVERAGE_BYTES) continue;
       if (st.mtimeMs <= sinceMtime) return null; // the newest file hasn't changed: nothing new to read
-      const pct = parse(await fs.promises.readFile(real, 'utf8'));
-      if (pct !== null) return { pct, mtime: st.mtimeMs, file: rel };
+      const text = await fs.promises.readFile(real, 'utf8');
+      const pct = parse(text);
+      if (pct !== null) return { pct, mtime: st.mtimeMs, file: rel, files: detail.coverageFiles(rel, text, root) };
     } catch { /* not there */ }
   }
   return null;
