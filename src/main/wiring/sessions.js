@@ -280,7 +280,7 @@ function wireSessions(d) {
       }
       // A conversation closed: its transcript lines still on their way go down now (history/index.js).
       const open = new Set(summary.map(t => t.id));
-      for (const id of openIds) if (!open.has(id)) d.history?.flush?.(id);
+      for (const id of openIds) if (!open.has(id)) { d.history?.flush?.(id); forgetTurn(id); }
       openIds = open;
     });
     d.manager.on('aggregate', agg => {
@@ -333,6 +333,15 @@ function wireSessions(d) {
       if (snap && !late) turnStarts.set(tab.id, { ...snap, turnId });
     });
     return Promise.race([taken, new Promise(r => setTimeout(() => { late = true; r(); }, SNAPSHOT_WAIT_MS))]);
+  }
+
+  // A tab closed mid-turn never reaches endTurn: its snapshot of the folder went
+  // unread, and its open touch overlapped every later turn in every tab for good,
+  // cutting what it had touched out of their diffs. It ends where the tab did.
+  function forgetTurn(tabId) {
+    turnStarts.delete(tabId);
+    const mine = touchOf(tabId);
+    if (mine) mine.end = Date.now();
   }
 
   // tabId -> the promise of its last turn's diff being noted, for rewind to wait on.
@@ -488,7 +497,7 @@ function wireSessions(d) {
     refreshUsage();
   }
 
-  return { SNAPSHOT_WAIT_MS, createManager, currentCwd, endTurn, otherUsage, refreshUsage, toolPicture, turnEnds, turnStarts, watchUsage };
+  return { SNAPSHOT_WAIT_MS, beginTurn, openTouch: touchOf, createManager, currentCwd, endTurn, otherUsage, refreshUsage, toolPicture, turnEnds, turnStarts, watchUsage };
 }
 
 module.exports = { wireSessions };

@@ -401,6 +401,22 @@ test('a send while the tab is busy is refused before anything is saved or reset'
   }
 });
 
+test('a long conversation forgets its oldest finished helpers past the cap, never running ones', () => {
+  const { MAX_ENDED_TASKS } = require('../src/main/session/crew');
+  const s = new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask' });
+  s.trackTask({ kind: 'task', phase: 'started', taskId: 'still-going', description: 'Watch' });
+  const total = MAX_ENDED_TASKS + 30;
+  for (let i = 0; i < total; i++) {
+    s.trackTask({ kind: 'task', phase: 'started', taskId: `h${i}`, description: `Helper ${i}` });
+    s.trackTask({ kind: 'task', phase: 'done', taskId: `h${i}`, status: 'completed' });
+  }
+  assert.equal(s.tasks.size, MAX_ENDED_TASKS + 1);
+  assert.equal(s.tasks.get('still-going').status, 'running');
+  assert.ok(!s.tasks.has('h0'), 'the oldest finished one is gone');
+  assert.ok(s.tasks.has(`h${total - 1}`), 'the newest is kept');
+  s.close();
+});
+
 test('a helper that finishes keeps its outcome briefly, so the crab window can walk it home', () => {
   const s = new ClaudeSession({ exe: process.execPath, argsPrefix: [FAKE], cwd: os.tmpdir(), mode: 'ask' });
   s.trackTask({ kind: 'task', phase: 'started', taskId: 'a1', description: 'Scan' });
