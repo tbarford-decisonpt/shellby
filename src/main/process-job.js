@@ -100,7 +100,7 @@ function exeName(a, h) {
  * be found later. -> a job ({ handle }) for sweep(), or null when it can't be done.
  * Call it straight after spawn: anything started before it joins is missed.
  */
-function adopt(pid) {
+function adopt(pid, { outlives = false } = {}) {
   const a = load();
   if (!a || !Number.isInteger(pid) || pid <= 0) return null;
   let job = 0, proc = 0;
@@ -113,6 +113,7 @@ function adopt(pid) {
     proc = a.OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid);
     if (!proc || !a.AssignProcessToJobObject(job, proc)) { a.CloseHandle(job); return null; }
     const made = { handle: job };
+    if (outlives) return made; // meant to outlive Shellby (a dev server): never swept at quit, never held back
     live.add(made);
     if (givingWay) holdBack(); // started mid-game: held back from its first moment, and the share re-split
     return made;
