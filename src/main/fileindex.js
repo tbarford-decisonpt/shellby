@@ -7,7 +7,7 @@
 // folder for a little while, so typing doesn't re-run git on every key.
 //
 // rank() is pure; see test/fileindex.test.js.
-const { execFile } = require('child_process');
+const { execFileTree: execFile } = require('./exec-tree'); // a timeout ends git's whole tree
 const fs = require('fs');
 const path = require('path');
 

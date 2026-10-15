@@ -17,7 +17,7 @@
 //
 // execFile with fixed arguments (no shell), timeouts on everything, and never
 // throws to the caller: a folder that isn't a git repo simply has no diffs.
-const { execFile } = require('child_process');
+const { execFileTree: execFile } = require('./exec-tree'); // a timeout ends git's whole tree
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
