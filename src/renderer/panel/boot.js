@@ -47,7 +47,11 @@
     const tab = state.tabs.get(tabId);
     if (tab && Array.isArray(ids)) SB.onSteering(tab, ids);
   });
-  api.onTabs(summaries => SB.syncTabs(summaries));
+  // Main sends every conversation again each time any one moves; a busy panel handles the newest list once
+  // per pace, not every message (shared/latest.js). The first after a quiet spell still lands at once.
+  const syncTabsSoon = window.ShellbyLatest.latest(summaries => SB.syncTabs(summaries));
+  api.onTabs(syncTabsSoon.offer);
+  SB.dropHeldTabs = syncTabsSoon.cancel;
   api.onTabOpened(({ tabId, entry, items, background, busy = true, draft = '', attachments = [] }) => {
     if (state.popped.has(tabId)) return; // out in a window of its own (tab-panes.js)
     const tab = SB.ensureTab({ id: tabId, title: entry?.title || 'Routine', cwd: entry?.cwd, saved: true, routineId: entry?.routineId, busy, inTerminal: entry?.inTerminal || null });
