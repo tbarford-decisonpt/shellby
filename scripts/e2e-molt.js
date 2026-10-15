@@ -58,7 +58,8 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
 
     // 1. At 99: the Molt button on the XP card, and the sheet offering tier shell I.
     await panel.ev("SB.setView('trophies')");
-    check(await until(panel, "!document.querySelector('.lv-molt-btn')?.hidden"), 'the XP card offers the Molt');
+    // `=== false`, not `!…?.hidden`: before the XP card is drawn there is no button, and that must not pass.
+    check(await until(panel, "document.querySelector('.lv-molt-btn')?.hidden === false"), 'the XP card offers the Molt');
     await panel.ev("document.querySelector('.lv-molt-btn').click()");
     check(await until(panel, "!document.getElementById('moltSheet').hidden"), 'the Molt sheet opens');
     check(await until(panel, `document.getElementById('moltTitle').textContent.includes(${JSON.stringify(first.name)})`), `it offers the ${first.name}`);
