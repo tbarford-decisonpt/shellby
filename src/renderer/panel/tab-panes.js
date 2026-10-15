@@ -728,6 +728,7 @@
     const was = P.paneWith(state.grid, tabId)?.id;
     tab.destroy();
     state.tabs.delete(tabId);
+    SB.dropHeldTabs?.(); // a list held for pacing (boot.js) may still carry this tab: main's next one will not
     const near = heir(was);
     state.grid = P.leave(state.grid, tabId);
     if (state.activeTab !== tabId) return SB.renderPanes();

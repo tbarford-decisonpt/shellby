@@ -315,7 +315,55 @@ function taskItem(ev) {
   const status = ev.status ?? ev.patch?.status;
   if (status) item.status = status;
   if (ev.summary) item.summary = truncate(ev.summary, 4000);
+  // An ultracode run (task_type 'local_workflow'): its script's meta.name, and on
+  // task_progress the run's phases and agents so far (ultracode.js).
+  if (typeof ev.workflow_name === 'string' && ev.workflow_name.trim()) item.workflowName = clean(ev.workflow_name, 120);
+  if (Array.isArray(ev.workflow_progress)) item.workflow = workflowOf(ev.workflow_progress);
   return item;
+}
+
+// The phases and agents a task_progress carries for a workflow run, checked
+// against Claude Code 2.1.299: a snapshot of every phase and agent so far
+// (workflow_log lines are left out), sent at most every few seconds.
+//   { type: 'workflow_phase', index, title }
+//   { type: 'workflow_agent', index, label, phaseIndex, phaseTitle, agentType?, model?,
+//     state: 'start' | 'progress' | 'done' | 'error', tokens?, toolCalls?, error? }
+const MAX_WORKFLOW_ENTRIES = 400;
+const AGENT_STATES = new Set(['start', 'progress', 'done', 'error']);
+const count = v => (Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
+function workflowOf(list) {
+  const phases = [], agents = [];
+  for (const e of list.slice(0, MAX_WORKFLOW_ENTRIES)) {
+    if (!e || typeof e !== 'object' || !Number.isInteger(e.index) || e.index < 0) continue;
+    if (e.type === 'workflow_phase') phases.push({ index: e.index, title: clean(e.title, 120) || `Phase ${e.index + 1}` });
+    else if (e.type === 'workflow_agent') {
+      agents.push({
+        index: e.index,
+        label: clean(e.label, 160) || `Agent ${e.index}`,
+        phase: Number.isInteger(e.phaseIndex) ? e.phaseIndex : null,
+        state: AGENT_STATES.has(e.state) ? e.state : 'start',
+        type: clean(e.agentType, 80) || null,
+        model: clean(e.model, 80) || null,
+        tokens: count(e.tokens),
+        tools: count(e.toolCalls),
+        ...(e.state === 'error' && e.error ? { error: clean(e.error, 200) } : {}),
+      });
+    }
+  }
+  return { phases, agents };
+}
+
+// The Workflow tool's own result (tool_use_result): which task the run is, the
+// run id Claude resumes it by, and the script's name. A syntax error says so.
+function workflowLaunchOf(r) {
+  if (!r || typeof r !== 'object' || typeof r.taskId !== 'string') return null;
+  if (r.taskType !== 'local_workflow' && !(typeof r.runId === 'string' && r.status === 'async_launched')) return null;
+  return {
+    taskId: r.taskId.slice(0, 120),
+    runId: typeof r.runId === 'string' ? r.runId.slice(0, 120) : null,
+    name: clean(r.workflowName, 120) || null,
+    ...(typeof r.error === 'string' && r.error ? { error: clean(r.error, 300) } : {}),
+  };
 }
 
 // What a mod shows (mods.js): $.ui.log is a line in the conversation, $.ui.toast
@@ -442,6 +490,9 @@ function toItems(ev) {
         // Claude moving itself into a worktree of its own (EnterWorktree), or back out (ExitWorktree).
         const wt = item.isError ? null : worktreeOf(r);
         if (wt) item.worktree = wt;
+        // An ultracode run going off in the background (the Workflow tool).
+        const launch = workflowLaunchOf(r);
+        if (launch) item.workflowLaunch = launch;
         if (r && typeof r === 'object' && r.agentId) {
           item.agentStats = { durationMs: r.totalDurationMs ?? null, tokens: r.totalTokens ?? null, toolUses: r.totalToolUseCount ?? null };
         }
@@ -516,4 +567,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { worktreeOf, findingsOf, questionsOf, todoOf, todoIdOf, goalOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };
+module.exports = { workflowOf, workflowLaunchOf, worktreeOf, findingsOf, questionsOf, todoOf, todoIdOf, goalOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };

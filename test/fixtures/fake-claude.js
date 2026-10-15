@@ -222,7 +222,7 @@ if (args.includes('--json-schema')) {
         const ids = [...system.matchAll(/^- (\S+) \(/gm)].map(m => m[1]);
         answer = { rebuttals: ids.map((id, i) => ({ seat: id, to: ids[(i + 1) % ids.length], reply: `${id} stands firm`, vote: 'conditional' })) };
       } else answer = chair;
-      out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer, total_cost_usd: 0.001 });
+      out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer, total_cost_usd: 0.001, usage: { input_tokens: 1200, output_tokens: 300 } });
       return;
     } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {
@@ -232,6 +232,51 @@ if (args.includes('--json-schema')) {
     } else answer = { reply: 'The test run worked: Shellby said good morning. Press Save to switch it on.', workflow_json: '', test: false };
     out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer });
   });
+}
+
+// An ultracode run, as Claude Code 2.1.299 reports one (src/main/ultracode.js):
+// a Workflow call, task_started with task_type 'local_workflow', the tool's result
+// naming the run id, and the turn ends. Then task_progress with every phase and
+// agent so far, and task_notification when it ends. Seven agents in two phases,
+// one step every 300 ms. "forever" in the message keeps them all running until
+// a stop_task.
+function ultracodeRun(content) {
+  const taskId = `w${turn}ultra`;
+  const id = `tu_wf_${turn}`;
+  const forever = /\bforever\b/.test(content);
+  const phases = [{ type: 'workflow_phase', index: 0, title: 'Scout' }, { type: 'workflow_phase', index: 1, title: 'Fix' }];
+  const AGENTS = 7;
+  const label = i => (i <= 3 ? `Scout part ${i}` : `Fix finding ${i - 3}`);
+  const script = "export const meta = { name: 'audit', description: 'Audit the repo in parallel', phases: [{ title: 'Scout' }, { title: 'Fix' }] }";
+  out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Workflow', input: { script } }] }, parent_tool_use_id: null, session_id: sessionId });
+  out({ type: 'system', subtype: 'task_started', task_id: taskId, tool_use_id: id, description: 'Audit the repo in parallel', task_type: 'local_workflow', workflow_name: 'audit', is_backgrounded: true, session_id: sessionId });
+  out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: `Workflow launched in background (task ${taskId}).` }] }, tool_use_result: { status: 'async_launched', taskId, taskType: 'local_workflow', workflowName: 'audit', runId: `wf_fake${turn}`, summary: 'Audit the repo in parallel' }, parent_tool_use_id: null, session_id: sessionId });
+  text('ULTRACODE LAUNCHED');
+  result(true);
+  let step = 0;
+  const snapshot = () => {
+    const started = Math.min(AGENTS, step * 2);
+    const done = forever ? 0 : Math.max(0, Math.min(AGENTS, step * 2 - 3));
+    const agents = [];
+    for (let i = 1; i <= started; i++) {
+      agents.push({ type: 'workflow_agent', index: i, label: label(i), phaseIndex: i <= 3 ? 0 : 1, phaseTitle: i <= 3 ? 'Scout' : 'Fix', model: 'claude-sonnet-5-5', state: i <= done ? 'done' : 'progress', tokens: 20000 * Math.min(step, 4), toolCalls: step });
+    }
+    return { agents, done };
+  };
+  const timer = setInterval(() => {
+    step++;
+    const { agents, done } = snapshot();
+    const tokens = agents.reduce((s, a) => s + a.tokens, 0);
+    out({ type: 'system', subtype: 'task_progress', task_id: taskId, tool_use_id: id, description: agents.length ? `${agents.at(-1).phaseTitle}: ${agents.at(-1).label}` : 'Audit the repo in parallel', usage: { total_tokens: tokens, tool_uses: step * agents.length, duration_ms: step * 300 }, last_tool_name: agents.at(-1)?.label, summary: 'Audit the repo in parallel', workflow_progress: [...phases, ...agents], session_id: sessionId });
+    if (done === AGENTS) end('completed', 'Dynamic workflow "audit" completed: the scouts found 4 things and all 4 are fixed.');
+  }, 300);
+  const end = (status, summary) => {
+    clearInterval(timer);
+    if (!bgJobs.has(taskId)) return;
+    bgJobs.delete(taskId);
+    out({ type: 'system', subtype: 'task_notification', task_id: taskId, tool_use_id: id, status, output_file: '', summary, usage: { total_tokens: 0, tool_uses: 0, duration_ms: step * 300 }, session_id: sessionId });
+  };
+  bgJobs.set(taskId, { stop: () => end('stopped', 'Dynamic workflow "audit" was stopped') });
 }
 
 function onLine(line) {
@@ -324,6 +369,8 @@ function onLine(line) {
 
   if (note) text(`noted: ${note}`);
   if (content === 'crash') { process.exit(3); }
+  // The word "ultracode" on a line of its own -> a Workflow run in the background.
+  if (/(^|\n)ultracode\s*$/i.test(content)) { ultracodeRun(content); return; }
   // "editabs <absolute path> <words...>" -> a Write to that exact path, asked of
   // a registered PreToolUse hook first (a branch's fence); refused, it says why.
   if (content.startsWith('editabs ')) {
@@ -403,6 +450,20 @@ function onLine(line) {
     const resetsAt = Math.round(Date.now() / 1000) + (parseInt(content.split(' ')[1], 10) || 60);
     out({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', unifiedWindows: { five_hour: { utilization: 1, resetsAt }, seven_day: { utilization: 0.6, resetsAt: resetsAt + 86400 } } } });
     result(false, { result: 'Claude AI usage limit reached' });
+    return;
+  }
+
+  // "orphans <n>" -> starts n long-lived processes through cmd, which exits at
+  // once and leaves them with no parent (how uvx leaves serena's python), then
+  // answers with their count. "orphans-crash <n>" does the same and dies mid-turn.
+  if (content.startsWith('orphans')) {
+    const n = parseInt(content.split(' ')[1], 10) || 1;
+    for (let i = 0; i < n; i++) {
+      const cmd = `/d /s /c "start "" /b "${process.execPath}" -e "setInterval(function () {}, 1000)""`;
+      require('child_process').spawn(process.env.ComSpec || 'cmd.exe', [cmd], { stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true });
+    }
+    if (content.startsWith('orphans-crash')) { setTimeout(() => process.exit(3), 500); return; }
+    setTimeout(() => { text(`orphans: ${n}`); result(true); }, 500);
     return;
   }
 

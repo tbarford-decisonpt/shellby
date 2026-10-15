@@ -40,7 +40,10 @@
     const list = found.filter(s => inBucket(s, historyFilter)).sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
     const ul = $('historyList');
     if (!list.length) {
-      ul.replaceChildren(h('li', { class: 'history-empty', text: historyEmpty(q) }));
+      // None at all: say what the page is for, and the one way to fill it.
+      const none = !q && !state.sessions.length;
+      ul.replaceChildren(h('li', { class: 'history-empty', text: historyEmpty(q) },
+        none ? h('div', {}, h('button', { class: 'btn slim-btn history-start', type: 'button', text: 'Give him a task', onclick: () => { SB.setView('chat'); $('input')?.focus(); } })) : null));
       return;
     }
     ul.replaceChildren(...list.map(historyRow));
@@ -48,7 +51,7 @@
 
   function historyEmpty(q) {
     if (q) return 'No matches.';
-    if (!state.sessions.length) return 'No conversations yet. Give Shellby a task!';
+    if (!state.sessions.length) return 'Every conversation you two have lands here, to pick back up any time. None yet.';
     return historyFilter === 'done' ? 'Nothing marked done yet.' : 'Everything here is done.';
   }
 

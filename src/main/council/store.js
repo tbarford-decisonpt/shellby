@@ -60,6 +60,7 @@ class CouncilStore {
 const summary = s => ({
   id: s.id, at: s.at, question: s.question, mode: s.mode, verdict: s.chair?.verdict || '', decision: s.chair?.decision || null,
   tally: s.tally, outcome: s.outcome || null,
+  cost: Number.isFinite(s.cost) ? s.cost : null, unpriced: Number.isFinite(s.unpriced) ? s.unpriced : 0,
 });
 
 const OUTCOMES = ['worked', 'failed', 'skipped'];

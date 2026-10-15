@@ -115,11 +115,16 @@
     }, head, body);
   }
 
+  // Before the core loop, a card about a room that hasn't opened yet
+  // (rooms.js) waits with it, so someone new isn't shown the whole game on day one.
+  const CARD_ROOM = { loose: 'bugdex', tide: 'us', reef: 'reef', review: 'mastery' };
+  const waits = c => !!SB.isGameWaiting?.() && !!SB.isRoomLocked?.(CARD_ROOM[c.id]);
   function renderCards() {
     const box = $('lbCards');
     if (!box || !view) return;
-    box.replaceChildren(...view.cards.map(renderCard));
+    box.replaceChildren(...view.cards.filter(c => !waits(c)).map(renderCard));
   }
+  api.onRooms(() => requestAnimationFrame(renderCards));
 
   // ------------------------------------------------------------ the chapters
 

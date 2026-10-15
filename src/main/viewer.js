@@ -10,7 +10,7 @@
 // branch nothing has checked out from git alone: no checkout, no index, no hook.
 //
 // execFile with fixed arguments, timeouts, and never throws to the caller.
-const { execFile } = require('child_process');
+const { execFileTree: execFile } = require('./exec-tree'); // a timeout ends git's whole tree
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');

@@ -41,6 +41,7 @@ const DEFAULTS = {
   onboarded: false,
   firstTour: false,  // a new install's first New task offers Show me around until it's opened once (onboarding.js, feed.js)
   rooms: null,       // which screens a new user has opened so far; null until first boot decides (see rooms.js)
+  firstRun: null,    // First steps for someone new: which are done or skipped; null until first boot decides (see first-run.js)
   featureUse: null,  // how often each screen is opened, on this PC only, never synced (feature-use.js)
   quests: null,      // which quests are done, and whether the chat's quest card is hidden (see quests/index.js)
   // The gamification overhaul (docs/GAMIFICATION-PLAN.md), each on this PC only; molting lives in `xp`.

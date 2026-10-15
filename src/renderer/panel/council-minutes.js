@@ -114,9 +114,28 @@
         r ? h('p', { class: 'cc-rebuttal' }, h('b', { text: to ? `To the ${to}: ` : 'After hearing the others: ' }), r.reply) : null));
   }
 
+  // Dollars as the cost hint reads them: "$0.42", "under $0.01".
+  const usd = n => (n < 0.01 ? 'under $0.01' : `$${n.toFixed(2)}`);
+
+  /** What a sitting cost, from what each call reported: "at least" when some didn't say. */
+  const spentText = s => {
+    const cost = Number.isFinite(s.cost) ? s.cost : 0;
+    if (!cost) return s.unpriced ? 'cost not reported' : '';
+    return `${s.unpriced ? 'at least ' : ''}${usd(cost)}`;
+  };
+
+  /** What the next sitting should cost: "About $0.07–0.39". */
+  const estimateText = e => {
+    if (!e || !Number.isFinite(e.low) || !Number.isFinite(e.high)) return '';
+    const low = usd(e.low), high = usd(e.high);
+    if (e.low < 0.01) return e.high < 0.01 ? 'Under $0.01' : `Under ${high}`;
+    return low === high ? `About ${low}` : `About ${low}–${high.replace(/^\$/, '')}`;
+  };
+
   const costLine = s => {
     const calls = `${s.calls} call${s.calls === 1 ? '' : 's'}`;
-    return s.cost ? `${calls} · $${s.cost.toFixed(s.cost < 0.01 ? 4 : 3)} of your plan` : calls;
+    const spent = spentText(s);
+    return spent ? `${calls} · ${spent} of your plan` : calls;
   };
 
   function text(s) {
@@ -140,5 +159,5 @@
     return lines.join('\n');
   }
 
-  SB.councilMinutes = { crab, meter, verdict, opinionRow, text, VOTE_MARK, VOTE_WORD, DECISION_WORD };
+  SB.councilMinutes = { crab, meter, verdict, opinionRow, text, spentText, estimateText, VOTE_MARK, VOTE_WORD, DECISION_WORD };
 })();

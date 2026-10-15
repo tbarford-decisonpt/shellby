@@ -11,6 +11,12 @@ one to the next. The plan behind both is in
 The first tab of his screen (`rooms.js` room `logbook`, open from the start).
 Ctrl+K finds it as "Shellby: Logbook".
 
+For someone new, a card about a room that hasn't opened yet waits with it
+(`loose` with the Bugdex, `tide` with Us, `reef` with the Reef, `review` with
+Review mastery). Those are game rooms, which open once First steps are done or
+he reaches level 3 (`first-run.js` `CORE_LOOP_LEVEL`); a room that opens names
+the quest chapter that teaches it (`rooms.js` `chapter`).
+
 | Card | From | Opens |
 |---|---|---|
 | `loose` bugs on the loose, nests marked 🪺 | `d.bugdex.battles()`, game view `nests` | Bugdex |

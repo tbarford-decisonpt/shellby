@@ -71,7 +71,16 @@ function registerIpc(electronIpcMain, d) {
     isToy: wc => !!d.playtime?.isToy(wc),
     isFloor: wc => !!d.floor?.isFloor(wc),
     isNote: wc => !!d.pranks?.isNote(wc),
-  })), { onRefused: channel => d.log.warn('IPC refused', channel) });
+  })), {
+    onRefused: channel => d.log.warn('IPC refused', channel),
+    // An invoke's caller gets the error and says so in the panel; here is where its details are kept.
+    // A send has no caller: it's a snag, as an uncaught exception was before, now with its channel.
+    onFailed: (channel, err, { answered }) => {
+      if (answered) d.log.warn(`IPC ${channel} failed`, err?.stack || String(err));
+      else if (d.snag) d.snag(`IPC ${channel} failed`, err instanceof Error ? err : String(err));
+      else d.log.error(`IPC ${channel} failed`, err?.stack || String(err));
+    },
+  });
   const { config, log } = d;
   // Claude Code's own CLI, for parity and team packs: the one in use now (main.js claudeExe).
   const runClaude = (args, timeout, opts) => {

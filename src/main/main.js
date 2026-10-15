@@ -1,4 +1,7 @@
 const { app, ipcMain: electronIpcMain, screen, session: electronSession, powerMonitor } = require('electron');
+// e2e runs only: every window off screen, never focused over your app. First, so every
+// module that takes BrowserWindow from require('electron') gets the one that does it.
+if (require('./test-desktop').keepsOffScreen(process.env, app.isPackaged)) require('./offscreen-windows').keepOffScreen(require('electron'));
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -26,6 +29,7 @@ const { wireServices } = require('./wiring/services');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
+const { wireFirstRun } = require('./wiring/first-run');
 const { wireProgress } = require('./wiring/progress');
 const { wireQuestLine } = require('./wiring/quest-line');
 const { wireGameHooks } = require('./wiring/game-hooks');
@@ -327,6 +331,7 @@ const { createCritter, createMischief, createMotion, placeCritter, watchIdleCost
 const { broadcastSkin, broadcastWardrobe, refreshCritter, wakeVoice } = share(wireCritter(shared));
 const { createManager, watchUsage } = share(wireSessions(shared));
 const { awardXp, checkWrapUp } = share(wireProgress(shared));
+share(wireFirstRun(shared)); // First steps for someone new, and the core loop that opens the game's rooms
 share(wireQuestLine(shared)); // quests, one feature at a time (quests/index.js)
 share({ bugdex: wireBugdex(shared) }); // the bugs Claude has fixed for you, in jars
 const { createExternal, createHealth, createTimeTracker, stat } = share(wireTimetrack(shared));

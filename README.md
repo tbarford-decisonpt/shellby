@@ -44,7 +44,7 @@ Windows may show a SmartScreen warning the first time; [Install](#install) expla
 
 ## Everything he can do
 
-You start with just him and a chat box. The rest of his shell opens as he works: **History**, **Projects** and **Notes** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. Can't wait? **More → Show every screen** puts them all on the bar, and [Work mode](docs/DESKTOP.md#work-mode) starts with every one of them.
+You start with just him, a chat box and **First steps**: open a project, give Claude a task, see what he changed, and say hi to the crab. Each step ticks itself off when you really do it, and any of them can be skipped. The rest of his shell opens as he works: **History**, **Projects** and **Notes** after his first task, **Health** and the **Toolbox** after his third, **Automate** after his fifth. The game side of his screen (Finds, Stickers, Crew, the Bugdex, the Council, Us, the Tank, a project's Reef and Review mastery) waits until First steps are done or he reaches level 3, then opens as tasks earn it, each with a "new" on its door. Can't wait? **More → Show every screen**, or **Settings → General → Screens → Show everything now**, puts them all out, and [Work mode](docs/DESKTOP.md#work-mode) starts with every one of them. If you used Shellby before First steps existed, nothing changes for you.
 
 | | |
 |---|---|

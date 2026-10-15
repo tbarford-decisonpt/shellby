@@ -79,6 +79,29 @@ test('a folder that is not a git repo gets no copy', async () => {
   try { assert.equal(await worktrees.create(dir, { home: path.join(dir, 'h'), title: 'x' }), null); } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('no git on the PC says so, instead of "not a git repository"', async () => {
+  const { dir, home, done } = setup();
+  const saved = process.env.PATH;
+  try {
+    process.env.PATH = path.join(os.tmpdir(), 'shellby-no-such-bin');
+    const made = await worktrees.create(dir, { home, title: 'x' });
+    assert.equal(made.ok, false);
+    assert.match(made.error, /git isn't installed/);
+  } finally { process.env.PATH = saved; done(); }
+});
+
+test("a folder of copies that can't be made is a sentence, not a throw", async () => {
+  const { base, dir, done } = setup();
+  try {
+    const blocker = path.join(base, 'not-a-folder');
+    fs.writeFileSync(blocker, 'a file where the folder of copies would go');
+    const made = await worktrees.create(dir, { home: blocker, title: 'x' });
+    assert.equal(made.ok, false);
+    assert.match(made.error, /^Couldn't make a copy: /);
+    assert.ok(made.detail, 'what Windows said is kept for Copy details');
+  } finally { done(); }
+});
+
 test('the copy works on its own branch, keeps the subfolder, and leaves your checkout alone', async () => {
   const t = setup();
   try {

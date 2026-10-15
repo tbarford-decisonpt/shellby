@@ -11,7 +11,7 @@ const { installFakeElectron, createFakeIpc, fakeConfig, recorder, isStr } = requ
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-surroundings-'));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 const electron = installFakeElectron({ userData: path.join(root, 'userData'), pictures: path.join(root, 'Pictures') });
-const { registerSurroundingsIpc } = require('../src/main/ipc/surroundings');
+const { registerSurroundingsIpc, MAX_COPY_CHARS } = require('../src/main/ipc/surroundings');
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const CARD_MAX_BYTES = 64;
@@ -85,16 +85,18 @@ test('open-external sent from the crab window is dropped by the guard', () => {
   assert.deepEqual(ipc.refused, ['open-external']);
 });
 
-test('clipboard:text copies a short string and nothing else', () => {
+test('clipboard:text copies a string, long prompts included, and nothing else', () => {
   const { ipc } = setup();
   const before = electron.callsOf('clipboard.writeText').length;
+  const longPrompt = 'x'.repeat(50000);
 
   ipc.send('clipboard:text', 'hello');
-  ipc.send('clipboard:text', 'x'.repeat(2001));
+  ipc.send('clipboard:text', longPrompt);
+  ipc.send('clipboard:text', 'x'.repeat(MAX_COPY_CHARS + 1));
   ipc.send('clipboard:text', { text: 'hi' });
   ipc.send('clipboard:text', '');
 
-  assert.deepEqual(electron.callsOf('clipboard.writeText').slice(before), [['hello']]);
+  assert.deepEqual(electron.callsOf('clipboard.writeText').slice(before), [['hello'], [longPrompt]]);
 });
 
 test('card:save refuses bytes that are not a PNG, too big, or not bytes at all', async () => {

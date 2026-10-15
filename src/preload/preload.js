@@ -262,10 +262,11 @@ contextBridge.exposeInMainWorld('shellby', {
   writeTeamPack: invoke('team:write'),
   revealTeamPack: fire('team:reveal'),
   refreshMcp: invoke('mcp:refresh'),
-  // What Claude Code does by itself (ipc/native.js): background commands, auto memory, cloud routines, the ultra review.
+  // What Claude Code does by itself (ipc/native.js): background commands, ultracode runs, auto memory, cloud routines, the ultra review.
   jobOutput: (tabId, jobId) => ipcRenderer.invoke('jobs:output', { tabId, jobId }),
   justSawTake: () => ipcRenderer.invoke('justsaw:take'),
   stopJob: (tabId, jobId) => ipcRenderer.invoke('jobs:stop', { tabId, jobId }),
+  stopUltracode: (tabId, runId) => ipcRenderer.invoke('ultracode:stop', { tabId, runId }), confirmUltracode: invoke('ultracode:confirm'), ultracodeStatus: (tabId, runId) => ipcRenderer.invoke('ultracode:status', { tabId, runId }),
   listMemory: invoke('memory:list'),
   saveMemory: (tabId, file, body, mtimeMs) => ipcRenderer.invoke('memory:save', { tabId, file, body, mtimeMs }),
   forgetMemory: (tabId, file) => ipcRenderer.invoke('memory:forget', { tabId, file }),
@@ -425,10 +426,12 @@ contextBridge.exposeInMainWorld('shellby', {
   getRooms: invoke('rooms:get'),
   openRoom: invoke('rooms:open'),
   openAllRooms: invoke('rooms:all'),
-  onRooms: on('rooms'),
+  seenRoom: invoke('rooms:seen'), onRooms: on('rooms'),
+  // First steps for someone new (first-run.js): done by the real thing, never ticked
+  getFirstRun: invoke('firstrun:get'), skipFirstStep: invoke('firstrun:skip'), hideFirstRun: invoke('firstrun:hide'),
+  sawChanges: fire('firstrun:saw-changes'), onFirstRun: on('first-run'),
   // what you use: screens opened, counted on this PC (feature-use.js)
-  featureUsed: fire('features:used'),
-  featureReport: invoke('features:report'),
+  featureUsed: fire('features:used'), featureReport: invoke('features:report'),
   getQuests: invoke('quests:get'), // quests: the features worth finding, one at a time (quests.js)
   hideQuests: invoke('quests:hide'),
   onQuests: on('quests'),

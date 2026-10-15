@@ -100,7 +100,7 @@ function exeName(a, h) {
  * be found later. -> a job ({ handle }) for sweep(), or null when it can't be done.
  * Call it straight after spawn: anything started before it joins is missed.
  */
-function adopt(pid) {
+function adopt(pid, { outlives = false } = {}) {
   const a = load();
   if (!a || !Number.isInteger(pid) || pid <= 0) return null;
   let job = 0, proc = 0;
@@ -113,6 +113,7 @@ function adopt(pid) {
     proc = a.OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid);
     if (!proc || !a.AssignProcessToJobObject(job, proc)) { a.CloseHandle(job); return null; }
     const made = { handle: job };
+    if (outlives) return made; // meant to outlive Shellby (a dev server): never swept at quit, never held back
     live.add(made);
     if (givingWay) holdBack(); // started mid-game: held back from its first moment, and the share re-split
     return made;
@@ -245,6 +246,20 @@ function ownedPids() {
   return out;
 }
 
+/**
+ * Sweep every job not swept yet: the last thing Shellby does as he quits, so a
+ * task whose owner never got to end it (a one-off claude run, a workflow's MCP
+ * server, a sign-in, an install in a new copy) doesn't outlive him. Job handles
+ * close with the process anyway, but closing one ends nothing (no
+ * KILL_ON_JOB_CLOSE, see the top): without this they ran on.
+ * -> the names ended, across all of them.
+ */
+function sweepAll() {
+  const ended = [];
+  for (const job of [...live]) ended.push(...(sweep(job)?.ended || []));
+  return ended;
+}
+
 const available = () => !!load();
 
-module.exports = { adopt, sweep, members, ownedPids, available, giveWay, givingWay: givingWayNow, shareOf, KEEP, GAME_CPU_PERCENT, MIN_JOB_PERCENT };
+module.exports = { adopt, sweep, sweepAll, members, ownedPids, available, giveWay, givingWay: givingWayNow, shareOf, KEEP, GAME_CPU_PERCENT, MIN_JOB_PERCENT };

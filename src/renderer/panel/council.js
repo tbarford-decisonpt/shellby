@@ -295,7 +295,9 @@
     const who = s?.pick ? `${view.limits.pickMin}–${view.limits.pickMax} advisors he picks` : `${n} advisors`;
     const most = s?.pick ? view.limits.pickMax : n;
     const calls = (read || s?.pick ? 1 : 0) + (mode === 'quick' ? 1 : most + 2);
-    $('ccHint').textContent = `${who}, ${MODE_SEAT_NOTE[mode]} · ${s?.pick && mode !== 'quick' ? 'up to ' : ''}${calls} call${calls === 1 ? '' : 's'}`;
+    const cost = M.estimateText(view.estimate);
+    $('ccHint').textContent = `${who}, ${MODE_SEAT_NOTE[mode]} · ${s?.pick && mode !== 'quick' ? 'up to ' : ''}${calls} call${calls === 1 ? '' : 's'}${cost ? ` · ${cost}` : ''}`;
+    $('ccHint').title = cost ? `${cost} of your plan: a guess from the model’s price and how long answers usually run${read ? `, with the read anywhere up to its $${view.limits.budget.toFixed(2)} cap` : ''}. Each session shows what it really cost.` : '';
   }
 
   // One save at a time, each on top of the last, so quick clicks never undo each other.
@@ -428,7 +430,7 @@
     ul.replaceChildren(...list.map(s => h('li', { class: 'cc-history-item' },
       h('button', { type: 'button', class: 'cc-history-open', onclick: () => openSession(s.id) },
         h('b', { text: s.question }),
-        h('span', { class: 'muted small', text: [SB.relTime(s.at), s.mode, s.decision ? M.DECISION_WORD[s.decision] : '', s.outcome ? OUTCOME_MARK[s.outcome.result] : '', s.verdict].filter(Boolean).join(' · ') })),
+        h('span', { class: 'muted small', text: [SB.relTime(s.at), s.mode, s.decision ? M.DECISION_WORD[s.decision] : '', s.outcome ? OUTCOME_MARK[s.outcome.result] : '', M.spentText(s), s.verdict].filter(Boolean).join(' · ') })),
       h('button', { type: 'button', class: 'btn ghost slim-btn', 'aria-label': 'Forget this session', onclick: async () => { await api.forgetCouncil(s.id); if (followUp === s.id) clearFollowUp(); renderHistory(); } }, '✕'))));
   }
 

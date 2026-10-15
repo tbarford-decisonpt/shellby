@@ -5,6 +5,9 @@
 
 // How long a helper shows a message it sent or was sent (noteMessage).
 const TALK_MS = 8000;
+// Finished helpers a conversation remembers (pruneTasks): more than any lane or
+// the desktop shows at once.
+const MAX_ENDED_TASKS = 50;
 
 const crew = {
   // Keeps a live map of subagents so permission prompts can be attributed and
@@ -27,7 +30,21 @@ const crew = {
     if (item.phase === 'done' && !item.status) next.status = 'completed';
     if (prev.status === 'running' && next.status !== 'running') next.endedAt = Date.now(); // the crab window walks it home with how it went
     this.tasks.set(item.taskId, next);
+    this.pruneTasks();
     this.emit('crew', this.crew);
+  },
+
+  // Helpers that finished long ago go, the oldest first, past MAX_ENDED_TASKS: a
+  // long conversation sends hundreds, and every change copies the whole list
+  // (crew) for the panel and the desktop. Running ones always stay.
+  pruneTasks() {
+    let ended = 0;
+    for (const t of this.tasks.values()) if (t.status !== 'running') ended++;
+    if (ended <= MAX_ENDED_TASKS) return;
+    for (const [id, t] of this.tasks) {
+      if (ended <= MAX_ENDED_TASKS) break;
+      if (t.status !== 'running') { this.tasks.delete(id); ended--; }
+    }
   },
 
   get crew() {
@@ -81,4 +98,4 @@ const crew = {
   },
 };
 
-module.exports = { crew, TALK_MS };
+module.exports = { crew, TALK_MS, MAX_ENDED_TASKS };

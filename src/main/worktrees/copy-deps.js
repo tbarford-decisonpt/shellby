@@ -24,6 +24,7 @@ const path = require('path');
 const { findNpm, npmEnv } = require('../depwatch');
 const { git } = require('./index');
 const { parseWorktrees } = require('../leaving');
+const processJob = require('../process-job');
 
 const INSTALL_MS = 3 * 60 * 1000;
 const ARGS = ['ci', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error'];
@@ -142,17 +143,34 @@ function refusal(w, dir, { homes = [w.root] } = {}) {
   return null;
 }
 
-function runNpm(npm, cwd) {
+// npm joins a job (process-job.js): running too long ends the whole tree, not
+// only npm (execFile's own timeout would leave what it started going), and an
+// install still running when Shellby quits is ended by the quit-time sweep.
+/** @param {{ file: string, pre: string[] }} npm @param {string} cwd @param {{ ms?: number, args?: string[] }} [opts] */
+function runNpm(npm, cwd, { ms = INSTALL_MS, args = ARGS } = {}) {
   return new Promise(resolve => {
+    let timedOut = false;
+    /** @type {any} */
+    let timer = null;
+    let child;
     try {
-      execFile(npm.file, [...npm.pre, ...ARGS], {
-        cwd, shell: false, windowsHide: true, timeout: INSTALL_MS, maxBuffer: 16 * 1024 * 1024, encoding: 'utf8', env: npmEnv(npm),
-      }, (err, _stdout, stderr) => resolve(err
-        ? { ok: false, error: err.killed ? 'npm took too long' : lastLine(stderr) || err.message }
-        : { ok: true }));
+      child = execFile(npm.file, [...npm.pre, ...args], {
+        cwd, shell: false, windowsHide: true, maxBuffer: 16 * 1024 * 1024, encoding: 'utf8', env: npmEnv(npm),
+      }, (err, _stdout, stderr) => {
+        clearTimeout(timer);
+        if (timedOut) resolve({ ok: false, error: 'npm took too long' });
+        else resolve(err ? { ok: false, error: lastLine(stderr) || err.message } : { ok: true });
+      });
     } catch (e) {
       resolve({ ok: false, error: e.message });
+      return;
     }
+    const job = child.pid ? processJob.adopt(child.pid) : null;
+    child.once('exit', () => processJob.sweep(job));
+    timer = setTimeout(() => {
+      timedOut = true;
+      if (!processJob.sweep(job)) child.kill();
+    }, ms);
   });
 }
 
@@ -194,4 +212,4 @@ function depsSentence(result, w) {
   return "It has every committed file; anything uncommitted or ignored in the original (node_modules, build output) isn't in it. ";
 }
 
-module.exports = { installCopyDeps, installDir, homesOf, refusal, registryOnly, installedAlready, depsSentence, ARGS };
+module.exports = { runNpm, installCopyDeps, installDir, homesOf, refusal, registryOnly, installedAlready, depsSentence, ARGS };

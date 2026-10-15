@@ -17,7 +17,8 @@
       this.meta = h('span', { class: 'lane-meta' });
       this.body = h('div', { class: 'lane-body' });
       this.summaryEl = h('div', { class: 'lane-summary', hidden: true });
-      this.el = h('details', { class: 'lane running', open: true, style: `--lane-hue:${SB.HUES[index % SB.HUES.length]}deg` },
+      // Starts folded: the head already shows what it's doing. It opens itself only to ask you something.
+      this.el = h('details', { class: 'lane running', style: `--lane-hue:${SB.HUES[index % SB.HUES.length]}deg` },
         h('summary', { class: 'lane-head' },
           h('span', { class: 'lane-crab' }, SB.helperSprite(index)),
           h('span', { class: 'lane-text' },
@@ -38,7 +39,7 @@
 
     update(item, replay) {
       // Sent another message after it finished (SendMessage): it's back at work in the same lane.
-      if (item.phase === 'started' && this.status !== 'running') this.reopen(replay);
+      if (item.phase === 'started' && this.status !== 'running') this.reopen();
       if (item.usage) this.stats = { ...this.stats, tokens: item.usage.tokens, toolUses: item.usage.toolUses };
       if (item.phase === 'progress' && item.description) this.setActivity(item.description);
       if (item.phase === 'started' && item.description) this.setActivity(replay ? item.description : 'Getting started…');
@@ -56,8 +57,6 @@
         this.el.classList.remove('running', 'asking');
         this.el.classList.add(this.status);
         this.activity.textContent = stopped ? 'Stopped' : ok ? 'Done' : 'Failed';
-        // Collapse finished helpers so the main thread stays readable.
-        setTimeout(() => { if (!this.el.classList.contains('asking')) this.el.open = false; }, 900);
       }
       const text = summary || resultText;
       if (text && this.summaryEl.hidden) {
@@ -77,7 +76,7 @@
       this.tick();
     }
 
-    reopen(replay) {
+    reopen() {
       this.el.classList.remove('done', 'failed', 'stopped');
       this.el.classList.add('running');
       this.status = 'running';
@@ -85,7 +84,6 @@
       this.startedAt = Date.now();
       this.stats = null;
       this.activity.textContent = 'Picking it up again…';
-      if (!replay) this.el.open = true;
       // Its next answer goes under the first, which stays.
       this.summaryEl = h('div', { class: 'lane-summary', hidden: true });
       this.el.append(this.summaryEl);

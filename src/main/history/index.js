@@ -8,7 +8,7 @@ const { randomUUID } = require('crypto');
 const { writeFileDurable } = require('../durable');
 
 // Items worth replaying later. Transient ones (thinking, usage, raw logs) are skipped.
-const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'phone', 'checks', 'shots', 'tries', 'compacted', 'fresh', 'cleared', 'rewound', 'shell', 'checkpoint', 'branched', 'branched-off', 'handoff', 'modlog', 'surprise', 'suggest', 'cutoff', 'step-point', 'undone-step', 'debug', 'undone-hunk']);
+const PERSISTED = new Set(['user', 'text', 'tool', 'tool_result', 'result', 'error', 'decision', 'permission', 'task', 'changes', 'undone', 'home', 'pushed', 'moved', 'phone', 'checks', 'shots', 'tries', 'compacted', 'fresh', 'cleared', 'rewound', 'shell', 'checkpoint', 'branched', 'branched-off', 'handoff', 'modlog', 'surprise', 'suggest', 'cutoff', 'step-point', 'undone-step', 'debug', 'undone-hunk', 'ultracode']);
 
 // How many conversations the index remembers. Transcripts past this are deleted
 // with their entry, rather than being left in the folder with nothing listing them.
@@ -203,6 +203,7 @@ class History {
   append(id, item) {
     if (!PERSISTED.has(item.kind)) return;
     if (item.kind === 'task' && (item.phase === 'progress' || item.phase === 'updated')) return; // start + finish are enough to replay
+    if (item.live) return; // an ultracode card between the updates kept (session/ultra.js)
     // A permission card's edit text is the tool's input too; the tool row keeps the diff.
     const rec = item.kind === 'permission' ? { ...item, input: undefined, edits: undefined } : item;
     try { this.file(id); } catch (e) { this.onError('transcript', e); return; }

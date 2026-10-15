@@ -43,6 +43,7 @@
 .reef-sig-main { display: flex; flex-direction: column; min-width: 0; }
 .reef-sig-label { font-size: var(--fs-12-5); }
 .reef-sig-hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reef-sig-main .reef-fix { align-self: flex-start; }
 .reef-sig-val { font: var(--fs-12) var(--font-mono); white-space: nowrap; text-align: right; }
 .reef-trend { font-size: var(--fs-11); text-align: center; color: var(--sand-dim); }
 .reef-trend.up { color: var(--glass); }

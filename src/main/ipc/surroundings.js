@@ -9,13 +9,17 @@ const path = require('path');
 const channels = require('../channels');
 const { OpenRgbClient } = require('../rgb');
 
+// What a Copy button may put on the clipboard. Prompts, plans and code blocks run
+// to tens of thousands of characters; this only stops something absurd.
+const MAX_COPY_CHARS = 1_000_000;
+
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
  * @param d  what main shares with its IPC (main.js ipcDeps)
  */
 function registerSurroundingsIpc(ipcMain, d) {
   // ---- Claude Code sessions elsewhere
-  ipcMain.on('clipboard:text', (_e, text) => { if (d.isStr(text) && text.length <= 2000) clipboard.writeText(text).catch(e => d.log.warn("couldn't copy text", e?.message)); });
+  ipcMain.on('clipboard:text', (_e, text) => { if (typeof text === 'string' && text.length > 0 && text.length <= MAX_COPY_CHARS) clipboard.writeText(text).catch(e => d.log.warn("couldn't copy text", e?.message)); });
   ipcMain.handle('external:get', () => d.externalView());
   ipcMain.handle('external:set', (_e, enabled) => {
     d.config.set({ externalSessions: !!enabled });
@@ -254,4 +258,4 @@ function registerSurroundingsIpc(ipcMain, d) {
   ipcMain.on('open-data-folder', () => shell.openPath(app.getPath('userData')));
 }
 
-module.exports = { registerSurroundingsIpc };
+module.exports = { registerSurroundingsIpc, MAX_COPY_CHARS };

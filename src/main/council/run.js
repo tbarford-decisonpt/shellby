@@ -15,6 +15,7 @@
 const path = require('path');
 const P = require('./prompts');
 const L = require('./look');
+const C = require('./cost');
 
 const TIMEOUT_MS = 120000;
 // In Debate, the advisors run a size down from the chair: their answers are
@@ -36,20 +37,24 @@ function args({ system, schema, model, lean = [] }) {
   ];
 }
 
-/** The CLI's JSON reply -> { ok, data, cost } or { ok: false, error }. */
+/**
+ * The CLI's JSON reply -> { ok, data, cost, usage } or { ok: false, error, cost, usage }.
+ * cost is null when the reply didn't say what it cost.
+ */
 function parse(stdout) {
   let reply;
   try { reply = JSON.parse(String(stdout).trim()); } catch { return { ok: false, error: "The answer didn't come through." }; }
   if (!reply || typeof reply !== 'object') return { ok: false, error: "The answer didn't come through." };
-  const cost = Number.isFinite(reply.total_cost_usd) ? reply.total_cost_usd : 0;
-  if (/max_budget/i.test(String(reply.subtype || ''))) return { ok: false, error: 'It hit its spending cap before it finished.', cost };
+  const cost = Number.isFinite(reply.total_cost_usd) ? reply.total_cost_usd : null;
+  const usage = reply.usage && typeof reply.usage === 'object' ? reply.usage : null;
+  if (/max_budget/i.test(String(reply.subtype || ''))) return { ok: false, error: 'It hit its spending cap before it finished.', cost, usage };
   if (reply.is_error) {
     const text = typeof reply.result === 'string' ? reply.result : '';
     const why = /log(?:ged)? ?in|sign(?:ed)? ?in|auth/i.test(text) ? ' Sign in to Claude Code in Settings first.' : '';
-    return { ok: false, error: `Claude couldn't answer.${why}`, cost };
+    return { ok: false, error: `Claude couldn't answer.${why}`, cost, usage };
   }
   const data = reply.structured_output;
-  return data && typeof data === 'object' ? { ok: true, data, cost } : { ok: false, error: "The answer didn't hold up.", cost };
+  return data && typeof data === 'object' ? { ok: true, data, cost, usage } : { ok: false, error: "The answer didn't hold up.", cost, usage };
 }
 
 const list = (a, n, max = MAX_ITEM) => (Array.isArray(a) ? a.map(x => P.clip(x, max)).filter(Boolean).slice(0, n) : []);
@@ -131,7 +136,9 @@ function minutes(table, opinions, rebuttals = {}) {
  * read first (settings.read), or '' for none. records: store.js records(), for the chair.
  * run(args, timeoutMs, { cwd, input }) -> the CLI's { stdout, stderr, timedOut }.
  * progress(event) is told as the read, the seating and each seat start and finish.
- * -> { ok, mode, seats, facts, unknowns, opinions, rebuttals, chair, tally, cost, calls, ... } or { ok: false, error }.
+ * -> { ok, mode, seats, facts, unknowns, opinions, rebuttals, chair, tally, cost, unpriced, weight, calls, ... }
+ * or { ok: false, error, cost, unpriced, weight, calls }: cost is what the calls reported
+ * (a floor when unpriced > 0), weight their spend.js weight.
  */
 async function convene(q, run, progress = () => {}) {
   const question = P.cleanQuestion(q.question);
@@ -139,19 +146,26 @@ async function convene(q, run, progress = () => {}) {
   const settings = P.normalize(q.settings);
   const { mode, model } = settings;
   const prior = P.clip(q.prior, 1200);
-  let cost = 0, calls = 0, detail = '';
+  // What every call cost: a call with no answer, or no cost in it, makes the total a floor.
+  let spent = C.NO_CALLS, calls = 0, detail = '';
   const once = async (callArgs, timeout, cwd, input) => {
     calls++;
+    const callModel = callArgs[callArgs.indexOf('--model') + 1];
     const res = await run(callArgs, timeout, { cwd, input });
-    if (res.timedOut) return { ok: false, error: 'Took too long.' };
+    if (res.timedOut) {
+      spent = C.addCall(spent, null, callModel);
+      return { ok: false, error: 'Took too long.' };
+    }
     if (!String(res.stdout || '').trim()) {
+      spent = C.addCall(spent, null, callModel);
       detail = String(res.stderr || res.err?.message || '').trim().split('\n').slice(-2).join(' ');
       return { ok: false, error: "Claude Code didn't answer. Check it's signed in, in Settings." };
     }
     const r = parse(res.stdout);
-    cost += r.cost || 0;
+    spent = C.addCall(spent, r, callModel);
     return r;
   };
+  const failed = error => ({ ok: false, error, detail, ...spent, calls });
 
   // ---- read the project first, and pick who sits
   const pickFrom = settings.pick ? P.everyone(settings) : null;
@@ -181,20 +195,20 @@ async function convene(q, run, progress = () => {}) {
   const n = facts.length;
   const done = (extra) => ({
     ok: true, mode, model, seats: seatsOut, picked: !!chosen, facts, unknowns, dropped, hidden, readError,
-    cost, calls, detail, ...extra,
+    ...spent, calls, detail, ...extra,
   });
 
   if (mode === 'quick') {
     for (const s of table) progress({ kind: 'thinking', seat: s.id });
     const r = await call(P.SYSTEM.quick(table, q.records), P.quickSchema(table), model);
-    if (!r.ok) return { ok: false, error: r.error, detail, cost };
+    if (!r.ok) return failed(r.error);
     const opinions = {};
     for (const s of table) {
       opinions[s.id] = cleanOpinion(r.data.opinions?.[s.id], n);
       progress({ kind: 'spoke', seat: s.id, opinion: opinions[s.id] });
     }
     const chair = cleanVerdict(r.data.chair, n);
-    if (!chair && !Object.values(opinions).some(Boolean)) return { ok: false, error: "The council's answer didn't hold up. Try again.", detail, cost };
+    if (!chair && !Object.values(opinions).some(Boolean)) return failed("The council's answer didn't hold up. Try again.");
     return done({ opinions, rebuttals: {}, chair, tally: tally(opinions) });
   }
 
@@ -206,7 +220,7 @@ async function convene(q, run, progress = () => {}) {
     opinions[s.id] = r.ok ? cleanOpinion(r.data, n) : null;
     progress({ kind: 'spoke', seat: s.id, opinion: opinions[s.id] });
   }));
-  if (!Object.values(opinions).some(Boolean)) return { ok: false, error: 'None of the council answered. Check Claude Code is signed in, in Settings.', detail, cost };
+  if (!Object.values(opinions).some(Boolean)) return failed('None of the council answered. Check Claude Code is signed in, in Settings.');
 
   progress({ kind: 'debating' });
   const rb = await callWith(call, P.SYSTEM.rebut(table), P.REBUTTAL, SEAT_MODEL[model], minutes(table, opinions));

@@ -2,7 +2,7 @@
 // when it was last committed to, and what a shipped project is. execFile with
 // fixed arguments (no shell), short timeouts, never throws: anything that isn't
 // a git repo is just null.
-const { execFile } = require('child_process');
+const { execFileTree: execFile } = require('./exec-tree'); // a timeout ends git's whole tree
 const fs = require('fs');
 const path = require('path');
 const { normalizeRemote, projectId } = require('./stickers');

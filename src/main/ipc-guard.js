@@ -9,24 +9,44 @@
 // allow(channel, sender) -> boolean. A refused invoke rejects; a refused send
 // is dropped. Either way it's written down once per channel.
 
-function guardIpc(ipcMain, allow, { onRefused = () => {} } = {}) {
+//
+// A handler that throws is written down with its channel (onFailed): Electron
+// only prints it to a console nobody sees. An invoke still rejects with the
+// handler's own words, which the panel shows (many are written for you, like
+// "Shellby is still working on the last task."). A send has no one to answer,
+// so its failure stops here instead of surfacing as an anonymous uncaught
+// exception or unhandled rejection.
+function guardIpc(ipcMain, allow, { onRefused = () => {}, onFailed = () => {} } = {}) {
   const refusedOnce = new Set();
   const refuse = (channel, e) => {
     if (refusedOnce.has(channel)) return;
     refusedOnce.add(channel);
     onRefused(channel, e?.sender);
   };
+  const failed = (channel, err, answered) => {
+    try { onFailed(channel, err, { answered }); } catch { /* the report itself must never throw */ }
+  };
   return {
     handle(channel, fn) {
-      ipcMain.handle(channel, (e, ...args) => {
+      ipcMain.handle(channel, async (e, ...args) => {
         if (!allow(channel, e.sender)) { refuse(channel, e); throw new Error('Not allowed from this window.'); }
-        return fn(e, ...args);
+        try {
+          return await fn(e, ...args);
+        } catch (err) {
+          failed(channel, err, true);
+          throw err;
+        }
       });
     },
     on(channel, fn) {
       ipcMain.on(channel, (e, ...args) => {
         if (!allow(channel, e.sender)) { refuse(channel, e); return; }
-        return fn(e, ...args);
+        try {
+          const out = fn(e, ...args);
+          if (out && typeof out.then === 'function') out.then(null, err => failed(channel, err, false));
+        } catch (err) {
+          failed(channel, err, false);
+        }
       });
     },
   };

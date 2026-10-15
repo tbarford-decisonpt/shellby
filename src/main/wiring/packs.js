@@ -130,6 +130,7 @@ function wirePacks(d) {
     // Another repo, other team snippets; and a pack there you haven't seen gets a word.
     d.send(d.panel, 'snippets', d.snippetsView());
     d.teamIpc?.folderChanged(dir);
+    d.firstRunStep?.('project'); // First steps (first-run.js)
     return { cwd: dir, settings: d.panelSettings() };
   }
 
