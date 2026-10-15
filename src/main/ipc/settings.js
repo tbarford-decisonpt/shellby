@@ -5,21 +5,21 @@ const fs = require('fs');
 const attach = require('../attachments');
 const { TIMEOUTS_MIN } = require('../checks');
 const { setPlanOnly } = require('../claude/cli');
-const { SETTINGS: CLIMB_SETTINGS } = require('../climb');
+const { SETTINGS: CLIMB_SETTINGS } = require('../desktop/climb');
 const { MODES } = require('../config');
 const confirm = require('../confirm');
 const crashReport = require('../crash-report');
-const { COLONY_MAX } = require('../floor');
+const { COLONY_MAX } = require('../desktop/floor');
 const filelinks = require('../filelinks');
 const guard = require('../guard');
 const mischief = require('../mischief');
 const { isModel } = require('../models');
 const outputStyles = require('../outputstyles');
-const { SETTINGS: PERCH_SETTINGS } = require('../perch');
+const { SETTINGS: PERCH_SETTINGS } = require('../desktop/perch');
 const { EFFORTS } = require('../session');
 const sounds = require('../sounds');
 const shortcuts = require('../../renderer/panel/shortcuts'); // the panel's table: what your own keys are checked against
-const syncPrefs = require('../sync-prefs');
+const syncPrefs = require('../sync/prefs');
 const voice = require('../voice');
 const workmode = require('../workmode');
 
@@ -83,7 +83,7 @@ function registerSettingsIpc(ipcMain, d) {
     }
   }
 
-  // A sync brought settings you changed on another PC (sync-prefs.js). They're
+  // A sync brought settings you changed on another PC (sync/prefs.js). They're
   // saved already; here they take effect, and the panel hears about them.
   d.settingsSynced = before => {
     const now = d.config.data;
@@ -106,7 +106,7 @@ function registerSettingsIpc(ipcMain, d) {
 
   ipcMain.handle('settings:set', async (_e, patch = {}) => {
     const allowed = {};
-    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'firstTour', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'claudeElsewhere', 'workMode', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effort', 'effortPick', 'outputStyle', 'fallbackModel', 'claudeInChrome', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'tideEvents', 'signCommits', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'checkTimeoutMin', 'turnShots', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'holdBigTasks', 'crashReports', 'selfAware', 'suggestions', 'editor', 'claudeTricks', 'attachWhatISaw', 'plainCards', 'sshAgent', 'keybindings']) {
+    for (const k of ['mode', 'hotkey', 'skin', 'critterScale', 'openAtLogin', 'notifications', 'model', 'onboarded', 'firstTour', 'autonomousAcknowledged', 'showCrew', 'crabOnly', 'claudeElsewhere', 'workMode', 'wander', 'onTop', 'perch', 'perchIgnore', 'climb', 'mischief', 'mischiefPranks', 'colony', 'chatter', 'sounds', 'soundFx', 'ambient', 'soundVolume', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effort', 'effortPick', 'outputStyle', 'fallbackModel', 'claudeInChrome', 'planOnly', 'idleCompact', 'pushToTalk', 'flakyTests', 'surprises', 'tideEvents', 'signCommits', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'checkTimeoutMin', 'turnShots', 'spendGuard', 'spendReserve', 'spendMaxMinutes', 'holdBigTasks', 'crashReports', 'selfAware', 'suggestions', 'editor', 'claudeTricks', 'attachWhatISaw', 'plainCards', 'sshAgent', 'keybindings']) {
       if (k in patch) allowed[k] = patch[k];
     }
     // Turning on Autonomous for the first time needs a confirmation that renderer
@@ -147,7 +147,7 @@ function registerSettingsIpc(ipcMain, d) {
     if ('fallbackModel' in allowed && !isModel(allowed.fallbackModel)) delete allowed.fallbackModel;
     if ('effort' in allowed && allowed.effort !== '' && !EFFORTS.includes(allowed.effort)) delete allowed.effort;
     if ('outputStyle' in allowed) allowed.outputStyle = outputStyles.clean(allowed.outputStyle);
-    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'firstTour', 'autonomousAcknowledged', 'crabOnly', 'claudeElsewhere', 'workMode', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effortPick', 'claudeInChrome', 'planOnly', 'pushToTalk', 'flakyTests', 'surprises', 'tideEvents', 'signCommits', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'turnShots', 'spendGuard', 'holdBigTasks', 'selfAware', 'suggestions', 'claudeTricks', 'attachWhatISaw', 'plainCards', 'sshAgent']) if (k in allowed) allowed[k] = !!allowed[k];
+    for (const k of ['openAtLogin', 'notifications', 'onboarded', 'firstTour', 'autonomousAcknowledged', 'crabOnly', 'claudeElsewhere', 'workMode', 'wander', 'onTop', 'sounds', 'soundFx', 'needsOn', 'worktrees', 'clashWarnings', 'recap', 'forecast', 'leaveGuard', 'effortPick', 'claudeInChrome', 'planOnly', 'idleCompact', 'pushToTalk', 'flakyTests', 'surprises', 'tideEvents', 'signCommits', 'catchBugs', 'bugBattles', 'bugFollower', 'shareBugdex', 'checkEachTurn', 'turnShots', 'spendGuard', 'holdBigTasks', 'selfAware', 'suggestions', 'claudeTricks', 'attachWhatISaw', 'plainCards', 'sshAgent']) if (k in allowed) allowed[k] = !!allowed[k];
     if ('checkTimeoutMin' in allowed && !TIMEOUTS_MIN.includes(allowed.checkTimeoutMin)) delete allowed.checkTimeoutMin;
     if ('keybindings' in allowed) allowed.keybindings = shortcuts.sanitizeOverrides(allowed.keybindings);
     if ('spendReserve' in allowed && !guard.RESERVES.includes(allowed.spendReserve)) delete allowed.spendReserve;
@@ -157,8 +157,8 @@ function registerSettingsIpc(ipcMain, d) {
     if ('ambient' in allowed && !sounds.AMBIENTS.includes(allowed.ambient)) delete allowed.ambient;
     if ('soundVolume' in allowed && !sounds.VOLUMES.includes(allowed.soundVolume)) delete allowed.soundVolume;
     if ('crashReports' in allowed && !crashReport.CONSENTS.includes(allowed.crashReports)) delete allowed.crashReports;
-    if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
-    if ('climb' in allowed && !CLIMB_SETTINGS.includes(allowed.climb)) delete allowed.climb;
+    if ('perch' in allowed && !PERCH_SETTINGS.includes(/** @type {string} */ (allowed.perch))) delete allowed.perch;
+    if ('climb' in allowed && !CLIMB_SETTINGS.includes(/** @type {string} */ (allowed.climb))) delete allowed.climb;
     if ('mischief' in allowed && !mischief.LEVELS.includes(allowed.mischief)) delete allowed.mischief;
     if ('mischiefPranks' in allowed) allowed.mischiefPranks = mischief.prankSet(allowed.mischiefPranks);
     if ('colony' in allowed) allowed.colony = Number.isInteger(allowed.colony) ? Math.max(0, Math.min(COLONY_MAX, allowed.colony)) : d.config.get('colony');
@@ -193,6 +193,7 @@ function registerSettingsIpc(ipcMain, d) {
     const before = d.config.data;
     d.config.set(allowed);
     applied(allowed, asked, before, { taste: true });
+    if (allowed.onboarded && !before.onboarded) d.firstRunStep?.('welcome'); // through the welcome screen: First steps' hello (first-run.js)
     return { settings: d.panelSettings(), hotkeyError, pushToTalkError };
   });
   ipcMain.handle('folder:pick', async () => {

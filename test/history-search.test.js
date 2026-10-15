@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const hs = require('../src/main/history-search');
+const hs = require('../src/main/history/search');
 const { History } = require('../src/main/history');
 
 const NOW = Date.UTC(2026, 9, 9);

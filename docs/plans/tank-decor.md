@@ -118,7 +118,7 @@
 - **Not done yet:** capture-mode screenshots (`docs/img/screenshot-tank.png`) and
   the crab card and profile card painting the tank (Phase 4).
 
-The code: `src/main/tank.js` (pure), `src/main/ipc/tank.js`, the `decor` kind
+The code: `src/main/tank/index.js` (pure), `src/main/ipc/tank.js`, the `decor` kind
 in `src/main/wardrobe/catalog.js`, `src/wardrobe/tank-decor.json`, and
 `src/renderer/panel/tank.js`, `tank-paint.js` and `tank.css`. Tests:
 `test/tank.test.js`, decor cases in `test/wardrobe.test.js` and
@@ -321,7 +321,7 @@ can mark colour keys as `"lit"`, and those stay bright at night.
 
 | File | Kind | Does |
 |---|---|---|
-| `src/main/tank.js` | **pure** | `normalize(raw)`, `SIZES`, `capacity(size)`, `place / move / remove / flip` returning new state, `view({ tankState, catalog, finds, stickers, now })` → drawables in paint order plus walkable lanes and interaction spots, `merge(local, remote)`, `forCard(state)` / `cleanCard(raw)` |
+| `src/main/tank/index.js` | **pure** | `normalize(raw)`, `SIZES`, `capacity(size)`, `place / move / remove / flip` returning new state, `view({ tankState, catalog, finds, stickers, now })` → drawables in paint order plus walkable lanes and interaction spots, `merge(local, remote)`, `forCard(state)` / `cleanCard(raw)` |
 | `src/main/tank/life.js` | **pure** | Picks what he does in the tank (§5) from the spots and `rand` / `now` |
 | `src/renderer/panel/tank-paint.js` | render | Paints a `view()` onto a canvas context at scale `k`; shared by the Tank tab, the Health porthole, `card.js`, and (as SVG) `profile-card.js` |
 | `src/renderer/panel/tank.js` + `tank.css` | UI | The Tank tab and the editor |

@@ -9,6 +9,11 @@
 
   let view = null; // main's questsView(); null until it arrives (nothing shows)
 
+  const SCREEN_LABELS = {
+    projects: 'Projects', bugdex: 'the Bugdex', tank: 'the Tank', routines: 'Routines', workflows: 'Automate', council: 'the Council',
+    crew: 'the Crew', us: 'Us', trophies: 'Trophies', wardrobe: 'Outfits',
+  };
+
   const off = () => !view || SB.isCrabOnly?.();
   const byId = id => view?.list.find(q => q.id === id) || null;
 
@@ -20,6 +25,8 @@
     if (q.go === 'branch' && idle && tab.lastTurnId) return { label: 'Try it another way', run: () => SB.tryAgain(tab) };
     if (q.go === 'home' && idle && tab.worktree) return { label: 'Bring it home', run: () => SB.bringHome(tab) };
     if (q.go === 'reset') return { label: 'Open the reset queue', run: openResetQueue };
+    // Later chapters point at a screen (quests/chapters.js go).
+    if (SCREEN_LABELS[q.go] && SB.state.view !== q.go) return { label: `Open ${SCREEN_LABELS[q.go]}`, run: () => SB.setView(q.go) };
     return null;
   }
 
@@ -33,9 +40,10 @@
     });
   }
 
+  // The whole line lives in the Logbook now, chapter by chapter.
   SB.showQuests = () => {
-    SB.setView('trophies');
-    requestAnimationFrame(() => $('xpQuests')?.scrollIntoView({ block: 'nearest' }));
+    SB.setView('logbook');
+    requestAnimationFrame(() => $('lbChapters')?.scrollIntoView({ block: 'nearest' }));
   };
 
   const pips = () => h('span', { class: 'quest-pips', 'aria-hidden': 'true' },
@@ -45,7 +53,8 @@
 
   // Only once he has finished a task (History is open), so someone brand new
   // meets the crab and the box first.
-  const cardShows = () => !off() && !view.hidden && !view.complete && !SB.isRoomLocked?.('history');
+  // First steps (first-run.js) go first: one card at a time on the start screen.
+  const cardShows = () => !off() && !view.hidden && !view.complete && !SB.isRoomLocked?.('history') && !SB.firstRunCardShows?.();
 
   function renderCard(el) {
     if (!el) return;
@@ -55,12 +64,13 @@
     const act = actionFor(q);
     el.replaceChildren(
       h('div', { class: 'quest-top' },
-        h('span', { class: 'quest-step', text: `Quest ${view.doneCount + 1} of ${view.total}` }), pips(),
+        h('span', { class: 'quest-step', text: `${view.chapter && view.chapter.n > 1 ? `Chapter ${view.chapter.n} · ` : ''}Quest ${view.doneCount + 1} of ${view.total}` }), pips(),
         h('button', { class: 'quest-x', type: 'button', title: 'Hide quests from the chat (they stay in Trophies)', 'aria-label': 'Hide quests from the chat', text: '×', onclick: () => hide(true) })),
       h('h2', { class: 'quest-title' }, h('span', { class: 'quest-icon', 'aria-hidden': 'true', text: q.icon }), q.title),
       h('p', { class: 'quest-why', text: q.why }),
       h('p', { class: 'quest-how', text: q.how }),
-      ...(act ? [h('button', { class: 'btn slim-btn quest-go', type: 'button', text: act.label, onclick: act.run })] : []));
+      ...(act ? [h('button', { class: 'btn slim-btn quest-go', type: 'button', text: act.label, onclick: act.run })] : []),
+      h('button', { class: 'btn ghost slim-btn quest-logbook', type: 'button', text: 'Logbook', title: 'Every chapter, and what each quest feeds', onclick: SB.showQuests }));
   }
   SB.questCardShows = cardShows;
   SB.renderQuestCard = renderCard;
@@ -76,7 +86,8 @@
     const box = $('xpQuests');
     box.hidden = off();
     if (box.hidden) return;
-    $('xpQuestCount').textContent = view.complete ? '· all found' : `· ${view.doneCount} of ${view.total}`;
+    const ch = view.chapter && view.chapter.n > 1 ? `chapter ${view.chapter.n}, ` : '';
+    $('xpQuestCount').textContent = view.complete ? '· all found' : `· ${ch}${view.doneCount} of ${view.total}`;
     const toggle = $('xpQuestShow');
     toggle.hidden = !view.hidden || view.complete;
     $('xpQuestList').replaceChildren(...view.list.map((q, i) => {
@@ -94,16 +105,32 @@
 
   // ------------------------------------------------------------ updates
 
-  function celebrate({ done, next, finished }) {
-    if (!done || SB.isCrabOnly?.()) return;
-    const trail = { label: 'See the quest line', run: SB.showQuests };
+  function celebrate({ done, next, finished, chapter, chapterDone, opened = [] }) {
+    if (SB.isCrabOnly?.()) return;
+    const trail = { label: 'Open the Logbook', run: SB.showQuests };
+    if (!done && opened.length) {
+      const c = opened[0];
+      SB.celebrate({ eyebrow: 'New chapter', icon: c.icon, title: `Chapter ${c.n}: ${c.title}`, text: `${c.blurb} ${c.teaches}`, action: trail });
+      return;
+    }
+    if (!done) return;
+    if (chapterDone && chapter && chapter.n > 1) {
+      SB.celebrate({
+        eyebrow: 'Chapter complete', icon: chapter.icon, title: `Chapter ${chapter.n}: ${chapter.title}`,
+        text: next ? `${chapter.teaches} Next up: ${next.title}.` : `${chapter.teaches} More chapters open as he levels up.`,
+        action: trail,
+      });
+      return;
+    }
+    // Chapter 1 is the old quest line: finishing it still reads as the line done.
+    const first = finished || (chapterDone && chapter?.n === 1);
     SB.celebrate({
-      eyebrow: finished ? 'Quest line complete' : 'Quest complete',
-      icon: finished ? '🗺️' : done.icon,
-      title: finished ? 'Every hidden trick, found' : done.title,
-      text: finished ? `${done.title} was the last one. Comments, second takes, copies and the reset queue are all yours now.`
+      eyebrow: first ? 'Chapter 1 complete' : 'Quest complete',
+      icon: first ? '🗺️' : done.icon,
+      title: first ? 'Every hidden trick, found' : done.title,
+      text: first ? `${done.title} was the last one. Comments, second takes, copies and the reset queue are all yours now. More chapters open as he levels up.`
         : `Next up: ${next.title}. ${next.why}`,
-      action: finished ? trail : (actionFor(next) || trail),
+      action: first || !next ? trail : (actionFor(next) || trail),
     });
   }
 

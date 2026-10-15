@@ -1,4 +1,4 @@
-// What Claude is asked to do about a project's dependencies (depwatch.js):
+// What Claude is asked to do about a project's dependencies (depwatch/index.js):
 // the one-off task in a fresh copy of the repository, and the weekly routine.
 // Each package manager has its own commands and lockfile. Pure:
 // test/depwatch.test.js and test/depwatch-prompts.test.js.

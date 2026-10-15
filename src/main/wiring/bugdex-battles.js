@@ -34,6 +34,7 @@ function makeBattles({ d, on, state, names }) {
     if (!sp) return null;
     const b = battle.start({ species: sp.id, rarity: sp.rarity, type: sp.type }, {
       id, boss: !!bossOf(sp.id), league: leagueOf(sp.id), stage: bugdex.stageOf(bugdex.caughtOf(state().species[sp.id])), failed, now,
+      rematch: d.bugNests?.rematchFor(e, now) || null, // caught here before: it's back (bugdex/history.js)
     });
     battles.set(id, b);
     while (battles.size > MAX_BATTLES) { const old = battles.keys().next().value; battles.delete(old); battleMeta.delete(old); }
@@ -106,8 +107,10 @@ function makeBattles({ d, on, state, names }) {
     const was = battles.get(lifecycle.encId(e));
     // A squatter that was a zombie all along: the battle was with what it looked like.
     const reveal = was && was.species !== sp.id ? sp.name : null;
+    // The fix report (bugdex/quality.js) picks the finishers: a new test, a fix at the root, a first try, the crew.
+    const report = d.bugNests?.report(e, { crew: was?.party?.length || 0, failed: was?.firstFailed ?? null }) || null;
     fight(e, b => battle.finish(b, {
-      at: now, outcome: 'caught', move,
+      at: now, outcome: 'caught', move, report,
       jar: { isNew: r.isNew, forms: r.forms, evolved: r.evolved, badge: r.badge, league: r.league, fame: r.fame, reveal, counted: r.counted },
     }));
     const party = battles.get(lifecycle.encId(e))?.party || [];

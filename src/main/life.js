@@ -406,7 +406,7 @@ function createLife(d) {
 
   const isNight = t => { const h = new Date(t).getHours(); return h >= 20 || h < 6; };
 
-  // A bug Claude fixed, in a jar (bugdex.js): he lunges, corks it and holds it
+  // A bug Claude fixed, in a jar (bugdex/index.js): he lunges, corks it and holds it
   // up. Catches land while he's working, so one waits until he's free; a newer
   // one replaces it, and it goes stale after JAR_WAIT_MS.
   let jarWaiting = null;

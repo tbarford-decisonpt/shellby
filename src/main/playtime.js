@@ -12,7 +12,7 @@
 // up, brings it back and drops it at your feet. Ignore it for long enough and
 // the game's over.
 
-const { releaseVelocity, CritterMotion } = require('./motion');
+const { releaseVelocity, CritterMotion } = require('./desktop/motion');
 const play = require('./play');
 
 const SKIP_CLASSES = new Set(['Progman', 'WorkerW', 'Shell_TrayWnd', 'Shell_SecondaryTrayWnd', 'Windows.UI.Core.CoreWindow']);
@@ -306,7 +306,7 @@ function createPlaytime(d) {
     d.changed();
   }
 
-  /** motion.js finished a walk this module started. True when it was ours. */
+  /** desktop/motion.js finished a walk this module started. True when it was ours. */
   function onSettled(kind) {
     if (kind === 'fetch-run') { pickUp(); return true; }
     if (kind === 'fetch-home') { dropOff(); return true; }

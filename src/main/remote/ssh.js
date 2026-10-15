@@ -90,7 +90,7 @@ const ENV_NAME = /^[A-Z_][A-Z0-9_]{0,63}$/;
  *   dir: the folder (isRemoteDir); args: claude's arguments, where MCP_FILE
  *   marks the config read from stdin; env: { NAME: value } for Claude Code.
  */
-function sessionScript({ dir, args = [], env = {} }) {
+function sessionScript({ dir, args = /** @type {string[]} */ ([]), env = {} }) {
   const mcp = args.includes(MCP_FILE);
   const vars = Object.entries(env).filter(([k]) => ENV_NAME.test(k)).map(([k, v]) => `${k}=${shQuote(v)}`);
   const argv = args.map(a => (a === MCP_FILE ? '"$f"' : shQuote(a))).join(' ');

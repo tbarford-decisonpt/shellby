@@ -13,7 +13,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { EventEmitter } = require('events');
-const { classifyCommand } = require('./xp');
+const { classifyCommand } = require('./progression/xp');
 const { shipOf } = require('./stickers');
 const { checkupOf, readCheckup, commandDir } = require('./checkup');
 const { clientOf, describeClient } = require('./clients');
@@ -113,7 +113,7 @@ function applyHookEvent(sessions, evt, now, client = null) {
       if (evt.tool_name === 'Bash' || evt.tool_name === 'PowerShell') {
         const kind = classifyCommand(evt.tool_input?.command);
         // A push, deploy or release also ships the project, which earns its
-        // sticker (stickers.js): that needs the folder, and what it shipped.
+        // sticker (stickers/index.js): that needs the folder, and what it shipped.
         const ship = shipOf(kind, evt.tool_input?.command);
         if (kind) {
           effects.push(ship

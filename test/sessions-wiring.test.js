@@ -55,6 +55,25 @@ test('a conversation closing has its waiting transcript lines written', () => {
   assert.deepEqual(flushed, ['a']);
 });
 
+test('a conversation closed mid-turn lets go of its folder snapshot and ends its touch', () => {
+  const config = fakeConfig({});
+  const d = {
+    config, CAPTURE: false, FAKE_CLI: null, TAB_IDLE_STOP_MS: 1e9, TAB_IDLE_CHECK_MS: 1e9,
+    history: { load: () => [], flush: () => {} }, log: { info: () => {}, warn: () => {} },
+    sendTabs: () => {}, sendEveryWindow: () => {}, send: () => {}, noteRecap: () => {}, onUsage: () => {}, refreshOutlook: () => {},
+    usageService: { checkGuards: () => {} },
+  };
+  const wired = wireSessions(d);
+  wired.createManager();
+  d.manager.emit('tabs', [tab('a'), tab('b')]);
+  wired.beginTurn({ id: 'a', session: {} }); // no folder: a touch, no snapshot
+  wired.turnStarts.set('a', { root: 'C:\\x', tree: 'abc', turnId: 1 });
+  assert.ok(wired.openTouch('a'), 'the turn is open');
+  d.manager.emit('tabs', [tab('b')]);
+  assert.equal(wired.turnStarts.has('a'), false, 'the snapshot is let go');
+  assert.equal(wired.openTouch('a'), undefined, 'its touch has ended, so it stops overlapping later turns');
+});
+
 test('a usage reading goes to every window, popped-out conversations too', () => {
   const { d, everywhere } = setup();
   d.manager.emit('item', 'a', { kind: 'usage', fiveHour: { pct: 40 } }, { title: 'one' });

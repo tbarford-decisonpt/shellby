@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const tt = require('../src/main/timetrack');
-const ts = require('../src/main/timesync');
+const ts = require('../src/main/timetrack/timesync');
 
 // Saturday 3 October 2026, evening (local time).
 const NOW = new Date(2026, 9, 3, 18, 0).getTime();

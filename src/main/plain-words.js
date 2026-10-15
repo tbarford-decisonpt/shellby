@@ -7,9 +7,9 @@
 // tests in its own copy") and the Working bar's ("Running your tests"). A call
 // asking permission also gets warnings: deletes, paths outside the project,
 // installs, going online, pushing, and what's hard to undo.
-// Pure. See test/plain-words.test.js; session.js attaches them to items.
+// Pure. See test/plain-words.test.js; session/ attaches them to items.
 const path = require('path');
-const { classifyCommand } = require('./xp');
+const { classifyCommand } = require('./progression/xp');
 const { commandKind } = require('./bugdex/detect');
 const { onlyLooks } = require('./worktrees');
 

@@ -1,5 +1,5 @@
 // Tide events: a short, named week or so inside a season, with a countdown,
-// its own bug (bugdex/species.js `event`), its own finds (gifts.js `event`),
+// its own bug (bugdex/species.js `event`), its own finds (gifts/index.js `event`),
 // four goals and a medal stamped with the year. Seasons (wardrobe/seasons.js)
 // come round every year with the same things; an event is the bit you can
 // miss. Its trophy and reward item come back next year; the medal for a year

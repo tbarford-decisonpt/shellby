@@ -6,7 +6,7 @@
 // 4. how far GetWindowRect's invisible border is from the visible DWM frame.
 const { app, BrowserWindow } = require('electron');
 const { spawn } = require('child_process');
-const native = require('../src/main/native-windows');
+const native = require('../src/main/desktop/native-windows');
 
 native.dpiAware();
 

@@ -151,6 +151,24 @@ body[data-view="bugdex"] .view-bugdex { display: block; overflow-y: auto; paddin
 .bd-over .link-btn { color: var(--sand-faint); }
 .bd-over .link-btn:hover, .bd-over .link-btn:focus-visible { color: var(--sand); }
 
+/* nests and rematch history (bugdex-nests.js) */
+.bd-nests { margin: 12px 0 0; }
+.bd-nest-list, .bd-rivals ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.bd-nest { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px; }
+.bd-nest-text { display: grid; gap: 1px; }
+.bd-nest-ring { width: 36px; height: 36px; transform: rotate(-90deg); }
+.bd-nest-ring circle { fill: none; stroke-width: 3; }
+.bd-nest-ring .track { stroke: rgba(255, 255, 255, .12); }
+.bd-nest-ring .fill { stroke: var(--sand-faint); stroke-linecap: round; transition: stroke-dasharray .6s ease; }
+.bd-nest.caught .bd-nest-ring .fill { stroke: #7bd88f; }
+.bd-nest-ring text { transform: rotate(90deg); transform-origin: 18px 18px; font-size: 13px; }
+.bd-nests-note, .bd-nests-cleared { margin: 6px 0 0; }
+.bd-rivals { margin-top: 8px; }
+.bd-rivals summary { cursor: pointer; font-size: var(--fs-11); }
+.bd-rival { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; margin-top: 4px; }
+.bd-rival-past { grid-column: 1 / -1; font-size: var(--fs-11); letter-spacing: .05em; }
+
 @media (prefers-reduced-motion: reduce) {
+  .bd-nest-ring .fill { transition: none; }
   .view-bugdex, .bd-loose-art svg, .bd-detail, .bd-badge-socket svg, .bd-badge-slot.earned .bd-badge-socket::after { animation: none !important; transition: none !important; }
 }

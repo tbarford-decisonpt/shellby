@@ -90,6 +90,27 @@ body[data-view="tank"] .view-tank { display: block; overflow-y: auto; padding: 1
 .tk-item-name { font-size: var(--fs-12); font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
 .tk-item-meta { font-size: var(--fs-11); line-height: 1.3; color: var(--sand-dim); }
 .tk-item .dot-badge { top: 5px; right: 5px; }
+/* Milestone pieces (docs/TANK.md#milestones): a gold corner once earned; locked, a
+   silhouette in the piece's darkest tone at 35%, a lock and a ring of how far along. */
+.tk-item.tk-ms:not(.tk-ms-locked)::before {
+  content: ""; position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-top-left-radius: var(--r);
+  background: linear-gradient(135deg, #f2c14e 0 50%, transparent 50%); pointer-events: none;
+}
+.tk-item.tk-ms-locked[disabled] { opacity: 1; }
+.tk-item.tk-ms-locked .tk-thumb { position: relative; }
+.tk-item.tk-ms-locked .tk-thumb canvas { filter: none; opacity: .35; }
+.tk-item.tk-ms-locked .tk-thumb::before {
+  content: ""; position: absolute; top: 0; right: 4px; width: 18px; height: 18px; border-radius: 50%;
+  background: conic-gradient(#f2c14e calc(var(--ms-fill, 0) * 360deg), var(--line-soft) 0);
+  -webkit-mask: radial-gradient(circle, transparent 5px, #000 6px); mask: radial-gradient(circle, transparent 5px, #000 6px);
+}
+.tk-item.tk-ms-locked .tk-thumb::after { content: "🔒"; position: absolute; top: 2px; right: 7px; font-size: 9px; line-height: 1; }
+.tk-item.tk-ms-locked .tk-item-name, .tk-item.tk-ms-locked .tk-item-meta { opacity: .75; }
+.tk-item.tk-flash { border-color: #f2c14e; box-shadow: 0 0 0 2px rgba(242, 193, 78, .45); }
+@media (prefers-reduced-motion: no-preference) {
+  .tk-item.tk-flash { animation: tk-flash 1.2s ease-out 2; }
+  @keyframes tk-flash { 50% { box-shadow: 0 0 0 5px rgba(242, 193, 78, .15); } }
+}
 
 .tk-settings { display: grid; gap: 10px; margin-top: 14px; }
 .tk-setting { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 10px; }

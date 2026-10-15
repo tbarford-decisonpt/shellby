@@ -15,7 +15,7 @@
   // ------------------------------------------------------------ steering
 
   // What's queued behind a running turn goes to Claude at his next step, the
-  // way Claude Code's queue does (main's session.js steer), so main hears of
+  // way Claude Code's queue does (main's session/control.js steer), so main hears of
   // every change to it. A /command can only start a turn, and one with a file
   // picked needs a turn of its own to carry it: it, and everything after it,
   // wait for this one to end.

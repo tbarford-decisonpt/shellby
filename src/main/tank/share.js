@@ -11,11 +11,11 @@
 //
 // It's on the card only while `shareCard` is on (off by default), and that
 // choice belongs to this PC: it never syncs.
-const tank = require('../tank');
+const tank = require('./index');
 
 const CARD_MAX = 24;
 const BUILTIN_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;              // a built-in decor id (pack decor has a "pack/" in front)
-const CARD_REF_RE = /^(?:find:)?[a-z0-9][a-z0-9-]{0,39}$/;   // ...or one of his finds (gifts.js FINDS ids)
+const CARD_REF_RE = /^(?:find:)?[a-z0-9][a-z0-9-]{0,39}$/;   // ...or one of his finds (gifts/index.js FINDS ids)
 const STAND_IN = 'rock-round';                               // what a piece this PC doesn't know looks like
 
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -84,7 +84,7 @@ function peekView(cardTank, { decor = [], finds = [] } = {}) {
     if (!known) strangers++;
     return { uid: i + 1, ref: known ? p.ref : STAND_IN, x: p.x, row: p.row, z: i, flip: p.flip };
   });
-  const top = tank.SIZES.at(-1);
+  const top = /** @type {{ level: number, shipped: number }} */ (tank.SIZES.at(-1));
   const v = tank.view({ state: { size: t.size, style: t.style, placed }, lib, level: top.level, shipped: top.shipped });
   return {
     size: { id: v.size.id, name: v.size.name, w: v.size.w, h: v.size.h },

@@ -129,6 +129,7 @@
     $('selfAwareToggle').checked = state.settings.selfAware !== false;
     $('suggestToggle').checked = state.settings.suggestions !== false;
     $('plainCardsToggle').checked = state.settings.plainCards !== false;
+    $('idleCompactToggle').checked = !!state.settings.idleCompact;
     $('suggestToggle').disabled = state.settings.selfAware === false;
     const muted = state.settings.mutedSuggestions || [];
     $('mutedSuggestRow').hidden = !muted.length;
@@ -300,6 +301,7 @@
   });
   $('selfAwareToggle').addEventListener('change', async e => { const r = await api.setSettings({ selfAware: e.target.checked }); state.settings = r.settings; renderSettings(); });
   $('plainCardsToggle').addEventListener('change', async e => { const r = await api.setSettings({ plainCards: e.target.checked }); state.settings = r.settings; });
+  $('idleCompactToggle').addEventListener('change', async e => { const r = await api.setSettings({ idleCompact: e.target.checked }); state.settings = r.settings; });
   $('suggestToggle').addEventListener('change', async e => { const r = await api.setSettings({ suggestions: e.target.checked }); state.settings = r.settings; });
   $('unmuteSuggestBtn').addEventListener('click', async () => { state.settings.mutedSuggestions = await api.muteSuggestion(null); renderSettings(); });
   $('loginToggle').addEventListener('change', async e => { const r = await api.setSettings({ openAtLogin: e.target.checked }); state.settings = r.settings; });

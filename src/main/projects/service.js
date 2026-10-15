@@ -64,7 +64,7 @@ class Projects extends EventEmitter {
    *   copies?() -> { home, open: [path] }: where Shellby's copies live, and the ones open tabs work in
    *   retireCopy?({ path, root, branch }) -> { ok, error? }: tidy a copy away, History and all
    *   journal?(roots, name) -> its handoff notes (wiring/journal.js), or null
-   *   time?() -> the time tracker's state (timetrack.js), for reports
+   *   time?() -> the time tracker's state (timetrack/index.js), for reports
    *   weekly?() -> the weekly ledger (weekly.js), for Claude's tasks in reports
    *   commits?(root, fromMs, toMs) -> [{ at, subject }]  your commits (gitinfo.commitsBetween)
    *   run?: git runner (tests)

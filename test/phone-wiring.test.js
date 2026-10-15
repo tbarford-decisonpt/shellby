@@ -9,7 +9,7 @@ const { installFakeElectron } = require('./helpers/fake-ipc');
 const electron = installFakeElectron();
 electron.safeStorage = { isEncryptionAvailable: () => true, encryptString: s => Buffer.from(s), decryptString: b => String(b) };
 const channels = require('../src/main/channels');
-const pt = require('../src/main/phone-tasks');
+const pt = require('../src/main/channels/phone-tasks');
 const { wireChannels } = require('../src/main/wiring/channels');
 const { wirePhoneTasks } = require('../src/main/wiring/phone-tasks');
 

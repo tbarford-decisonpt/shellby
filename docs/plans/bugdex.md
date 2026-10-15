@@ -37,7 +37,7 @@
 - `bug-terrarium` (not `terrarium`, which `shell-cargo.json` already has) is the
   Naturalist reward.
 
-The code: `src/main/bugdex.js` (state, pure), `src/main/bugdex/` (`species`, `detect`,
+The code: `src/main/bugdex/index.js` (state, pure), `src/main/bugdex/` (`species`, `detect`,
 `lifecycle`, `cheats`, `art`), `src/main/wiring/bugdex.js`, and the panel's
 `src/renderer/panel/bugdex.js`. Tests: `test/bugdex*.test.js`, `scripts/e2e-bugdex.js`
 (fixtures in `test/fixtures/bugdex/`).
@@ -528,7 +528,7 @@ Without that, a red to green that you or a colleague fixed is not a catch. `gree
 
 ## 7. Rewards
 
-**XP** (`src/main/xp.js AWARDS`; `LOG_KINDS` picks them up automatically):
+**XP** (`src/main/progression/xp.js AWARDS`; `LOG_KINDS` picks them up automatically):
 
 ```js
 catch:  { xp: 10, perHour: 6, label: 'Caught a bug', way: 'Fixes a bug and catches it for the Bugdex', claude: true },
@@ -806,7 +806,7 @@ const JAR = [
 
 | File | What |
 |---|---|
-| `src/main/bugdex.js` | **Pure** state: `normalize`, `recordSeen`, `recordCatch` (→ `{ state, isNew, counted, pays, evolved, completed, form }`), `escape`, `expire`, `view`, `markSeen`, `setFavourite`, `catchLine`, `hintFor`, `syncable`, `merge`, `applySync`. No I/O, no clock, `rand` passed in. |
+| `src/main/bugdex/index.js` | **Pure** state: `normalize`, `recordSeen`, `recordCatch` (→ `{ state, isNew, counted, pays, evolved, completed, form }`), `escape`, `expire`, `view`, `markSeen`, `setFavourite`, `catchLine`, `hintFor`, `syncable`, `merge`, `applySync`. No I/O, no clock, `rand` passed in. |
 | `src/main/bugdex/species.js` | `SPECIES`, `HABITATS`, `TYPES`, `STAGES`, `LIVE_PHASE`, `BY_ID`. Frozen, like `FINDS` / `SETS`. |
 | `src/main/bugdex/detect.js` | **Pure**: `gate(cmd, item)`, `commandKind`, `classify(output, { source, cmd })` → `{ species, fp, lang, tier } | null`, `fingerprint`, `remedyOf(cmd)`, `isConflictResolve(cmd)`, `isFlee(cmd)`. |
 | `src/main/bugdex/lifecycle.js` | **Pure**: `open(state, enc, now)`, `engage`, `candidates(state, { project, cmd })`, `settle(state, enc, pass, verdict, now)`, `prune`. |
@@ -824,7 +824,7 @@ const JAR = [
 | `src/main/life.js` | `presentJar(card, line)`. |
 | `src/renderer/critter/life.js`, `life.css`, `sound.js` | `jar` prop, `bit-catch`, `clink`. |
 | `src/renderer/panel/bugdex.js`, `bugdex.css`, `pixel-art.js`, `panel.html`, `nav.js`, `crabonly.css`, `settings.js` | Page, tab, palette, switch (`bugdexToggle` under Settings → System, next to `flakyToggle`, settings.js:84/377). |
-| `src/main/xp.js`, `weekly.js`, `needs.js`, `wardrobe/achievements.js`, `src/wardrobe/bug-hunter.json`, `renderer/panel/week-card.js` | Rewards. |
+| `src/main/progression/xp.js`, `weekly.js`, `needs.js`, `wardrobe/achievements.js`, `src/wardrobe/bug-hunter.json`, `renderer/panel/week-card.js` | Rewards. |
 | `src/main/github/sync.js` | Sync. |
 | `src/main/capture-demo.js`, `capture.js`, `scripts/automate-shots.js` | `demoBugdex(now)`: 18 caught (one golden, one evolved to stage II, one habitat done: the Burrows), 6 seen, 2 on the loose. `capture.js` sets it next to `demoLife` (capture.js:346). Adds `docs/img/screenshot-bugdex.png`. |
 | `test/fixtures/fake-claude.js` | `bash <fixture>`: a Bash tool call whose command and output come from `test/fixtures/bugdex/<fixture>.json` (`{ command, isError, output }`). Uses the existing `edit <file>` for real tree changes. |
@@ -971,7 +971,7 @@ As flaky v2: if Claude Code sends `PostToolUseFailure`, register it in `claude-p
 
 - `src/main/wiring/sessions.js` (the tool/tool_result pairing, lines 103-142, where most observing and catching hooks in)
 - `src/main/wiring/progress.js` (`awardXp`, `noteTestRun`, `snapshotWithin`, `testOutput`, `checkedUp`: the pattern for the new `wiring/bugdex.js`)
-- `src/main/gifts.js` (the state, view, silhouette and set model the pure `bugdex.js` copies)
+- `src/main/gifts/index.js` (the state, view, silhouette and set model the pure `bugdex.js` copies)
 - `src/main/flaky/ids.js` and `src/main/flaky/parsers.js` (`normalizeCmd`, `cmdKey`, `masked`, `readRun`, reused for command identity and test pass/fail)
 - `src/main/ipc/repo.js` (`bringTabHome`, `secretGate`, `pushHome`: the conflict and secret catches)
 

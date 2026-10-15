@@ -83,7 +83,7 @@ const saved = data => JSON.parse(fs.readFileSync(path.join(data, 'settings.json'
       await ev("[...SB.$('xpQuestList').querySelectorAll('.quest-go')].find(b => b.textContent === 'Open the reset queue').click()");
       check(await until("SB.state.view === 'routines' && document.activeElement?.id === 'resetQueueText'"), 'which lands in the reset queue box');
       await ev("SB.api.dev.quest('reset')");
-      check(await until("/Quest line complete/.test(document.querySelector('.celebrate-host')?.textContent || '') || /Quest line complete/.test(document.body.textContent)", 40000), 'finishing all four gets its own card');
+      check(await until("/Chapter 1 complete/.test(document.querySelector('.celebrate-host')?.textContent || '') || /Chapter 1 complete/.test(document.body.textContent)", 40000), 'finishing all four gets its own card');
       check(Object.keys(saved(data)?.done || {}).length === 4, 'all four are saved');
       check(await ev("/all found/.test(SB.$('xpQuestCount').textContent)"), 'Trophies says they are all found');
       await ev("SB.setView('chat')");

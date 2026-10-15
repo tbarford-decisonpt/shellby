@@ -7,7 +7,7 @@
 // folder for a little while, so typing doesn't re-run git on every key.
 //
 // rank() is pure; see test/fileindex.test.js.
-const { execFile } = require('child_process');
+const { execFileTree: execFile } = require('./exec-tree'); // a timeout ends git's whole tree
 const fs = require('fs');
 const path = require('path');
 
@@ -15,6 +15,7 @@ const MAX_FILES = 30000;
 const WALK_MAX = 6000;
 const WALK_DEPTH = 6;
 const CACHE_MS = 20000;
+const MAX_CACHED = 20; // folders whose lists are kept at once
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'out', '.next', '.cache', 'coverage', '__pycache__', '.venv', 'venv', 'target', 'bin', 'obj']);
 
 const cache = new Map(); // cwd -> { at, entries: Promise<string[]> }
@@ -59,11 +60,15 @@ function withFolders(files) {
 async function list(cwd, { fresh = false } = {}) {
   if (typeof cwd !== 'string' || !path.isAbsolute(cwd) || !fs.existsSync(cwd)) return [];
   const key = path.resolve(cwd).toLowerCase();
+  const now = Date.now();
+  // Lists past their time go now: each can hold MAX_FILES paths, and waiting
+  // for MAX_CACHED newer folders to push them out kept them for the whole run.
+  for (const [k, v] of cache) if (now - v.at >= CACHE_MS) cache.delete(k);
   const hit = cache.get(key);
-  if (hit && !fresh && Date.now() - hit.at < CACHE_MS) return hit.entries;
+  if (hit && !fresh) return hit.entries;
   const entries = (async () => withFolders((await gitFiles(cwd)) || walk(cwd)))();
   cache.set(key, { at: Date.now(), entries });
-  if (cache.size > 20) cache.delete(cache.keys().next().value);
+  if (cache.size > MAX_CACHED) cache.delete(cache.keys().next().value);
   return entries;
 }
 
@@ -122,4 +127,4 @@ async function suggest(cwd, q, limit = 12) {
   return rank(await list(cwd), q, limit);
 }
 
-module.exports = { list, rank, mention, suggest, forget, onForget, withFolders };
+module.exports = { list, rank, mention, suggest, forget, onForget, withFolders, cachedCount: () => cache.size, CACHE_MS };

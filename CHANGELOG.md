@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.86.0: Ultracode, a guided first run, and a steadier client
+
+### New
+- **The Council says what it costs.** Before it sits, the hint by Convene gives a range ("About $0.07–0.39") for the mode, the seats and the read. After, the minutes and Past sessions show what it really cost, added up from every call. If a call didn't say, it reads "at least".
+- **First steps.** Someone new gets a short path on the chat's start screen: open a project, give Claude a task, see what he changed, and say hi to the crab. Each step ticks itself off when you really do it, any of them can be skipped, and × puts the card away until Settings → General → Screens brings it back.
+- **The game opens when you're ready for it.** Finds, Stickers, Crew, the Bugdex, the Council, Us, the Tank, a project's Reef and Review mastery wait until First steps are done or he reaches level 3, then open as you work, each with a card that names the quest chapter teaching it and a "new" on its door until you look.
+- **Show everything now**, in Settings → General → Screens, for anyone who'd rather have every screen at once.
+- **Fix this, on the reef.** Every reef signal that can get better has a Fix this button. It opens a new conversation in that project with a prompt already in the box, naming the files with the most escape hatches or lint problems, the least-covered files, the failing CI checks, the flaky tests, the vulnerable packages or the bug nests, and how to check the fix. Nothing is sent until you press Enter.
+- **Fix the worst.** The Reef card also offers Fix the worst, which picks the signal with the most room to get better. When the next reading shows it improved, it's a new best and a polyp, as always.
+- **Ultracode, from the box.** The Ultracode chip under the box adds the word "ultracode" to what you send in that conversation, so Claude can send out a whole crew of agents in the background. It's off until you turn it on, and the first time he asks first, with a rough idea of what a run costs.
+- **A card for every run.** Its phases, how many agents are running and done, how long it's been going and what it has cost so far (at the least: Claude Code doesn't say the price), with Stop and how it ended. Close the conversation and bring it back, and the card is still there.
+- **The crew walks out.** A run's agents go out as helper crabs, a few at a time, with "+N more" for the rest, and walk home as they finish. What they spend counts on your usage meters.
+
+### Fixed
+- **Nothing he started outlives him.** Quitting now ends every task still running in the background (a one-off Claude Code run, a workflow's MCP server, a sign-in), and the packages a new copy installs are stopped, along with everything npm started, if they take too long or you quit.
+- **Closing a tab mid-turn no longer muddles other tabs' changes.** A conversation closed while it was working kept claiming the files it had touched, so other conversations' diffs and Undo could leave them out.
+- **A copy that can't be made says why.** With no git on the PC he used to say the folder wasn't a repository; and a folder of copies he couldn't write to (no permission, a full disk, too long a path) now gets a sentence instead of silence.
+- **Long conversations stay light.** Helpers that finished long ago are let go instead of piling up for the life of the conversation.
+- **The Council counts on your usage meters.** Its sittings now show up as their own line in who used your 5-hour and weekly windows.
+- **Copy works on long text.** Copy buttons said "Copied" but put nothing on the clipboard when the text ran past 2,000 characters, so long prompts, plans and code blocks never copied. They now copy in full.
+- **Bug nests reach the reef.** Open nests in the Bugdex never showed up on a project's reef. They do now.
+- **A panel full of busy tabs no longer freezes after you minimize it.** With a lot of conversations working at once, the panel used to redraw the whole tab strip for every progress report, fell behind, and stayed frozen (for minutes, in the worst case) while it caught up after you restored or maximized it. It now keeps up with the newest report and skips redrawing tabs that look the same.
+
+### Changed
+- **Screens say what they're for.** While you're new, Outfits, Health and the Logbook carry a line on what they do, and an empty History has a button to start your first conversation.
+- Already using Shellby? Nothing moves or hides for you.
+- **Helpers start folded.** A subagent's lane in the conversation now starts closed, with what it's doing on its one line. It opens by itself only when the helper needs your answer, and one you open stays open when it finishes.
+
+## 0.85.0: The Logbook, levels to 99 and Shellby Wrapped
+
+### New
+- **Bug battles replay the real fix.** The finishing blows now come from what Claude actually did: a new test that proves it lands a Proof Strike, a fix at the cause a Root Cut, a pass on the first re-run First Try, and helpers a Crew Combo. Each catch card gets a fix report with those four marks.
+- **Rematches.** A bug you've caught in a project before comes back stronger, and remembers how it was fixed last time ("Last time: no test"). Win the rematch with a new test and it's Sealed.
+- **Bug nests.** When the same bug turns up three times in a month in one project, it nests there. Catch it and keep it away for 14 days (7 if a test sealed it) to clear the nest. Nests sit at the top of the Bugdex with a ring showing how close each is, plus a rematch history of every bug you've fought more than once.
+- **Good fixes pay off.** A fix with a new test at the root, a fix that stays fixed for 14 days and a cleared nest each earn XP, and count toward trophies that can unlock tank pieces. Nothing is ever taken away.
+- **The Council reads your project before it sits.** Shellby reads the project you're working in first (only reading: he can't change or run anything, never leaves the folder, and stops at $0.30), and lays what he found on the table as numbered cards. Every advisor argues from the same facts and cites them, so "I haven't read the code" is gone. Each fact links to its file and line, and one naming a file that isn't there is left out.
+- **He picks who sits.** For each question Shellby seats the 3 to 5 advisors whose angles matter most, now from a bench of nine: the Tester, the Keeper, the Newcomer and the Counter join the Skeptic, Builder, Guard, Player and Elder. Turn it off under Seats to choose the table yourself.
+- **A decision, not a shrug.** The verdict is sealed **Do it**, **Don't** or **First, this**, with the best case against it and what's still open. Advisors who vote "Depends" name the one condition, and each says what would change their mind.
+- **Put it to work.** **Plan the next steps** opens a conversation in Plan mode with the verdict and its facts, ready for you to read and send. **Answer what's open** has him read the project for what's still open and the council sits again. **Add to Notes** puts the verdict on the project's Notes.
+- **They're held to it.** Tell the council how a verdict went (followed it and it worked, followed it and it didn't, or didn't follow it) and each advisor earns a record on their plaque. The chair weighs the records next time.
+- **Debate is sharper.** Each advisor answers another by name, and the minutes and their vote token show who changed their mind.
+- **Compact long conversations while they're idle.** A new switch in Settings, Claude Code (off unless you turn it on). A conversation of 200K tokens or more that sits quiet for 54 minutes is compacted just before its hour-long prompt cache runs out, so your next message doesn't send all of it again at full price. Claude Code does this in a terminal; now Shellby's tabs can too. It respects `"idleCompaction": false` and `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`, and it's quiet: no toast, phone ping or XP, just a line in the conversation saying so.
+- **The Logbook.** A new first tab on his screen with everything going on in one place: today's bounties, your quest, the tide event, bugs on the loose, your next unlock, your reefs, your review track and your week. Every card opens the screen it comes from, and says what it leads to ("catch it with a test → its nest clears → coral grows"), each line a link. Pin the ones you care about to the top, or fold the rest away.
+- **Ten new quest chapters.** The quest line keeps going after the first four tricks: the reef, the Bugdex, routines and workflows, review, the tank, tide events and more, each chapter teaching one screen and how it feeds the next. They open as he levels up, a tide event opens one early, and a screen you haven't tried in a while gets its chapter sooner. Each finished chapter pays XP. Your progress on the first four carries over as Chapter 1.
+- **Levels 20 to 99 are full of things.** Nearly every level now unlocks something: 12 new shells, 27 tank pieces (an anglerfish lamp, a lighthouse with a turning beam, a kraken arm, a supreme pedestal), 19 effects and ten perks like a fourth daily bounty and two tide-out days a week. A bar under the XP bar counts down to the next one, and **Every level** shows the whole ladder.
+- **Milestone ceremonies.** Levels 20, 30, 40, 60, 70, 80 and 90 take over the panel in the new rank's colour, and 50 and 99 are legendary, with a card to share.
+- **Molt at 99.** If you want, he starts again at level 1 and keeps absolutely everything, for a tier shell of his own and a ring round his level badge. The first twelve are hand-made and wild: lava that flows, an eye that blinks and looks around, a lava lamp, a spinning event horizon, gears that turn, a crown with flames. Every molt after that makes a one-of-a-kind shell of its own.
+- **Reef health per project.** Press **Watch this reef** on a project's page and he keeps an eye on how its code is doing: escape hatches like `ts-ignore` and `any`, lint problems, coverage, CI, flaky tests, vulnerable packages, bug nests and the test count. Only a new best counts, and each one grows a polyp on the project's coral. A worse day never takes anything away; it only turns the coral paler. Counts only, kept on this PC, and Shellby never runs your code to get them. See [Reef health](docs/REEF.md).
+- **Coral in his tank.** Every watched reef grows its own coral, shaped by the project and swaying in the current, on the tray's Plants shelf and in the new Coral list on the Tank page.
+- **Review mastery on Trophies.** Points for really reading Claude's work: a quiz passed on a turn, a review with a comment that says something, and a catch when Claude's next turn rewrites the lines you flagged before anything was pushed. Five tiers, from Tide-pool Reader to Abyssal Auditor, each paying XP, with tank pieces along the way.
+- **Shellby Wrapped.** Every January 2nd (or the first time you use him after it), Shellby shows you the year before in a few slides: your XP and levels, the days you spent together and your longest run, your busiest hour and day, the projects you shipped most, the bugs Claude caught and your nemesis, fixes that held, the reef, review, tide medals, and the pieces you earned for his tank. It ends on a card you can save, copy and post. Missed a year? It waits behind the 🎁 on Trophies. He's keeping the yearbook from today, and this year's fills in what he already knew, so it says "since" when it starts.
+- **Rare tank pieces for your milestones.** Forty new pieces, each earned by a milestone of its own: 10, 100, 250, 500 and 1,000 bugs caught, your first bug nest cleared, rematches won, fixes that held, a perfect tide, every Molt, a thriving reef, each review tier, each year of Wrapped, levels 25, 50, 75 and 99, quest chapters, and 60 and 100-day streaks. Lots of them move: jars bubble, a buoy blinks, a hawk turns its head, snow falls in the globes. They have their own Milestones shelf in the tank, where the ones still to come show as a silhouette with how close you are, and earning one offers to put it straight in.
+
+### Fixed
+- **Streaks don't punish you any more.** Weekends hold your streak (turn that off on the XP card), one missed working day a week is a free 🌊 tide-out, and if a streak does break the bonus eases off 5% a day instead of vanishing.
+
+### Changed
+- **Quick and Debate.** Full is folded into Debate, which is the same plus one round of answering each other.
+- **Mods that can read your attachments say so.** Before you turn one on, the Toolbox now lists "Reads the pictures and documents you attach" for a mod that asks Claude Code for the images and documents on your messages.
+- **Quests live in the Logbook.** The chat's quest card now says which chapter you're on and has a Logbook link, and "See the quest line" opens the Logbook's chapter list.
+- His tank sizes go by the highest level he's ever reached, so they stay his after a Molt.
+
 ## 0.84.0: Background sessions, server logs beside the chat, and combining tries
 
 ### New

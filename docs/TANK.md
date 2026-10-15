@@ -54,9 +54,63 @@ There's no shop and nothing to buy. Each piece comes from something specific, an
 | **Seasons** | Turns up while its season is on, and stays | Carved Pumpkin (Halloween), Snow Globe (winter), Heart Shell (Valentine's), Cherry Blossom (spring), Beach Ball (summer), Pile of Leaves (autumn) |
 | **Tide events** | Finish one while it's on ([TIDES.md](TIDES.md)) | Harvest Sheaf, Wisp Lantern, Ice Castle, Post Box, Flower Pot, Giant Clam |
 | **Friends** | A sparkly find, or an egg a friend hatched | Glitter Jar (*Glimmer*), Crab Nest (*Proud Parent*) |
+| **Milestones** | A rare piece for each milestone, across everything ([below](#milestones)) | Century Jar Shelf, Grudge Gong, Molting Altar, Great Barrier, Year One Snowglobe |
 | **His finds** | Anything he's dug up for you | Put in as many as he's found |
 
 Wardrobe packs can add decor too: see [ADDONS.md](ADDONS.md#decor).
+
+## Milestones
+
+The rarest pieces each mark a milestone: a hundred bugs in jars, your first bug nest cleared, every Molt, a thriving reef, a review tier, each year of [Shellby Wrapped](WRAPPED.md), levels 25 to 99, the quest chapters, long streaks. Each comes with its own trophy, so it pays trophy XP, celebrates, syncs and gets a "new" dot like any other.
+
+They have their own **Milestones** shelf in the tray. One you haven't earned yet is a dark silhouette with a 🔒 and a ring that fills as you get closer, and says what it takes and how far along you are ("7 / 10 · Clear 10 bug nests"). Once it's yours it gets a gold corner. The ones that move (a bubbling jar shelf, a blinking buoy, falling snow) play in the tray while you point at them, and in the tank all the time. The **Milestones** row under *Where decor comes from* names the one you're closest to.
+
+When you earn one, a toast offers **Put it in the tank**: it opens his tank on the Milestones shelf with that piece picked out.
+
+Levels count the highest you've ever reached, so a Molt never takes a flag down. Secret ones stay secret until they're done.
+
+| Piece | Trophy | How | Moves |
+|---|---|---|---|
+| Specimen Shelf | 🫙 Jar Collector | Catch 10 bugs for the Bugdex, all time |  |
+| Century Jar Shelf | 💯 Century of Jars | Catch 100 bugs for the Bugdex, all time | yes |
+| Bug Hotel | 🏨 Bug Hotelier | Catch 250 bugs for the Bugdex, all time |  |
+| Jar Tower | 🗼 Tower of Jars | Catch 500 bugs for the Bugdex, all time |  |
+| Thousand-Bug Trophy | 🏆 One Thousand | *(secret)* Catch 1,000 bugs for the Bugdex, all time | yes |
+| Cleared Nest Stone | 🪺 Nest Sweeper | Clear your first bug nest |  |
+| Cairn of Ten Nests | 🪨 Nest Warden | Clear 10 bug nests |  |
+| Rematch Belt | 🥊 Rematch | Win 3 rematches against bugs that came back | yes |
+| Grudge Gong | 🔔 Grudge Match | Win 15 rematches against bugs that came back | yes |
+| Tablet of Proof | 📜 Proven | Make 10 clean fixes, each with a new test that proves it |  |
+| The Anchor That Held | ⚓ It Held | Have 25 fixes hold for two weeks |  |
+| Perfect Tide Buoy | 🛟 Perfect Tide | Finish every goal of a tide event in its first half | yes |
+| Medal Rack | 🎖️ Medal Collector | Win 4 tide event medals |  |
+| First Husk | 🦀 First Molt | Molt for the first time at level 99 |  |
+| Twin Husks | 🐚 Second Molt | Molt twice |  |
+| Molting Altar | 🔮 Third Molt | Molt three times | yes |
+| Husk Totem | 🗿 Fifth Molt | Molt five times |  |
+| Void Pearl | 🌑 Ninth Molt | *(secret)* Molt nine times | yes |
+| Thriving Reef Arch | 🪸 Thriving | Bring one project's reef to thriving | yes |
+| Great Barrier | 🌊 Great Barrier | Have 3 projects with a thriving reef | yes |
+| Coral Record Board | 📈 Reef Records | Set 25 new reef bests across your projects |  |
+| Diver's Goggles Stand | 🤿 Diff Diver | Reach review tier 2, Diff Diver |  |
+| Hawk Perch | 🦅 Line Hawk | Reach review tier 3, Line Hawk | yes |
+| Guardian Gate | 🛡️ Merge Guardian | Reach review tier 4, Merge Guardian |  |
+| Auditor's Lantern | 🏮 Abyssal Auditor | Reach review tier 5, Abyssal Auditor | yes |
+| Red Pen Quill | ✒️ Good Catch | Catch 10 things in review before they merge |  |
+| Scroll of Five | ⭐ Quiz Whiz | Pass 5 quizzes in a row, each on a different change |  |
+| Year One Snowglobe | ❄️ Year One | Open your first Shellby Wrapped | yes |
+| Two-Year Globe | ☃️ Year Two | Open Shellby Wrapped for 2 years | yes |
+| Three-Year Globe | 🌨️ Year Three | Open Shellby Wrapped for 3 years | yes |
+| Time Capsule | ⏳ Year Five | *(secret)* Open Shellby Wrapped for 5 years |  |
+| Level 25 Flag | 🚩 Quarter Way | Reach level 25 | yes |
+| Level 50 Banner | 🎏 Halfway Down | Reach level 50 | yes |
+| Level 75 Standard | 🏳️ Deep Water | Reach level 75 | yes |
+| Pedestal of 99 | 🌟 Ninety-Nine | Reach level 99 | yes |
+| Quest Compass | 🧭 Pathfinder | Finish 5 quest chapters | yes |
+| Complete Sea Chart | 🗺️ Cartographer | Finish every quest chapter |  |
+| Logbook Lectern | 📖 Ship's Log | Open the Logbook 30 times | yes |
+| Streak Lighthouse | 💡 Keeper of the Light | Keep a 60-day streak going | yes |
+| Hundred-Day Bell | 🛎️ Hundred Tides | *(secret)* Keep a 100-day streak going | yes |
 
 ## Tank sizes
 
@@ -140,12 +194,13 @@ Pieces from a pack you've removed, or that are locked again because you switched
 
 ## For developers
 
-- `src/main/tank.js`: sizes, rows, the stored tank (`config.tank`), `library` (decor from the wardrobe, plus his finds), `sanitize` and `view`. Pure, and covered in `test/tank.test.js`. It's called `tank`, never `home`: `config.home` is the shell he wears.
+- `src/main/tank/index.js`: sizes, rows, the stored tank (`config.tank`), `library` (decor from the wardrobe, plus his finds), `sanitize` and `view`. Pure, and covered in `test/tank.test.js`. It's called `tank`, never `home`: `config.home` is the shell he wears.
 - `src/main/tank/life.js`: his life in it, the part main keeps, in its own config key `tankLife` (per PC, never synced or on a card): `uses` per piece and `favourite`, the refs he's already looked at, the biggest tank he's moved into (moving day), the sets he's had on display, and his lines (`reactionLine`, `movingLine`, `remark`, all within the bubble's 24 characters). `afterSave` runs on every `tank:save`. Pure, covered in `test/tank-life.test.js`.
 - `src/renderer/panel/tank-life.js`: what he does from moment to moment. `spotsOf` places each piece's spots in the tank, `pick` chooses (new pieces first, bed at night, his favourite three times as often, sometimes just a wander), `pose` says how he looks while he does it (lift, crop, hop, z's), and `moving` lays out moving day. Pure and loaded by the panel and `test/tank-life-pick.test.js`. It only runs inside the Tank tab's own 10 fps loop, so it costs nothing while the tab is hidden; the panel tells main what he used every few activities, or when you leave the tab (`tank:lived`), never every frame.
 - `src/main/tank/share.js`: his tank leaving the PC. `forCard` (the calling card's `tank` field, only with `shareCard` on), `cleanCardTank` (a friend's card is untrusted: strict shape, sizes and ranges, at most 24 pieces, refs only built-in decor ids or `find:` ids, so no colours, pixels, URLs or paths ever come from it), `peekView` (their layout with this PC's art; unknown refs become a rock) and `syncable` / `merge` / `applySync` for the sync gist (newer `editedAt` wins; `shareCard` never syncs). Covered in `test/tank-share.test.js`.
 - `src/main/ipc/tank.js`: `tank:get`, `tank:save` (which also answers with what he made of it: new pieces, moving day, sets), `tank:life` and `tank:lived` (his favourite and sets on display), `tank:seen`, `tank:share` (on your cards or not) and `tank:peek` (a friend's, from their last fetched card). The editor sends the whole draft on Done, and `tank.sanitize` decides what of it he can really have: unlocked, within his finds, within the tank's room, a size he's grown into.
 - `src/main/wardrobe/catalog.js`: the `decor` kind. `src/wardrobe/tank-decor.json` is the built-in pack.
+- **Milestones:** `src/wardrobe/milestones.json` is a built-in pack of decor gated on `unlock: { achievement }`, each the one reward of its own entry in `wardrobe/achievements.js` `ACHIEVEMENTS` (the stats come from every game system, `docs/GAMIFICATION-PLAN.md` section 1.4). `test/packs.test.js` checks the pairing both ways and that every system has a piece. `tank.library` puts a piece from the `milestones` pack on the `milestone` shelf (whatever its catalog category) with `milestone: true`, and gives every locked piece `hint` (the trophy's description, from the wardrobe's `lockInfo`) and, for a trophy, `progress: { current, goal }`; `view` passes them to the tray and the placed pieces. `tank-render.js` paints locked milestone tiles as a silhouette (every palette key in its darkest colour, at 35%), with the lock and a conic progress ring (`--ms-fill`), earned ones with a gold corner, and plays `frames` while a tile is hovered or focused (never with motion turned down). `tank.js` turns the trophy toast into **Put it in the tank**. Tank sizes are gated on `d.everLevel()`, so a Molt keeps them. `ipc/tank.js` fires the tank quests (`decorate`, `bigger`, `milestone-piece`, `jar-in-tank`, `tank-share`; an id quests.js doesn't have yet does nothing). Covered in `test/tank.test.js`, and the shelf end to end in `scripts/e2e-wrapped.js`.
 - `src/renderer/panel/tank-paint.js`: paints a tank in art pixels at a whole-number scale, for the Tank tab and the Health porthole. `resolve` lays out a draft the same way `tank.view` does.
 - `src/renderer/panel/tank.js` and `tank.css`: the Tank tab and the editor. It draws at 10 frames a second only while the tab is showing, and a single still frame when motion is turned down or the panel is calm (behind your windows, away, a game up).
 - `src/main/tank/gauges.js` (pure) turns a Health snapshot, his mood, `DevServers#summary()`, `config.lastUsage`, the last merge and the unread cards into coarse readings (`tempOf`, `loadStep`, `moodOf`, `lighthouseOf`, `tideOf`, `chestOf`, `bottleOf`, `gauges`); `src/main/ipc/tank-gauges.js` keeps the latest, hears the monitor's `sample`, the mood, the dev servers' `change`, each usage reading (`wiring/sessions.js`), a merge (`wiring/github.js`, with a timer to end the glint) and a recap or weekly card going out (`away-service.js`, `wiring/progress.js`), and pushes `tank:gauges` only when the reading differs and the panel is showing. `tank:gauges` asks once, `tank:live` turns one off (`config.tankLive`, per PC), `tank:bottle-read` says the recap was dismissed (`recap.js`) or the week seen (the Trophies page). `src/renderer/panel/tank-gauges.js` paints the reading into placed `glass-thermometer` pieces, the lighthouse, bubbles, plant sway and moods through `tank-paint.js`'s `gauges` option; `tank-gauges-more.js` paints the tide gauge, the chest's glint and the bottle. Covered in `test/tank-gauges.test.js` and `test/tank-gauges-feed.test.js`.

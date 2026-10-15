@@ -6,8 +6,7 @@
 // into the panel. Kept out of main.js, which only wires it up.
 const { BrowserWindow, app } = require('electron');
 const path = require('path');
-const { clampToDisplays } = require('../placement');
-const { ignoresRealMouse } = require('../test-desktop');
+const { clampToDisplays } = require('../desktop/placement');
 
 const PANEL_DEFAULT = { width: 460, height: 700 };
 const MIN = { width: 360, height: 420 };
@@ -71,7 +70,6 @@ function wirePopouts(d) {
       show: false, frame: false, backgroundColor: '#0c1719', title: d.manager.tabs.get(tabId).title || 'Shellby', icon: d.ICON, webPreferences: d.webPreferences,
     });
     d.secureWindow(win);
-    if (ignoresRealMouse(process.env, app.isPackaged)) win.setIgnoreMouseEvents(true); // as the panel does (test-desktop.js)
     popouts.set(tabId, win);
     win.loadFile(path.join(d.RENDERER, 'panel', 'panel.html'), { query: { popout: tabId } });
     win.webContents.on('did-finish-load', () => win.webContents.setZoomFactor(d.config.get('panelZoom') || 1)); // the panel's zoom (ipc/files.js)

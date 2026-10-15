@@ -1,4 +1,4 @@
-// Swaps: friends trade finds (gifts.js), one for one. Never bugs: a catch comes
+// Swaps: friends trade finds (gifts/index.js), one for one. Never bugs: a catch comes
 // from a fix Claude really made, so it can't change hands. Offers, answers and
 // call-offs are letters on each other's calling cards (github/mail.js); this
 // keeps the book of what's open, and says what each letter does to your shelf.

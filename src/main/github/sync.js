@@ -2,27 +2,27 @@
 // collected seasonal items, stats, XP, streak days, shell stickers, the outfit
 // and the skin. Merging only ever adds progress (unions and maxima), so a sync
 // can't lose anything on either side. XP is counted per PC and the PCs are
-// added together (xp.js mergeXpCounts), so XP earned on two PCs adds up. The
+// added together (progression/xp.js mergeXpCounts), so XP earned on two PCs adds up. The
 // outfit, skin and sticker layouts follow whichever PC changed them last. The
-// Bugdex's catches are counted per PC like XP (bugdex.js merge). His tank's
+// Bugdex's catches are counted per PC like XP (bugdex/index.js merge). His tank's
 // layout follows whichever PC changed it last (tank/share.js). Your friends list
 // follows the latest add or remove on any PC (friends.js mergeSync), and each of
 // your settings whichever PC changed it last, snippets and pins item by item
-// (sync-prefs.js). His life (finds, the bond, games, quests, scenes and his
-// personality) is in sync-life.js. Your routines and workflows go one by one,
-// each arriving switched off (sync-plans.js). The gist is yours but is still treated as
+// (sync/prefs.js). His life (finds, the bond, games, quests, scenes and his
+// personality) is in sync/life.js. Your routines and workflows go one by one,
+// each arriving switched off (sync/plans.js). The gist is yours but is still treated as
 // untrusted input.
 const { normalizeStats } = require('../wardrobe/achievements');
-const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../xp');
+const { normalizeXp, mergeXpCounts, cleanByDevice } = require('../progression/xp');
 const stickers = require('../stickers');
 const bugdex = require('../bugdex');
 const tankShare = require('../tank/share');
 const tankLayouts = require('../tank/layouts');
 const friends = require('../friends');
 const events = require('../events');
-const prefs = require('../sync-prefs');
-const life = require('../sync-life');
-const plans = require('../sync-plans');
+const prefs = require('../sync/prefs');
+const life = require('../sync/life');
+const plans = require('../sync/plans');
 const { findGist } = require('./gists');
 
 const FILE = 'shellby-sync.json';
@@ -47,7 +47,7 @@ function snapshot(get, data = {}, now = Date.now()) {
     format: FORMAT,
     wardrobe: { unlocked: w.unlocked, collected: w.collected, outfit: w.outfit, outfitAt: stamps.outfitAt },
     stats: get('stats'),
-    xp: { total: xp.total, byDevice: xp.byDevice, legacyPending: xp.legacyPending, log: xp.log, lastDay: xp.lastDay },
+    xp: { total: xp.total, byDevice: xp.byDevice, legacyPending: xp.legacyPending, log: xp.log, lastDay: xp.lastDay, molt: xp.molt },
     days: streaks.days,
     stickers: get('stickers'),
     skin: get('skin'), skinAt: stamps.skinAt,
@@ -70,7 +70,7 @@ function clean(raw) {
   const w = r.wardrobe && typeof r.wardrobe === 'object' ? r.wardrobe : {};
   const outfit = {};
   for (const s of SLOTS) outfit[s] = typeof w.outfit?.[s] === 'string' && KEY_RE.test(w.outfit[s]) ? w.outfit[s] : null;
-  const xp = normalizeXp({ total: r.xp?.total, byDevice: r.xp?.byDevice, log: r.xp?.log, lastDay: r.xp?.lastDay });
+  const xp = normalizeXp({ total: r.xp?.total, byDevice: r.xp?.byDevice, log: r.xp?.log, lastDay: r.xp?.lastDay, molt: r.xp?.molt });
   return {
     format: FORMAT,
     wardrobe: {
@@ -82,9 +82,9 @@ function clean(raw) {
     stats: normalizeStats(r.stats),
     // An older Shellby writes only a total: it still counts, as a floor (see cleanByDevice).
     // Another PC's 'local' (XP from before it had its id) never comes across.
-    xp: { total: xp.total, byDevice: cleanByDevice(r.xp?.byDevice, 0, { keepLocal: false }), legacyPending: r.xp?.legacyPending === true, log: xp.log, lastDay: xp.lastDay },
+    xp: { total: xp.total, byDevice: cleanByDevice(r.xp?.byDevice, 0, { keepLocal: false }), legacyPending: r.xp?.legacyPending === true, log: xp.log, lastDay: xp.lastDay, molt: xp.molt },
     days: strings(r.days, /^\d{4}-\d{2}-\d{2}$/, 400).sort(),
-    // No folders, options or badges: those belong to each PC (stickers.js syncable).
+    // No folders, options or badges: those belong to each PC (stickers/index.js syncable).
     stickers: stickers.syncable(r.stickers),
     skin: typeof r.skin === 'string' && /^[a-z0-9][a-z0-9/-]{0,80}$/.test(r.skin) ? r.skin : null,
     skinAt: num(r.skinAt),
@@ -126,7 +126,7 @@ function merge(aIn, bIn) {
       outfitAt: newerOutfit.wardrobe.outfitAt,
     },
     stats,
-    xp: { total: counts.total, byDevice: counts.byDevice, log, lastDay: [a.xp.lastDay, b.xp.lastDay].filter(Boolean).sort().pop() || null },
+    xp: { total: counts.total, byDevice: counts.byDevice, log, lastDay: [a.xp.lastDay, b.xp.lastDay].filter(Boolean).sort().pop() || null, molt: counts.molt },
     days: union(a.days, b.days).sort().slice(-400),
     stickers: stickers.merge(a.stickers, b.stickers),
     skin: newerSkin.skin, skinAt: newerSkin.skinAt,
@@ -154,7 +154,7 @@ function patchFor(merged, get, data = {}) {
     ...lived.patch,
     wardrobe: { ...w, unlocked: merged.wardrobe.unlocked, collected: merged.wardrobe.collected, outfit: merged.wardrobe.outfit },
     stats: merged.stats,
-    xp: { ...xp, total: merged.xp.total, byDevice: merged.xp.byDevice, legacyPending: false, log: merged.xp.log, lastDay: merged.xp.lastDay },
+    xp: { ...xp, total: merged.xp.total, byDevice: merged.xp.byDevice, legacyPending: false, log: merged.xp.log, lastDay: merged.xp.lastDay, molt: merged.xp.molt },
     streaks: { ...streaks, days: merged.days },
     // Merged into this PC's own, so its folders, options and badges stay.
     stickers: stickers.merge(get('stickers'), merged.stickers),
@@ -169,7 +169,7 @@ function patchFor(merged, get, data = {}) {
   const ev = events.merge(get('events'), merged.events);
   if (JSON.stringify(ev) !== JSON.stringify(events.normalize(get('events')))) patch.events = ev;
   if (JSON.stringify(friends.syncable(get('friends'))) !== JSON.stringify(merged.friends)) patch.friends = friends.applySync(get('friends'), merged.friends);
-  // A PC in Autonomous stays in it (sync-prefs.js heldBack).
+  // A PC in Autonomous stays in it (sync/prefs.js heldBack).
   const p = prefs.apply(prefs.snapshot(data, (get('syncStamps') || {}).prefs), merged.prefs, prefs.heldBack(data));
   Object.assign(patch, p.values);
   patch.syncStamps.prefs = p.stamps;

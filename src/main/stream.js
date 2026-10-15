@@ -173,7 +173,7 @@ function tokensOf(u) {
 
 // What one API call cost, for the usage-by-project ledger (spend.js). Claude Code
 // sends one assistant event per content block, each repeating the message's id
-// and usage, so callers count each id once (session.js). parent: the Agent call
+// and usage, so callers count each id once (session/). parent: the Agent call
 // a helper's call was made under, or null for the main thread's own.
 function spendFrom(ev) {
   const m = ev?.type === 'assistant' ? ev.message : null;
@@ -279,7 +279,7 @@ function toolItem(b, sub) {
   // What it's doing, in plain words, for the Working bar (plain-words.js).
   const plain = plainWords.describe(b.name, input);
   if (plain) item.doing = plain.doing;
-  // Its result only says it started: not a finished run (flaky.js).
+  // Its result only says it started: not a finished run (flaky/index.js).
   if ((b.name === 'Bash' || b.name === 'PowerShell') && input.run_in_background === true) item.background = true;
   const fp = writtenPath(b.name, input);
   if (fp) { item.filePath = fp; item.writeChars = writeChars(b.name, input); item.edits = editsOf(b.name, input); }
@@ -315,7 +315,55 @@ function taskItem(ev) {
   const status = ev.status ?? ev.patch?.status;
   if (status) item.status = status;
   if (ev.summary) item.summary = truncate(ev.summary, 4000);
+  // An ultracode run (task_type 'local_workflow'): its script's meta.name, and on
+  // task_progress the run's phases and agents so far (ultracode.js).
+  if (typeof ev.workflow_name === 'string' && ev.workflow_name.trim()) item.workflowName = clean(ev.workflow_name, 120);
+  if (Array.isArray(ev.workflow_progress)) item.workflow = workflowOf(ev.workflow_progress);
   return item;
+}
+
+// The phases and agents a task_progress carries for a workflow run, checked
+// against Claude Code 2.1.299: a snapshot of every phase and agent so far
+// (workflow_log lines are left out), sent at most every few seconds.
+//   { type: 'workflow_phase', index, title }
+//   { type: 'workflow_agent', index, label, phaseIndex, phaseTitle, agentType?, model?,
+//     state: 'start' | 'progress' | 'done' | 'error', tokens?, toolCalls?, error? }
+const MAX_WORKFLOW_ENTRIES = 400;
+const AGENT_STATES = new Set(['start', 'progress', 'done', 'error']);
+const count = v => (Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
+function workflowOf(list) {
+  const phases = [], agents = [];
+  for (const e of list.slice(0, MAX_WORKFLOW_ENTRIES)) {
+    if (!e || typeof e !== 'object' || !Number.isInteger(e.index) || e.index < 0) continue;
+    if (e.type === 'workflow_phase') phases.push({ index: e.index, title: clean(e.title, 120) || `Phase ${e.index + 1}` });
+    else if (e.type === 'workflow_agent') {
+      agents.push({
+        index: e.index,
+        label: clean(e.label, 160) || `Agent ${e.index}`,
+        phase: Number.isInteger(e.phaseIndex) ? e.phaseIndex : null,
+        state: AGENT_STATES.has(e.state) ? e.state : 'start',
+        type: clean(e.agentType, 80) || null,
+        model: clean(e.model, 80) || null,
+        tokens: count(e.tokens),
+        tools: count(e.toolCalls),
+        ...(e.state === 'error' && e.error ? { error: clean(e.error, 200) } : {}),
+      });
+    }
+  }
+  return { phases, agents };
+}
+
+// The Workflow tool's own result (tool_use_result): which task the run is, the
+// run id Claude resumes it by, and the script's name. A syntax error says so.
+function workflowLaunchOf(r) {
+  if (!r || typeof r !== 'object' || typeof r.taskId !== 'string') return null;
+  if (r.taskType !== 'local_workflow' && !(typeof r.runId === 'string' && r.status === 'async_launched')) return null;
+  return {
+    taskId: r.taskId.slice(0, 120),
+    runId: typeof r.runId === 'string' ? r.runId.slice(0, 120) : null,
+    name: clean(r.workflowName, 120) || null,
+    ...(typeof r.error === 'string' && r.error ? { error: clean(r.error, 300) } : {}),
+  };
 }
 
 // What a mod shows (mods.js): $.ui.log is a line in the conversation, $.ui.toast
@@ -426,7 +474,7 @@ function toItems(ev) {
           text: truncate(full, MAX_RESULT_CHARS), ...sub,
         };
         // Test runners print their failures last: main reads the end of a
-        // long result for the flaky test detective (flaky.js), then drops it.
+        // long result for the flaky test detective (flaky/index.js), then drops it.
         if (full.length > MAX_RESULT_CHARS) item.tail = full.slice(-MAX_RESULT_CHARS);
         // Pictures are saved apart and named on the item instead (sessions.js).
         const images = resultImages(b.content);
@@ -442,6 +490,9 @@ function toItems(ev) {
         // Claude moving itself into a worktree of its own (EnterWorktree), or back out (ExitWorktree).
         const wt = item.isError ? null : worktreeOf(r);
         if (wt) item.worktree = wt;
+        // An ultracode run going off in the background (the Workflow tool).
+        const launch = workflowLaunchOf(r);
+        if (launch) item.workflowLaunch = launch;
         if (r && typeof r === 'object' && r.agentId) {
           item.agentStats = { durationMs: r.totalDurationMs ?? null, tokens: r.totalTokens ?? null, toolUses: r.totalToolUseCount ?? null };
         }
@@ -489,10 +540,10 @@ function toItems(ev) {
 }
 
 // The events Shellby knows, including the ones it reads past on purpose. Anything
-// else is new from Claude Code: session.js logs it once, and the nightly CLI
+// else is new from Claude Code: session/ logs it once, and the nightly CLI
 // check (cli-contract.js, scripts/cli-compat.js) flags it before a user meets it.
 const KNOWN = Object.freeze({
-  // control_response is read by session.js (answers to Shellby's own requests).
+  // control_response is read by session/ (answers to Shellby's own requests).
   // stream_event: the reply as it's written (only its words become items); prompt_suggestion: what you might ask next.
   types: new Set(['system', 'assistant', 'user', 'result', 'rate_limit_event', 'control_request', 'control_response', 'stream_event', 'prompt_suggestion']),
   // init, task_*, compact_boundary, a mod's ui_* and commands_changed become items; the rest is progress chatter.
@@ -503,7 +554,7 @@ const KNOWN = Object.freeze({
     'session_title_changed',
     // The whole list of what runs in the background: task_* says the same a task at a time.
     'background_tasks_changed']),
-  // can_use_tool becomes a permission card; hook_callback is answered by session.js.
+  // can_use_tool becomes a permission card; hook_callback is answered by session/.
   control: new Set(['can_use_tool', 'hook_callback']),
 });
 
@@ -516,4 +567,4 @@ function parseLine(line) {
   return { event: ev, items: toItems(ev) };
 }
 
-module.exports = { worktreeOf, findingsOf, questionsOf, todoOf, todoIdOf, goalOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };
+module.exports = { workflowOf, workflowLaunchOf, worktreeOf, findingsOf, questionsOf, todoOf, todoIdOf, goalOf, toItems, parseLine, describeTool, resultText, resultImages, truncate, usageFrom, spendFrom, writtenPath, writeChars, WRITE_TOOLS, AGENT_TOOLS, KNOWN };

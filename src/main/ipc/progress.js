@@ -11,7 +11,7 @@ const { repoOf } = require('../gitinfo');
 const { reviewPrompt } = require('../review');
 const selfaware = require('../selfaware');
 const stickers = require('../stickers');
-const streaks = require('../streaks');
+const streaks = require('../progression/streaks');
 
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
@@ -37,7 +37,10 @@ function registerProgressIpc(ipcMain, d) {
     const next = { ...s };
     if ('nudges' in patch) next.nudges = !!patch.nudges;
     if ('afterDays' in patch) next.afterDays = patch.afterDays;
-    d.saveStreaks(streaks.normalize(next));
+    // Rest days change from today on; days already past keep theirs (progression/streaks.js setRestDays).
+    const rested = Array.isArray(patch.restDays) ? streaks.setRestDays(next, patch.restDays, Date.now()) : next;
+    d.saveStreaks(streaks.normalize(rested));
+    if ('restDays' in patch) d.send(d.panel, 'xp', d.xpView());
     return d.streaksView();
   });
   ipcMain.handle('streaks:mute', (_e, { key, muted } = {}) => {
@@ -60,6 +63,7 @@ function registerProgressIpc(ipcMain, d) {
     if (!p || !fs.existsSync(key)) return { ok: false, error: "Shellby can't find that folder any more." };
     const r = d.startTask(reviewPrompt(p.name), `Look over ${p.name}`, { mode: 'ask', cwd: key });
     if (r.ok) d.showPanel({ focusInput: false, tabId: r.tabId });
+    if (r.ok) d.questDone?.('look-over');
     return r;
   });
 
@@ -87,7 +91,7 @@ function registerProgressIpc(ipcMain, d) {
   ipcMain.handle('focus:start', (_e, minutes) => d.startFocus(minutes));
   ipcMain.handle('focus:stop', () => d.stopFocus());
 
-  // ---- shell stickers (stickers.js)
+  // ---- shell stickers (stickers/index.js)
   const stickerId = id => (d.isStr(id) && /^[0-9a-f]{12}$/.test(id) ? id : null);
   const slotOf = n => (Number.isInteger(n) && n >= 0 && n < 64 ? n : null);
   ipcMain.handle('stickers:get', () => d.stickersView());
@@ -154,7 +158,7 @@ function registerProgressIpc(ipcMain, d) {
     d.send(d.panel, 'flaky', d.flakyView());
     return { ok: true };
   });
-  // ---- the Bugdex (bugdex.js, wiring/bugdex.js). The panel only ever names a species or an open tab.
+  // ---- the Bugdex (bugdex/index.js, wiring/bugdex.js). The panel only ever names a species or an open tab.
   const speciesId = id => (id === null || (typeof id === 'string' && /^[a-z0-9-]{1,40}$/.test(id)) ? id : undefined);
   ipcMain.handle('bugdex:get', () => ({ ...d.bugdex.view(), on: d.bugdex.on() }));
   ipcMain.on('bugdex:seen', () => d.bugdex.seen());
@@ -171,7 +175,7 @@ function registerProgressIpc(ipcMain, d) {
   // ---- tide events (events.js, wiring/events.js): the banner and the medals. Read-only from the panel.
   ipcMain.handle('events:get', () => d.eventsView());
 
-  // ---- time on each project (timetrack-service.js). Everything from the panel is checked here.
+  // ---- time on each project (timetrack/service.js). Everything from the panel is checked here.
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
   const timeOpts = o => {
     const src = o && typeof o === 'object' ? o : {};
@@ -201,7 +205,7 @@ function registerProgressIpc(ipcMain, d) {
   ipcMain.handle('time:export-csv', (_e, o) => d.timeTracker.exportCsv(timeOpts(o)).catch(e => { d.log.error('time csv', e); return { ok: false, error: "Couldn't save that file." }; }));
   ipcMain.handle('time:export-pdf', (_e, o) => d.timeTracker.exportPdf(timeOpts(o)).catch(e => { d.log.error('time pdf', e); return { ok: false, error: "Couldn't make the timesheet." }; }));
   ipcMain.handle('time:copy', (_e, o) => d.timeTracker.copyText(timeOpts(o)));
-  // Sending days to a time tracker (timesync.js). The token goes in and never comes back out.
+  // Sending days to a time tracker (timetrack/timesync.js). The token goes in and never comes back out.
   ipcMain.handle('time:sync-connect', (_e, provider, token) => d.timeSync.connect(typeof provider === 'string' ? provider : '', typeof token === 'string' ? token.slice(0, 400) : ''));
   ipcMain.handle('time:sync-disconnect', () => d.timeSync.disconnect());
   ipcMain.handle('time:sync-projects', (_e, o) => d.timeSync.projects({ fresh: !!o?.fresh }));

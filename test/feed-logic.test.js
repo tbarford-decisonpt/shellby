@@ -24,6 +24,7 @@ test('markFor says what a push took in from the remote first', () => {
 test('markFor tells an automatic compaction from yours, with the size it was', () => {
   assert.equal(F.markFor({ kind: 'compacted', trigger: 'auto', preTokens: 150000 }, compact).text, 'Claude Code compacted the conversation to make room (it was 150k tokens)');
   assert.equal(F.markFor({ kind: 'compacted', trigger: 'manual' }, compact).text, 'Compacted the conversation');
+  assert.equal(F.markFor({ kind: 'compacted', trigger: 'idle', preTokens: 240000 }, compact).text, 'Compacted the conversation while it sat idle, before its cache ran out (it was 240k tokens)');
 });
 
 test('markFor counts the files a rewind put back', () => {

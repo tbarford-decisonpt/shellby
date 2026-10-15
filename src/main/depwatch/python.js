@@ -1,4 +1,4 @@
-// Python projects for the dependency watch (depwatch.js): the pinned packages
+// Python projects for the dependency watch (depwatch/index.js): the pinned packages
 // a project's lockfile names, as plain `name==version` lines for pip-audit.
 //
 // pip-audit is never pointed at the project itself: resolving a requirements

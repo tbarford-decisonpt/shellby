@@ -72,7 +72,7 @@ const RECIPES = [
     tweak: 'Swap npm test for your own test command if the project uses something else.',
     event: 'Stop', matcher: '', scope: 'project', timeout: 300,
     // Only a real test script (not npm init's "no test specified", which fails
-    // every time: depwatch.js hasTests), and the end of what it said goes to Claude.
+    // every time: depwatch/index.js hasTests), and the end of what it said goes to Claude.
     command: String.raw`bash -c 'grep -q "\"stop_hook_active\": *true" && exit 0; [ -f package.json ] || exit 0; node -e "t=require(\"./package.json\").scripts?.test||\"\";process.exit(t.trim()&&!/${NO_TESTS_RE.source}/i.test(t)?0:1)" 2>/dev/null || exit 0; o=$(npm test 2>&1) || { echo "The tests are failing. Fix them before you finish. The end of what npm test said:" >&2; echo "$o" | tail -n 30 >&2; exit 2; }'`,
     // As it was: one already added is still this recipe.
     was: ["bash -c 'grep -q \"\\\"stop_hook_active\\\": *true\" && exit 0; [ -f package.json ] || exit 0; npm test >/dev/null 2>&1 || { echo \"The tests are failing. Fix them before you finish.\" >&2; exit 2; }'"],

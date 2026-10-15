@@ -472,7 +472,7 @@ const SPECIES = Object.freeze([
 })));
 
 // Each habitat has a boss: catch it and you earn the habitat's badge. Badges
-// are 13×13 medals drawn like the bugs (gifts.js format), each its own shape so
+// are 13×13 medals drawn like the bugs (gifts/index.js format), each its own shape so
 // the silhouette of one you haven't earned still says which it is.
 const HABITATS = Object.freeze([
   { id: 'shallows', name: 'The Shallows', icon: '🌊', boss: 'heap-leviathan',

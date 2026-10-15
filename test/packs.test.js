@@ -93,7 +93,7 @@ test('packs: unlockable items only reference achievements and seasons that exist
   }
 });
 
-// The tank (src/main/tank.js) falls back to these when nothing else is chosen,
+// The tank (src/main/tank/index.js) falls back to these when nothing else is chosen,
 // and a new tank should have something to put in it straight away.
 test('packs: the tank has its default floor and back glass, and a starter set', () => {
   const { decor } = catalog();
@@ -105,4 +105,29 @@ test('packs: the tank has its default floor and back glass, and a starter set', 
   const starters = [...decor.values()].filter(d => d.unlock.default && d.layer);
   assert.ok(starters.length >= 10, `expected a starter set of at least 10 pieces, got ${starters.length}`);
   for (const cat of ['structure', 'plant', 'rock']) assert.ok(starters.some(d => d.category === cat), `no starter ${cat}`);
+});
+
+// Rare tank pieces (src/wardrobe/milestones.json, docs/TANK.md#milestones): every
+// one is earned by exactly one milestone trophy, and each of those trophies brings
+// exactly its piece, across every system that feeds the achievement stats.
+test('packs: every milestone piece is the one reward of its own milestone trophy', () => {
+  const { decor } = catalog();
+  const pieces = [...decor.values()].filter(d => d.packId === 'milestones');
+  assert.ok(pieces.length >= 30, `expected a big milestone catalogue, got ${pieces.length}`);
+  const byId = new Map(ACHIEVEMENTS.map(a => [a.id, a]));
+  for (const p of pieces) {
+    const a = byId.get(p.unlock.achievement);
+    assert.ok(a, `${p.key} needs a milestone trophy`);
+    assert.deepEqual([...a.rewards], [p.key], `${a.id} should bring only ${p.key}`);
+  }
+  // Animated pieces stay within the catalog's limits (at most 3 extra frames).
+  const animated = pieces.filter(p => p.frames.length);
+  assert.ok(animated.length >= 10, `expected plenty of animated pieces, got ${animated.length}`);
+  for (const p of animated) assert.ok(p.frames.length <= 3 && p.fps >= 1, `${p.key} frames`);
+  // The milestones reach every system that feeds the achievement stats.
+  const stats = new Set(pieces.map(p => byId.get(p.unlock.achievement).stat));
+  for (const s of ['bugsCaughtTotal', 'nestsCleared', 'rematchesWon', 'cleanFixes', 'fixesHeld', 'tidePerfect', 'eventMedals', 'molts',
+    'reefThriving', 'reefBests', 'reviewTier', 'reviewCaught', 'quizStreak', 'wrappedYears', 'everLevel', 'chaptersDone', 'logbookViews', 'longestStreak']) {
+    assert.ok(stats.has(s), `no milestone piece for ${s}`);
+  }
 });

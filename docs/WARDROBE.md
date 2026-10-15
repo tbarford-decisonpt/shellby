@@ -28,7 +28,31 @@ Outfits, shells, trophies, XP, stickers and the cards you can share. Back to the
 - **102 trophies**, a few of them secret, unlock outfits as you use him: the rubber duck arrives when you let him run a script he wrote, the barnacles after seven days together. Finish 10 tasks for a hard hat, send out your first helper for a captain's hat, finish a task after midnight for a nightcap, free up a full drive for a broom. Most trophies hand out one to three things, and unlocks celebrate on your desktop with confetti.
 - **XP and levels,** from Hatchling to Shellby Supreme at level 99, with a new title, badge colour or shell at least every five levels. Past 99 the XP keeps counting in marks: ★1 at 5,000 XP more, and each one after costs 500 more than the last. The badge shows them (99★3), and each one gets a celebration.
 - **XP sources:** a new skill or agent he writes for himself (+150, usually a level-up), deploys (+50), turning failing tests green (+40), pushes (+40, and +20 for the first push of the day to a project), a clean dependency audit (+30, once a day per project), trophies (+20), passing tests (+15), focus sessions (+15) and finished tasks (+5). Petting, games, finds and growing closer earn XP too, so a crab-only Shellby levels up as well. It counts in Shellby and, with the plugin, in your terminal too. "+25 XP" floats up from him on the desktop. Doing the same thing over and over within an hour pays half, then a quarter, then nothing, so a test loop can't farm it.
-- **Bonuses:** a streak adds 5% a week (up to +25%), and coming back after three days or more away doubles your next 150 XP.
+- **Bonuses:** a streak adds 5% for each week in it with three or more worked days (up to +25%), and coming back after three days or more away doubles your next 150 XP.
+- **Streaks never punish** (`src/main/progression/streaks.js`). Saturday and Sunday are rest days by default: they hold the streak without counting toward it. Turn that off with **🏖️ weekends off** on the XP card; the change counts from today, so past weekends stay held. One missed working day a week is a 🌊 **tide-out**: the streak holds, and he says so. If it does break, the bonus slides 5% per missed working day instead of vanishing, and a new streak keeps that floor until it catches up.
+
+## Levels 20 to 99
+
+Almost every level from 20 to 99 unlocks something (`src/main/progression/levels.js`, the whole table in `docs/GAMIFICATION-PLAN.md` section 2.3): a title or rank badge, one of 12 more shells (`src/main/progression/shells-extra.js`), one of 27 tank decor pieces or 19 effects (`src/wardrobe/depths.json`, gated `unlock: { level }`), a perk, a bigger tank or a quest chapter. A thin bar under the XP bar counts down to the next one ("Next: 🐚 Ammonite at Lv 32, 1,240 XP to go"); hover it for everything at that level, or open **Every level** for the whole ladder and the perks.
+
+- **Perks** are quality of life and looks only: a bigger rested pool (22), a bounty reroll (28), a fourth bounty (33), battle replays (38), two tide-outs a week (44), the reef forecast (52), golden jars (58), crew colours (66), foil cards (77) and a Wrapped deep-cuts slide (88).
+- **Milestones:** levels 20, 30, 40, 60, 70, 80 and 90 get a full-panel ceremony in the new rank's colour (the title writes itself, the unlock cards flip in); 50 and 99 are legendary, with a card to share and a journal entry. With reduced motion it's a still card.
+- Every gate reads **everLevel**, the highest level ever reached, so nothing is ever taken back.
+
+## Molting
+
+At 99 he can **Molt** (`src/main/progression/molting.js`), never has to: staying at 99 keeps earning ★ marks. A molt starts the level number again at 1 and keeps everything: XP, titles, badges, shells, decor, effects, perks, the Bugdex, tank, trophies, stickers, quests and streak. The climb back is 80% as long the first time, 90% the second, then slowly steeper (at most double). Each molt earns a **tier shell** and a ring round his level badge (I to XII, then numbers). Molts sync between PCs with the XP.
+
+The first twelve tier shells are hand-made (`src/main/progression/shells-molt.js`): Ember Conch, Glacier Geode, Circuit Nautilus, Nebula Whorl, Kraken's Eye, Lava Lamp, Bone Cathedral, Prism Shard, Void Pearl, Clockwork Ammonite, Aurora Spire and Leviathan Crown. Past twelve, `src/main/progression/shell-gen.js` makes one from the molt number: a hand-made silhouette, one of six patterns, a golden-angle palette and a name like "Howling Volute", the same on every PC. Wear any tier shell you've earned from the Molt sheet or Outfits → Homes.
+
+### Making a shell
+
+1. Copy a 13 × 12 grid from `src/main/progression/shells.js` (or `shells-extra.js`). `.` is empty; every other character is a single-letter key in `palette` (`#rrggbb`).
+2. Stay in the shell space: the cells every skin leaves to the shell or empty. Only the bottom-right corner (column 12 from row 9, column 11 in row 10) is off limits.
+3. Light it from the top left: highlights there, the darkest shade on the right and bottom edges.
+4. Optional effects, drawn by `src/renderer/shared/sprite.js`: `frames` (1 to 3 more grids of the same size) with `fps` 1 to 8; `cycle: { keys, fps }` passes those keys' colours round (lava flowing, a ring spinning); `aura: '#hex'` for a glow; `sparkle: 0-6` twinkling pixels. With reduced motion only the first picture is drawn.
+5. `node --test test/shells.test.js` checks the mask, every frame and the palette. Preview it with `node scripts/crab-sheet.js`.
+6. A level shell also needs a 10 × 10 gutter mark in `src/renderer/shared/minishell.js` (`test/minishell.test.js` checks).
 - **Daily bounties:** three small goals a day ("Push to 2 different projects", "Turn failing tests green"), the same three on every PC. Each pays XP, and clearing all three pays 50 more.
 - **Trophies & XP:** click the level badge next to him in the title bar to see his level, what the next level unlocks, today's bounties, XP for the last 30 days and by kind, the XP log and a 🔥 badge with your streak. The badge changes colour every ten levels. Click the 🔥 to see the streak itself, project by project, on **Time**, next to **Guard my focus**.
 - **Across PCs:** with GitHub sync on, XP earned on each PC adds up.

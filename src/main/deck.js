@@ -7,7 +7,7 @@
 //   Bring it home    the conversation on screen, when it has a copy of its own
 //   Ready to review  how many conversations have finished work for you to look at
 //
-// It's the desk version of answering from your phone (replies.js), so it follows
+// It's the desk version of answering from your phone (channels/replies.js), so it follows
 // the phone's rules: only Allow and Deny, never "Always allow", and a prompt the
 // card goes out of its way to flag (a question, a plan, a file Claude wrote, a
 // command too long to read at a glance) is never answered blind. Its keys say
@@ -24,7 +24,7 @@
 const crypto = require('crypto');
 const http = require('http');
 const { EventEmitter } = require('events');
-const { deskOnlyReason } = require('./replies');
+const { deskOnlyReason } = require('./channels/replies');
 const { toReview } = require('../renderer/panel/tab-sort');
 
 const DEFAULT_PORT = 47915;            // next door to the overlay

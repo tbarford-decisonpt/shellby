@@ -1,4 +1,4 @@
-// His tank's IPC (src/main/tank.js): what's in it, saving a layout from the
+// His tank's IPC (src/main/tank/index.js): what's in it, saving a layout from the
 // panel's editor, and clearing the "new" dots on decor. Kept out of main.js,
 // which only wires it up.
 //
@@ -16,17 +16,20 @@ const { LOGIN_RE, sameLogin } = require('../github/card');
 const isRef = v => typeof v === 'string' && tank.REF_RE.test(v);
 const MAX_SEEN = 200;
 const LIVED_GAP_MS = 5000;
+const DECORATE_MIN = 5; // pieces in a saved tank for the "decorate" quest
 
 /**
  * d: {
  *   config         settings
  *   wardrobe()     the Wardrobe (made at boot), for decor and its unlocks
- *   level()        his XP level
- *   shipped()      projects shipped (stickers.js), for the reef tank
+ *   level()        the highest level he's ever reached (d.everLevel), for tank sizes
+ *   questDone(id)  optional: the tank quests (decorate, bigger, milestone-piece, jar-in-tank, tank-share)
+ *   shipped()      projects shipped (stickers/index.js), for the reef tank
  *   stat(event, payload)   feeds the achievements
  *   cardChanged()  optional: what's on your calling card changed, publish it soon
  *   speak(occasion, opts)  optional: a word on the desktop (voice.js; chatter applies)
  *   life()         optional: his life (life.js), for moments in the bond journal (bond.js MEMORIES)
+ *   reefCorals()   optional: each watched reef's coral (reef/index.js corals())
  * }
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
  * @param d
@@ -37,6 +40,7 @@ function registerTankIpc(ipcMain, d) {
     findState: gifts.normalize(d.config.get('finds')),
     finds: gifts.FINDS,
     bugState: d.config.get('bugdex'),
+    coral: d.reefCorals?.() || [], // each watched reef's coral (wiring/reef.js)
   }), d.config.get('stickers')); // and his stickers, for the front glass
   // The Health porthole looks at his favourite piece, once he has one (tank/life.js).
   const view = (l = lib()) => {
@@ -60,8 +64,18 @@ function registerTankIpc(ipcMain, d) {
     const v = view(l);
     d.stat('tank-pieces', { n: v.pieces.length });
     const life = lived(tank.normalize(previous), state, l);
+    tankQuests(v, life);
     return { ok: true, dropped, view: v, life };
   };
+
+  // The quests his tank teaches (quests/index.js); an id quests/index.js doesn't know yet does nothing.
+  function tankQuests(v, life) {
+    if (!d.questDone) return;
+    if (v.pieces.length >= DECORATE_MIN) d.questDone('decorate');
+    if (life.movedTo) d.questDone('bigger');
+    if (v.pieces.some(p => p.milestone)) d.questDone('milestone-piece');
+    if (v.pieces.some(p => p.kind === 'jar')) d.questDone('jar-in-tank');
+  }
 
   ipcMain.handle('tank:save', (_e, draft) => {
     if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return { ok: false, error: 'That isn’t a tank.', view: view() };
@@ -142,6 +156,7 @@ function registerTankIpc(ipcMain, d) {
       d.config.set({ tank: { ...current, shareCard: on } });
       d.cardChanged?.();
     }
+    if (on) d.questDone?.('tank-share');
     return { ok: true, view: view() };
   });
 

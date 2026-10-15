@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { laneState, parseNumstat, lanes, mergeOrder, groupPrompts } = require('../src/main/lanes');
-const { runTrain, trainLine } = require('../src/main/merge-train');
+const { runTrain, trainLine } = require('../src/main/worktrees/merge-train');
 
 const wt = branch => ({ branch, base: 'main', originalCwd: 'C:/r' });
 const diff = (n, added = 10, removed = 2) => ({ files: Array.from({ length: n }, (_, i) => `f${i}.js`), added, removed });

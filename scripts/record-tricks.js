@@ -11,7 +11,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const koffi = require('koffi');
-const native = require('../src/main/native-windows');
+const native = require('../src/main/desktop/native-windows');
 
 native.dpiAware(); // physical pixels, like ffmpeg's gdigrab
 

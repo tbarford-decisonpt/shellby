@@ -1,7 +1,7 @@
 // The real moon: its phase tonight, worked out from the clock alone. The phase
 // is the same everywhere on Earth, so this needs no location and nothing
 // leaves your PC. Some finds only turn up under a full or a new moon
-// (gifts.js), and the beach's night sky shows the moon as it really is.
+// (gifts/index.js), and the beach's night sky shows the moon as it really is.
 //
 // Pure: no I/O, no clock (callers pass `now`). See test/moon.test.js.
 

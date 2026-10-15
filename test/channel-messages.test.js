@@ -1,8 +1,8 @@
-// What a phone notification says, on its own (channel-messages.js): no
+// What a phone notification says, on its own (channels/messages.js): no
 // settings, no providers, no network. channels.js re-exports composeMessage.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const M = require('../src/main/channel-messages');
+const M = require('../src/main/channels/messages');
 const channels = require('../src/main/channels');
 
 test('channels hands out the same composeMessage, duration and events', () => {

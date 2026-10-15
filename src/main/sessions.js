@@ -13,7 +13,7 @@ const planPace = require('./plan-pace');
 const mods = require('./mods');
 const todos = require('../renderer/shared/todos');
 
-// What a helper is saying, or was just told, for a few seconds (session.js noteMessage): null when quiet.
+// What a helper is saying, or was just told, for a few seconds (session/crew.js noteMessage): null when quiet.
 function talkOf(c, now = Date.now()) {
   const said = c.said && now - c.said.at < TALK_MS ? c.said : null;
   const heard = c.heard && now - c.heard.at < TALK_MS ? c.heard : null;
@@ -54,8 +54,8 @@ class SessionManager extends EventEmitter {
   // and getEffortPick() true, each one is sized from its first message instead (effort-pick.js).
   // getRemote(cwd) -> how to start Claude Code on another computer when cwd is
   // one of its folders, or null (remote/service.js launch): read at each start.
-  // getFallbackModel() and getChrome() are Settings' (session.js has what they do);
-  // supports(flag): whether the installed Claude Code takes one of session.js's OPTIONAL_FLAGS.
+  // getFallbackModel() and getChrome() are Settings' (session/ has what they do);
+  // supports(flag): whether the installed Claude Code takes one of session/args.js OPTIONAL_FLAGS.
   constructor({ getExe, history, getMode, getModel, getEffort = () => '', getEffortPick = () => false, getOutputStyle = () => '', getFallbackModel = () => '', getChrome = () => false, supports = () => true, argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null, getRemote = () => null, savePictures = null }) {
     super();
     Object.assign(this, { getExe, history, getMode, getModel, getEffort, getEffortPick, getOutputStyle, getFallbackModel, getChrome, supports, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate, getRemote, savePictures });
@@ -80,7 +80,7 @@ class SessionManager extends EventEmitter {
     const session = new ClaudeSession({
       remote: () => this.getRemote(session.cwd), // only ever called once it exists
       // Asked again at each start: Claude Code may move while the tab is open
-      // (session.js). The path found now stands in should it go missing, so
+      // (session/). The path found now stands in should it go missing, so
       // the start fails the usual way (ENOENT, "can't find Claude Code").
       exe: () => this.getExe() || exe, argsPrefix: this.argsPrefix,
       cwd: historyEntry?.cwd || cwd,
@@ -115,7 +115,7 @@ class SessionManager extends EventEmitter {
       // down mid-turn (history.takeCutOff), until a turn here finishes.
       outcome: historyEntry?.lastOutcome === 'cut' ? 'cut' : null,
       unread: false,
-      worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees.js)
+      worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees/index.js)
       // A branch of another conversation (branch.js): where it came from, the
       // folders it must keep out of, and what Claude is told before its first
       // message (where it is now). All kept in History so a restart keeps them.
@@ -181,7 +181,7 @@ class SessionManager extends EventEmitter {
       this.emit('item', tab.id, raw, tab);
       return;
     }
-    // A long tool result's tail is only for main to read (flaky.js): it's
+    // A long tool result's tail is only for main to read (flaky/index.js): it's
     // neither saved with the tab nor sent to the panel.
     let { tail, images, ...item } = raw;
     // A tool's pictures are saved apart (tool-pictures.js): the item names them.
@@ -219,11 +219,13 @@ class SessionManager extends EventEmitter {
       const cost = { ...item.cost, share: Number.isFinite(share) ? share : null, ...(helpers ? { helpers } : {}) };
       item.cost = { ...cost, line: turncost.costLine(cost), detail: turncost.costDetail(cost), effortBadge: turncost.effortBadge(cost) };
     }
+    // Shellby's own /compact while the tab sat idle (wiring/idle-compact.js): its mark says so.
+    if (item.kind === 'compacted' && tab.idleCompacting) item = { ...item, trigger: 'idle' };
     if (item.kind === 'result') {
       // A note's Ask has its answer: whatever you say next is in your mode.
       if (item.ok && tab.startsIn && tab.startsIn !== 'plan') tab.session.setMode(this.followMode(tab));
       tab.outcome = item.interrupted ? 'stopped' : item.ok ? 'ok' : 'error';
-      tab.unread = true;
+      if (!(tab.idleCompacting && item.ok && !item.interrupted)) tab.unread = true;
       if (tab.saved) {
         this.history.update(tab.id, { lastOutcome: tab.outcome, context: tab.session.context });
         this.history.markTurn?.(tab.id, null);
@@ -261,6 +263,7 @@ class SessionManager extends EventEmitter {
     if (tab.session.busy) throw new Error('Shellby is still working on the last task.');
     if (tab.inTerminal) throw new Error(IN_TERMINAL);
     tab.activeAt = Date.now();
+    tab.idleCompacting = false; // set again by wiring/idle-compact.js when the turn is its /compact
     if (!tab.saved) {
       this.history.create({ id: tab.id, title: tab.named ? tab.title : userItem.title || userItem.text || tab.title, cwd: tab.session.cwd, mode: tab.session.mode, routineId: tab.routineId });
       // A tab that opened in its own copy before its first message (a Next up draft):
@@ -306,7 +309,7 @@ class SessionManager extends EventEmitter {
 
   /**
    * The panel's queue while a turn runs, [{ id, text, attachments }] in order:
-   * it goes to Claude at its next step (session.js steer). Only for the turn it
+   * it goes to Claude at its next step (session/control.js steer). Only for the turn it
    * was queued behind: one the panel has since sent on its own isn't steered
    * in too. What has gone in already this turn stays out, should the panel not
    * have heard yet. -> whether it was taken.
@@ -366,7 +369,7 @@ class SessionManager extends EventEmitter {
   }
 
   /**
-   * Safe mode on or off for one conversation (session.js safeMode): its process
+   * Safe mode on or off for one conversation (session/index.js safeMode): its process
    * is let go of now, so the next message starts it the new way, resumed.
    * -> { ok } | { ok: false, error }
    */
@@ -635,7 +638,7 @@ class SessionManager extends EventEmitter {
 
   // One state for the critter: asking beats working beats idle.
   get aggregate() {
-    let pending = 0, busy = 0, planning = 0, plans = 0;
+    let pending = 0, busy = 0, planning = 0, plans = 0, hiddenCrew = 0;
     const crew = [], tools = [], jobs = [], crewEnded = [];
     const now = Date.now();
     for (const t of this.tabs.values()) {
@@ -650,12 +653,13 @@ class SessionManager extends EventEmitter {
       for (const c of t.session.runningCrew()) {
         crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'general-purpose', bubble: talkOf(c) }); // Claude Code's own default
       }
+      hiddenCrew += t.session.hiddenCrew?.() || 0; // an ultracode run's agents past the few out as crabs
       // Helpers that just finished, and how: one that did its job walks home with it, one that failed slumps.
       for (const c of t.session.crew) if (c.endedAt && now - c.endedAt < CREW_ENDED_MS) crewEnded.push({ id: c.taskId, ok: c.status === 'completed' });
     }
     // What the busy tab that moved last is doing, for how the crab works (work-pose.js).
     const latest = workPose.latest(tools);
-    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, crewEnded, jobs, planning, plans, tool: latest?.tool || null, toolAt: latest?.toolAt || null };
+    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, hiddenCrew, crewEnded, jobs, planning, plans, tool: latest?.tool || null, toolAt: latest?.toolAt || null };
   }
 
   changed() {

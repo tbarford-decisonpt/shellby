@@ -12,7 +12,7 @@
 // (tank/share.js) can't reach it. Pure: no I/O, no clock (callers pass `now`).
 // See test/tank-layouts.test.js.
 
-const tank = require('../tank');
+const tank = require('./index');
 const { SEASONS } = require('../wardrobe/seasons');
 
 const MAX = 3;

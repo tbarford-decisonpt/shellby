@@ -5,6 +5,7 @@ const { loadCatalog, installPack, removePack } = require('./catalog');
 const { SEASONS, KNOWN_SEASONS, activeSeasons, featuredSeason, isActive, nextStart } = require('./seasons');
 const { ACHIEVEMENTS, KNOWN_ACHIEVEMENTS, normalizeStats, recordStat, evaluate, progress } = require('./achievements');
 const { encodeOutfit, decodeOutfit, resolveEntries } = require('./codes');
+const { everLevel } = require('../progression/levels');
 
 const SLOTS = ['hat', 'face', 'neck', 'held', 'shell', 'effect'];
 const EMPTY_OUTFIT = Object.freeze({ hat: null, face: null, neck: null, held: null, shell: null, effect: null });
@@ -43,6 +44,7 @@ class Wardrobe extends EventEmitter {
   constructor({ config, builtinDir, userDir, now = () => new Date(), south = () => false, canUnlockAll = () => false }) {
     super();
     Object.assign(this, { config, builtinDir, userDir, now, south, canUnlockAll });
+    this.everLevelSeen = null; // the everLevel the last setEverLevel saw: what "new" is measured from
     this.catalog = { accessories: new Map(), effects: new Map(), skins: [], voices: new Map(), scenes: new Map(), decor: new Map(), packs: [], errors: [] };
   }
 
@@ -61,11 +63,14 @@ class Wardrobe extends EventEmitter {
   // Where you are, for the seasons: south of the equator, spring comes in September.
   where() { return { south: !!this.south() }; }
   get stats() { return normalizeStats(this.config.get('stats')); }
+  // The highest level he has ever reached (progression/levels.js): what { level } unlocks read. A molt never lowers it.
+  get everLevel() { return everLevel(this.config.get('xp')); }
 
   // ------------------------------------------------------------ catalog
   load() {
     this.catalog = loadCatalog({ builtinDir: this.builtinDir, userDir: this.userDir, knownAchievements: KNOWN_ACHIEVEMENTS, knownSeasons: KNOWN_SEASONS });
     this.collectSeasonals();
+    if (this.everLevelSeen == null) this.everLevelSeen = this.everLevel;
     return this.catalog;
   }
 
@@ -78,7 +83,28 @@ class Wardrobe extends EventEmitter {
     if (d.unlockAll || !u || u.default) return true;
     if (u.achievement) return d.unlocked.includes(u.achievement);
     if (u.season) return d.collected.includes(item.key) || isActive(u.season, this.now(), this.where());
+    if (u.level) return this.everLevel >= u.level;
     return false;
+  }
+
+  /**
+   * After an XP change (wiring/progress.js): items a level-up has just unlocked
+   * get the "new" badge, and the Wardrobe is told. The first call after start
+   * only learns the level: nothing is new for having started. -> their keys.
+   */
+  setEverLevel(level) {
+    const to = Number.isInteger(level) ? level : this.everLevel;
+    const from = this.everLevelSeen;
+    this.everLevelSeen = Math.max(from || 0, to);
+    if (from == null || to <= from) return [];
+    const all = [...this.catalog.accessories.values(), ...this.catalog.effects.values(), ...this.catalog.decor.values()];
+    const fresh = all.filter(i => i.unlock?.level > from && i.unlock.level <= to).map(i => i.key);
+    if (fresh.length) {
+      const d = this.data;
+      this.save({ newItems: [...new Set([...d.newItems, ...fresh])] });
+      this.emit('changed');
+    }
+    return fresh;
   }
 
   // Why an item is locked, for tooltips: null when unlocked.
@@ -89,6 +115,7 @@ class Wardrobe extends EventEmitter {
       const a = progress(stats, new Set(d.unlocked)).find(p => p.id === u.achievement);
       return { reason: 'achievement', achievement: u.achievement, text: a ? `${a.name}: ${a.description}` : 'Earn an achievement', current: a?.current ?? 0, goal: a?.goal ?? 1 };
     }
+    if (u.level) return { reason: 'level', level: u.level, text: `Reach level ${u.level}`, current: this.everLevel, goal: u.level };
     const season = SEASONS.find(s => s.id === u.season);
     const back = nextStart(u.season, this.now(), this.where());
     return { reason: 'season', season: u.season, text: `${season ? `${season.emoji} ${season.name}` : 'Seasonal'} collectible`, back: back ? back.getTime() : null };
@@ -342,7 +369,7 @@ class Wardrobe extends EventEmitter {
     };
   }
 
-  // Every piece of tank decor, with whether it's unlocked and new (src/main/tank.js lays them out).
+  // Every piece of tank decor, with whether it's unlocked and new (src/main/tank/index.js lays them out).
   decorView(d = this.data, stats = this.stats) {
     return [...this.catalog.decor.values()].map(item => ({ ...publicItem(item), locked: this.lockInfo(item, d, stats), isNew: d.newItems.includes(item.key) }));
   }

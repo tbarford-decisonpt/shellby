@@ -125,7 +125,8 @@
       // and rose again under the pointer. They're rebuilt only when what they say changes.
       const tour = state.settings.firstTour && !SB.isCrabOnly();
       this.shuffled ||= [...SUGGESTIONS].sort(() => Math.random() - 0.5);
-      const picks = this.shuffled.slice(0, (SB.questCardShows?.() ? 2 : 3) - (tour ? 1 : 0));
+      const card = SB.firstRunCardShows?.() || SB.questCardShows?.();
+      const picks = this.shuffled.slice(0, (card ? 2 : 3) - (tour ? 1 : 0));
       const shown = JSON.stringify([tour, picks]);
       if (shown !== this.shownSuggestions) {
         this.shownSuggestions = shown;
@@ -135,6 +136,7 @@
           ...(tour ? [chip('Show me around a project: what it is, how to run it, where to start', firstTour, 0)] : []),
           ...picks.map((s, i) => chip(s, () => SB.send(s), i + (tour ? 1 : 0))));
       }
+      SB.renderFirstRun?.(e.querySelector('.first-run-card'));
       SB.renderQuestCard?.(e.querySelector('.quest-card'));
       const pinned = state.pinned || [];
       e.querySelector('.pinned-row').hidden = !pinned.length;
@@ -299,6 +301,7 @@
         case 'shots': return SB.renderShots?.(this, item);     // turn-checks.js
         case 'tries': return SB.renderTries?.(this, item, replay); // tries.js
         case 'debug': return SB.renderDebug?.(this, item, replay); // debug-mode.js
+        case 'ultracode': return SB.renderUltracode?.(this, item, replay); // ultracode.js
         // Shellby's own one-line notes: cleared, moved into a copy, from the phone,
         // brought home, pushed, compacted, started fresh, rewound. /clear empties
         // the screen first, as in the terminal: live or replayed, so a
@@ -529,7 +532,7 @@
           badge ? h('span', { class: `effort-badge effort-${badge.level}`, title: badge.detail, text: badge.text }) : null,
           h('span', { class: 'turn-cost-line', text: cost.line })));
       }
-      // A turn whose process went (main's session.js ended()): its error block is just above.
+      // A turn whose process went (main's session/index.js ended()): its error block is just above.
       if (!item.ok && !item.interrupted && item.error && !item.crashed) this.append(this.troubleBlock(item.trouble, item.error));
       // ...and its helpers went with it.
       if (item.interrupted || item.crashed) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });

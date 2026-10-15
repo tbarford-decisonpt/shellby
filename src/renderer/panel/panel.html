@@ -48,6 +48,10 @@
 <link rel="stylesheet" href="time.css">
 <link rel="stylesheet" href="projects.css">
 <link rel="stylesheet" href="viewer.css">
+<link rel="stylesheet" href="logbook.css">
+<link rel="stylesheet" href="reef.css">
+<link rel="stylesheet" href="molt.css">
+<link rel="stylesheet" href="wrapped.css">
 </head>
 <body data-view="chat">
   <div class="caustics" aria-hidden="true"></div>
@@ -235,6 +239,8 @@
       </div>
       <div class="box-extras">
         <div class="crowded" id="crowded" role="status" hidden></div>
+        <!-- Ultracode on for this conversation: what it means, in a line (ultracode.js) -->
+        <div class="ultra-note" id="ultraNote" role="status" hidden>Ultracode is on: Claude may send out many agents, and they use a lot of tokens.</div>
         <div class="mod-status" id="modStatus" role="status" aria-label="What your mods say" hidden></div>
         <div class="outlook" id="outlook" role="status" hidden></div>
         <div class="review-bar" id="review" role="region" aria-label="Review comments waiting to be sent" hidden></div>
@@ -257,7 +263,7 @@
       </form>
       <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
       <div class="slash-menu pick-menu" id="pickMenu" role="listbox" hidden></div>
-      <div class="input-hint"><span id="modeHint"></span><span id="costHint" class="cost-hint" hidden></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
+      <div class="input-hint"><button type="button" class="ultra-chip" id="ultraChip" aria-pressed="false" title="Ultracode: adds the word “ultracode” to what you send here, so Claude can run a crew of agents in the background">Ultracode</button><span id="modeHint"></span><span id="costHint" class="cost-hint" hidden></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
     </footer>
   </main>
 
@@ -270,6 +276,7 @@
         <div class="row-label">Your tricks</div>
         <div class="pinned-chips"></div>
       </div>
+      <section class="first-run-card" aria-label="First steps" hidden></section>
       <section class="quest-card" aria-label="Your next quest" hidden></section>
       <div class="suggestions"></div>
       <p class="empty-hint"><kbd class="hotkey-hint">Ctrl+Alt+Space</kbd> opens me anywhere · drop files or paste a screenshot · <kbd>/</kbd> for skills · <kbd>Ctrl+K</kbd> jumps anywhere · <kbd>Shift+Tab</kbd> switches mode</p>
@@ -503,6 +510,7 @@
       <span class="hl-live" id="hlLive"><i></i>live</span>
       <button type="button" class="btn ghost slim-btn" id="hlRecheck" title="Read every sensor again now">Recheck</button>
     </div>
+    <p class="view-lede newcomer-only" id="hlLede">He keeps an eye on your PC while you work: he sweats when it runs hot and gets dizzy when memory fills up. Nothing to set up; this page says why.</p>
 
     <section class="hl-hero" id="hlHero" data-level="ok" aria-live="polite">
       <div class="hl-tank" aria-hidden="true">
@@ -654,6 +662,7 @@
     <div class="view-head">
       <h2 class="sr-only">Wardrobe</h2>
       <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" data-goto="logbook">Logbook</button>
         <button type="button" aria-current="page" data-goto="wardrobe">Outfits <span class="n" id="wdCount"></span></button>
         <button type="button" data-goto="trophies">Trophies</button>
         <button type="button" data-goto="crew">Crew</button>
@@ -667,6 +676,7 @@
       <button type="button" class="btn ghost slim-btn" id="markSeenBtn" title="Clear every new badge in the Wardrobe" hidden>Mark all seen</button>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
     </div>
+    <p class="view-lede newcomer-only" id="wdLede">His wardrobe. Tap a hat, shell or colour and he wears it on your desktop straight away. More unlock as he levels up.</p>
     <div class="season-banner" id="seasonBanner" hidden></div>
     <div class="stage" id="wdStage" role="group" aria-label="Preview">
       <div class="stage-fx" id="wdFx" aria-hidden="true"></div>
@@ -809,8 +819,55 @@
         <ul class="xp-ways" id="xpWays"></ul>
       </details>
     </section>
+    <!-- Review mastery (review-mastery.js, docs/CLAUDE-CODE.md#review-mastery) -->
+    <section class="rm-card" id="rmCard" data-room="mastery" aria-labelledby="rmTitle">
+      <div class="rm-head">
+        <h3 id="rmTitle">Review mastery</h3>
+        <span class="rm-tier" id="rmTier"></span>
+      </div>
+      <p class="muted small">For really reading what Claude changed: quizzes on a turn’s diff, line comments that say something, and catching a problem before it merges.</p>
+      <div class="rm-stats" id="rmStats"></div>
+      <div class="rm-next" id="rmNext"></div>
+      <ol class="rm-ladder" id="rmLadder" aria-label="Review tiers"></ol>
+      <details class="rm-more">
+        <summary class="xp-sub">How it counts</summary>
+        <ul class="rm-rules small">
+          <li><b>+3</b> for a quiz you pass on a turn’s changes, once per turn. Passes in a row make a run; a miss ends the run, but your best run stays.</li>
+          <li><b>+1</b> for a review you send with at least one real comment (12 characters or more, not just “lgtm”) on a change of 10 lines or more. Once per turn.</li>
+          <li><b>+5</b> when Claude’s next turn rewrites lines you commented on, before anything was pushed or merged. That’s a catch.</li>
+        </ul>
+      </details>
+      <ul class="rm-log small" id="rmLog" aria-label="Recent review points"></ul>
+    </section>
     <p class="view-lede">Use Shellby, earn outfits. Secret trophies reveal themselves when you find them.</p>
     <ul class="trophy-list" id="trophyList"></ul>
+  </main>
+
+  <!-- ====================== LOGBOOK ====================== -->
+  <!-- every game system on one page, each card linked to its screen (logbook.js, main/logbook.js) -->
+  <main class="view view-logbook" id="logbookView">
+    <div class="view-head">
+      <h2 class="sr-only">Logbook</h2>
+      <nav class="seg shellby-tabs" aria-label="Shellby">
+        <button type="button" aria-current="page" data-goto="logbook">Logbook</button>
+        <button type="button" data-goto="wardrobe">Outfits</button>
+        <button type="button" data-goto="trophies">Trophies</button>
+        <button type="button" data-goto="crew">Crew</button>
+        <button type="button" data-goto="council">Council</button>
+        <button type="button" data-goto="stickers">Stickers <span class="n st-count"></span><i class="dot-badge st-badge" hidden></i></button>
+        <button type="button" data-goto="finds">Finds <span class="n fd-count"></span><i class="dot-badge fd-badge" hidden></i></button>
+        <button type="button" data-goto="bugdex">Bugdex <span class="n bd-count"></span><i class="dot-badge bd-badge" hidden></i></button>
+        <button type="button" data-goto="tank">Tank <i class="dot-badge tk-badge" hidden></i></button>
+        <button type="button" data-goto="us">Us <i class="dot-badge bc-badge" hidden></i></button>
+      </nav>
+    </div>
+    <p class="muted small lb-intro">What’s going on, what to do next, and what each thing leads to. Every card opens its screen.</p>
+    <p class="view-lede newcomer-only" id="lbNewcomer">Just starting? First steps on the chat’s start screen come first. This page fills up as you two work.</p>
+    <div class="lb-cards" id="lbCards" aria-live="polite"></div>
+    <section class="lb-chapters" id="lbChapters" aria-labelledby="lbChaptersHead" tabindex="-1">
+      <h3 id="lbChaptersHead">Quest line <span class="muted small" id="lbChapterCount"></span></h3>
+      <ol class="lb-chapter-list" id="lbChapterList"></ol>
+    </section>
   </main>
 
   <!-- ====================== CREW: one lasting helper crab per agent type (crew.js, src/main/crew-roster.js) ====================== -->
@@ -870,8 +927,10 @@
       </div>
       <div class="cc-crabs" id="ccCrabs" aria-hidden="true"></div>
       <div class="cc-table" aria-hidden="true"><div class="cc-felt"><i class="cc-sigil"></i></div></div>
+      <ol class="cc-deck" id="ccDeck" aria-label="What he read"></ol>
       <div class="cc-seats" id="ccSeats" role="list"></div>
       <button type="button" class="cc-scroll" id="ccScroll" aria-live="polite">
+        <span class="cc-stamp" id="ccStamp" hidden></span>
         <span class="cc-scroll-text" id="ccScrollText">The council is waiting for a question.</span>
         <span class="cc-tally" id="ccTally"></span>
       </button>
@@ -883,10 +942,9 @@
       <div class="cc-ask-row">
         <div class="seg cc-modes" role="radiogroup" aria-label="How the council sits" id="ccModes">
           <button type="button" role="radio" data-mode="quick" title="One call: every advisor and the chair in a single answer. About the cost of one reply.">Quick</button>
-          <button type="button" role="radio" data-mode="full" title="Each advisor thinks on their own (a small model), then the chair weighs them.">Full</button>
-          <button type="button" role="radio" data-mode="debate" title="Full, plus a round where each advisor answers the others before the chair rules.">Debate</button>
+          <button type="button" role="radio" data-mode="debate" title="Each advisor thinks on their own, then they answer each other before the chair rules. A call for each advisor, and two more.">Debate</button>
         </div>
-        <label class="cc-check"><input type="checkbox" id="ccProject"> Include this project</label>
+        <label class="cc-check" id="ccReadLabel"><input type="checkbox" id="ccProject"> <span id="ccReadText">Read the project first</span></label>
         <span class="cc-hint muted small" id="ccHint"></span>
         <button type="submit" class="btn primary" id="ccConvene">Convene</button>
       </div>
@@ -899,6 +957,7 @@
 
     <section class="cc-drawer" id="ccSeatsEditor" aria-label="Who sits at the table" hidden>
       <h3>Who sits at the table</h3>
+      <label class="cc-check cc-pick"><input type="checkbox" id="ccPick"> Shellby picks who sits for each question</label>
       <p class="muted small" id="ccSeatsNote"></p>
       <ul class="cc-seat-list" id="ccSeatList"></ul>
       <form class="cc-custom" id="ccCustomForm" autocomplete="off">
@@ -1026,6 +1085,7 @@
       </div>
     </section>
     <section class="ev-banner" data-ev-banner="bugdex" hidden aria-label="Tide event"></section>
+    <section class="bd-nests" id="bdNests" hidden aria-labelledby="bdNestsTitle"></section>
     <section class="bd-league" id="bdLeague" aria-label="Badges and the league"></section>
     <section class="bd-board" id="bdBoard" hidden aria-labelledby="bdBoardTitle">
       <div class="bd-board-head">
@@ -1299,6 +1359,12 @@
       <label class="toggle"><input type="checkbox" id="tkShare" aria-describedby="tkShareHelp"><span class="switch"></span>Show his tank: friends can peek at it, and it’s on your profile card</label>
       <p class="muted small" id="tkShareHelp"></p>
     </section>
+    <!-- Coral from each watched reef (reef.js, docs/REEF.md) -->
+    <section class="us-sec reef-tank" aria-labelledby="reefTankTitle">
+      <div class="us-h"><h3 id="reefTankTitle">Coral</h3><span class="us-h-meta" id="reefTankMeta"></span></div>
+      <p class="muted small">Each project whose reef you watch grows a coral here. Every new best adds a polyp, and nothing takes one away: a struggling reef only turns paler. Place it from the tray’s Plants shelf.</p>
+      <ul class="reef-tank-list" id="reefTankList"></ul>
+    </section>
   </main>
 
   <!-- ====================== HISTORY ====================== -->
@@ -1324,7 +1390,7 @@
       <button type="button" role="tab" data-filter="all" aria-selected="false">All <span class="n"></span></button>
     </div>
     <ul class="history-list" id="historyList"></ul>
-    <!-- Inside the messages (history-search.js): shown once the search box has something in it. -->
+    <!-- Inside the messages (main's history/search.js): shown once the search box has something in it. -->
     <section class="history-found" id="historyFound" aria-labelledby="historyFoundHead" hidden>
       <h3 class="history-found-head" id="historyFoundHead">In messages</h3>
       <div class="history-found-filters">
@@ -1576,6 +1642,21 @@
         <button type="button" class="btn primary slim-btn" id="pjCloneGo" disabled>Clone</button>
         <button type="button" class="btn ghost slim-btn" id="pjCloneCancel">Cancel</button>
       </div>
+    </section>
+    <!-- The reef on a project's page (reef.js, docs/REEF.md): shown under the page while it's open -->
+    <section class="reef-card" id="reefCard" data-room="reef" aria-labelledby="reefTitle" hidden>
+      <div class="reef-head">
+        <div class="reef-coral" id="reefCoral" aria-hidden="true"></div>
+        <div class="reef-head-text">
+          <h3 id="reefTitle">Reef</h3>
+          <p class="reef-stage muted small" id="reefStage" role="status"></p>
+        </div>
+        <div class="reef-actions" id="reefActions"></div>
+      </div>
+      <p class="reef-next" id="reefNext" hidden></p>
+      <ul class="reef-signals" id="reefSignals" aria-label="What the reef reads"></ul>
+      <p class="muted small reef-waiting" id="reefWaiting" hidden></p>
+      <p class="muted small reef-privacy">Counts only, kept on this PC. Shellby reads git and coverage files that are already there; it never runs your code.</p>
     </section>
   </main>
 
@@ -1862,6 +1943,8 @@
         <p class="small muted">Claude gets a short note about Shellby and can make him talk, celebrate or dress up. The note never changes, so Claude Code caches it and it costs very little of your plan. When your usage passes 80%, Claude is told so it can keep things lean. Offers show up as cards and nothing happens unless you tap them. Changes apply to new conversations.</p>
         <label class="toggle"><input type="checkbox" id="plainCardsToggle"><span class="switch"></span>Say what Claude is doing in plain words</label>
         <p class="small muted">Permission cards and the Working bar say what a step does ("Run your tests in its own copy of the repo") and point out deletes, files outside the project, installs and anything that goes online. The command itself is still shown. Worked out by Shellby from the step itself, so it costs no usage.</p>
+        <label class="toggle"><input type="checkbox" id="idleCompactToggle" aria-describedby="idleCompactText"><span class="switch"></span>Compact long conversations while they're idle</label>
+        <p class="small muted" id="idleCompactText">A conversation of 200K tokens or more that sits quiet for 54 minutes gets compacted just before its prompt cache runs out. That way your next message doesn't send the whole conversation again at full price. It uses some of your plan while you're away, even on a tab you never go back to. A project whose Claude Code settings say "idleCompaction": false is left alone.</p>
         <div class="row wrap" id="mutedSuggestRow" hidden>
           <span class="small muted" id="mutedSuggestText"></span>
           <button type="button" class="btn slim-btn" id="unmuteSuggestBtn">Offer them again</button>
@@ -2321,6 +2404,16 @@
         <p class="small muted" id="pushToTalkMsg">Tap the shortcut to open Shellby; hold it and say what you need. Windows' own speech recognition does the listening, on this PC. What you said waits in the box for you to send.</p>
       </section>
 
+      <!-- rooms.js and first-run.js: screens that open as you go, and the way round it -->
+      <section class="setting-group" id="screensGroup" data-nav="Screens">
+        <h3>Screens</h3>
+        <p class="small muted" id="screensLede">Some of his screens join the bar as you two work together, so there’s less to take in on day one.</p>
+        <div class="row">
+          <button type="button" class="btn" id="showEverythingBtn">Show everything now</button>
+          <button type="button" class="btn ghost" id="firstRunAgainBtn" hidden>Bring back First steps</button>
+        </div>
+      </section>
+
       <section class="setting-group" id="usesGroup" data-nav="What you use">
         <h3>What you use</h3>
         <p class="small muted" id="usesLede">Which screens you open, counted on this PC and never sent anywhere.</p>
@@ -2451,6 +2544,53 @@
       <section class="vw-main" id="viewerMain"></section>
     </div>
   </main>
+
+  <!-- the Molt sheet: molting at level 99 (molt.js, src/main/molting.js) -->
+  <div class="molt-sheet" id="moltSheet" role="dialog" aria-modal="true" aria-labelledby="moltTitle" hidden>
+    <div class="molt-inner">
+      <button type="button" class="icon-btn molt-close" id="moltClose" aria-label="Close the Molt sheet">✕</button>
+      <p class="molt-eyebrow" id="moltEyebrow">The Molt</p>
+      <h2 class="molt-title" id="moltTitle">The Molt</h2>
+      <div class="molt-stage" id="moltStage" aria-hidden="true">
+        <div class="molt-crab" id="moltCrab"></div>
+        <div class="molt-old" id="moltOld"></div>
+        <span class="molt-stamp" id="moltStamp"></span>
+      </div>
+      <p class="molt-shell-name" id="moltShellName"></p>
+      <p class="molt-text" id="moltText"></p>
+      <ul class="molt-keeps" aria-label="What he keeps">
+        <li>Every title, badge, shell, decor piece and perk</li>
+        <li>His Bugdex, tank, trophies, stickers and quests</li>
+        <li>All his XP and his streak</li>
+      </ul>
+      <p class="molt-sub" id="moltTiersHead" hidden>His tier shells</p>
+      <ul class="molt-tiers" id="moltTiers" aria-label="Tier shells"></ul>
+      <div class="molt-actions">
+        <button type="button" class="btn primary" id="moltGo">Molt</button>
+        <button type="button" class="btn ghost" id="moltLater">Not yet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shellby Wrapped: last year in slides, opened on January 2nd (wrapped.js, docs/WRAPPED.md) -->
+  <div class="card-sheet wrapped-sheet" id="wrappedSheet" role="dialog" aria-modal="true" aria-labelledby="wrappedTitle" hidden>
+    <div class="card-box wrapped-box">
+      <div class="card-head">
+        <h2 id="wrappedTitle">Shellby Wrapped</h2>
+        <div class="wr-years" id="wrappedYears" role="group" aria-label="Other years" hidden></div>
+        <button type="button" class="icon-btn" id="wrappedClose" aria-label="Close">
+          <svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="wr-progress" id="wrappedDots" aria-hidden="true"></div>
+      <section class="wr-slide" id="wrappedSlide" aria-live="polite" aria-atomic="true"></section>
+      <div class="wr-nav">
+        <button type="button" class="btn ghost" id="wrappedPrev">Back</button>
+        <span class="wr-count small muted" id="wrappedCount"></span>
+        <button type="button" class="btn primary" id="wrappedNext">Next</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ====================== MAIN NAVIGATION ====================== -->
   <nav class="dock" id="dock" aria-label="Main">
@@ -2670,6 +2810,7 @@
   <p class="sr-only" id="announcer" role="status" aria-live="polite"></p>
 
 <script src="../shared/framecap.js"></script>
+<script src="../shared/latest.js"></script>
 <script src="../shared/sprite.js"></script>
 <script src="../shared/minishell.js"></script>
 <script src="../shared/markdown.js"></script>
@@ -2679,6 +2820,7 @@
 <script src="../shared/mermaid.js"></script>
 <script src="../shared/mermaid-draw.js"></script>
 <script src="../shared/todos.js"></script>
+<script src="../shared/ultracode.js"></script>
 <script src="../shared/effects.js"></script>
 <script src="../shared/health-fx.js"></script>
 <script src="../shared/outlook-format.js"></script>
@@ -2739,6 +2881,7 @@
 <script src="builtin-commands.js"></script>
 <script src="tries.js"></script>
 <script src="debug-mode.js"></script>
+<script src="ultracode.js"></script>
 <script src="toolbox-setup.js"></script>
 <script src="toolbox-automemory.js"></script>
 <script src="toolbox-hooks.js"></script>
@@ -2779,6 +2922,7 @@
 <script src="wardrobe.js"></script>
 <script src="stickers.js"></script>
 <script src="crew.js"></script>
+<script src="council-minutes.js"></script>
 <script src="council.js"></script>
 <script src="together.js"></script>
 <script src="bugdex.js"></script>
@@ -2811,6 +2955,7 @@
 <script src="rooms.js"></script>
 <script src="uses.js"></script>
 <script src="quests.js"></script>
+<script src="first-run.js"></script>
 <script src="workmode.js"></script>
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>
@@ -2841,6 +2986,15 @@
 <script src="friends.js"></script>
 <script src="nav.js"></script>
 <script src="settings-search.js"></script>
+<script src="levels-ui.js"></script>
+<script src="molt.js"></script>
+<script src="bugdex-report.js"></script>
+<script src="bugdex-nests.js"></script>
+<script src="reef.js"></script>
+<script src="review-mastery.js"></script>
+<script src="wrapped-card.js"></script>
+<script src="wrapped.js"></script>
+<script src="logbook.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

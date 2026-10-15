@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const gitinfo = require('../gitinfo');
 const notes = require('../notes');
-const streaks = require('../streaks');
+const streaks = require('../progression/streaks');
 
 const foldPath = p => (process.platform === 'win32' ? p.toLowerCase() : p);
 
@@ -62,7 +62,7 @@ function wireNotes(d) {
     return hit ? hit[1].notes.filter(n => !n.done).map(n => ({ id: n.id, text: n.text, scope: hit[0], from: n.from })) : [];
   }
 
-  /** A turn ended: if it was a note's Ask, its verdict goes on the note (timetrack.js onResult). */
+  /** A turn ended: if it was a note's Ask, its verdict goes on the note (timetrack/index.js onResult). */
   async function notesTurnEnded(tabId, reply) {
     const before = notes.normalize(d.config.get('notes'));
     const next = notes.markVerdict(before, tabId, reply);

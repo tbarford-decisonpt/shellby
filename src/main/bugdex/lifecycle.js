@@ -6,7 +6,7 @@
 // Pure: lists in, new lists out, no clock. See test/bugdex.test.js.
 
 const HOUR = 60 * 60 * 1000;
-const ENCOUNTER_TTL = 24 * HOUR;    // the same as xp.js RED_FOR
+const ENCOUNTER_TTL = 24 * HOUR;    // the same as progression/xp.js RED_FOR
 const MAX_OPEN = 40;
 const MAX_KEYS = 8;
 const SOURCES = new Set(['bash', 'server', 'ci', 'home', 'push', 'audit', 'flaky']);

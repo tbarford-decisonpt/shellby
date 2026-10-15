@@ -10,7 +10,7 @@
 // Both drafts and the chat say when a request is really a workflow's job (it
 // starts on an event, or needs steps with decisions between them), so the
 // panel can offer to build it as one instead.
-const { validateRoutine } = require('../routines');
+const { validateRoutine } = require('./index');
 const { MODELS, isModel } = require('../models');
 
 const MAX_DESCRIPTION = 500;
@@ -454,7 +454,7 @@ async function repair({ routine, brief }, deps) {
 }
 
 /**
- * What a routine's test run did, read from its tab's transcript (history.js
+ * What a routine's test run did, read from its tab's transcript (history/index.js
  * records): how it ended, the tools it used and which of them failed, and what
  * Claude Code said last. Subagents' lines are left out, as the user sees them
  * folded away too.

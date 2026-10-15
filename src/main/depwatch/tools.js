@@ -1,5 +1,5 @@
 // Which package manager a project uses, the checker that asks about it, and how
-// to run that checker safely (depwatch.js runs it).
+// to run that checker safely (depwatch/index.js runs it).
 //
 // These run inside your projects, unattended, and a project is a folder anyone
 // could have written. So:
@@ -217,6 +217,9 @@ const goEnv = (env = process.env) => ({ ...baseEnv(env, KEEP_FOR.go), GOTOOLCHAI
  * or { needs } when nothing can be checked. missing: a checker for one half
  * that isn't there (Go without govulncheck). requirements: the path of the
  * pins file Shellby writes for pip-audit (python only). pkg: package.json's text.
+ * @param {{ key: string, manager: string }} project
+ * @param {any} tools
+ * @param {{ env?: NodeJS.ProcessEnv, requirements?: string | null, pkg?: string, workspace?: string }} [opts]
  */
 function plan(project, tools, { env = process.env, requirements = null, pkg = '', workspace = '' } = {}) {
   const { key: cwd, manager } = project;

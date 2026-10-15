@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
   edgesOf, footIn, centerIn, reorient, windowAt, alongOf, rangeOf, localDir, chooseWall, wantsToClimb,
   routeFrom, routeOnCeiling, climbStep, startRoute, leapFrom, wallNear, REACH,
-} = require('../src/main/climb');
+} = require('../src/main/desktop/climb');
 
 const G = { width: 160, height: 136, foot: 18, half: 44, body: 52 };
 const WA = { x: 0, y: 0, width: 1920, height: 1040 };

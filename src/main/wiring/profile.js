@@ -1,5 +1,5 @@
 // Your profile, opened first at boot: the settings (config.js) and the
-// conversations' history (history.js), each tidied as it opens.
+// conversations' history (history/index.js), each tidied as it opens.
 // Kept out of main.js, which only wires it up.
 const { app } = require('electron');
 const path = require('path');
@@ -7,9 +7,16 @@ const attach = require('../attachments');
 const { setPlanOnly } = require('../claude/cli');
 const { Config } = require('../config');
 const { History } = require('../history');
+const firstRun = require('../first-run');
 const rooms = require('../rooms');
 
 const PURGE_EVERY_MS = 24 * 60 * 60 * 1000;
+
+/** Anyone who has been here: onboarded, any XP, or rooms already opening. */
+function hadProgress(config) {
+  const r = rooms.normalizeRooms(config.get('rooms'));
+  return !!config.get('onboarded') || Number(config.get('xp')?.total) > 0 || !!r?.all || (r?.tasks || 0) > 0;
+}
 
 /** d: what main shares (main.js `shared`). Sets d.config and d.history. */
 function wireProfile(d) {
@@ -25,7 +32,14 @@ function wireProfile(d) {
     if (config.lost) config.set({ onboarded: true });
     // Rooms are decided once: everything for someone who was already here, one
     // door at a time for someone new (rooms.js).
+    const had = hadProgress(config);
     if (config.get('rooms') == null) config.set({ rooms: rooms.initialRooms(!!config.get('onboarded')) });
+    // First steps too (first-run.js): already finished for anyone with any
+    // progress, so nothing they had is hidden behind the core loop.
+    if (config.get('firstRun') == null) {
+      config.set({ firstRun: firstRun.initialFirstRun(had) });
+      if (had) config.set({ rooms: rooms.reachCore(config.get('rooms')).state });
+    }
     setPlanOnly(config.get('planOnly')); // before anything launches Claude Code
     const history = d.history = new History(path.join(userData, 'sessions'), { onError: (what, err) => log.error(`history: ${what}`, err) });
     // Transcripts orphaned by an older build (which trimmed the index without

@@ -1,0 +1,111 @@
+/* Shellby panel — levels and molting (levels-ui.js, molt.js): the next-unlock
+   bar and the level ladder on the XP card, the milestone ceremony, the Molt
+   sheet and the molt ring round the level badge. Tokens come from panel.css. */
+
+/* ---- the molt ring: after a molt, a ring in the tier's colour and its numeral */
+.xp-level.molted, .brand-level.molted { position: relative; box-shadow: 0 0 0 3px var(--molt), 0 0 10px color-mix(in srgb, var(--molt) 60%, transparent); }
+.xp-level.molted::after, .brand-level.molted::after {
+  content: attr(data-molt); position: absolute; right: -8px; bottom: -6px; padding: 0 4px; border-radius: 99px;
+  font: 700 var(--fs-10)/14px var(--font-mono); color: #12081f; background: var(--molt); box-shadow: 0 0 0 2px var(--reef);
+}
+.brand-level.molted::after { right: -10px; bottom: -8px; font-size: 9px; line-height: 11px; }
+
+/* ---- weekends off */
+.xp-boosts li.xp-rest { padding: 0; background: none; border: 0; }
+.xp-rest-btn {
+  font: 600 var(--fs-10-5)/18px var(--font-mono); padding: 0 7px; border-radius: 99px; cursor: pointer;
+  color: var(--sand-dim); background: transparent; border: 1px dashed var(--line);
+}
+.xp-rest-btn[aria-pressed="true"] { color: #8fe3d6; border-style: solid; border-color: rgba(63, 208, 201, .35); background: rgba(63, 208, 201, .1); }
+.xp-rest-btn:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+
+/* ---- the next-unlock bar under the XP bar */
+.lv-next { margin: 2px 0 8px; }
+.lv-next-bar { height: 4px; border-radius: 99px; background: var(--abyss); overflow: hidden; }
+.lv-next-bar i { display: block; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--rank, #ffd23f) 55%, #8fe3d6); transform-origin: left; transform: scaleX(0); transition: transform .8s var(--ease-out); }
+.lv-next-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; flex-wrap: wrap; }
+.lv-next-text { flex: 1 1 200px; font: 500 var(--fs-11) var(--font-mono); color: var(--sand-dim); cursor: help; }
+.lv-next-text:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; border-radius: 4px; }
+.lv-molt-btn.ready { animation: lv-glow 2.4s ease-in-out infinite; }
+@keyframes lv-glow { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--rank, #ffd23f) 35%, transparent); } }
+
+/* ---- the ladder: every level 2-99 */
+.lv-ladder { margin-top: 8px; max-height: 260px; overflow: auto; padding-right: 4px; }
+.lv-perks { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
+.lv-perks li { padding: 5px 7px; border-radius: 8px; border: 1px solid var(--line); opacity: .6; }
+.lv-perks li.owned { opacity: 1; border-color: color-mix(in srgb, var(--rank, #ffd23f) 45%, transparent); }
+.lv-perks b { display: block; font: 600 var(--fs-11) var(--font-mono); }
+.lv-perks small { font-size: var(--fs-10); color: var(--sand-dim); }
+.lv-rungs { list-style: none; margin: 0; padding: 0; }
+.lv-rung { display: flex; gap: 8px; align-items: baseline; padding: 3px 4px; border-radius: 6px; opacity: .55; }
+.lv-rung.owned { opacity: 1; }
+.lv-rung.new .lv-rung-level::after { content: ' new'; color: var(--coral); font-size: var(--fs-10); }
+.lv-rung.tier-major .lv-rung-level, .lv-rung.tier-legend .lv-rung-level { color: var(--rank, #ffd23f); }
+.lv-rung.tier-legend { background: color-mix(in srgb, var(--rank, #ffd23f) 8%, transparent); }
+.lv-rung-level { flex: none; width: 4.5em; font: 700 var(--fs-11) var(--font-mono); }
+.lv-rung-level::before { content: 'Lv '; font-weight: 400; color: var(--sand-dim); }
+.lv-rung-items { font-size: var(--fs-11); }
+
+/* ---- the milestone ceremony: a full-panel sheet in the new rank's colour */
+.lv-ceremony {
+  position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 24px;
+  background: color-mix(in srgb, var(--bg, #071018) 88%, transparent);
+}
+.lv-cer-sweep { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(80% 60% at 50% 40%, color-mix(in srgb, var(--cer) 35%, transparent), transparent 70%); }
+.lv-cer-body { position: relative; max-width: 460px; width: 100%; text-align: center; padding: 22px; border-radius: var(--r-lg); background: var(--reef); border: 1px solid color-mix(in srgb, var(--cer) 55%, transparent); box-shadow: 0 0 40px color-mix(in srgb, var(--cer) 30%, transparent); }
+.lv-ceremony.legend .lv-cer-body { border-width: 2px; }
+.lv-cer-eyebrow { margin: 0; font: 600 var(--fs-10) var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--cer); }
+.lv-cer-title { margin: 6px 0 4px; min-height: 1.3em; font: 600 var(--fs-24) var(--font-pixel); color: var(--sand); }
+.lv-cer-text { margin: 0 0 12px; color: var(--sand-dim); font-size: var(--fs-12); }
+.lv-cards { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.lv-card { width: 96px; padding: 8px 6px; border-radius: 10px; background: var(--abyss); border: 1px solid color-mix(in srgb, var(--cer) 35%, transparent); display: grid; justify-items: center; gap: 4px; }
+.lv-card b { font-size: var(--fs-11); line-height: 1.2; }
+.lv-card small { font: 500 var(--fs-10) var(--font-mono); color: var(--sand-dim); }
+.lv-card-icon { font-size: 24px; line-height: 40px; }
+.lv-cer-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+
+/* ---- the Molt sheet */
+.molt-sheet {
+  position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 20px;
+  background: radial-gradient(60% 50% at 50% 35%, rgba(90, 45, 145, .35), transparent 70%), rgba(4, 3, 10, .92);
+}
+.molt-sheet[hidden] { display: none; }
+.molt-inner { position: relative; max-width: 480px; width: 100%; padding: 20px 22px; border-radius: var(--r-lg); background: #0c0a16; border: 1px solid rgba(179, 136, 255, .35); text-align: center; color: var(--sand); }
+.molt-close { position: absolute; top: 8px; right: 8px; }
+.molt-eyebrow { margin: 0; font: 600 var(--fs-10) var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: #b388ff; }
+.molt-title { margin: 4px 0 10px; font: 600 var(--fs-21) var(--font-pixel); }
+.molt-stage { position: relative; height: 120px; display: grid; place-items: center; margin-bottom: 6px; }
+.molt-crab, .molt-old { grid-area: 1 / 1; }
+.molt-old { opacity: 0; }
+.molt-stamp {
+  position: absolute; right: calc(50% - 90px); top: 8px; min-width: 30px; padding: 2px 8px; border-radius: 99px;
+  font: 700 var(--fs-13) var(--font-mono); color: #12081f; background: var(--molt, #b388ff); opacity: .35; transform: rotate(-8deg);
+}
+.molt-stamp.stamped { opacity: 1; }
+.molt-shell-name { margin: 0 0 4px; font: 600 var(--fs-12) var(--font-mono); color: #d9c8ff; }
+.molt-text { margin: 0 0 10px; font-size: var(--fs-12); color: var(--sand-dim); }
+.molt-keeps { list-style: none; margin: 0 auto 12px; padding: 0; max-width: 360px; text-align: left; font-size: var(--fs-11); color: var(--sand-dim); }
+.molt-keeps li::before { content: '✓ '; color: #7bd389; }
+.molt-sub { margin: 6px 0 4px; font: 600 var(--fs-10) var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sand-dim); }
+.molt-tiers { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.molt-tier { display: grid; justify-items: center; gap: 2px; padding: 4px 6px; border-radius: 8px; cursor: pointer; background: transparent; border: 1px solid var(--line); color: var(--sand-dim); }
+.molt-tier.worn { border-color: #b388ff; color: var(--sand); background: rgba(179, 136, 255, .1); }
+.molt-tier:focus-visible { outline: 2px solid var(--glass); outline-offset: 2px; }
+.molt-tier small { font: 500 var(--fs-10) var(--font-mono); }
+.molt-actions { display: flex; gap: 8px; justify-content: center; }
+
+/* Motion: the old shell rolls aside, the new one drops in, the badge stamps; the title writes itself, cards flip. */
+@media (prefers-reduced-motion: no-preference) {
+  .molt-stage.molting .molt-old { animation: molt-roll 1.4s var(--ease-out) forwards; }
+  .molt-stage.molting .molt-crab { animation: molt-drop 1.6s var(--ease-spring) .5s both; }
+  .molt-stamp.stamped { animation: molt-stamp .5s var(--ease-spring) 1.9s both; }
+  .lv-cer-sweep { animation: lv-sweep 1.2s var(--ease-out) both; }
+  .lv-card { animation: lv-flip .45s var(--ease-spring) both; }
+  .lv-cer-body { animation: lv-rise .5s var(--ease-out) both; }
+}
+@keyframes molt-roll { 0% { opacity: 1; transform: none; } 20% { transform: translateX(-4px) rotate(-6deg); } 100% { opacity: 0; transform: translateX(-140px) rotate(-320deg); } }
+@keyframes molt-drop { 0% { opacity: 0; transform: translateY(-90px) scale(.8); } 70% { opacity: 1; transform: translateY(4px) scale(1.04); } 100% { opacity: 1; transform: none; } }
+@keyframes molt-stamp { 0% { opacity: 0; transform: scale(2.4) rotate(-20deg); } 100% { opacity: 1; transform: rotate(-8deg); } }
+@keyframes lv-sweep { 0% { opacity: 0; transform: translateX(-30%); } 100% { opacity: 1; transform: none; } }
+@keyframes lv-flip { 0% { opacity: 0; transform: rotateY(90deg); } 100% { opacity: 1; transform: none; } }
+@keyframes lv-rise { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: none; } }

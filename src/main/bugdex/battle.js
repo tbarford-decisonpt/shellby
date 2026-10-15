@@ -5,6 +5,13 @@
 // catches it (lifecycle.js, cheats.js). Everything before that can wear it
 // down, never out: HP stops at FLOOR until the fix is proven.
 //
+// A bug that was caught in this project before comes back as a rematch: a
+// little stronger each time, and the appear line remembers how it was fixed
+// last time (bugdex/history.js). The finishing blow is the fix report
+// (bugdex/quality.js): a new test is a Proof Strike, a fix at the root a Root
+// Cut, a pass on the first re-run First Try, helpers a Crew Combo, and a
+// rematch won with a proof is Sealed.
+//
 // The honest parts: a re-run that fails with fewer failing tests (or type,
 // lint or build errors) takes HP off in proportion, one that fails as before
 // misses and the bug strikes back, one that fails worse heals it, and a fix
@@ -57,6 +64,18 @@ const FOCUS_MS = 20 * 60 * 1000; // reads, edits and helpers count this long aft
 const MAX_MOVES = 40;
 const MAX_PARTY = 6;
 
+// The fix report's finishers, in the order they land (at most MAX_FINISHERS).
+const FINISHERS = Object.freeze({
+  proof: { name: 'Proof Strike', fx: 'super' },
+  root: { name: 'Root Cut', fx: 'crit' },
+  first: { name: 'First Try', fx: 'crit' },
+  crew: { name: 'Crew Combo', fx: 'super' },
+  sealed: { name: 'Sealed', fx: 'finish' },
+});
+const MAX_FINISHERS = 3;
+const REMATCH_LEVELS = 2;   // per time it's been caught here before
+const MAX_REMATCH = 20;
+
 const FX = new Set(['appear', 'hit', 'super', 'crit', 'miss', 'heal', 'resist', 'finish', 'ko', 'caught', 'fled']);
 
 const count = v => (Number.isInteger(v) && v >= 0 ? v : null);
@@ -69,18 +88,20 @@ const isSuper = (move, type) => (SUPER[type] || []).includes(move);
 /**
  * A bug surfaces.
  *   enc: { species, rarity, type, project?, tabId? } (id is lifecycle.encId)
- *   opts: { id, boss, league ('elite' | 'champion' | null), stage (your own of it, 0-4), failed, now }
+ *   opts: { id, boss, league ('elite' | 'champion' | null), stage (your own of it, 0-4), failed, now,
+ *           rematch (bugdex/history.js rematchOf: { n, last: { at, q } } | null) }
  */
-function start(enc, { id, boss = false, league = null, stage = 0, failed = null, now }) {
+function start(enc, { id, boss = false, league = null, stage = 0, failed = null, now, rematch = null }) {
   const rarity = HP[enc.rarity] ? enc.rarity : 'common';
   const big = boss || !!league;
   const max = Math.round(HP[rarity] * (big ? BOSS_HP : 1));
-  const level = Math.min(100, LEVEL[rarity] + (big ? BOSS_LEVELS : 0) + Math.max(0, Math.min(4, stage | 0)) * 2);
+  const again = cleanRematch(rematch);
+  const level = Math.min(100, LEVEL[rarity] + (big ? BOSS_LEVELS : 0) + Math.max(0, Math.min(4, stage | 0)) * 2 + (again ? again.n * REMATCH_LEVELS : 0));
   return {
     id, species: enc.species, type: enc.type, rarity, boss: !!boss, league: league === 'elite' || league === 'champion' ? league : null,
     max, hp: max, level, startedAt: now, seenAt: now, seq: 1,
     firstFailed: count(failed), lastFailed: count(failed), scouted: 0,
-    party: [],
+    party: [], rematch: again, report: null,
     moves: [{ seq: 1, move: 'appear', fx: 'appear', dmg: 0, hp: max, at: now, n: 1, by: null }],
     over: null,
   };
@@ -163,17 +184,70 @@ function resist(b, { at, reason }) {
 /**
  * It's over: caught (the fix's finishing blow, it faints, then the jar), or it got away.
  *   end: { at, outcome: 'caught' | 'fled', move (what proved the fix: a command
- *          kind or 'remedy'), jar: { isNew, forms, badge, league, fame, reveal, counted } }
+ *          kind or 'remedy'), jar: { isNew, forms, badge, league, fame, reveal, counted },
+ *          report (quality.js fixReport, or null) }
+ * With a report, the blow is its finishers (finishersFor); without one, "It passes".
  */
-function finish(b, { at, outcome, move = null, jar = null }) {
+function finish(b, { at, outcome, move = null, jar = null, report = null }) {
   if (!b || b.over || !Number.isFinite(at)) return b;
   if (outcome === 'caught') {
     const kind = move && (COMMAND_MOVES.has(move) || move === 'remedy') ? move : 'run';
-    const blow = push(b, { move: kind, fx: 'finish', dmg: b.hp, hp: 0, at });
+    const rep = cleanReport(report);
+    const names = finishersFor(rep, { rematch: !!b.rematch });
+    let blow = { ...b, report: rep };
+    if (!names.length) blow = push(blow, { move: kind, fx: 'finish', dmg: blow.hp, hp: 0, at });
+    names.forEach((f, i) => {
+      // Each takes its share of what's left; the last takes the rest.
+      const hp = i === names.length - 1 ? 0 : Math.round(blow.hp * (1 - 1 / (names.length - i)));
+      blow = push(blow, { move: kind, fx: FINISHERS[f].fx, finisher: f, dmg: blow.hp - hp, hp, at });
+    });
     const ko = push(blow, { move: 'finish', fx: 'ko', dmg: 0, hp: 0, at });
     return { ...push(ko, { move: 'jar', fx: 'caught', dmg: 0, hp: 0, at, jar: cleanJar(jar) }), over: 'caught' };
   }
   return { ...push(b, { move: 'flee', fx: 'fled', dmg: 0, hp: b.hp, at }), over: 'fled' };
+}
+
+/**
+ * Which finishers a report earns, in order: Proof Strike, Root Cut, First Try,
+ * then Crew Combo if there's room, at most MAX_FINISHERS; a rematch won with a
+ * proof ends on Sealed.
+ */
+function finishersFor(report, { rematch = false } = {}) {
+  const q = report?.qualities;
+  if (!q) return [];
+  const out = [];
+  if (q.proof) out.push('proof');
+  if (q.rootCause) out.push('root');
+  if (q.firstTry) out.push('first');
+  if (report.crew > 0) out.push('crew');
+  const list = out.slice(0, MAX_FINISHERS);
+  return rematch && q.proof ? [...list, 'sealed'] : list;
+}
+
+function cleanReport(r) {
+  if (!r || typeof r !== 'object' || !r.qualities) return null;
+  const q = r.qualities;
+  const qualities = { proof: q.proof === true, firstTry: q.firstTry === true, rootCause: q.rootCause === true, wider: q.wider === true };
+  return {
+    qualities, score: Object.values(qualities).filter(Boolean).length,
+    q: typeof r.q === 'string' ? r.q.slice(0, 4) : '', crew: Number.isInteger(r.crew) && r.crew > 0 ? Math.min(r.crew, MAX_PARTY) : 0,
+  };
+}
+
+function cleanRematch(r) {
+  const n = Number.isInteger(r) ? r : r?.n;
+  if (!Number.isInteger(n) || n < 1) return null;
+  const last = r && typeof r === 'object' && r.last && Number.isFinite(r.last.at) ? { at: r.last.at, q: typeof r.last.q === 'string' ? r.last.q.slice(0, 4) : '' } : null;
+  return { n: Math.min(n, MAX_REMATCH), last };
+}
+
+/** How the last fix went, in a few words ("no test", "a test proved it"). */
+function lastTime(q) {
+  if (typeof q !== 'string') return null;
+  if (q.includes('p') && q.includes('r')) return 'a test proved it, fixed at the root';
+  if (q.includes('p')) return 'a test proved it';
+  if (q.includes('r')) return 'fixed at the root, but no test';
+  return 'no test';
 }
 
 function cleanBy(by) {
@@ -210,8 +284,10 @@ const WHY = {
 function lineFor(b, m, name) {
   const who = m.by ? m.by.name : 'Claude';
   const times = m.n > 1 ? ` ×${m.n}` : '';
+  if (m.finisher && FINISHERS[m.finisher]) return finisherLine(b, m, name, who);
   switch (m.fx) {
-    case 'appear': return b.league === 'champion' ? `${name}, the champion of the deep, stirs!`
+    case 'appear': if (b.rematch) return rematchLine(b, name);
+      return b.league === 'champion' ? `${name}, the champion of the deep, stirs!`
       : b.league === 'elite' ? `${name}, one of the Deep Four, stirs!`
         : b.boss ? `${name}, the boss of these waters, won’t budge!` : `A wild ${name} appeared!`;
     case 'ko': return `${name} is out cold!`;
@@ -232,12 +308,31 @@ function lineFor(b, m, name) {
   return `${used}${after}`;
 }
 
+function finisherLine(b, m, name, who) {
+  const crew = b.party.map(p => p.name).slice(0, 2).join(' and ') || 'The crew';
+  switch (m.finisher) {
+    case 'proof': return `${who} adds a test: Proof Strike! It’s super effective!`;
+    case 'root': return `${who} fixes the cause: Root Cut! A big one!`;
+    case 'first': return 'Passed on the first re-run: First Try! A big one!';
+    case 'crew': return `${crew} pile in: Crew Combo! Teamwork!`;
+    case 'sealed': return `The test seals it: Sealed! ${name} won’t be back in a hurry!`;
+    default: return `${who} lands a finishing blow!`;
+  }
+}
+
+function rematchLine(b, name) {
+  const last = b.rematch.last ? lastTime(b.rematch.last.q) : null;
+  return `It’s back! ${name}, rematch #${b.rematch.n}.${last ? ` Last time: ${last}.` : ''}`;
+}
+
 /** What the panel draws: no encounter internals, just the fight, each move with its line. */
 function view(b, name) {
   if (!b) return null;
   return {
     id: b.id, species: b.species, type: b.type, rarity: b.rarity, boss: b.boss, league: b.league,
     max: b.max, hp: b.hp, level: b.level, startedAt: b.startedAt, seq: b.seq, over: b.over,
+    rematch: b.rematch ? { n: b.rematch.n, last: b.rematch.last ? { ...b.rematch.last } : null } : null,
+    report: b.report ? { ...b.report, qualities: { ...b.report.qualities } } : null,
     party: b.party.map(p => ({ ...p })),
     moves: b.moves.filter(m => FX.has(m.fx)).map(m => ({ ...m, line: lineFor(b, m, name) })),
   };
@@ -245,5 +340,6 @@ function view(b, name) {
 
 module.exports = {
   MOVES, SUPER, STRIKES, HP, LEVEL, FLOOR, SCOUT_MAX, FOCUS_MS, MAX_MOVES, COMMAND_MOVES,
-  isSuper, start, act, resist, finish, lineFor, view, floorOf,
+  FINISHERS, MAX_FINISHERS, REMATCH_LEVELS,
+  isSuper, start, act, resist, finish, finishersFor, lastTime, lineFor, view, floorOf,
 };

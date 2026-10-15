@@ -1,0 +1,15 @@
+    <!-- The reef on a project's page (reef.js, docs/REEF.md): shown under the page while it's open -->
+    <section class="reef-card" id="reefCard" data-room="reef" aria-labelledby="reefTitle" hidden>
+      <div class="reef-head">
+        <div class="reef-coral" id="reefCoral" aria-hidden="true"></div>
+        <div class="reef-head-text">
+          <h3 id="reefTitle">Reef</h3>
+          <p class="reef-stage muted small" id="reefStage" role="status"></p>
+        </div>
+        <div class="reef-actions" id="reefActions"></div>
+      </div>
+      <p class="reef-next" id="reefNext" hidden></p>
+      <ul class="reef-signals" id="reefSignals" aria-label="What the reef reads"></ul>
+      <p class="muted small reef-waiting" id="reefWaiting" hidden></p>
+      <p class="muted small reef-privacy">Counts only, kept on this PC. Shellby reads git and coverage files that are already there; it never runs your code.</p>
+    </section>

@@ -10,7 +10,7 @@ const os = require('os');
 const path = require('path');
 const { savePng } = require('./lib/shot');
 const { COMMAND } = require('../src/main/statusline');
-const { AWARDS } = require('../src/main/xp');
+const { AWARDS } = require('../src/main/progression/xp');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9353;

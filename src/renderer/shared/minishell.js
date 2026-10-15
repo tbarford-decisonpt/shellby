@@ -1,5 +1,5 @@
 // The gutter mark on Shellby's messages: a 10x10 pixel mini of the shell he
-// lives in right now. One per home in src/main/shells.js, hand-drawn at this
+// lives in right now. One per home in src/main/progression/shells.js, hand-drawn at this
 // size rather than scaled down from the 13x12 grids — pixel art does not
 // survive resampling, and at 10px only the silhouette and the colours read.
 //
@@ -9,7 +9,7 @@
   const SIZE = 10;
 
   // Keyed by shell id; 'home' is the shell he hatched with. Keep in step with
-  // SHELLS in src/main/shells.js (test/minishell.test.js checks every id).
+  // SHELLS in src/main/progression/shells.js (test/minishell.test.js checks every id).
   const MARKS = Object.freeze({
     // His own shell, in his own coral — the mark the panel has always had,
     // now shaped like a shell instead of a square.
@@ -191,6 +191,187 @@
         '..KvyyyyK.',
         '...KKKKK..',
         '..........',
+      ],
+    },
+    // Levels 20 to 99 (src/main/progression/shells-extra.js).
+    'sea-urchin-shell': {
+      palette: { K: '#2a1240', b: '#3e1b5e', v: '#5b2a86', V: '#8e4fc4', p: '#c48cf0', P: '#ecd2ff', w: '#ffffff', g: '#d77fb0' },
+      pixels: [
+        '.v..p..v..',
+        '...pPVV.b.',
+        'v.pPwpVV..',
+        '..PpgpgvK.',
+        'VpgVpVvgKb',
+        '.pPpVvgvK.',
+        'vVgVvvbgKb',
+        'b.bvbbKK..',
+        '...KKKK...',
+        '.b.K..K.b.',
+      ],
+    },
+    ammonite: {
+      palette: { N: '#3a2210', D: '#5a3a1a', r: '#8a5a2a', s: '#a8743a', a: '#d9a35a', A: '#f2c77e', h: '#fde7b5' },
+      pixels: [
+        '...aAas...',
+        '..AhAAsr..',
+        '.ahaDDaar.',
+        'aADaAaaDrN',
+        'aADaDDaDrN',
+        'aaDaDDsDrN',
+        'AaDsassDrN',
+        '.srrDDDrN.',
+        '..rrsrrr..',
+        '..rNNNNN..',
+      ],
+    },
+    'conch-of-answers': {
+      palette: { N: '#5e2340', R: '#a8456a', P: '#e0708f', p: '#f7a7bf', o: '#fbc8d6', C: '#f3d2b0', c: '#fff1dc', w: '#ffffff', k: '#167a7a', t: '#2fd6c3', T: '#b5fff5' },
+      pixels: [
+        '.....C....',
+        '....cCP...',
+        '...cwCpP..',
+        '..wcCkkkR.',
+        '.ccpktTkRN',
+        'cCpoktTkRN',
+        'CcopkTtkRN',
+        '..ppoPPR..',
+        '..PRRRNN..',
+        '...NNN....',
+      ],
+    },
+    'glass-float': {
+      palette: { D: '#0f3d2a', d: '#1d6b48', g: '#2f9e6a', G: '#6fd6a0', L: '#b8f5d2', w: '#ffffff', r: '#c9a36a', R: '#8a6a3a' },
+      pixels: [
+        '...rRRr...',
+        '..rGLGdR..',
+        '..GwLGgd..',
+        '.rrrrrrrrR',
+        'rGGgrggddR',
+        'rGGgrgdddR',
+        'rrrrrrrrrR',
+        '..dgrdrD..',
+        '..rrrrrR..',
+        '..RRRRR...',
+      ],
+    },
+    'storm-whelk': {
+      palette: { K: '#1f2630', s: '#4a5563', S: '#6f7c8c', l: '#9ba8b8', h: '#d0d9e4', y: '#ffd23f', Y: '#fff4a8', o: '#c89a10' },
+      pixels: [
+        '.....s....',
+        '....lSs...',
+        '...lhySs..',
+        '..hlySssK.',
+        '.lSllYssKK',
+        'lhlSSYysKK',
+        'lSSsSYssKK',
+        '..ssosss..',
+        '..sKKKKK..',
+        '..........',
+      ],
+    },
+    'ruby-murex': {
+      palette: { K: '#3a0812', d: '#5a0a1a', R: '#8a1024', r: '#c0172e', p: '#ff4d63', P: '#ff9aa6', w: '#ffffff', o: '#c08a10', g: '#ffd23f', G: '#fff1a8' },
+      pixels: [
+        '..........',
+        '...PprR...',
+        'G.PwprRRg.',
+        'GrPrrrRRog',
+        '.rprRRRd.o',
+        'gRrrRRRddK',
+        '.RrRrRdddK',
+        '.oRRdddd..',
+        '..ddKKKK..',
+        '..KKKo....',
+      ],
+    },
+    'scholar-cowrie': {
+      palette: { N: '#3a2210', B: '#5a3518', b: '#8a5a2b', c: '#e2c48a', I: '#f0dcb0', i: '#fff6e0', w: '#ffffff', S: '#c9a96e', R: '#8c1230' },
+      pixels: [
+        '..........',
+        '...iIIcb..',
+        '..wwibIcB.',
+        'iwIIbcIbBN',
+        'IibIIcbcBN',
+        'IbIcbcIbBN',
+        'cIbcIcbBNN',
+        '.SSSRSSS..',
+        '..BBRRBB..',
+        '....RR....',
+      ],
+    },
+    'pearl-turban': {
+      palette: { N: '#4a4060', d: '#6e6488', m: '#9a8fb0', M: '#c4bad8', w: '#ffffff', a: '#ffd6ec', b: '#d6f0ff', c: '#e8ffd6' },
+      pixels: [
+        '....wm....',
+        '...wacm...',
+        '..MMMMmd..',
+        '..MMMMmmN.',
+        '.wcababcdN',
+        '.MMMMMmmdN',
+        'wcbcacabdN',
+        '.MmmmmmdN.',
+        '..dddNNN..',
+        '..........',
+      ],
+    },
+    'tsunami-spire': {
+      palette: { N: '#0a2240', B: '#1a4f8a', b: '#2f7fd0', c: '#5fb4f0', C: '#a8dcff', f: '#e6f6ff', w: '#ffffff' },
+      pixels: [
+        '.....C....',
+        '....wbB...',
+        '...fwcbB..',
+        '..fcbwwcN.',
+        '.cwcbBfcBN',
+        'bcfwcBBwBN',
+        'cbBwwbBBBN',
+        '.bwfcBBB..',
+        '..BBBBNN..',
+        '..NNNNN...',
+      ],
+    },
+    'abyssal-helmet': {
+      palette: { N: '#070b1e', n: '#121a3a', d: '#1e2b5c', D: '#2c3f80', l: '#4a62b0', c: '#6cf0ff', C: '#d6fbff', g: '#8cff9e', p: '#b48cff' },
+      pixels: [
+        '..........',
+        '...dDDn...',
+        '..DlDddn..',
+        '.DDddddnN.',
+        'dDnCccgnnN',
+        'dDcCnngnnN',
+        'dDnccnnpnN',
+        '.ddcddpd..',
+        '..NNNNNN..',
+        '..........',
+      ],
+    },
+    'monarch-volute': {
+      palette: { N: '#140822', K: '#24103a', v: '#5a2a8a', V: '#8a4fc8', P: '#c08cf0', o: '#c08a10', g: '#ffd23f', G: '#fff1a8' },
+      pixels: [
+        '..g.Gg....',
+        '..goggo...',
+        '..oggooK..',
+        '.PgVggVgK.',
+        'PVVgVVgvvK',
+        'VPPVVVvvvK',
+        'VggVggvggK',
+        '..VvVvvv..',
+        '..vvvKK...',
+        '...oNN....',
+      ],
+    },
+    'elder-nautilus': {
+      palette: { N: '#3a2614', T: '#6a4220', t: '#9a6a3a', I: '#e0d2b0', i: '#f4ecd8', w: '#ffffff', a: '#b0a890', A: '#7a7464' },
+      pixels: [
+        '....IIt...',
+        '..IiwtIt..',
+        '..witIiT..',
+        '.itITiTtTN',
+        'IitITATtTN',
+        'iIiTIaTITN',
+        'IiIITTIiTN',
+        '.atIitTT..',
+        '..aATTNN..',
+        '..NNNN....',
       ],
     },
   });

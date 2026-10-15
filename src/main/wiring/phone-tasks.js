@@ -1,8 +1,8 @@
-// Starting a task from your phone (phone-tasks.js): what a message turns into,
+// Starting a task from your phone (channels/phone-tasks.js): what a message turns into,
 // and the settings that let it. Off until you turn it on in the confirmation
 // window, and only for the Telegram chat or ntfy topic you said yes to.
 //
-// Listening is replies.js's: one poller per bot reads both the Allow / Deny
+// Listening is channels/replies.js's: one poller per bot reads both the Allow / Deny
 // presses and these messages, and hands the messages here.
 const { dialog, safeStorage } = require('electron');
 const path = require('path');
@@ -10,7 +10,7 @@ const attach = require('../attachments');
 const channels = require('../channels');
 const confirm = require('../confirm');
 const guard = require('../guard');
-const pt = require('../phone-tasks');
+const pt = require('../channels/phone-tasks');
 
 const MAX_REMEMBERED = 200; // message ids already acted on, against a replay
 

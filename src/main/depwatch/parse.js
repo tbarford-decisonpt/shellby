@@ -1,4 +1,4 @@
-// What each package manager's checker says, read into one shape (depwatch.js):
+// What each package manager's checker says, read into one shape (depwatch/index.js):
 //   outdated: { packages: [{ name, current, wanted, latest, kind }], total, notInstalled } | null
 //   audit:    { counts: { critical, high, moderate, low, unrated }, total, packages: [{ name, severity, direct, fix }] } | null
 // null means "that wasn't an answer" (offline, an error, junk). All pure: test/depwatch-parse.test.js

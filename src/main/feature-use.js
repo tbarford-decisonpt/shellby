@@ -10,7 +10,7 @@ const { ROOMS } = require('./rooms');
 // or sit one level down. Settings and onboarding aren't features.
 const SCREENS = Object.freeze([
   { id: 'chat', name: 'Chat', text: 'Where you and Claude work.' },
-  ...ROOMS.map(({ id, name, text, in: inside }) => ({ id, name, text, ...(inside ? { in: inside } : {}) })),
+  ...ROOMS.filter(r => !r.part).map(({ id, name, text, in: inside }) => ({ id, name, text, ...(inside ? { in: inside } : {}) })), // a part (the Reef) is a card, not a screen
   { id: 'wardrobe', name: 'Outfits', text: 'His wardrobe: hats, shells and colours, more as he levels up.' },
   { id: 'shop', in: 'toolbox', name: 'Skill Shop', text: 'Plugins with skills, agents and tools to add to Claude Code.' },
   { id: 'routines', in: 'workflows', name: 'Routines', text: 'A prompt that runs on a schedule, or Claude cloud routines.' },

@@ -1,7 +1,7 @@
 // Typing along, and the weather on him. src/main/typing.js decides when you're
 // typing; this draws it: a little keyboard by his claw, a tap for each key you
 // let go, faster when you're fast, and starry eyes during a real burst. The
-// weather half is a flinch at thunder while a storm is on (src/main/weather.js);
+// weather half is a flinch at thunder while a storm is on (src/main/weather/index.js);
 // the shiver and the sweat are plain CSS (typing.css). Drawing only.
 'use strict';
 (function () {

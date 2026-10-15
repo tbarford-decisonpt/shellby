@@ -263,6 +263,8 @@ const CALL_POWERS = [
   { re: /^\$\.http\./, text: 'Sends and receives data over the internet', risk: 'high' },
   { re: /^\$\.session\.authorize/, text: 'Uses your Claude sign-in for its web requests', risk: 'high' },
   { re: /^\$\.prompt\.submit/, text: 'Starts turns on its own, which use your plan', risk: 'high' },
+  // Claude Code 2.1.290+, and only for a mod installed by managed settings.
+  { re: /^\$\.prompt\.media/, text: 'Reads the pictures and documents you attach', risk: 'medium' },
   { re: /^\$\.(model|agent\.spawn)/, text: 'Asks Claude things of its own, which uses your plan', risk: 'medium' },
   { re: /^\$\.session\.append/, text: "Adds to the conversation Claude reads", risk: 'medium' },
   // Shellby's own (docs/MODS.md) or anyone's: validate doesn't say which.

@@ -5,6 +5,7 @@
 const { app, globalShortcut } = require('electron');
 const crashReport = require('../crash-report');
 const statusLine = require('../statusline');
+const processJob = require('../process-job');
 
 /** d: what main shares (main.js `shared`). Registers app's quit events at once. */
 function wireQuit(d) {
@@ -37,7 +38,10 @@ function wireQuit(d) {
     d.deck?.stop();
     d.dictation?.stop();
     d.media?.stop(); // its PowerShell loop never reads stdin, so it won't notice we've gone
-    d.history?.flush(); // transcript lines and index changes still waiting (history.js)
+    d.history?.flush(); // transcript lines and index changes still waiting (history/index.js)
+    // Last: whatever a task started and its owner didn't get to end (process-job.js).
+    const left = processJob.sweepAll();
+    if (left.length) d.log?.info?.('ended at quit', left.join(', '));
     if (d.PRIMARY && !d.CAPTURE) crashReport.endRun(d.LOG_DIR); // quit on purpose: nothing to report next time
   });
   // close() gives a process 3 s to finish on its own, which Shellby quitting never

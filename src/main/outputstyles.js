@@ -1,7 +1,7 @@
 // Output styles: how Claude talks while it works (what /output-style picks in
 // the terminal). Claude Code's own three, plus any you or the project wrote as
 // markdown files in an output-styles folder. Shellby passes the chosen one as a
-// flag setting when a conversation starts (session.js), so your own settings
+// flag setting when a conversation starts (session/), so your own settings
 // files are never edited for it.
 const fs = require('fs');
 const path = require('path');

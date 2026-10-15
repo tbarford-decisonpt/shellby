@@ -1,4 +1,7 @@
 const { app, ipcMain: electronIpcMain, screen, session: electronSession, powerMonitor } = require('electron');
+// e2e runs only: every window off screen, never focused over your app. First, so every
+// module that takes BrowserWindow from require('electron') gets the one that does it.
+if (require('./test-desktop').keepsOffScreen(process.env, app.isPackaged)) require('./offscreen-windows').keepOffScreen(require('electron'));
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -6,9 +9,9 @@ const { randomUUID } = require('crypto');
 
 const { checkStatus, claudeMoved, currentClaude, findClaude } = require('./claude/cli');
 const { loadSkins } = require('./skins');
-const { clampToDisplays } = require('./placement');
+const { clampToDisplays } = require('./desktop/placement');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
-const { withDevice } = require('./xp');
+const { withDevice } = require('./progression/xp');
 const statusLine = require('./statusline');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
@@ -26,7 +29,17 @@ const { wireServices } = require('./wiring/services');
 const { wireWindows } = require('./wiring/windows');
 const { wireCritter } = require('./wiring/critter');
 const { wireSessions } = require('./wiring/sessions');
+const { wireFirstRun } = require('./wiring/first-run');
 const { wireProgress } = require('./wiring/progress');
+const { wireQuestLine } = require('./wiring/quest-line');
+const { wireGameHooks } = require('./wiring/game-hooks');
+const { wireLevels } = require('./wiring/levels');
+const { wireMolting } = require('./wiring/molting');
+const { wireReef } = require('./wiring/reef');
+const { wireReview } = require('./wiring/review');
+const { wireNests } = require('./wiring/bugdex-nests');
+const { wireLogbook } = require('./wiring/logbook');
+const { wireYearbook } = require('./wiring/yearbook');
 const { wireBugdex } = require('./wiring/bugdex');
 const { wireTimetrack } = require('./wiring/timetrack');
 const { wireCrabApi } = require('./wiring/crab-api');
@@ -112,7 +125,7 @@ if (process.argv.includes('--capture-screenshots') && !process.env.SHELLBY_USER_
 // "Report a problem" offers to paste into an issue. See log.js.
 const LOG_DIR = path.join(app.getPath('userData'), 'logs');
 const log = new Log(LOG_DIR, { home: os.homedir() });
-// An event type a Claude Code update added is noted here, once (session.js).
+// An event type a Claude Code update added is noted here, once (session/).
 require('./session').setLogger(log);
 // ("starting" is written below, once this is known to be the Shellby that stays.)
 
@@ -178,7 +191,7 @@ const shared = {
     }
     return exe;
   },
-  // Where a tab's copy of its repo goes (copy-service.js), and Claude Code's own settings.
+  // Where a tab's copy of its repo goes (worktrees/copy-service.js), and Claude Code's own settings.
   worktreeHome: () => path.join(app.getPath('userData'), 'worktrees'),
   claudeConfigDir: () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'),
   // Remembered for Up and Ctrl+R in the box (parity.js).
@@ -190,7 +203,7 @@ const shared = {
   health: null, external: null, github: null, ci: null, ciGithub: null, ciGitlab: null, issues: null, updates: null, friends: null,
   profileCard: null, prBadge: null, critter: null, panel: null, tray: null, timeTracker: null, timeSync: null,
   workflows: null,                 // the Automate page's engine (workflows/service.js)
-  depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
+  depWatch: null,                  // the weekly look at your projects' packages (depwatch/index.js)
   claudeUpdates: null,             // the daily look at Claude Code's own version (claude/update.js)
   claudeLapsed: null,              // a turn failed as signed out: Settings says so (set by ipc/panel.js)
   projects: null,                  // the Projects page (projects/service.js)
@@ -202,15 +215,15 @@ const shared = {
   obsServer: null, rgbClient: null, presence: null, media: null, remote: null, channelSecret: null,
   deck: null, deckShown: null,     // the Stream Deck keys, and the conversation they follow (see deck.js)
   dictation: null, ptt: null,      // push-to-talk: hold the hotkey and say the task (see dictation.js)
-  motion: null,                    // throws and strolls (see motion.js)
-  perching: null,                  // up on your windows (see perching.js)
-  climbing: null,                  // up the edges of the screen and across the top (see climbing.js)
+  motion: null,                    // throws and strolls (see desktop/motion.js)
+  perching: null,                  // up on your windows (see desktop/perching.js)
+  climbing: null,                  // up the edges of the screen and across the top (see desktop/climbing.js)
   pranks: null,                    // mischief, if you asked for it (see pranks.js)
-  floor: null,                     // the strip of floor with his pals and footprints (see floor.js)
+  floor: null,                     // the strip of floor with his pals and footprints (see desktop/floor.js)
   life: null,                      // his life between tasks: scenes, gifts, the bond, your day (see life.js)
   tankRemark: null,                // a word about his tank for the desktop, set by ipc/tank.js (tank/life.js)
-  homeTurnEnded: null,             // a tab's turn ended: its place on the home line moves on, set by ipc/repo.js (home-line.js)
-  settingsSynced: null,            // settings changed on another PC take effect here, set by ipc/settings.js (sync-prefs.js)
+  homeTurnEnded: null,             // a tab's turn ended: its place on the home line moves on, set by ipc/repo.js (worktrees/home-line.js)
+  settingsSynced: null,            // settings changed on another PC take effect here, set by ipc/settings.js (sync/prefs.js)
   playtime: null,                  // hide and seek, fetch (see playtime.js)
   typing: null,                    // tapping along while you type (see typing.js)
   weatherSvc: null,                // the weather outside, for what he wears (see weather/service.js)
@@ -265,6 +278,8 @@ function share(parts) {
 // ---------------------------------------------------------------- snags
 // Hung on the process before anything else can throw (wiring/crash.js).
 const { snag, startCrashReports } = share(wireCrash(shared));
+// The hooks the game packages meet through (onAward, onStat, everLevel, the game-hub), before anyone emits.
+share(wireGameHooks(shared));
 process.on('uncaughtException', err => snag('uncaught exception', err));
 process.on('unhandledRejection', reason => snag('unhandled rejection', reason instanceof Error ? reason : String(reason)));
 // Ctrl+C on a dev run, or a polite kill: go through the normal quit so tasks,
@@ -316,6 +331,8 @@ const { createCritter, createMischief, createMotion, placeCritter, watchIdleCost
 const { broadcastSkin, broadcastWardrobe, refreshCritter, wakeVoice } = share(wireCritter(shared));
 const { createManager, watchUsage } = share(wireSessions(shared));
 const { awardXp, checkWrapUp } = share(wireProgress(shared));
+share(wireFirstRun(shared)); // First steps for someone new, and the core loop that opens the game's rooms
+share(wireQuestLine(shared)); // quests, one feature at a time (quests/index.js)
 share({ bugdex: wireBugdex(shared) }); // the bugs Claude has fixed for you, in jars
 const { createExternal, createHealth, createTimeTracker, stat } = share(wireTimetrack(shared));
 const { createCrabApi } = share(wireCrabApi(shared));
@@ -357,6 +374,9 @@ share({ surprises: wireSurprises(shared) }); // crit hits and clean landings, no
 share(wireStepUndo(shared)); // a checkpoint before each step that changes files: Undo to here
 share({ native: wireNative(shared) }); // the crab noticing Claude's own to-dos, background commands, memories and skills
 const { eventsTick } = share(wireEvents(shared)); // tide events: a week or so with its own bug, finds, goals and medal
+// The gamification overhaul (docs/GAMIFICATION-PLAN.md): levels, molting, the reef, review mastery,
+// bug nests, the Logbook and the yearbook, each registering its views with d.gameHub.
+for (const wire of [wireLevels, wireMolting, wireReef, wireReview, wireNests, wireLogbook, wireYearbook]) share(wire(shared));
 const { startSocial } = share(wireSocial(shared)); // swaps with friends and crab eggs, over calling cards
 
 // ================================================================ boot
@@ -366,7 +386,7 @@ app.whenReady().then(() => {
   const { config } = shared;
   createWardrobe(); // credits past usage on its first run, so before any stat()
   stat('active');
-  // This PC's own XP count, so sync can add PCs together (xp.js).
+  // This PC's own XP count, so sync can add PCs together (progression/xp.js).
   if (!CAPTURE && !config.get('xp')?.device) config.set({ xp: withDevice(config.get('xp'), randomUUID()) });
   awardXp('day');
   every(() => { shared.wardrobe.collectSeasonals(); broadcastWardrobe(); eventsTick(); }, HOUR_MS);

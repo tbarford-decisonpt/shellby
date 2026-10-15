@@ -27,7 +27,9 @@
       case 'pushed':
         return { icon: '⇡', text: `Pushed ${item.branch} to ${item.remote}: ${commits(item.commits)}${item.pulled ? `, after taking in ${item.pulled} from ${item.remote}` : ''}` };
       case 'compacted':
-        return { icon: '⇣', text: `${item.trigger === 'auto' ? 'Claude Code compacted the conversation to make room' : 'Compacted the conversation'}${item.preTokens ? ` (it was ${compact(item.preTokens)} tokens)` : ''}` };
+        return { icon: '⇣', text: `${item.trigger === 'auto' ? 'Claude Code compacted the conversation to make room'
+          : item.trigger === 'idle' ? 'Compacted the conversation while it sat idle, before its cache ran out'
+          : 'Compacted the conversation'}${item.preTokens ? ` (it was ${compact(item.preTokens)} tokens)` : ''}` };
       case 'fresh':
         return { icon: '↻', text: 'Started fresh: a new conversation picks up from the summary above' };
       case 'cleared':

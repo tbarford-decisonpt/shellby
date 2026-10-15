@@ -1,10 +1,10 @@
-// Copies coming home into the same checkout work together (src/main/home-line.js):
+// Copies coming home into the same checkout work together (src/main/worktrees/home-line.js):
 // merges take turns, and clashes are sorted out one copy at a time, each on a
 // base that already has the one before it.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
-const { createHomeLine, sortPrompt, MAX_TRIES } = require('../src/main/home-line');
+const { createHomeLine, sortPrompt, MAX_TRIES } = require('../src/main/worktrees/home-line');
 
 const root = path.resolve('/repo/proj');
 const copy = id => ({ path: path.resolve(`/home/${id}/proj`), root, branch: `shellby/${id}`, base: 'main' });

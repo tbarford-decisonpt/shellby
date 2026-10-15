@@ -1,4 +1,4 @@
-// The floor strip's bridge (src/main/floor.js): told what to draw, and it says
+// The floor strip's bridge (src/main/desktop/floor.js): told what to draw, and it says
 // when the pointer is over a pal (so that pal can be clicked) and when one was
 // poked. Nothing else. Main checks the same list (src/main/ipc-guard.js FLOOR_CHANNELS).
 const { contextBridge, ipcRenderer } = require('electron');

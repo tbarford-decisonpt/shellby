@@ -1,12 +1,12 @@
 // Conversation history through a private gist of yours ("Shellby history"),
 // apart from the progress gist (sync.js) so a sync that changes neither costs
 // one 304. Its own gist too because it's far bigger: an index
-// (history-sync.js INDEX_FILE) and one packed transcript per conversation.
-// What to send, take and set aside is decided in history-sync.js; this only
+// (history/sync.js INDEX_FILE) and one packed transcript per conversation.
+// What to send, take and set aside is decided in history/sync.js; this only
 // moves it. The gist is yours but is still treated as untrusted input.
 const path = require('path');
 const { randomUUID } = require('crypto');
-const hs = require('../history-sync');
+const hs = require('../history/sync');
 const { findGist } = require('./gists');
 
 const MAX_PATCH = 3 * 1024 * 1024;  // per request: a big first sync goes in several

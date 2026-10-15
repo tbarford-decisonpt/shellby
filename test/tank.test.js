@@ -211,3 +211,44 @@ test('uncaught bugs cannot go in the tank', () => {
   const { dropped } = T.sanitize({ placed: [piece('jar:nullfish')] }, { lib: l });
   assert.deepEqual(dropped.map(d => `${d.ref}:${d.reason}`), ['jar:nullfish:unknown']);
 });
+
+test('locked milestone pieces sit on their own shelf with a hint and how far along they are', () => {
+  const ms = deco('nest-cairn', {
+    packId: 'milestones', category: 'rock', frames: [['abab', 'baba']], fps: 2,
+    locked: { reason: 'achievement', achievement: 'nest-warden', text: 'Nest Warden: Clear 10 bug nests', current: 7, goal: 10 },
+  });
+  const earned = deco('first-nest-stone', { packId: 'milestones', category: 'rock' });
+  const l = T.library({ decor: [...decor, ms, earned], findState, finds });
+  const e = l.get('nest-cairn');
+  assert.equal(e.category, 'milestone');
+  assert.equal(e.milestone, true);
+  assert.equal(e.hint, 'Clear 10 bug nests');
+  assert.deepEqual(e.progress, { current: 7, goal: 10 });
+  assert.equal(l.get('first-nest-stone').hint, null, 'an earned piece needs no hint');
+  assert.equal(l.get('first-nest-stone').progress, null);
+  assert.equal(l.get('castle-keep').milestone, false, 'other decor is not a milestone');
+  assert.equal(l.get('sunken-chest').hint, 'Moving In', 'a locked trophy piece still says why');
+  assert.ok(T.CATEGORIES.some(([id, name]) => id === 'milestone' && name === 'Milestones'));
+
+  const v = T.view({ state: { placed: [piece('first-nest-stone')] }, lib: l });
+  const tile = v.tray.find(t => t.ref === 'nest-cairn');
+  assert.equal(tile.milestone, true);
+  assert.deepEqual(tile.progress, { current: 7, goal: 10 });
+  assert.equal(tile.frames.length, 1, 'animated pieces bring their frames to the tray');
+  assert.ok(v.categories.some(c => c.id === 'milestone'));
+  assert.equal(v.pieces[0].milestone, true, 'an earned piece in the tank knows it is a milestone');
+  const { dropped } = T.sanitize({ placed: [piece('nest-cairn')] }, { lib: l });
+  assert.deepEqual(dropped.map(d => d.reason), ['locked']);
+});
+
+test('a milestone hint never shows more progress than the goal, and tolerates junk', () => {
+  const odd = deco('jar-tower-500', { packId: 'milestones', locked: { reason: 'achievement', text: 'Tower', current: 900, goal: 500 } });
+  const junk = deco('jar-shelf-100', { packId: 'milestones', locked: { reason: 'achievement', text: 'Shelf: Catch 100', current: 'x', goal: -3 } });
+  const season = deco('snow-globe', { locked: { reason: 'season', text: '❄️ Winter collectible' } });
+  const l = T.library({ decor: [odd, junk, season] });
+  assert.deepEqual(l.get('jar-tower-500').progress, { current: 500, goal: 500 });
+  assert.equal(l.get('jar-tower-500').hint, 'Tower');
+  assert.deepEqual(l.get('jar-shelf-100').progress, { current: 0, goal: 1 });
+  assert.equal(l.get('snow-globe').progress, null, 'seasons have no progress');
+  assert.equal(l.get('snow-globe').hint, '❄️ Winter collectible');
+});

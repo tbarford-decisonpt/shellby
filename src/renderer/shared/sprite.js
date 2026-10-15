@@ -174,7 +174,7 @@
     }
 
     // opts.shell swaps his home: a shell grid drawn instead of the skin's shell
-    // pixels (see src/main/shells.js), or 'none' while he's between shells.
+    // pixels (see src/main/progression/shells.js), or 'none' while he's between shells.
     const home = opts.shell === 'none' ? 'none' : opts.shell && Array.isArray(opts.shell.pixels) ? opts.shell : null;
     paintGrid(pixels, palette, 0, 0, (ch, x, y) => {
       const part = parts[ch] || 'extra';
@@ -182,6 +182,7 @@
       return part === 'legs' ? `legs-${legGroup[`${x},${y}`] || 'a'}` : part;
     });
     if (home && home !== 'none') paintGrid(home.pixels, home.palette || {}, 0, 0, () => 'shell');
+    const shellFx = home && home !== 'none' && groups.shell ? shellEffects(home, groups.shell, inked) : null;
 
     // Each stalk runs on down behind his body, out of sight, so a pose that
     // lifts his eyes (and the stalks and hat with them) by a pixel or two, or
@@ -204,7 +205,7 @@
       }
     }
 
-    // Stickers for the projects he's shipped (src/main/stickers.js), already
+    // Stickers for the projects he's shipped (src/main/stickers/index.js), already
     // placed by main in stacking order. They move with the shell, and there's
     // nowhere to put them while he's between shells.
     const stickerGroups = [];
@@ -273,6 +274,7 @@
       if (groups[name]) svg.appendChild(groups[name]);
     }
     for (const { name } of accGroups) svg.appendChild(groups[name]);
+    if (shellFx) svg.prepend(shellFx);
 
     // `fit` frames the whole outfit (for thumbnails and the wardrobe preview);
     // otherwise the view box is the crab alone so he never shifts when dressed.
@@ -283,6 +285,104 @@
     svg.dataset.cols = cols;
     svg.dataset.rows = rows;
     return svg;
+  }
+
+  // ------------------------------------------------------------ shell effects
+  // A shell may carry frames, a colour cycle, an aura and sparkles (src/main/progression/shells-molt.js).
+  // Frames are painted as stacked groups shown one at a time; a cycle paints its
+  // keys' pixels with a class each and steps their fill; both run on CSS
+  // keyframes in a <style> made for this shell, which reduced motion turns off,
+  // leaving the first picture. Returns that <style>, or null for a plain shell.
+  const SHELL_ID_RE = /^[a-z0-9-]{1,40}$/i;
+  let fxSeq = 0;
+
+  function rectsFor(grid, pal, cls) {
+    const out = [];
+    grid.forEach((row, y) => {
+      let x = 0;
+      while (x < row.length) {
+        const ch = row[x];
+        const color = colourOf(pal, ch);
+        if (!color) { x++; continue; }
+        let end = x + 1;
+        while (end < row.length && row[end] === ch) end++;
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', end - x); r.setAttribute('height', 1);
+        r.setAttribute('fill', color);
+        const c = cls(ch);
+        if (c) r.setAttribute('class', c);
+        out.push(r);
+        x = end;
+      }
+    });
+    return out;
+  }
+
+  function shellEffects(home, g, inked) {
+    const frames = Array.isArray(home.frames) ? home.frames.filter(f => Array.isArray(f)).slice(0, 3) : [];
+    const keys = Array.isArray(home.cycle?.keys) ? home.cycle.keys.filter(k => typeof k === 'string' && colourOf(home.palette, k)).slice(0, 7) : [];
+    const cycle = keys.length > 1 ? keys : [];
+    const sparkle = Math.max(0, Math.min(6, Math.floor(Number(home.sparkle) || 0)));
+    const aura = typeof home.aura === 'string' && HEX.test(home.aura) ? home.aura : null;
+    if (!frames.length && !cycle.length && !sparkle && !aura) return null;
+    const id = `sfx${++fxSeq}${SHELL_ID_RE.test(home.id || '') ? '-' + home.id.replace(/[^a-z0-9-]/gi, '') : ''}`;
+    g.classList.add('shell-fx', id);
+    if (aura) g.style.filter = `drop-shadow(0 0 1px ${aura}) drop-shadow(0 0 2px ${aura}88)`;
+    const css = [];
+    const motionCss = [];
+    const keyClass = ch => (cycle.includes(ch) ? `${id}-c${cycle.indexOf(ch)}` : '');
+    if (frames.length || cycle.length) {
+      // Repaint the shell (frame 0 and the rest) with its cycle classes, keeping the ink line first.
+      const ink = inked ? g.firstChild : null;
+      [...g.childNodes].forEach(n => { if (n !== ink) n.remove(); });
+      const pics = [home.pixels, ...frames];
+      pics.forEach((grid, i) => {
+        const fg = document.createElementNS(SVG_NS, 'g');
+        fg.setAttribute('class', `${id}-f ${id}-f${i}`);
+        fg.append(...rectsFor(grid, home.palette, keyClass));
+        g.appendChild(fg);
+      });
+      if (frames.length) {
+        const n = pics.length;
+        const fps = Math.max(1, Math.min(8, Math.floor(Number(home.fps) || 2)));
+        css.push(`.${id}-f{opacity:0}.${id}-f0{opacity:1}`);
+        for (let i = 0; i < n; i++) {
+          const a = (100 * i / n).toFixed(2), b = (100 * (i + 1) / n).toFixed(2);
+          motionCss.push(`@keyframes ${id}-k${i}{0%,${a}%{opacity:0}${a}%,${b}%{opacity:1}${b}%,100%{opacity:0}}`);
+          motionCss.push(`.${id}-f${i}{animation:${id}-k${i} ${(n / fps).toFixed(3)}s step-end infinite}`);
+        }
+      }
+      if (cycle.length) {
+        const fps = Math.max(1, Math.min(8, Math.floor(Number(home.cycle.fps) || 3)));
+        const colours = cycle.map(k => colourOf(home.palette, k));
+        const n = cycle.length;
+        cycle.forEach((_, i) => {
+          const steps = colours.map((_, s) => `${(100 * s / n).toFixed(2)}%{fill:${colours[(i + s) % n]}}`).join('');
+          motionCss.push(`@keyframes ${id}-y${i}{${steps}100%{fill:${colours[i]}}}`);
+          motionCss.push(`.${id}-c${i}{animation:${id}-y${i} ${(n / fps).toFixed(3)}s step-end infinite}`);
+        });
+      }
+    }
+    if (sparkle) {
+      // Over the shell's own pixels, spread out: the same places every time for the same shell.
+      const cells = [];
+      home.pixels.forEach((row, y) => [...row].forEach((ch, x) => { if (colourOf(home.palette, ch)) cells.push([x, y]); }));
+      for (let i = 0; i < sparkle && cells.length; i++) {
+        const [x, y] = cells[Math.floor(((i * 0.618034 + 0.31) % 1) * cells.length)];
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', 1); r.setAttribute('height', 1);
+        r.setAttribute('fill', '#ffffff');
+        r.setAttribute('class', `${id}-s`);
+        r.style.animationDelay = `${(i * 0.37).toFixed(2)}s`;
+        g.appendChild(r);
+      }
+      css.push(`.${id}-s{opacity:0}`);
+      motionCss.push(`@keyframes ${id}-tw{0%,70%,100%{opacity:0}80%{opacity:1}90%{opacity:.4}}`);
+      motionCss.push(`.${id}-s{animation:${id}-tw 2.2s linear infinite}`);
+    }
+    const style = document.createElementNS(SVG_NS, 'style');
+    style.textContent = `${css.join('')}@media (prefers-reduced-motion: no-preference){${motionCss.join('')}}`;
+    return style;
   }
 
   // Draws a lone pixel grid (an accessory or effect sprite) as an SVG.

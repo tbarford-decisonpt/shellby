@@ -29,36 +29,45 @@ const DEFAULTS = {
   recap: true,        // a digest of what happened when you come back after an hour away (see recap.js)
   leaveGuard: true,   // hold up a shutdown or sign-out while work is unpushed, uncommitted or mid-turn (see leaving.js)
   model: '', // '' -> Claude Code's default
-  effort: '', // new conversations' effort: '' -> Claude Code's default; low | medium | high | xhigh | max (session.js)
+  effort: '', // new conversations' effort: '' -> Claude Code's default; low | medium | high | xhigh | max (session/)
   effortPick: true, // with effort on Auto, size each new conversation from its first message instead (effort-pick.js)
   outputStyle: '', // '' -> the user's own; a style name otherwise (outputstyles.js)
-  fallbackModel: '', // '' -> none; a model (models.js) Claude Code switches to when the chosen one is busy (session.js)
-  claudeInChrome: false, // conversations can use Claude in Chrome, when its extension is installed (session.js)
+  fallbackModel: '', // '' -> none; a model (models.js) Claude Code switches to when the chosen one is busy (session/)
+  claudeInChrome: false, // conversations can use Claude in Chrome, when its extension is installed (session/)
   shellAcknowledged: false, // ! in the box runs PowerShell commands; asked once in the confirm window (parity.js)
   claudePath: null, // set only when the user points at the CLI by hand (see claude/cli.js)
+  idleCompact: false, // compact a long conversation shortly before its hour-long cache runs out (wiring/idle-compact.js)
   planOnly: false,  // leave API keys and other providers out of Claude Code's environment (see claude/cli.js)
   onboarded: false,
   firstTour: false,  // a new install's first New task offers Show me around until it's opened once (onboarding.js, feed.js)
   rooms: null,       // which screens a new user has opened so far; null until first boot decides (see rooms.js)
+  firstRun: null,    // First steps for someone new: which are done or skipped; null until first boot decides (see first-run.js)
   featureUse: null,  // how often each screen is opened, on this PC only, never synced (feature-use.js)
-  quests: null,      // which quests are done, and whether the chat's quest card is hidden (see quests.js)
+  quests: null,      // which quests are done, and whether the chat's quest card is hidden (see quests/index.js)
+  // The gamification overhaul (docs/GAMIFICATION-PLAN.md), each on this PC only; molting lives in `xp`.
+  reef: null,          // each project's reef health and coral (reef/index.js)
+  reviewMastery: null, // review mastery: catches, quiz streak, tier (review-mastery.js)
+  bugNests: null,      // bug history and nests (bugdex/nests.js)
+  yearbook: null,      // the year so far, for Wrapped (yearbook.js)
+  logbook: null,       // what the Logbook has shown (logbook.js)
+  unlockSeen: null,    // the last level unlock the panel showed (progression/levels.js)
   reopenAfterUpdate: false, // "Update and restart" was pressed: the new version opens the panel when it boots
   crabOnly: false,
   claudeElsewhere: false, // Claude Code only on another computer, over ssh: first run asks for one there, not here (onboarding.js)
   workMode: false,   // the tools up front and a quiet crab, laid over your own settings (see workmode.js)
   workOverrides: {}, // what you changed while in Work mode; it wins over Work mode's own (workmode.js write)
-  wander: true,      // idle strolls near his spot (see motion.js)
-  wanderChosen: false, // you set wander yourself: with Windows' animation effects off, only that strolls (motion.js wanders)
-  onTop: false,      // drawn over your apps instead of on the desktop under them (see desktop-layer.js)
-  perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see perch.js)
+  wander: true,      // idle strolls near his spot (see desktop/motion.js)
+  wanderChosen: false, // you set wander yourself: with Windows' animation effects off, only that strolls (desktop/motion.js wanders)
+  onTop: false,      // drawn over your apps instead of on the desktop under them (see desktop/desktop-layer.js)
+  perch: 'sometimes', // how often he climbs onto your windows: off | sometimes | often (see desktop/perch.js)
   perchIgnore: [],   // apps he stays off, by exe name ("Not on Spotify" in his menu)
   perchStats: null,  // { byExe }: where he's perched, for his favourite (kept on this PC only)
-  climb: 'sometimes', // how often he climbs the edges of the screen: off | sometimes | often (see climb.js)
+  climb: 'sometimes', // how often he climbs the edges of the screen: off | sometimes | often (see desktop/climb.js)
   mischief: 'off',   // the cheeky crab, strictly opt-in: off | cheeky | gremlin (see mischief.js)
   mischiefPranks: null, // { pinch, nudge, tracks, notes }: which pranks; anything unset is on
   mischiefLog: null, // { day, count, next }: today's pranks and when the next may be
   mischiefPause: 0,  // "Behave for an hour" from his menu: no mischief until then
-  colony: 0,         // pals who hang out with him on the floor, 0 to 5 (see floor.js)
+  colony: 0,         // pals who hang out with him on the floor, 0 to 5 (see desktop/floor.js)
   chatter: 'normal', // how much he says and gets up to: quiet | work | normal | chatty (see voice.js)
   sounds: false,     // a little chirp when he speaks; off until you ask for it
   editor: 'auto',    // where file links open: auto | vscode | cursor | windsurf | insiders | system (see filelinks.js)
@@ -70,8 +79,8 @@ const DEFAULTS = {
   suggestions: true, // ...and may offer Shellby features as one-tap cards
   mutedSuggestions: [], // features the user said not to offer again
   voice: null,       // his seed, temperament and what he's said lately (see voice.js)
-  finds: null,       // the shelf: everything he's dug up for you (see gifts.js)
-  bugdex: null,      // the bugs Claude has fixed for you, in jars (see bugdex.js)
+  finds: null,       // the shelf: everything he's dug up for you (see gifts/index.js)
+  bugdex: null,      // the bugs Claude has fixed for you, in jars (see bugdex/index.js)
   events: null,      // tide events: each run's goals, and the medals won (see events.js)
   boardLast: null,   // where you stood on the friends' board last time it was drawn (see board.js)
   swaps: null,       // swaps with friends: offers out and in, and the last few done (see swaps.js)
@@ -83,9 +92,9 @@ const DEFAULTS = {
   needs: null,       // his tummy, shine, pep and cheer, and the snack pantry (see needs.js); this PC only
   needsOn: true,     // "Snacks and naps": off keeps him content all the time
   scenesSeen: null,  // which of his little scenes he's done (see scenes.js)
-  xp: null,          // XP and levels (see xp.js); null -> level 1
+  xp: null,          // XP and levels (see progression/xp.js); null -> level 1
   crew: null,        // { members }: one lasting helper crab per agent type, with its record (see crew-roster.js)
-  home: null,        // { worn, seen }: the shell he lives in (see shells.js); null -> his own
+  home: null,        // { worn, seen }: the shell he lives in (see progression/shells.js); null -> his own
   focus: null,       // the focus session in progress (see focus.js)
   limitWait: null,   // { window, resetsAt }: napping until the usage limit resets (see limits.js)
   forecast: true,    // warn when you're on pace to fill the 5-hour window before it resets (see forecast.js)
@@ -96,20 +105,20 @@ const DEFAULTS = {
   spendReserve: 25,  // % of the 5-hour window routines, workflows and away-from-the-PC Autonomous tabs leave you
   spendMaxMinutes: 60, // the longest one routine run may take
   holdBigTasks: false, // hold a message for the reset when it usually takes more than the window has left (usage/ledger.js)
-  streaks: null,      // work days, projects and nudge settings (see streaks.js)
-  stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers.js)
+  streaks: null,      // work days, projects and nudge settings (see progression/streaks.js)
+  stickers: null,     // a sticker per project shipped, and where they sit on each shell (see stickers/index.js)
   beach: null,        // the beach: what you've seen on it and the high-water mark (see beach.js); this PC only
   tankLayouts: null,  // his tank's saved layouts (tank/layouts.js): synced, never on a card
   tankLive: null,
   tankTidy: null,     // whether he tidies his finds, and what he moved last (tank/tidy.js): per PC, never synced     // which of his tank's live decor is on (tank/gauges.js): per PC, never synced
-  tank: null,         // his tank: its size, floor and back glass, and where each piece stands (see tank.js)
+  tank: null,         // his tank: its size, floor and back glass, and where each piece stands (see tank/index.js)
   tankLife: null,     // his life in it: what he uses most, sets shown, the biggest tank (see tank/life.js); this PC only
   checkups: null,     // each project's last dependency audit and outdated check (see checkup.js); this PC only
   weekly: null,       // what happened each day, for the week-in-review card (see weekly.js); this PC only
-  flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky.js)
+  flakyTests: true,   // spot tests that fail and then pass on the same code (see flaky/index.js)
   surprises: true,    // now and then a fanfare for a real outcome: a critical hit, a clean landing (see surprises.js)
   crits: null,        // the surprises' luck: when the last one was, misses since, how many (see surprises.js); this PC only
-  catchBugs: true,    // the Bugdex: catch each kind of bug Claude fixes (see bugdex.js)
+  catchBugs: true,    // the Bugdex: catch each kind of bug Claude fixes (see bugdex/index.js)
   bugBattles: true,   // ...and show Claude's work on each one as a battle (see bugdex/battle.js)
   bugFollower: true,  // ...and his favourite catch follows him round the desk
   shareBugdex: false, // ...and put which kinds you've caught (and your badges) on your calling card, for friends
@@ -117,9 +126,9 @@ const DEFAULTS = {
   checkTimeoutMin: 5, // the longest one check may run, in minutes (checks.TIMEOUTS_MIN)
   checksTrusted: {},  // { project root (lower-case): true | false }: asked once before running a project's own tests (checks.js)
   turnShots: true,   // before/after pictures of a Shellby dev server either side of a turn (see shots.js)
-  flaky: null,        // which tests flaked, by project: names and hashes, never output (see flaky.js); this PC only
-  timeTracking: null, // seconds on each project per day, clients and rates (see timetrack.js); this PC only, never synced
-  timeSync: null,     // { provider, account, links, sent }: sending days to Toggl, Clockify or Harvest (see timesync.js); off until you connect one
+  flaky: null,        // which tests flaked, by project: names and hashes, never output (see flaky/index.js); this PC only
+  timeTracking: null, // seconds on each project per day, clients and rates (see timetrack/index.js); this PC only, never synced
+  timeSync: null,     // { provider, account, links, sent }: sending days to Toggl, Clockify or Harvest (see timetrack/timesync.js); off until you connect one
   timeSyncToken: null, // ...and its token, encrypted by Windows (never in the clear)
   statusLinePrevious: null, // the Claude Code statusLine Shellby replaced (restored on remove)
   pausedHooks: [],    // hooks taken out of a Claude Code settings file by Pause, kept to put back (main.js pauseHook)
@@ -161,9 +170,9 @@ const DEFAULTS = {
   learnedTricks: [],  // recently discovered skills/agents/commands
   skillsSeen: null,   // skills Claude has used in Shellby, so the first use of each is noticed (wiring/native.js)
   corrections: null,  // { events, offers }: corrections noted and rules offered from them (see corrections.js); this PC only
-  routines: [],       // see routines.js
+  routines: [],       // see routines/index.js
   council: null,      // { seated, custom, mode, model }: who sits at the Council table (council/prompts.js); null -> the five defaults
-  depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch.js); off until you turn it on
+  depWatch: null,     // { enabled, lastScanAt, results }: the weekly package check (see depwatch/index.js); off until you turn it on
   plainCards: true, // permission cards and the Working bar say what a step does, in plain words (plain-words.js)
   keybindings: {},  // { shortcut id: [keys] }: the panel's shortcuts you changed (renderer/panel/shortcuts.js)
   attachWhatISaw: false, // the composer's "Attach what I just saw": reads the clipboard and failed commands only when pressed (just-saw.js)
@@ -174,7 +183,7 @@ const DEFAULTS = {
   health: null,       // health monitor settings (see health/service.js); null -> defaults
   lhmUpdate: null,    // { latest, lastCheckAt, lastAttemptAt }: LibreHardwareMonitor's latest release (see health/lhm-update.js)
   healthLog: [],      // recent health alerts, newest first
-  channels: null,     // where to send "he needs you" when you're away (see channels.js)
+  channels: null,     // where to send "he needs you" when you're away (see channels/index.js)
   obs: null,          // { enabled, port }: the browser source for a stream (see obs.js)
   streamDeck: null,   // { enabled }: Allow, Deny, Stop, Bring it home and Ready to review on a Stream Deck (see deck.js)
   streamDeckToken: null, // the Stream Deck plugin's way in, encrypted by Windows (wiring/deck.js)
@@ -186,12 +195,12 @@ const DEFAULTS = {
   typing: null,       // { enabled, remarks }: tapping along while you type (see typing.js); off until you turn it on
   typingBest: 0,      // your fastest burst, in words a minute (typing.js)
   weather: null,      // { enabled, place, remarks }: dressing for the weather outside (see weather/service.js); off until you pick a town
-  weatherNow: null,   // the last reading from Open-Meteo (weather.js parseForecast)
+  weatherNow: null,   // the last reading from Open-Meteo (weather/index.js parseForecast)
   cli: null,          // { installed }: the `shellby` command (see clipath.js)
   remoteComputers: [], // [{ alias, added, check }]: other computers Claude Code runs on, over ssh (see remote/service.js)
   sshAgent: true,      // off: this PC can't run Windows' ssh agent, so Shellby never suggests it and asks for passphrases instead
   remoteFolders: [],   // [{ host, dir, anchor }]: folders on them, each with a stand-in folder on this PC
-  worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees.js)
+  worktrees: false,   // each new tab in a git repo works in its own copy (see worktrees/index.js)
   clashWarnings: true, // say when two copies (or a copy and your checkout) change the same file (wiring/clashes.js)
   channelSecret: null, // the channel's token, encrypted by Windows (never in the clear)
   channelsConfirmed: null, // the destination you said yes to in the confirm window; nothing goes anywhere else (main.js channelPlace)

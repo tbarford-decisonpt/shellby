@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { wireCrew } = require('../src/main/wiring/crew');
 
 // What wiring/crew.js reads from main, faked: settings, the panel, a tab whose
-// session keeps merged task records the way session.js trackTask does.
+// session keeps merged task records the way session/crew.js trackTask does.
 function setup() {
   const store = {};
   const sent = [];

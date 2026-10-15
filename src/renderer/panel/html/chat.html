@@ -68,6 +68,8 @@
       </div>
       <div class="box-extras">
         <div class="crowded" id="crowded" role="status" hidden></div>
+        <!-- Ultracode on for this conversation: what it means, in a line (ultracode.js) -->
+        <div class="ultra-note" id="ultraNote" role="status" hidden>Ultracode is on: Claude may send out many agents, and they use a lot of tokens.</div>
         <div class="mod-status" id="modStatus" role="status" aria-label="What your mods say" hidden></div>
         <div class="outlook" id="outlook" role="status" hidden></div>
         <div class="review-bar" id="review" role="region" aria-label="Review comments waiting to be sent" hidden></div>
@@ -90,7 +92,7 @@
       </form>
       <div class="slash-menu" id="slashMenu" role="listbox" hidden></div>
       <div class="slash-menu pick-menu" id="pickMenu" role="listbox" hidden></div>
-      <div class="input-hint"><span id="modeHint"></span><span id="costHint" class="cost-hint" hidden></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
+      <div class="input-hint"><button type="button" class="ultra-chip" id="ultraChip" aria-pressed="false" title="Ultracode: adds the word “ultracode” to what you send here, so Claude can run a crew of agents in the background">Ultracode</button><span id="modeHint"></span><span id="costHint" class="cost-hint" hidden></span><span id="sendHint">Enter to send · Shift+Enter new line</span></div>
     </footer>
   </main>
 
@@ -103,6 +105,7 @@
         <div class="row-label">Your tricks</div>
         <div class="pinned-chips"></div>
       </div>
+      <section class="first-run-card" aria-label="First steps" hidden></section>
       <section class="quest-card" aria-label="Your next quest" hidden></section>
       <div class="suggestions"></div>
       <p class="empty-hint"><kbd class="hotkey-hint">Ctrl+Alt+Space</kbd> opens me anywhere · drop files or paste a screenshot · <kbd>/</kbd> for skills · <kbd>Ctrl+K</kbd> jumps anywhere · <kbd>Shift+Tab</kbd> switches mode</p>

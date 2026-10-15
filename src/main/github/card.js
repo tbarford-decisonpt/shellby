@@ -3,10 +3,10 @@
 // so a friend's Shellby can have him over, plus the two things the crabs chat
 // about when they meet (src/main/banter.js): his temperament and the find he's
 // proudest of. Nothing else goes in it: no stats, no history. Stickers are only colour patches unless you choose to share their
-// names (stickers.js forCard), and never the projects you've hidden. His tank
+// names (stickers/index.js forCard), and never the projects you've hidden. His tank
 // is on it only if you share it, as built-in decor ids and where they stand (tank/share.js).
 // So is his Bugdex: which kinds of bug you've caught and how many badges, never
-// counts, projects or errors (bugdex.js shared).
+// counts, projects or errors (bugdex/index.js shared).
 // A friend's card is somebody else's file, so it is always cleaned before use,
 // and only believed when the gist really belongs to that friend.
 const { findGist } = require('./gists');
@@ -26,7 +26,7 @@ const KEY_RE = /^[a-z0-9][a-z0-9/-]{0,80}$/;
 const SHELL_RE = /^[a-z0-9-]{1,40}$/;
 const LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const TEMPERAMENTS = ['chipper', 'fussy', 'cocky', 'sleepy']; // voice.js TEMPERAMENTS
-const FIND_RE = /^[a-z0-9-]{1,40}$/;                           // a gifts.js FINDS id
+const FIND_RE = /^[a-z0-9-]{1,40}$/;                           // a gifts/index.js FINDS id
 
 const key = v => (typeof v === 'string' && KEY_RE.test(v) ? v : null);
 const sameLogin = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();

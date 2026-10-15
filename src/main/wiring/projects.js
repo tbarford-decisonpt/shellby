@@ -1,4 +1,4 @@
-// Projects and what runs in them: the weekly dependency watch (depwatch.js),
+// Projects and what runs in them: the weekly dependency watch (depwatch/index.js),
 // the Projects page and dev servers, and workflows (the Automate page).
 // Kept out of main.js, which only wires it up.
 const { app, clipboard, safeStorage } = require('electron');
@@ -12,11 +12,11 @@ const devRunner = require('../devservers/runner');
 const devScripts = require('../devservers/scripts');
 const mcpServers = require('../mcpservers');
 const { DevServers } = require('../devservers/service');
-const native = require('../native-windows');
+const native = require('../desktop/native-windows');
 const { Projects } = require('../projects/service');
 const { MAX_TABS } = require('../sessions');
 const shellCmd = require('../shellcmd');
-const streaks = require('../streaks');
+const streaks = require('../progression/streaks');
 const { WorkflowService } = require('../workflows/service');
 const worktrees = require('../worktrees');
 
@@ -164,7 +164,10 @@ function wireProjects(d) {
       config: d.config,
       projects: depProjects,
       isOff: () => !!d.config.get('crabOnly'),
-      toPanel: (channel, payload) => d.send(d.panel, channel, payload),
+      toPanel: (channel, payload) => {
+        d.send(d.panel, channel, payload);
+        if (channel === 'workflows:run-changed' && payload?.status === 'ok') d.questDone?.('workflow');
+      },
       notify: n => d.notify(n.title, n.body, showDepWatch, { urgent: n.urgent, action: 'Have a look' }),
     });
     d.depWatch.start();
@@ -176,7 +179,7 @@ function wireProjects(d) {
     d.send(d.panel, 'code-health:focus', 'depwatch');
   }
 
-  // A task that starts in a copy of its own (worktrees.js), whatever the
+  // A task that starts in a copy of its own (worktrees/index.js), whatever the
   // worktrees setting says: work that ends in a pull request has no business in
   // your checkout. promptFor(worktree) writes the prompt once the branch is known.
   // start: the commit the copy starts from (a pull request's head, startfrom.js), else your HEAD.

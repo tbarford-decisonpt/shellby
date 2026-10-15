@@ -1,4 +1,4 @@
-// A conversation's copy of the repository (worktrees.js): bringing it home or
+// A conversation's copy of the repository (worktrees/index.js): bringing it home or
 // throwing it away, pushing the checkout with a secret scan first, and
 // branching a conversation from any turn (branching.js).
 // Kept out of main.js, which only wires it up.
@@ -7,7 +7,7 @@ const branching = require('../branching');
 const changes = require('../changes');
 const checks = require('../checks');
 const confirm = require('../confirm');
-const { createHomeLine } = require('../home-line');
+const { createHomeLine } = require('../worktrees/home-line');
 const { secretGate: gateSecrets } = require('../secret-gate');
 const { MAX_TABS } = require('../sessions');
 const worktrees = require('../worktrees');
@@ -26,7 +26,7 @@ function registerRepoIpc(ipcMain, d) {
     return w && typeof w.path === 'string' && path.resolve(w.path).toLowerCase().startsWith(home) ? w : null;
   };
   const retiring = new Set(); // tabs mid bring-home or throw-away: a double click is one
-  // Merges into one checkout take turns, and clashes are sorted out in turn (home-line.js).
+  // Merges into one checkout take turns, and clashes are sorted out in turn (worktrees/home-line.js).
   const line = createHomeLine({
     isOpen: id => d.manager.tabs.has(id),
     isBusy: id => d.manager.isBusy(id),
@@ -85,7 +85,7 @@ function registerRepoIpc(ipcMain, d) {
       retiring.delete(tabId);
     }
   }
-  // The merge and the push, on this checkout's turn (home-line.js).
+  // The merge and the push, on this checkout's turn (worktrees/home-line.js).
   async function mergeTabHome(tabId, w, { green, firstTry, push }) {
     // It waited its turn: he may have started on something since.
     if (d.manager.isBusy(tabId)) return { ok: false, error: 'He started on something new. Bring it home once he has finished.' };
@@ -115,7 +115,7 @@ function registerRepoIpc(ipcMain, d) {
   }
 
   // A copy that clashed with its base: line it up to sort that out and come
-  // home, after the copies ahead of it (home-line.js). opts: what Bring it home was asked for.
+  // home, after the copies ahead of it (worktrees/home-line.js). opts: what Bring it home was asked for.
   ipcMain.handle('worktree:sort-out', (_e, tabId, opts) => {
     const w = worktreeOf(tabId);
     if (!w) return { ok: false, error: 'That conversation has no copy of its own.' };
@@ -274,7 +274,7 @@ ${r.detail}` });
       repoBusy = false;
     }
   });
-  // The merges and the push, on this checkout's turn (home-line.js).
+  // The merges and the push, on this checkout's turn (worktrees/home-line.js).
   async function homeAll(root, list, busy, gated, opts, tabId) {
     const before = opts?.push ? await worktrees.tipOf(root, 'HEAD') : null;
     const r = await worktrees.bringAllHome(list.map(c => c.w), { trailer: d.crabTrailer() });

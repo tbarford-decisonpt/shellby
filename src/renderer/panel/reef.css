@@ -1,0 +1,105 @@
+/* Shellby panel — reef health and coral (reef.js) and the review mastery card
+   (review-mastery.js), which shares this file: frame.html links one stylesheet
+   for both. Tokens come from panel.css. */
+
+/* ------------------------------------------------------------ the reef card */
+.reef-card {
+  margin: 18px 0 8px; padding: 14px; border-radius: var(--r-lg);
+  border: 1px solid var(--line-soft);
+  background: radial-gradient(110% 130% at 0% 100%, rgba(46, 196, 182, .10), transparent 60%), var(--reef);
+}
+.reef-card[data-stage="5"] { border-color: color-mix(in srgb, var(--glass) 45%, var(--line-soft)); }
+.reef-card[data-stage="0"], .reef-card[data-stage="1"] { background: var(--reef); }
+.reef-head { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.reef-head-text { min-width: 0; flex: 1; }
+.reef-head h3 { margin: 0; font: 600 var(--fs-15) var(--font-pixel); }
+.reef-stage { margin: 2px 0 0; }
+.reef-actions { display: flex; gap: 6px; margin-left: auto; }
+.reef-coral { min-width: 48px; min-height: 48px; display: grid; place-items: end center; }
+.reef-coral-empty { font-size: 30px; filter: grayscale(.6); opacity: .7; }
+
+/* A coral and its sway frame, stacked; the frame shows every other second. */
+.reef-art { position: relative; display: inline-block; line-height: 0; }
+.reef-art .reef-sway { position: absolute; inset: 0; opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .reef-art .reef-sway { animation: reef-sway 2s steps(1, end) infinite; }
+  .reef-art svg:first-child { animation: reef-still 2s steps(1, end) infinite; }
+}
+@keyframes reef-sway { 0% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes reef-still { 0% { opacity: 1; } 50% { opacity: 0; } }
+
+.reef-next {
+  margin: 12px 0 0; padding: 7px 10px; border-radius: var(--r-sm);
+  font-size: var(--fs-12-5); background: rgba(46, 196, 182, .10); border: 1px solid rgba(46, 196, 182, .25);
+}
+.reef-next-label { color: var(--glass); font-weight: 600; }
+
+.reef-signals { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 4px; }
+.reef-sig {
+  display: grid; grid-template-columns: minmax(0, 1fr) 72px 16px auto; align-items: center; gap: 10px;
+  padding: 6px 8px; border-radius: var(--r-sm); background: var(--abyss); border: 1px solid transparent;
+}
+.reef-sig.near { border-color: color-mix(in srgb, var(--glass) 25%, transparent); }
+.reef-sig-main { display: flex; flex-direction: column; min-width: 0; }
+.reef-sig-label { font-size: var(--fs-12-5); }
+.reef-sig-hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reef-sig-main .reef-fix { align-self: flex-start; }
+.reef-sig-val { font: var(--fs-12) var(--font-mono); white-space: nowrap; text-align: right; }
+.reef-trend { font-size: var(--fs-11); text-align: center; color: var(--sand-dim); }
+.reef-trend.up { color: var(--glass); }
+.reef-trend.down { color: var(--amber); }
+.reef-spark { width: 72px; height: 18px; display: block; }
+.reef-spark-best { stroke: var(--line); stroke-dasharray: 2 2; stroke-width: 1; }
+.reef-spark-line { fill: none; stroke: var(--sand-dim); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.reef-spark-line.up { stroke: var(--glass); }
+.reef-spark-line.down { stroke: var(--amber); }
+.reef-waiting { margin: 8px 0 0; }
+.reef-privacy { margin: 10px 0 0; }
+
+/* ------------------------------------------------------------ coral on the tank page */
+.reef-tank-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.reef-tank-item { display: flex; align-items: flex-end; gap: 8px; padding: 8px; border-radius: var(--r-sm); background: var(--abyss); border: 1px solid var(--line-soft); }
+.reef-tank-item[data-stage="5"] { border-color: color-mix(in srgb, var(--glass) 40%, var(--line-soft)); }
+.reef-tank-art { min-width: 32px; display: grid; place-items: end center; }
+.reef-tank-text { display: flex; flex-direction: column; min-width: 0; }
+.reef-tank-text b { font-size: var(--fs-12-5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reef-tank-empty { grid-column: 1 / -1; padding: 6px 0; }
+
+/* ------------------------------------------------------------ review mastery (Trophies) */
+.rm-card {
+  margin: 0 0 14px; padding: 14px; border-radius: var(--r-lg);
+  background: radial-gradient(120% 140% at 100% 0%, rgba(91, 192, 235, .12), transparent 55%), var(--reef);
+  border: 1px solid rgba(91, 192, 235, .3);
+}
+.rm-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rm-head h3 { margin: 0; font: 600 var(--fs-15) var(--font-pixel); }
+.rm-tier { margin-left: auto; font: 600 var(--fs-11) var(--font-mono); color: #5bc0eb; }
+.rm-card[data-tier="0"] .rm-tier { color: var(--sand-dim); }
+.rm-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }
+.rm-stat { display: flex; flex-direction: column; align-items: center; padding: 6px 4px; border-radius: var(--r-sm); background: var(--abyss); }
+.rm-stat b { font: 600 var(--fs-15) var(--font-mono); }
+.rm-next p { margin: 0 0 6px; }
+.rm-need { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 8px; margin: 3px 0; }
+.rm-need em { font-style: normal; font-family: var(--font-mono); color: var(--sand-dim); }
+.rm-need.done em { color: var(--glass); }
+.rm-bar { height: 6px; border-radius: 99px; background: var(--abyss); overflow: hidden; }
+.rm-bar i { display: block; height: 100%; background: #5bc0eb; transform-origin: left; }
+.rm-need.done .rm-bar i { background: var(--glass); }
+@media (prefers-reduced-motion: no-preference) { .rm-bar i { transition: transform .4s var(--ease-out); } }
+.rm-ladder { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 4px; }
+.rm-rung { display: flex; align-items: flex-start; gap: 10px; padding: 6px 8px; border-radius: var(--r-sm); opacity: .7; }
+.rm-rung.reached { opacity: 1; }
+.rm-rung.current { background: rgba(91, 192, 235, .10); }
+.rm-rung-n {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font: 600 var(--fs-11) var(--font-mono); border: 1px solid var(--line); color: var(--sand-dim);
+}
+.rm-rung.reached .rm-rung-n { background: #5bc0eb; border-color: #5bc0eb; color: #04202c; }
+.rm-rung-text { display: flex; flex-direction: column; min-width: 0; }
+.rm-rung-text b { font-size: var(--fs-12-5); }
+.rm-reward { color: var(--amber); }
+.rm-more { margin-top: 10px; }
+.rm-rules { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--sand-dim); }
+.rm-log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 2px; }
+.rm-log b { font-family: var(--font-mono); color: #5bc0eb; }
+.rm-log .rm-log-caught b { color: var(--glass); }

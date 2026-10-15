@@ -40,7 +40,10 @@
     const list = found.filter(s => inBucket(s, historyFilter)).sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
     const ul = $('historyList');
     if (!list.length) {
-      ul.replaceChildren(h('li', { class: 'history-empty', text: historyEmpty(q) }));
+      // None at all: say what the page is for, and the one way to fill it.
+      const none = !q && !state.sessions.length;
+      ul.replaceChildren(h('li', { class: 'history-empty', text: historyEmpty(q) },
+        none ? h('div', {}, h('button', { class: 'btn slim-btn history-start', type: 'button', text: 'Give him a task', onclick: () => { SB.setView('chat'); $('input')?.focus(); } })) : null));
       return;
     }
     ul.replaceChildren(...list.map(historyRow));
@@ -48,7 +51,7 @@
 
   function historyEmpty(q) {
     if (q) return 'No matches.';
-    if (!state.sessions.length) return 'No conversations yet. Give Shellby a task!';
+    if (!state.sessions.length) return 'Every conversation you two have lands here, to pick back up any time. None yet.';
     return historyFilter === 'done' ? 'Nothing marked done yet.' : 'Everything here is done.';
   }
 
@@ -66,7 +69,7 @@
           h('span', { text: SB.shortPath(s.cwd, 30) }),
           s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
           s.inTerminal ? h('span', { class: 'h-term', text: 'in a terminal' }) : null,
-          // Synced from another PC (history-sync.js): Claude picks it up with a recap.
+          // Synced from another PC (main's history/sync.js): Claude picks it up with a recap.
           s.elsewhere ? h('span', { class: 'h-term', text: `from ${s.elsewhere}` }) : null,
           open ? h('span', { class: 'h-open', text: popped ? 'open in a window' : 'open' }) : null)),
       // Only a conversation Claude Code has a record of can carry on elsewhere.

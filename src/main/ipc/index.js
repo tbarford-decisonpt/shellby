@@ -10,7 +10,7 @@ const { run: runCli } = require('../claude/cli');
 const claudeSetup = require('../claude/setup');
 const confirm = require('../confirm');
 const editor = require('../editor');
-const { HistorySearch } = require('../history-search');
+const { HistorySearch } = require('../history/search');
 const { guardIpc, windowPolicy } = require('../ipc-guard');
 const { createLean } = require('../lean');
 const { createModsService } = require('../mods-service');
@@ -55,6 +55,7 @@ const { registerNotesIpc } = require('./notes');
 const { registerCouncilIpc } = require('./council');
 const { registerCrewIpc } = require('./crew');
 const { registerNativeIpc } = require('./native');
+const { registerGameIpc } = require('./game');
 const { registerReleasesIpc } = require('../projects/releases-ipc');
 
 /**
@@ -71,7 +72,16 @@ function registerIpc(electronIpcMain, d) {
     isToy: wc => !!d.playtime?.isToy(wc),
     isFloor: wc => !!d.floor?.isFloor(wc),
     isNote: wc => !!d.pranks?.isNote(wc),
-  })), { onRefused: channel => d.log.warn('IPC refused', channel) });
+  })), {
+    onRefused: channel => d.log.warn('IPC refused', channel),
+    // An invoke's caller gets the error and says so in the panel; here is where its details are kept.
+    // A send has no caller: it's a snag, as an uncaught exception was before, now with its channel.
+    onFailed: (channel, err, { answered }) => {
+      if (answered) d.log.warn(`IPC ${channel} failed`, err?.stack || String(err));
+      else if (d.snag) d.snag(`IPC ${channel} failed`, err instanceof Error ? err : String(err));
+      else d.log.error(`IPC ${channel} failed`, err?.stack || String(err));
+    },
+  });
   const { config, log } = d;
   // Claude Code's own CLI, for parity and team packs: the one in use now (main.js claudeExe).
   const runClaude = (args, timeout, opts) => {
@@ -175,15 +185,17 @@ function registerIpc(electronIpcMain, d) {
     openPath: p => shell.openPath(p),
   });
 
-  // ---- his tank (tank.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
+  // ---- his tank (tank/index.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
   const tankIpc = registerTankIpc(ipcMain, {
     config, stat: d.stat,
     speak: (occasion, opts) => d.speak?.(occasion, opts),
     life: () => d.life,
     wardrobe: () => d.wardrobe,
-    level: () => d.currentLevel(),
+    level: () => d.everLevel?.() ?? d.currentLevel(), // the highest ever reached: a Molt keeps his tanks
+    questDone: id => d.questDone?.(id),
     shipped: () => stickers.stats(d.stickerState()).stickers,
     cardChanged: () => d.friends?.republish().catch(() => {}),
+    reefCorals: () => d.reefCorals?.() || [],
   });
   d.tankRemark = tankIpc.remark; // a word about his tank for the desktop (life.js)
   // ...its saved layouts, and switching with the seasons (tank-layouts.js)
@@ -229,6 +241,7 @@ function registerIpc(electronIpcMain, d) {
   registerCouncilIpc(ipcMain, d);
   registerCrewIpc(ipcMain, d);
   registerNativeIpc(ipcMain, d);
+  registerGameIpc(ipcMain, d); // the game screens' one bridge (game-hub.js)
   registerReleasesIpc(ipcMain, d);
 }
 

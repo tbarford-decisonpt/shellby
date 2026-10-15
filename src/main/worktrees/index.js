@@ -1,0 +1,722 @@
+// A copy of the project for each tab (opt-in).
+//
+// Two tabs in the same repo used to share one working folder: one tab's edits
+// landed under the other's feet, and a diff for "this turn" could include the
+// neighbour's work. With this on, a tab's first message in a git project gives
+// it its own git worktree: a second checkout of the same repository, on its
+// own branch, in Shellby's folder. The tab works there; your checkout is left
+// exactly as it was.
+//
+// "Bring it home" commits whatever the tab left uncommitted, merges its branch
+// into the branch it started from, and tidies the copy away. A conflict is
+// backed out (git merge --abort) so your checkout is never left half-merged,
+// and the tab can be asked to sort it out on its own branch instead.
+//
+// None of that leaves your machine. pushBase is the step that does: it takes
+// in what the remote has first, then pushes your checkout's branch.
+//
+// execFile with fixed arguments, short timeouts, nothing thrown to the caller.
+const { execFileTree: execFile } = require('../exec-tree'); // a timeout ends git's whole tree
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const BRANCH = /^shellby\/[a-z0-9-]{1,40}-[0-9a-f]{6}$/;
+
+// For the commits Shellby makes of Claude's work, and the merge that brings
+// them home: no hooks. Claude can edit a tracked hook (.husky/pre-commit) in
+// Auto-edit without a prompt, and git would then run it with your rights when
+// you click. A push stays yours: its hooks run as from a terminal.
+const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
+// What execFile says when there's no git to run.
+const NO_GIT = /\bENOENT\b|not recognized as an internal or external command/i;
+
+// fsmonitor off: a repository's own config could name a program to run on
+// every status (one Shellby never asked for).
+function git(cwd, args, { timeout = 30000, env = {} } = {}) {
+  return new Promise(resolve => {
+    execFile('git', ['-C', cwd, '-c', 'core.fsmonitor=false', ...args], {
+      windowsHide: true, timeout, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
+      env: { ...process.env, ...env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true', GIT_MERGE_AUTOEDIT: 'no' },
+    }, (err, stdout, stderr) => resolve(err
+      ? { ok: false, out: String(stdout || ''), error: String(stderr || err.message).trim() }
+      : { ok: true, out: String(stdout) }));
+  });
+}
+
+// The full spelling of a path that exists (8.3 short names expanded), or the
+// path as given if it doesn't yet.
+const longPath = p => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+
+const firstLine = s => String(s || '').trim().split('\n').filter(Boolean).pop() || '';
+const lastLines = (s, n = 15) => String(s || '').trim().split('\n').filter(Boolean).slice(-n).join('\n');
+
+/** A branch name from a task's title: "Fix the login bug!" -> "shellby/fix-the-login-bug-1a2b3c". Pure. */
+function branchName(title, suffix = crypto.randomBytes(3).toString('hex')) {
+  const slug = String(title || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '') || 'task';
+  return `shellby/${slug}-${suffix}`;
+}
+
+// The commits that take a copy's work home. Their subject comes from the branch
+// name Claude chose for the work ("fix-tall-menu-overflow"), which says what
+// changed, or else from the files that changed. Never from the conversation:
+// the tab's title is the start of your prompt, and a commit is public wherever
+// the repository is. A copy only counts as named when Claude named it
+// (`named` on the copy): otherwise its branch was made from that same title.
+// Release drafts group commits by their type, and an untyped subject lands
+// under "Changed" word for word.
+const TYPE_WORDS = new Map([
+  ['feat', 'feat'], ['feature', 'feat'], ['fix', 'fix'], ['bugfix', 'fix'], ['hotfix', 'fix'],
+  ['perf', 'perf'], ['refactor', 'refactor'], ['docs', 'docs'], ['doc', 'docs'],
+  ['test', 'test'], ['tests', 'test'], ['chore', 'chore'], ['ci', 'ci'],
+]);
+const FIX_WORDS = /^(bug|bugs|broken|crash|crashes|regression|typo)$/;
+const FEAT_WORDS = /^(add|adds|new|support|implement)$/;
+const SUBJECT_MAX = 72;
+
+/** "update a.js, b.js and 3 more files", in at most `room` characters. Pure. */
+function changedFiles(files, room) {
+  const names = [...new Set((files || []).map(f => path.posix.basename(String(f).replace(/\\/g, '/'))).filter(Boolean))];
+  if (!names.length) return 'work from Shellby';
+  const say = k => {
+    const shown = names.slice(0, k);
+    const more = names.length - k;
+    if (!more) return `update ${shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0]}`;
+    return `update ${shown.join(', ')} and ${more} more file${more > 1 ? 's' : ''}`;
+  };
+  for (let k = Math.min(names.length, 3); k > 0; k--) if (say(k).length <= room) return say(k);
+  return `update ${names.length} file${names.length > 1 ? 's' : ''}`;
+}
+
+/**
+ * w: the copy ({ branch, named }). files: the paths the commit changes.
+ * -> "fix: tall menu overflow", or "Update a.js and b.js" for a copy Claude
+ * didn't name. Typed only when the name says which type ("Next up backlog"
+ * otherwise): a wrong "feat" would have the release card suggest a minor
+ * version for a tweak. Pure.
+ */
+function workMessage(w, files = []) {
+  const m = w?.named ? /^shellby\/(.+)-[0-9a-f]{6}$/.exec(String(w.branch || '')) : null;
+  const words = m ? m[1].split('-').filter(Boolean) : [];
+  const named = TYPE_WORDS.get(words[0]);
+  const type = named || (words.some(x => FIX_WORDS.test(x)) ? 'fix' : FEAT_WORDS.test(words[0] || '') ? 'feat' : '');
+  const rest = (named ? words.slice(1) : words).join(' ');
+  const room = SUBJECT_MAX - (type ? type.length + 2 : 0);
+  const what = (rest || changedFiles(files, room)).slice(0, room).trim();
+  return type ? `${type}: ${what}` : what[0].toUpperCase() + what.slice(1);
+}
+
+// ------------------------------------------------------------ when to make one
+//
+// A conversation starts in your checkout, and only moves into a copy the first
+// time it goes to change something. Asking a question makes no branch, and by
+// the time one is needed Claude knows enough about the work to name it.
+
+const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
+// Commands that only look. Anything not on this list counts as work, so a
+// command Shellby doesn't recognise moves the conversation into its copy
+// rather than running in your checkout.
+const LOOKS = new Set([
+  'ls', 'dir', 'cat', 'type', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'find', 'fd', 'pwd', 'echo', 'printf',
+  'wc', 'which', 'where', 'tree', 'file', 'stat', 'du', 'df', 'sort', 'cut', 'tr', 'jq', 'diff', 'cd', 'true', 'printenv', 'whoami', 'hostname', 'basename', 'dirname', 'realpath', 'readlink', 'sed',
+  'get-childitem', 'gci', 'get-content', 'gc', 'select-string', 'sls', 'get-location', 'set-location', 'test-path', 'resolve-path',
+  'get-item', 'measure-object', 'select-object', 'where-object', 'sort-object', 'format-table', 'format-list', 'write-output', 'out-string',
+]);
+const GIT_LOOKS = new Set([
+  'status', 'log', 'diff', 'show', 'rev-parse', 'ls-files', 'ls-tree', 'blame', 'describe', 'shortlog', 'reflog', 'grep',
+  'cat-file', 'merge-base', 'name-rev', 'for-each-ref', 'rev-list', 'whatchanged', 'count-objects',
+]);
+// Redirects that throw output away rather than writing a file.
+const HARMLESS_REDIRECT = /\d?>\s*&\s*\d|\d?>\s*(\/dev\/null|\$null|nul)\b/gi;
+
+function gitLooks(words) {
+  let i = 1;
+  while (words[i] === '--no-pager' || words[i] === '-C' || /^-c$/.test(words[i])) i += words[i] === '--no-pager' ? 1 : 2;
+  const sub = words[i];
+  const rest = words.slice(i + 1);
+  if (GIT_LOOKS.has(sub)) return true;
+  // `git branch foo` and `git tag v1` make one; listing them doesn't.
+  if (sub === 'branch') return rest.every(w => /^(-a|-r|-v|-vv|-l|--list|--all|--remotes|--show-current)$/.test(w));
+  if (sub === 'tag') return rest.length === 0 || rest.some(w => /^(-l|--list)$/.test(w));
+  if (sub === 'remote') return rest.length === 0 || /^(-v|show|get-url)$/.test(rest[0]);
+  if (sub === 'config') return rest.some(w => /^(--get|--get-all|--list|-l)$/.test(w));
+  if (sub === 'stash') return rest[0] === 'list' || rest[0] === 'show';
+  return false;
+}
+
+/** True when a shell command only reads. Conservative: unsure means no. Pure. */
+function onlyLooks(command) {
+  const cmd = String(command || '').replace(HARMLESS_REDIRECT, ' ');
+  if (!cmd.trim() || /[>`]|\$\(|<\(/.test(cmd)) return false;
+  return cmd.split(/&&|\|\||[;|\n]/).every(part => {
+    const words = part.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const name = path.basename(words[0].replace(/^["']|["']$/g, '')).toLowerCase().replace(/\.exe$/, '');
+    if (name === 'git') return gitLooks(words);
+    if (name === 'sed') return !words.some(w => /^-[a-z]*i|^--in-place/.test(w));
+    if (name === 'sort') return !words.some(w => /^-[a-z]*o|^--output/.test(w));
+    if (name === 'find' || name === 'fd') return !words.some(w => /^-(delete|exec|execdir|ok|fprint)|^--exec/.test(w));
+    if (/^(node|npm|python|python3|py|java|go|cargo|dotnet)$/.test(name)) return words.length === 2 && /^(-v|--version|version)$/.test(words[1]);
+    return LOOKS.has(name);
+  });
+}
+
+/** Would this tool call change files? (PreToolUse hook input). Pure. */
+function startsWork(toolName, input) {
+  if (EDIT_TOOLS.has(toolName)) return true;
+  if (SHELL_TOOLS.has(toolName)) return !onlyLooks(input?.command);
+  return false;
+}
+
+/** The branch name Claude suggested ("Branch: fix-login-redirect"), as a slug, or null. Pure. */
+function suggestedName(text) {
+  const m = /branch\s*:[\s`*"']*([a-z0-9][a-z0-9/_-]{1,60})/i.exec(String(text || ''));
+  const slug = m && m[1].toLowerCase().replace(/^shellby\//, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug || null;
+}
+
+/**
+ * Claude Code keeps a conversation under <config>/projects/<folder, every
+ * character but letters and digits as "-">/<session id>.jsonl, and only
+ * resumes it from that folder. Copying it across lets the same conversation
+ * carry on in the copy. Async, since the folder of subagent transcripts beside
+ * it can be large, and this runs as a conversation moves. -> Promise<true | false>
+ */
+const projectDirName = dir => path.resolve(dir).replace(/[^a-zA-Z0-9]/g, '-');
+const SESSION_ID = /^[\w-]{8,64}$/;
+async function carryTranscript({ configDir, sessionId, from, to }) {
+  if (!SESSION_ID.test(sessionId || '')) return false;
+  const where = sessionPaths({ configDir, file: path.join(configDir, 'projects', projectDirName(from), `${sessionId}.jsonl`), to });
+  if (!where) return false;
+  const { id, file, src, dst } = where;
+  const there = p => fs.promises.access(p).then(() => true, () => false);
+  try {
+    if (!await there(file)) return false;
+    if (path.resolve(src).toLowerCase() === path.resolve(dst).toLowerCase()) return true;
+    await fs.promises.mkdir(dst, { recursive: true });
+    await fs.promises.copyFile(file, path.join(dst, `${id}.jsonl`));
+    if (await there(path.join(src, id))) await fs.promises.cp(path.join(src, id), path.join(dst, id), { recursive: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The file's id, and the folders it's copied from and to; null for a file that isn't a conversation.
+function sessionPaths({ configDir, file, to }) {
+  const id = path.basename(String(file || ''), '.jsonl');
+  if (!SESSION_ID.test(id) || !String(file).endsWith('.jsonl')) return null;
+  return { id, file, src: path.dirname(file), dst: path.join(configDir, 'projects', projectDirName(to)) };
+}
+
+/**
+ * Copy one of Claude Code's conversation files (and the folder of subagent
+ * transcripts and large tool results beside it) to where Claude Code looks
+ * for conversations in `to`. Leaves one that's already there alone. -> true | false
+ * Synchronous, for the callers that aren't async (wiring/handoff.js, branching.js);
+ * moving a conversation into a copy uses carryTranscript.
+ */
+function copySession({ configDir, file, to }) {
+  const where = sessionPaths({ configDir, file, to });
+  if (!where) return false;
+  const { id, src, dst } = where;
+  try {
+    if (!fs.existsSync(file)) return false;
+    if (path.resolve(src).toLowerCase() === path.resolve(dst).toLowerCase()) return true;
+    fs.mkdirSync(dst, { recursive: true });
+    fs.copyFileSync(file, path.join(dst, `${id}.jsonl`));
+    if (fs.existsSync(path.join(src, id))) fs.cpSync(path.join(src, id), path.join(dst, id), { recursive: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Where Claude Code keeps a conversation: under the folder it was in when it
+ * was written, which may not be where its tab is now (it moved into a copy,
+ * or the copy was brought home since). `prefer`: folders to look in first.
+ * Otherwise the newest copy anywhere. -> path | null
+ */
+function findSession({ configDir, sessionId, prefer = [] }) {
+  if (!SESSION_ID.test(sessionId || '')) return null;
+  const projects = path.join(configDir, 'projects');
+  for (const dir of prefer) {
+    if (typeof dir !== 'string' || !dir) continue;
+    const f = path.join(projects, projectDirName(dir), `${sessionId}.jsonl`);
+    if (fs.existsSync(f)) return f;
+  }
+  /** @type {{ f: string, at: number } | null} */
+  let best = null;
+  let names;
+  try { names = fs.readdirSync(projects); } catch { return null; }
+  for (const name of names) {
+    const f = path.join(projects, name, `${sessionId}.jsonl`);
+    try {
+      const at = fs.statSync(f).mtimeMs;
+      if (!best || at > best.at) best = { f, at };
+    } catch { /* not in this one */ }
+  }
+  return best?.f || null;
+}
+
+/**
+ * Give a folder in a git repo its own worktree.
+ *   dir:  where the tab would have worked (may be a subfolder of the repo)
+ *   home: the folder worktrees live under (%APPDATA%/Shellby/worktrees)
+ *   start: the commit to start from (default HEAD), e.g. origin/main for work that becomes a pull request
+ *   named: `title` is a name Claude gave the work, so commits may use it (never the start of your prompt)
+ * -> { ok: true, worktree: { path, cwd, branch, base, root, originalCwd, named } } | { ok: false, error } | null (not a repo)
+ * @returns {Promise<{ ok: true, worktree: Worktree } | { ok: false, error: string, detail?: string } | null>}
+ */
+async function create(dir, { home, title, named = false, start = 'HEAD' }) {
+  if (typeof dir !== 'string' || !path.isAbsolute(dir) || !fs.existsSync(dir)) return null;
+  // Where the folder sits inside the repo, in git's own words: comparing paths
+  // here would trip over 8.3 short names (C:\Users\RUNNER~1\...) that git
+  // has already expanded.
+  const top = await git(dir, ['rev-parse', '--show-toplevel', '--show-prefix'], { timeout: 5000 });
+  // No git at all reads the same as "not a repository" unless it's told apart.
+  if (!top.ok && NO_GIT.test(top.error)) return { ok: false, error: "Couldn't make a copy: git isn't installed, or isn't on PATH.", detail: top.error };
+  const [topLine, prefix = ''] = top.ok ? top.out.split(/\r?\n/) : [];
+  if (!topLine?.trim()) return null;
+  const root = path.resolve(topLine.trim());
+  // A tab that already works inside a worktree of ours gets no copy of a copy.
+  if ((longPath(root) + path.sep).toLowerCase().startsWith(longPath(home).toLowerCase() + path.sep)) return null;
+  const head = await git(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeout: 5000 });
+  if (!head.ok) return { ok: false, error: 'That repository has no commits yet, so there is nothing to copy.' };
+  const base = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: 5000 });
+  if (!base.ok || !base.out.trim()) return { ok: false, error: 'Your checkout is not on a branch (detached HEAD), so there would be nowhere to bring it home to.' };
+
+  if (start !== 'HEAD' && !REF.test(start)) return { ok: false, error: 'There is no such commit to start from.' };
+  const branch = branchName(title);
+  // <home>/<suffix>/<repo name>: the folder keeps the project's own name, so
+  // streaks, XP and the status line still say "shellby", not "shellby-1a2b3c".
+  const wt = path.join(home, branch.slice(-6), path.basename(root));
+  // Shellby's folder of copies can be unwritable, full, or too deep for Windows:
+  // said as a sentence like git's own refusals, never thrown at the caller.
+  try {
+    fs.mkdirSync(path.dirname(wt), { recursive: true });
+  } catch (err) {
+    const known = COPY_REFUSALS.find(([re]) => re.test(err.message));
+    return { ok: false, error: `Couldn't make a copy: ${known ? known[1] : "Shellby's folder of copies couldn't be made"}.`, detail: err.message };
+  }
+  const add = await git(root, ['worktree', 'add', '--no-track', '-b', branch, wt, start], { timeout: 120000 });
+  if (!add.ok) return { ok: false, error: copyRefusal(add.error), detail: lastLines(add.error) || undefined };
+  const rel = prefix.trim().replace(/\/$/, '');
+  const cwd = rel ? path.join(wt, ...rel.split('/')) : wt;
+  return { ok: true, worktree: { path: wt, cwd: fs.existsSync(cwd) ? cwd : wt, branch, base: base.out.trim(), root, originalCwd: path.resolve(dir), named: !!named } };
+}
+
+/**
+ * @typedef {{ path: string, cwd: string, branch: string, base: string, root: string, originalCwd: string, named: boolean }} Worktree
+ * @typedef {{ ok: boolean, error?: string, branch?: string, remote?: string | null, dest?: string, upstream?: string,
+ *   tracked?: boolean, ahead?: number, behind?: number, fetched?: boolean }} RemoteStatus
+ * @typedef {{ ok: boolean, error?: string, branch?: string, remote?: string | null, upstream?: string, conflict?: boolean,
+ *   detail?: string, pushed?: number, pulled?: number, others?: { count: number, subjects: string[] } }} PushResult
+ */
+
+const OBJECT = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
+
+/**
+ * A copy of the repository as it was at one moment of a conversation, for a
+ * branch (branch.js). Checked out at `head` (the commit that was checked out
+ * then), with the files made exactly `tree` (a snapshot from changes.js:
+ * uncommitted and untracked work included). What differs from `head` shows as
+ * uncommitted, just as it was, so "Bring it home" works the same as for any copy.
+ *   repoRoot: the repository itself (never one of our copies: git worktrees share it)
+ *   base: the branch to bring it home to. prefix: the tab's folder inside the repo.
+ *   named: `slug` is a name Claude gave the work (see create()).
+ * -> { ok: true, worktree } | { ok: false, error, gone? }
+ */
+async function createAt({ repoRoot, base, head, tree, prefix = '', home, slug, named = false, originalCwd }) {
+  if (typeof repoRoot !== 'string' || !path.isAbsolute(repoRoot) || !fs.existsSync(repoRoot)) return { ok: false, error: 'That repository has moved.' };
+  if (!OBJECT.test(tree || '') || !OBJECT.test(head || '')) return { ok: false, error: "That point in the conversation has no snapshot to start from." };
+  if (typeof base !== 'string' || !REF.test(base)) return { ok: false, error: 'There is no branch to bring it home to.' };
+  const rel = String(prefix || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  if (rel.split('/').includes('..')) return { ok: false, error: 'That folder is outside the repository.' };
+  // Snapshots aren't referenced by any branch, so git tidies them away in time.
+  const [hasTree, hasHead] = await Promise.all([
+    git(repoRoot, ['cat-file', '-e', `${tree}^{tree}`], { timeout: 5000 }),
+    git(repoRoot, ['cat-file', '-e', `${head}^{commit}`], { timeout: 5000 }),
+  ]);
+  if (!hasTree.ok || !hasHead.ok) return { ok: false, gone: true, error: 'git has tidied away the files from that point since.' };
+
+  const branch = branchName(slug);
+  const wt = path.join(home, branch.slice(-6), path.basename(repoRoot));
+  fs.mkdirSync(path.dirname(wt), { recursive: true });
+  const add = await git(repoRoot, ['worktree', 'add', '-b', branch, wt, head], { timeout: 120000 });
+  if (!add.ok) return { ok: false, error: copyRefusal(add.error), detail: lastLines(add.error) || undefined };
+  // The files as the snapshot has them (deletions too), then the index back
+  // on `head`: the difference is uncommitted work, as it was at the time.
+  const files = await git(wt, ['read-tree', '-u', '--reset', tree], { timeout: 120000 });
+  const index = files.ok && await git(wt, ['reset', '-q'], { timeout: 60000 });
+  if (!index?.ok) {
+    await remove({ path: wt, root: repoRoot, branch, base }, { force: true });
+    return { ok: false, error: `Couldn't put the files back as they were: ${firstLine((index || files).error)}` };
+  }
+  // The tab's folder inside the copy, unless a link would lead it out of it.
+  const sub = rel ? path.join(wt, ...rel.split('/')) : wt;
+  const real = longPath(sub);
+  const cwd = fs.existsSync(sub) && (real + path.sep).toLowerCase().startsWith(longPath(wt).toLowerCase() + path.sep) ? sub : wt;
+  return {
+    ok: true,
+    worktree: { path: wt, cwd, branch, base, root: path.resolve(repoRoot), originalCwd: path.resolve(originalCwd || repoRoot), named: !!named },
+  };
+}
+
+/**
+ * Where a copy should start when the snapshot didn't say which commit was
+ * checked out (transcripts from before it did): where the original's own copy
+ * started, or what your checkout has now. -> sha | null
+ */
+async function startingPoint({ repoRoot, worktree }) {
+  const r = worktree && !checkWorktree(worktree)
+    ? await git(repoRoot, ['merge-base', worktree.base, worktree.branch], { timeout: 10000 })
+    : await git(repoRoot, ['rev-parse', '--verify', '--quiet', 'HEAD'], { timeout: 5000 });
+  const sha = r.ok ? r.out.trim() : '';
+  return OBJECT.test(sha) ? sha : null;
+}
+
+/** The branch a checkout is on, or null (detached, or not a repo). */
+async function branchOf(root) {
+  const r = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: 5000 });
+  const b = r.ok ? r.out.trim() : '';
+  return REF.test(b) ? b : null;
+}
+
+/** Checks a worktree record that came back from history or the renderer. -> error | null */
+function checkWorktree(w) {
+  if (!w || typeof w !== 'object') return 'That conversation has no copy of its own.';
+  if (!BRANCH.test(w.branch || '')) return 'That is not one of Shellby\'s branches.';
+  for (const k of ['path', 'root']) if (typeof w[k] !== 'string' || !path.isAbsolute(w[k])) return 'That copy has gone missing.';
+  if (typeof w.base !== 'string' || !w.base || /^-|\.\.|[\s~^:?*[\\]/.test(w.base)) return 'That copy has no branch to go home to.';
+  return null;
+}
+
+/** How far the copy has got: uncommitted files, and commits the base doesn't have. */
+async function status(w) {
+  const bad = checkWorktree(w);
+  if (bad) return { ok: false, error: bad };
+  if (!fs.existsSync(w.path)) return { ok: false, gone: true, error: 'The copy is gone (deleted outside Shellby).' };
+  const [dirty, ahead] = await Promise.all([
+    git(w.path, ['status', '--porcelain', '-z', '--ignored=matching'], { timeout: 15000 }),
+    git(w.root, ['rev-list', '--count', `${w.base}..${w.branch}`], { timeout: 15000 }),
+  ]);
+  const entries = dirty.ok ? dirty.out.split('\0').filter(Boolean) : [];
+  return {
+    ok: true,
+    uncommitted: entries.filter(e => !e.startsWith('!! ')).length,
+    // Ignored files (node_modules, .env.local, build output) aren't committed,
+    // so they go when the copy does.
+    ignored: entries.filter(e => e.startsWith('!! ')).map(e => e.slice(3)).slice(0, 5),
+    ahead: ahead.ok ? Number(ahead.out.trim()) || 0 : 0,
+  };
+}
+
+/**
+ * Commit what's left in the copy and merge its branch into the base in your
+ * checkout. Removing the copy is a separate step (remove()), because the tab's
+ * Claude process has to be gone first: Windows won't delete a folder a
+ * running process is working in.
+ *   message: the subject for both commits, or null to name them with workMessage()
+ *   -> { ok: true, merged, commits } | { ok: false, error, conflict? }
+ */
+/**
+ * @param {any} w
+ * @param {{ message?: string | null, trailer?: string | null }} [opts]
+ */
+async function bringHome(w, { message = null, trailer = null } = {}) {
+  // Shellby's own commits may carry a "Shipped-with:" trailer (crab-line.js), if you turned it on.
+  const tail = typeof trailer === 'string' && /^[A-Za-z-]+: [^\n]{1,120}$/.test(trailer) ? `\n\n${trailer}` : '';
+  const bad = checkWorktree(w);
+  if (bad) return { ok: false, error: bad };
+  if (!fs.existsSync(w.path)) return { ok: false, error: 'The copy is gone (deleted outside Shellby).' };
+
+  const given = message ? String(message).slice(0, 400) : '';
+  const names = out => out.split('\0').filter(Boolean);
+  const dirty = await git(w.path, ['status', '--porcelain'], { timeout: 15000 });
+  if (dirty.ok && dirty.out.trim()) {
+    const add = await git(w.path, ['add', '-A']);
+    const staged = add.ok && await git(w.path, ['diff', '--cached', '--name-only', '-z'], { timeout: 15000 });
+    const said = given || workMessage(w, staged?.ok ? names(staged.out) : []);
+    const commit = add.ok && await git(w.path, [...NO_HOOKS, 'commit', '-q', '--no-verify', '-m', `${said}${tail}`]);
+    if (!commit?.ok) return { ok: false, error: `Couldn't commit the copy's changes: ${firstLine(commit?.error || add.error)}` };
+  }
+
+  const ahead = await git(w.root, ['rev-list', '--count', `${w.base}..${w.branch}`], { timeout: 15000 });
+  const commits = ahead.ok ? Number(ahead.out.trim()) || 0 : 0;
+  if (commits) {
+    const on = await git(w.root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: 5000 });
+    if (!on.ok || on.out.trim() !== w.base) {
+      return { ok: false, error: `Your checkout is on ${on.out.trim() || 'no branch'} now. Switch back to ${w.base} to bring this home.` };
+    }
+    // Titled with what the work is, so `git log --first-parent` reads as a list
+    // of changes (release drafts skip merges, so it isn't counted twice).
+    // One commit lends the merge its subject; more are summed up by what they
+    // changed. The branch is only named when Claude named it.
+    // In English whatever git's language, so its refusals can be read below.
+    let said = given;
+    if (!said && commits === 1) said = (await git(w.root, ['log', '-1', '--format=%s', w.branch], { timeout: 5000 })).out?.trim();
+    if (!said) said = workMessage(w, names((await git(w.root, ['diff', '--name-only', '-z', `${w.base}...${w.branch}`], { timeout: 15000 })).out || ''));
+    const from = w.named ? `\n\nBrought home from ${w.branch}` : '';
+    const title = `${said.split('\n')[0]}${from}${tail}`;
+    const merge = await git(w.root, [...NO_HOOKS, 'merge', '--no-verify', '--no-edit', '-m', title, w.branch], { timeout: 60000, env: { LC_ALL: 'C' } });
+    if (!merge.ok) {
+      const conflict = /CONFLICT|Automatic merge failed/i.test(merge.out + merge.error);
+      if (conflict) await git(w.root, ['merge', '--abort'], { timeout: 15000 });
+      if (conflict) return { ok: false, conflict, error: `${w.base} has changed in ways that clash with this copy. Nothing was merged.` };
+      // Anything else (files in your checkout in the way, a lock, a broken
+      // index): git's own words go along, so Claude can be asked to find out why.
+      // (A timeout has no words from git, only Node's "Command failed: git …".)
+      const said = /^Command failed:/.test(merge.error) ? merge.out : merge.error || merge.out;
+      return { ok: false, conflict, fixable: true, root: w.root, error: refusal(w.base, merge), detail: lastLines(said) || undefined };
+    }
+  }
+  return { ok: true, merged: commits > 0, commits };
+}
+
+// Why `git worktree add` said no, in a sentence (git's own words go in `detail`).
+/** @type {Array<[RegExp, string]>} */
+const COPY_REFUSALS = [
+  [/already (checked out|used by worktree)|is already registered/i, 'that branch is already open in another copy'],
+  [/filename too long|path too long|name too long/i, 'the path would be too long for Windows (turn on git\'s core.longpaths to allow it)'],
+  [/permission denied|access is denied|operation not permitted/i, "Windows didn't let git write to Shellby's folder of copies"],
+  [/no space left|not enough space|disk full/i, 'the disk is full'],
+  [/invalid reference|not a valid object|unknown revision/i, 'there is no such commit to start from'],
+  [/index\.lock|another git process/i, 'another git command is busy in this repository; try again in a moment'],
+];
+function copyRefusal(said) {
+  const known = COPY_REFUSALS.find(([re]) => re.test(String(said || '')));
+  if (known) return `Couldn't make a copy: ${known[1]}.`;
+  const line = firstLine(said).replace(/^(fatal|error):\s*/i, '');
+  return line ? `Couldn't make a copy: git said "${line.slice(0, 160)}".` : "git couldn't make the copy.";
+}
+
+// What git's refusal to merge means, in a sentence. The usual one: your
+// checkout has uncommitted (or untracked) files the copy also changed.
+function refusal(base, merge) {
+  const said = `${merge.error}\n${merge.out}`;
+  if (!/would be overwritten by merge/i.test(said)) return `Couldn't merge into ${base}: ${firstLine(merge.error) || "git refused."} Nothing was merged.`;
+  const files = said.split('\n').filter(l => /^\t/.test(l)).map(l => l.trim()).filter(Boolean);
+  const which = files.length ? ` (${files.slice(0, 3).join(', ')}${files.length > 3 ? '…' : ''})` : '';
+  const kind = /untracked working tree files/i.test(said) ? 'Untracked' : 'Uncommitted';
+  return `${kind} files in your checkout are in the way${which}: this copy changes them too. Nothing was merged.`;
+}
+
+/**
+ * Remove the copy and its branch. force: also when it has work that was never
+ * brought home (Throw away). Without force, an unmerged branch is kept.
+ */
+async function remove(w, { force = false } = {}) {
+  const bad = checkWorktree(w);
+  if (bad) return { ok: false, error: bad };
+  // --force here only means "even with untracked files" (node_modules and the
+  // like); everything worth keeping was committed by bringHome first.
+  if (fs.existsSync(w.path)) {
+    const r = await git(w.root, ['worktree', 'remove', '--force', w.path], { timeout: 60000 });
+    if (!r.ok) return { ok: false, error: firstLine(r.error) || "git couldn't remove the copy." };
+  }
+  await git(w.root, ['worktree', 'prune'], { timeout: 15000 });
+  await git(w.root, ['branch', force ? '-D' : '-d', w.branch], { timeout: 15000 });
+  try { fs.rmdirSync(path.dirname(w.path)); } catch { /* not empty, or already gone */ }
+  return { ok: true };
+}
+
+// ------------------------------------------------------------ sending it to GitHub
+//
+// Bringing a copy home only ever touches your checkout. Pushing is the
+// separate, deliberate step that publishes it: fetch, merge in whatever the
+// remote has that you don't (a merge, never a rebase, so the "Bring home"
+// merges stay as they were), then a plain push. Never a force push, and a
+// clash is backed out exactly like bringHome's.
+
+// Branch and remote names as git would print them; nothing that reads as an option.
+const REF = /^(?!-)(?!.*\.\.)[\w./-]{1,200}$/;
+
+/** Where a branch pushes to: its upstream, or origin (or the only remote) under the same name. -> { remote, dest, upstream, tracked } | null */
+async function upstreamOf(root, branch) {
+  const [remote, merge] = await Promise.all([
+    git(root, ['config', '--get', `branch.${branch}.remote`], { timeout: 5000 }),
+    git(root, ['config', '--get', `branch.${branch}.merge`], { timeout: 5000 }),
+  ]);
+  const r = remote.ok ? remote.out.trim() : '';
+  const m = merge.ok ? merge.out.trim().replace(/^refs\/heads\//, '') : '';
+  if (r && r !== '.' && m && REF.test(r) && REF.test(m)) return { remote: r, dest: m, upstream: `${r}/${m}`, tracked: true };
+  const list = await git(root, ['remote'], { timeout: 5000 });
+  const remotes = list.ok ? list.out.split(/\r?\n/).map(s => s.trim()).filter(s => REF.test(s)) : [];
+  const pick = remotes.includes('origin') ? 'origin' : remotes.length === 1 ? remotes[0] : null;
+  return pick ? { remote: pick, dest: branch, upstream: `${pick}/${branch}`, tracked: false } : null;
+}
+
+/** -> { ahead, behind } of branch against upstream (behind 0 when the remote has no such branch yet). */
+async function aheadBehind(root, branch, upstream) {
+  const has = await git(root, ['rev-parse', '--verify', '--quiet', `refs/remotes/${upstream}`], { timeout: 5000 });
+  if (!has.ok) {
+    const all = await git(root, ['rev-list', '--count', branch], { timeout: 15000 });
+    return { ahead: all.ok ? Number(all.out.trim()) || 0 : 0, behind: 0 };
+  }
+  const r = await git(root, ['rev-list', '--left-right', '--count', `${branch}...refs/remotes/${upstream}`], { timeout: 15000 });
+  const [ahead, behind] = r.ok ? r.out.trim().split(/\s+/).map(n => Number(n) || 0) : [0, 0];
+  return { ahead, behind };
+}
+
+/**
+ * How your checkout stands against its remote. fetch: ask the remote first
+ * (slow, needs the network); otherwise it's as of the last fetch.
+ *   -> { ok: true, branch, remote, upstream, ahead, behind, fetched } | { ok: true, branch, remote: null } | { ok: false, error }
+ * @returns {Promise<RemoteStatus>}
+ */
+async function remoteStatus(root, { fetch = false } = {}) {
+  if (typeof root !== 'string' || !path.isAbsolute(root)) return { ok: false, error: 'That is not a repository.' };
+  const on = await git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: 5000 });
+  const branch = on.ok ? on.out.trim() : '';
+  if (!REF.test(branch)) return { ok: false, error: 'Your checkout is not on a branch (detached HEAD), so there is nothing to push.' };
+  const up = await upstreamOf(root, branch);
+  if (!up) return { ok: true, branch, remote: null };
+  let fetched = false;
+  if (fetch) {
+    const f = await git(root, ['fetch', '--quiet', up.remote], { timeout: 90000 });
+    if (!f.ok) return { ok: false, error: `Couldn't reach ${up.remote}: ${firstLine(f.error)}` };
+    fetched = true;
+  }
+  return { ok: true, branch, ...up, ...await aheadBehind(root, branch, up.upstream), fetched };
+}
+
+const SHA = /^[0-9a-f]{40,64}$/;
+const SHOWN_OTHERS = 5;
+
+/** The commit a ref is at, or null. Taken before a copy comes home, for pushBase's before. */
+async function tipOf(root, ref) {
+  if (!REF.test(ref)) return null;
+  const r = await git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { timeout: 5000 });
+  const sha = r.ok ? r.out.trim() : '';
+  return SHA.test(sha) ? sha : null;
+}
+
+/** Commits reachable from before that no branch of remote has. -> { count, subjects: [up to SHOWN_OTHERS] } */
+async function unpublished(root, before, remote) {
+  const range = [before, '--not', `--remotes=${remote}`];
+  const [n, log] = await Promise.all([
+    git(root, ['rev-list', '--count', ...range], { timeout: 15000 }),
+    git(root, ['log', '--no-merges', '--format=%s', '-n', String(SHOWN_OTHERS), ...range], { timeout: 15000 }),
+  ]);
+  return { count: n.ok ? Number(n.out.trim()) || 0 : 0, subjects: log.ok ? log.out.split(/\r?\n/).filter(Boolean) : [] };
+}
+
+/**
+ * Push your checkout's branch. base: refuse unless the checkout is on it (a
+ * copy brought home lands on its base, and that's what should go out).
+ * before: where the branch was before a copy came home. Commits it already
+ * had that the remote doesn't (copies brought home without a push, your own
+ * work) aren't sent along unasked: they come back as others, unless others
+ * is true.
+ *   -> { ok: true, branch, remote, pushed, pulled }
+ *    | { ok: false, error, conflict?, detail?, others?: { count, subjects } }
+ * @param {string} root
+ * @param {{ base?: string, before?: string | null, others?: boolean }} [opts]
+ * @returns {Promise<PushResult>}
+ */
+async function pushBase(root, { base, before = null, others = false } = {}) {
+  const s = await remoteStatus(root, { fetch: true });
+  if (!s.ok) return s;
+  if (base && s.branch !== base) return { ok: false, error: `Your checkout is on ${s.branch} now. Switch back to ${base} to push it.` };
+  if (!s.remote) return { ok: false, error: `${s.branch} has nowhere to go: this repository has no remote.` };
+  if (before && SHA.test(before) && !others) {
+    const extra = await unpublished(root, before, s.remote);
+    if (extra.count) {
+      return {
+        ok: false, others: extra, branch: s.branch, remote: s.remote,
+        error: `Nothing went to ${s.remote}: ${s.branch} also has ${extra.count} commit${extra.count === 1 ? '' : 's'} from before that ${extra.count === 1 ? "isn't" : "aren't"} on ${s.remote} yet.`,
+      };
+    }
+  }
+
+  let pulled = 0;
+  if (s.behind) {
+    const merge = await git(root, ['merge', '--no-edit', '-m', `Merge ${s.upstream} into ${s.branch}`, `refs/remotes/${s.upstream}`], { timeout: 60000 });
+    if (!merge.ok) {
+      const conflict = /CONFLICT|Automatic merge failed/i.test(merge.out + merge.error);
+      if (conflict) await git(root, ['merge', '--abort'], { timeout: 15000 });
+      return {
+        ok: false, conflict, upstream: s.upstream,
+        error: conflict
+          ? `${s.upstream} has ${s.behind} commit${s.behind === 1 ? '' : 's'} that clash with yours. Nothing was merged or pushed.`
+          : `Couldn't take in ${s.upstream} first: ${firstLine(merge.error) || 'git refused the merge.'}`,
+      };
+    }
+    pulled = s.behind;
+  }
+
+  const { ahead } = pulled ? await aheadBehind(root, s.branch, s.upstream) : s;
+  if (!ahead) return { ok: true, branch: s.branch, remote: s.remote, pushed: 0, pulled };
+  // Long timeout: a pre-push hook may run the whole test suite.
+  const push = await git(root, ['push', ...(s.tracked ? [] : ['-u']), s.remote, `refs/heads/${s.branch}:refs/heads/${s.dest}`], { timeout: 10 * 60000 });
+  if (!push.ok) {
+    const rejected = /\[rejected\]|non-fast-forward|fetch first/i.test(push.error);
+    return {
+      ok: false,
+      error: rejected
+        ? `${s.remote} moved on while pushing. Try again.`
+        // "failed to push some refs" is git's last word for a hook's refusal
+        // too; the reason is in the detail.
+        : /failed to push some refs/i.test(push.error)
+          ? `${s.remote} didn't take the push. Nothing went.`
+          : `The push didn't go through: ${firstLine(push.error) || 'git refused it.'}`,
+      // A pre-push hook's own words are what explain a refusal.
+      detail: lastLines(push.error) || undefined,
+      pulled,
+    };
+  }
+  return { ok: true, branch: s.branch, remote: s.remote, pushed: ahead, pulled };
+}
+
+/**
+ * Bring several copies home, one after another, into the branch your checkout
+ * is on. A copy that clashes is backed out and passed over, so the rest still
+ * land (its clash is sorted out afterwards, in turn: worktrees/home-line.js). Anything
+ * else git refuses stops the sweep; the ones before it stay merged. Copies
+ * started from another branch are skipped, not merged somewhere else.
+ *   -> { ok, results: [{ branch, ok, merged, commits, error?, conflict?, skipped? }], clashed: [branch], stopped? }
+ */
+/**
+ * @param {any[]} list
+ * @param {{ messageFor?: (w: any) => string | null, trailer?: string | null }} [opts]
+ */
+async function bringAllHome(list, { messageFor = () => null, trailer = null } = {}) {
+  const results = [];
+  const clashed = [];
+  for (const w of list) {
+    const bad = checkWorktree(w);
+    if (bad) { results.push({ branch: w?.branch, ok: false, skipped: true, error: bad }); continue; }
+    const on = await git(w.root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], { timeout: 5000 });
+    if (!on.ok || on.out.trim() !== w.base) {
+      results.push({ branch: w.branch, ok: false, skipped: true, error: `started from ${w.base}` });
+      continue;
+    }
+    const r = await bringHome(w, { message: messageFor(w), trailer });
+    results.push({ branch: w.branch, ...r });
+    if (r.conflict) { clashed.push(w.branch); continue; }
+    if (!r.ok && !/gone/.test(r.error || '')) return { ok: false, results, clashed, stopped: w.branch };
+  }
+  return { ok: true, results, clashed };
+}
+
+/**
+ * Has the copy taken in everything its base has now, with no merge left half
+ * done? A clash sorted out in the copy is ready to come home cleanly then.
+ */
+async function caughtUp(w) {
+  if (checkWorktree(w) || !fs.existsSync(w.path)) return false;
+  const [has, mid] = await Promise.all([
+    git(w.root, ['merge-base', '--is-ancestor', w.base, w.branch], { timeout: 15000 }),
+    git(w.path, ['rev-parse', '-q', '--verify', 'MERGE_HEAD'], { timeout: 5000 }),
+  ]);
+  return has.ok && !mid.ok;
+}
+
+module.exports = {
+  git, create, createAt, startingPoint, branchOf, status, bringHome, remove, branchName, workMessage, checkWorktree, BRANCH,
+  remoteStatus, pushBase, tipOf, bringAllHome, caughtUp, upstreamOf, copyRefusal,
+  startsWork, onlyLooks, suggestedName, projectDirName, carryTranscript, copySession, findSession,
+};

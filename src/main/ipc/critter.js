@@ -1,12 +1,12 @@
 // The crab's own window: dragging, throwing, poking and petting him, and the
 // dev/e2e-only handlers that drive him (rooms.js decides which screens are open,
-// feature-use.js counts which ones you open, quests.js which tricks he has
+// feature-use.js counts which ones you open, quests/index.js which tricks he has
 // shown you).
 // Kept out of main.js, which only wires it up.
 const { app, screen } = require('electron');
 const featureUse = require('../feature-use');
 const focus = require('../focus');
-const native = require('../native-windows');
+const native = require('../desktop/native-windows');
 const quests = require('../quests');
 const rooms = require('../rooms');
 const voice = require('../voice');
@@ -19,7 +19,7 @@ function registerCritterIpc(ipcMain, d) {
   // ---- critter
   // The grab offset is fixed at drag start; moves follow the real cursor (the
   // renderer's screenX lags and rescales while its own window moves under it).
-  // Recent cursor samples tell a drop from a throw (see motion.js).
+  // Recent cursor samples tell a drop from a throw (see desktop/motion.js).
   /** @type {{ dx: number, dy: number } | null} where in the crab you took hold of him */
   let grab = null;
   let samples = [];
@@ -58,7 +58,7 @@ function registerCritterIpc(ipcMain, d) {
   ipcMain.on('critter:reduced-motion', (_e, on) => d.setReducedMotion?.(on === true));
   // Perched, his window lets the mouse through except over the crab himself.
   ipcMain.on('critter:hit', (_e, over) => d.perching?.hover(!!over));
-  // The floor strip lets the mouse through except over a pal (floor.js).
+  // The floor strip lets the mouse through except over a pal (desktop/floor.js).
   ipcMain.on('floor:hit', (_e, over) => d.floor?.hover(!!over));
   let lastPoke = 0;
   ipcMain.on('floor:poke', () => {
@@ -74,6 +74,7 @@ function registerCritterIpc(ipcMain, d) {
     if (Date.now() - lastPet < 1500) return;
     lastPet = Date.now();
     d.stat('petted');
+    d.firstRunStep?.('crab');
     d.life?.onPet();
     if (['idle', 'sleeping'].includes(d.lastStatus.state)) { d.lastActivity = Date.now(); d.flashState('petted', 2600); }
   });
@@ -82,14 +83,26 @@ function registerCritterIpc(ipcMain, d) {
   ipcMain.handle('rooms:get', () => d.roomsPanelView());
   ipcMain.handle('rooms:open', (_e, id) => d.setRooms(rooms.openRoom(d.config.get('rooms'), String(id || ''))));
   ipcMain.handle('rooms:all', () => d.setRooms(rooms.openAll(d.config.get('rooms'))));
+  // A room visited: its "new" on the door goes.
+  ipcMain.handle('rooms:seen', (_e, id) => d.setRooms(rooms.seeRoom(d.config.get('rooms'), String(id || ''))));
+  // ---- First steps (first-run.js): the card's state, Skip and hide. Steps
+  // are done only by the real thing (wiring/first-run.js firstRunStep).
+  ipcMain.handle('firstrun:get', () => d.firstRunPanelView());
+  ipcMain.handle('firstrun:skip', (_e, id) => d.skipFirstStep(String(id || '')));
+  ipcMain.handle('firstrun:hide', (_e, hidden) => d.hideFirstRun(hidden === true));
+  // A changes block opened in the feed: seeing what changed, as the viewer is.
+  ipcMain.on('firstrun:saw-changes', () => d.firstRunStep?.('result'));
 
   // ---- what you use: a count per screen, on this PC only (feature-use.js)
   ipcMain.on('features:used', (_e, id) => {
+    // First steps: the file viewer is seeing what changed, Outfits is meeting him.
+    if (id === 'viewer') d.firstRunStep?.('result');
+    if (id === 'wardrobe') d.firstRunStep?.('crab');
     const next = featureUse.record(d.config.get('featureUse'), String(id || ''), Date.now());
     if (JSON.stringify(next) !== JSON.stringify(featureUse.normalize(d.config.get('featureUse')))) d.config.set({ featureUse: next });
   });
   ipcMain.handle('features:report', () => featureUse.report(d.config.get('featureUse'), Date.now()));
-  // ---- quests: the features worth finding, and the chat's card for the next one (quests.js)
+  // ---- quests: the features worth finding, and the chat's card for the next one (quests/index.js)
   ipcMain.handle('quests:get', () => d.questsPanelView());
   ipcMain.handle('quests:hide', (_e, hidden) => d.setQuests(quests.setHidden(d.config.get('quests'), hidden === true)));
 

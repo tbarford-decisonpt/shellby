@@ -32,11 +32,11 @@ contextBridge.exposeInMainWorld('shellby', {
     onVisitor: on('critter:visitor'), // a friend's crab dropped by (src/main/friends.js)
     onBuddy: on('critter:buddy'), // his favourite Bugdex catch, following him (src/main/wiring/bugdex.js)
     onTogether: on('critter:together'), // ...and the two of them do something together
-    onSticker: on('critter:sticker'), // a project shipped for the first time: slap its sticker on (src/main/stickers.js)
+    onSticker: on('critter:sticker'), // a project shipped for the first time: slap its sticker on (src/main/stickers/index.js)
     onStickerGlint: on('critter:sticker-glint'), // ...or one already on his shell catches the light
     pet: fire('critter:pet'),
     hit: fire('critter:hit'),           // the pointer is over him (perched, the rest of his window lets clicks through)
-    onPerch: on('critter:perch'),       // up on a window, or back down (src/main/perching.js)
+    onPerch: on('critter:perch'),       // up on a window, or back down (src/main/desktop/perching.js)
   },
 
   // Resolve dropped File objects to absolute paths (sandbox-safe).
@@ -154,7 +154,7 @@ contextBridge.exposeInMainWorld('shellby', {
   // history
   listSessions: invoke('session:list'),
   openSession: invoke('session:open'),
-  searchSessions: invoke('session:search'), // inside the messages: { query, project, pc, from, to } (history-search.js)
+  searchSessions: invoke('session:search'), // inside the messages: { query, project, pc, from, to } (main's history/search.js)
   deleteSession: invoke('session:delete'),
   listTrash: invoke('session:trash'),
   restoreSession: invoke('session:restore'),
@@ -262,10 +262,11 @@ contextBridge.exposeInMainWorld('shellby', {
   writeTeamPack: invoke('team:write'),
   revealTeamPack: fire('team:reveal'),
   refreshMcp: invoke('mcp:refresh'),
-  // What Claude Code does by itself (ipc/native.js): background commands, auto memory, cloud routines, the ultra review.
+  // What Claude Code does by itself (ipc/native.js): background commands, ultracode runs, auto memory, cloud routines, the ultra review.
   jobOutput: (tabId, jobId) => ipcRenderer.invoke('jobs:output', { tabId, jobId }),
   justSawTake: () => ipcRenderer.invoke('justsaw:take'),
   stopJob: (tabId, jobId) => ipcRenderer.invoke('jobs:stop', { tabId, jobId }),
+  stopUltracode: (tabId, runId) => ipcRenderer.invoke('ultracode:stop', { tabId, runId }), confirmUltracode: invoke('ultracode:confirm'), ultracodeStatus: (tabId, runId) => ipcRenderer.invoke('ultracode:status', { tabId, runId }),
   listMemory: invoke('memory:list'),
   saveMemory: (tabId, file, body, mtimeMs) => ipcRenderer.invoke('memory:save', { tabId, file, body, mtimeMs }),
   forgetMemory: (tabId, file) => ipcRenderer.invoke('memory:forget', { tabId, file }),
@@ -425,14 +426,18 @@ contextBridge.exposeInMainWorld('shellby', {
   getRooms: invoke('rooms:get'),
   openRoom: invoke('rooms:open'),
   openAllRooms: invoke('rooms:all'),
-  onRooms: on('rooms'),
+  seenRoom: invoke('rooms:seen'), onRooms: on('rooms'),
+  // First steps for someone new (first-run.js): done by the real thing, never ticked
+  getFirstRun: invoke('firstrun:get'), skipFirstStep: invoke('firstrun:skip'), hideFirstRun: invoke('firstrun:hide'),
+  sawChanges: fire('firstrun:saw-changes'), onFirstRun: on('first-run'),
   // what you use: screens opened, counted on this PC (feature-use.js)
-  featureUsed: fire('features:used'),
-  featureReport: invoke('features:report'),
-  // quests: the features worth finding, one at a time (quests.js)
-  getQuests: invoke('quests:get'),
+  featureUsed: fire('features:used'), featureReport: invoke('features:report'),
+  getQuests: invoke('quests:get'), // quests: the features worth finding, one at a time (quests.js)
   hideQuests: invoke('quests:hide'),
   onQuests: on('quests'),
+  getGame: invoke('game:get'), // the game screens (game-hub.js): (what, arg) -> view, what in GAME_VIEWS
+  gameAct: invoke('game:act'), // (what, action, payload) -> view
+  onGame: on('game'), // ({ what, view, event? })
   // his life between tasks: finds, the bond, the journal, games (life.js, playtime.js)
   getLife: invoke('life:get'),
   setBirthday: invoke('life:birthday'),
@@ -485,12 +490,10 @@ contextBridge.exposeInMainWorld('shellby', {
   onTankGauges: on('tank:gauges'),
   tankLife: invoke('tank:life'),       // his favourite piece and the sets on display (tank/life.js)
   tankLived: invoke('tank:lived'),     // what he got up to while you watched
-  // dependency checkups and the week in review
-  getCheckups: invoke('checkups:get'),
+  getCheckups: invoke('checkups:get'), // dependency checkups and the week in review
   runCheckup: invoke('checkups:run'),
   onCheckups: on('checkups'),
-  // the Bugdex: the bugs Claude has fixed for you, in jars (bugdex.js)
-  getBugdex: invoke('bugdex:get'),
+  getBugdex: invoke('bugdex:get'), // the Bugdex: the bugs Claude has fixed for you, in jars (bugdex.js)
   bugdexSeen: fire('bugdex:seen'),
   setFavouriteBug: invoke('bugdex:favourite'),
   openBugTab: fire('bugdex:open-tab'),
@@ -528,7 +531,7 @@ contextBridge.exposeInMainWorld('shellby', {
   onCodeHealthFocus: on('code-health:focus'),
   getWeek: invoke('week:get'),
   onWeekReady: on('week:ready'),
-  // time on each project (src/main/timetrack-service.js)
+  // time on each project (src/main/timetrack/service.js)
   getTime: invoke('time:get'),
   setTimeSettings: invoke('time:settings'),
   setTimeProject: invoke('time:project'),
@@ -689,12 +692,9 @@ contextBridge.exposeInMainWorld('shellby', {
   installUpdate: invoke('updates:install'),
 
   // the Council (ipc/council.js)
-  councilView: invoke('council:view'),
-  saveCouncil: invoke('council:save'),
-  convene: invoke('council:convene'),
-  councilHistory: invoke('council:history'),
-  councilSession: invoke('council:get'),
-  forgetCouncil: invoke('council:forget'),
+  councilView: invoke('council:view'), saveCouncil: invoke('council:save'), convene: invoke('council:convene'),
+  councilHistory: invoke('council:history'), councilSession: invoke('council:get'), forgetCouncil: invoke('council:forget'),
+  councilOutcome: invoke('council:outcome'), councilPlan: invoke('council:plan'), councilNote: invoke('council:note'),
   // routines
   listRoutines: invoke('routines:list'),
   routineTemplates: invoke('routines:templates'),

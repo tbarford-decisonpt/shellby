@@ -44,6 +44,24 @@ Everything Shellby does with Claude Code, on your own Claude Pro or Max plan. Ba
 
 <p align="center"><img src="img/screenshot-slash.png" width="420" alt="The composer's slash menu listing commands, skills and snippets"></p>
 
+## Review mastery
+
+A track on **Trophies** for really reading what Claude changed. It counts three things, each with a rule so it can't be farmed:
+
+- **A quiz passed** (**Quiz me** on a turn's changes): **+3**, once per turn. Passes in a row make a run. A miss ends the run, but your best run stays.
+- **A review that says something**: **+1** when you send line comments on a turn and at least one has 12 characters or more and isn't a stock "lgtm", "ok" or "+1", on a change of 10 lines or more. Once per turn, however many comments.
+- **A catch**: **+5** and the *Caught in review* XP when Claude's next turn on that tab rewrites the lines you commented on (within 3 lines), before anything was pushed or merged, within six hours. Only lines changed for real count (whitespace doesn't), one catch per turn, and only on a turn Shellby worked out from git, never a diff made up for something else. Comments on removed lines count for the review point but can't catch.
+
+| Tier | Needs | Reward |
+|---|---|---|
+| 1 Tide-pool Reader | 10 points | |
+| 2 Diff Diver | 30 points, a quiz run of 3 | Diver's Goggles Stand for the tank |
+| 3 Line Hawk | 75 points, 5 catches | Hawk Perch for the tank |
+| 4 Merge Guardian | 150 points, 15 catches, a quiz run of 5 | the "Guardian" flair |
+| 5 Abyssal Auditor | 300 points, 40 catches | Auditor's Lantern for the tank |
+
+A new tier pays the *review tier* XP and counts toward trophies. A tier you've reached is never taken back. The card shows what the next tier still needs, the last few things that counted, and how many reviews are waiting on Claude's next turn. Points live on this PC only (config `reviewMastery`) and are never synced.
+
 ## Your code, safe
 
 - **See what every turn changed:** in a git project, each turn ends with a **± files changed** block. Open a file for its diff, or press **Undo** twice to put the files back the way they were before that turn. It catches everything, including what a script or `npm install` did, and it never touches your staging area. Undo refuses if a file has changed again since, so it can't eat later work. When Claude works in steps (edit, run the tests, fix, edit again), the files come in numbered steps titled by what it said it was doing, each with its own line counts, and anything a command changed on its own is listed last. A turn lists only what its own tools could have written, so two conversations in the same folder never claim each other's work, and Undo puts back only those files.
@@ -103,12 +121,14 @@ More out of your Claude plan, without asking Claude to do any less. Nothing here
 
 ## The Council
 
-Put a decision to a table of advisor crabs on **Shellby → Council**: the **Skeptic**, the **Builder**, the **Guard**, the **Player** and the **Elder**, with Shellby in the chair at its head. Each one argues their own angle in a speech bubble and drops a vote on the table, and Shellby unrolls a verdict scroll with where they agree, where they split and what to do next.
+Put a decision to a table of advisor crabs on **Shellby → Council**, with Shellby in the chair at its head. Each one argues their own angle in a speech bubble and drops a vote on the table, and Shellby unrolls a verdict scroll sealed with the decision.
 
-- **Three ways to sit.** **Quick** answers for the whole table in one call (about the cost of one reply). **Full** has each advisor think alone on a small model before the chair rules. **Debate** adds a round where they answer each other. Advisors get no tools and no history, so a sitting stays cheap, and the minutes show what it cost.
-- **Include this project** hands the council a few KB about the repo (README, recent commits, uncommitted changes), so they don't spend anything looking around.
-- **After the verdict:** **Send to chat**, **Copy minutes**, or **Ask a follow-up**. **Past sessions** keeps the last 20 sittings to reread for free.
-- **Seats** picks who sits at the table, and adds up to three advisors of your own, each with a name and what they argue for.
+- **He reads the project first.** With **Read <project> first** on, Shellby reads the folder you're working in before anyone speaks, for the facts the question turns on (where the code is, what calls it, what it does and doesn't do), and lays them on the table as numbered cards. Every advisor argues from the same facts and cites them as F1, F2. Each fact links to its file and line; one naming a file that isn't there is left out, and the minutes say so. The read can only read, never leaves the folder, and stops at $0.30.
+- **He picks who sits.** For each question he seats the 3 to 5 advisors whose angles matter most, from nine: the **Skeptic**, **Builder**, **Guard**, **Player**, **Elder**, **Tester**, **Keeper**, **Newcomer** and **Counter**, and up to three of your own. Turn **Shellby picks who sits** off under **Seats** to choose the table yourself.
+- **Two ways to sit.** **Quick** answers for the whole table in one call (about the cost of one reply). **Debate** has each advisor think alone on a small model, then each answers another by name before the chair rules; the minutes and their vote token show who changed their mind. Advisors get no tools and no history, so a sitting stays cheap, and the minutes show what it cost.
+- **A decision.** The verdict is **Do it**, **Don't** or **First, this**, with the best case against it, where they agree and split, the next steps, and what's still open. Advisors who vote "Depends" name the one condition, and each says what would change their mind.
+- **After the verdict:** **Plan the next steps** opens a conversation in Plan mode with the verdict and its facts, as a draft for you to read and send. **Answer what's open** has him read the project for what's still open, and the council sits again on the same question. **Add to Notes**, **Copy minutes** or **Ask a follow-up**. **Past sessions** keeps the last 20 sittings to reread for free.
+- **Their record.** Say how a verdict went (**Followed it, and it worked**, **Followed it, and it didn't**, or **Didn't follow it**), and each advisor's plaque shows how often they were right on verdicts you followed. Once there are two to go on, the chair weighs it.
 
 ## Automate
 

@@ -1,5 +1,5 @@
 // Steering: what you queue while Claude works goes in at his next step, in the
-// same turn, the way Claude Code's own queue does (session.js steer).
+// same turn, the way Claude Code's own queue does (session/control.js steer).
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');

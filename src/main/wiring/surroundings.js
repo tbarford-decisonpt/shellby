@@ -7,7 +7,7 @@ const { BrowserWindow, app, net, powerMonitor, screen } = require('electron');
 const os = require('os');
 const path = require('path');
 const confirm = require('../confirm');
-const { pin: pinToDesktop } = require('../desktop-layer');
+const { pin: pinToDesktop } = require('../desktop/desktop-layer');
 const { Dictation, PushToTalk, holdKeyOf } = require('../dictation');
 const focus = require('../focus');
 const { watchesDesktop } = require('../test-desktop');
@@ -15,7 +15,7 @@ const gifts = require('../gifts');
 const keystrokes = require('../keystrokes');
 const { createLife } = require('../life');
 const { MediaWatcher, trackRemark } = require('../media');
-const native = require('../native-windows');
+const native = require('../desktop/native-windows');
 const openRgbSetup = require('../openrgb-setup');
 const { createPlaytime } = require('../playtime');
 const { OpenRgbClient, colorFor } = require('../rgb');
@@ -200,7 +200,7 @@ function wireSurroundings(d) {
     && !d.perching?.isAway() && !focus.guarding(d.config.get('focus'), Date.now());
 
   // Who has the microphone, from Windows' own list (surroundings.js reads it).
-  // Read in place (native-windows.js regQwords, a few ms); reg.exe only if that
+  // Read in place (desktop/native-windows.js regQwords, a few ms); reg.exe only if that
   // can't, since it costs ~300 ms of CPU a time, every 20 seconds.
   const readMic = key => {
     const text = native.regQwords(key, ['LastUsedTimeStart', 'LastUsedTimeStop']);
@@ -411,7 +411,7 @@ function wireSurroundings(d) {
         const occasion = weatherRules.remarkFor(prev, next);
         if (occasion && d.weatherSvc.settings().remarks) d.speak(occasion);
       },
-      // A reading too old to trust takes the umbrella off (weather.js dress).
+      // A reading too old to trust takes the umbrella off (weather/index.js dress).
       onFail: () => d.broadcastWardrobe(),
       log: msg => d.log.warn(msg),
     });

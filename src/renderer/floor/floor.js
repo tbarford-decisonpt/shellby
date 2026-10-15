@@ -1,4 +1,4 @@
-// The floor beside him (src/main/floor.js): his pals, and the footprints he
+// The floor beside him (src/main/desktop/floor.js): his pals, and the footprints he
 // leaves when he's feeling cheeky. What the pals do is decided in
 // colony-brain.js; this draws it and moves them along a few times a second.
 'use strict';

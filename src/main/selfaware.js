@@ -111,7 +111,7 @@ const DAY = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
 /**
  * The tool's compact schedule ("daily 08:30", "weekly mon,fri 17:00",
- * "every 4h") -> a routines.js schedule, or null. Compact on purpose: it is
+ * "every 4h") -> a routines/index.js schedule, or null. Compact on purpose: it is
  * one string in the tool schema instead of a nested object, which is fewer
  * tokens on every turn of every conversation.
  */

@@ -1,4 +1,4 @@
-// Asking Open-Meteo about the weather (see weather.js for what it means). Off
+// Asking Open-Meteo about the weather (see weather/index.js for what it means). Off
 // until you turn it on and pick a town; then every 30 minutes, and once when
 // the PC wakes. The last reading is kept, so a restart doesn't need the network
 // to know it was raining. A failed check backs off rather than hammering away.
@@ -7,7 +7,7 @@
 // config.weatherNow. No Electron here: `fetch` is passed in (main gives it
 // net.fetch, so a proxy set in Windows applies), which keeps this testable.
 
-const weather = require('../weather');
+const weather = require('./index');
 
 const MINUTE = 60 * 1000;
 const POLL_MS = 30 * MINUTE;
@@ -76,7 +76,7 @@ function createWeatherService(d) {
     if (!active()) return null;
     if (checking) return checking;
     checking = (async () => {
-      const { place } = settings();
+      const place = /** @type {NonNullable<ReturnType<typeof normalizeSettings>['place']>} */ (settings().place); // active() said there is one
       const r = await getJson(d.fetch, weather.forecastUrl(place));
       const next = r.json ? weather.parseForecast(r.json, now()) : null;
       if (!next) {

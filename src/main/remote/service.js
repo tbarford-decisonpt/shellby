@@ -276,13 +276,13 @@ function createRemoteService(deps) {
     return folders().find(f => samePath(f.anchor, cwd)) || null;
   }
 
-  /** How a session in `place` starts its Claude Code (session.js remote). */
+  /** How a session in `place` starts its Claude Code (session/index.js remote). */
   function launch(place) {
     return { exe: sshCommand.exe, argsPrefix: sshCommand.prefix, host: place.host, dir: place.dir, env: askEnv || {}, extra: configArgs };
   }
 
   /**
-   * A short-lived claude there with `args`, for its plan usage (usage.js probe).
+   * A short-lived claude there with `args`, for its plan usage (usage/index.js probe).
    * Never asks for a passphrase: it runs on its own, so it just fails without a key. -> { exe, args, env } | null
    */
   function probeCommand(alias, args) {

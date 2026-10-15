@@ -6,7 +6,7 @@
 // The windows are written for the northern hemisphere. The ones that follow the
 // weather (`nature`: spring, summer, autumn) move six months for someone south
 // of the equator ({ south: true }, from the town picked for the weather; see
-// weather.js); the holidays keep their dates wherever you are.
+// weather/index.js); the holidays keep their dates wherever you are.
 
 const freeze = s => Object.freeze({ ...s, start: Object.freeze(s.start), end: Object.freeze(s.end), outfit: Object.freeze(s.outfit) });
 

@@ -435,7 +435,7 @@ class Engine {
       }
 
       case 'worktree': {
-        // The branch name only names it: worktrees.js turns it into shellby/<words>-<hex>.
+        // The branch name only names it: worktrees/index.js turns it into shellby/<words>-<hex>.
         const r = await fx.copy({ repo: expr.render(step.repo, ctx).trim(), slug: step.branch ? expr.render(step.branch, ctx) : '', signal });
         if (!r.ok) throw new StepFailed(r.error || 'Couldn\'t make the copy.');
         return { path: r.path, branch: r.branch, base: r.base, repo: r.repo };

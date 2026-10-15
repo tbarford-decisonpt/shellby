@@ -1,0 +1,2782 @@
+{
+  "$schema": "https://github.com/x-salmon/shellby/blob/main/docs/addon.schema.json",
+  "format": 1,
+  "id": "depths",
+  "name": "The Depths",
+  "author": "x-salmon",
+  "version": "1.0.0",
+  "description": "Rewards for levels 21 to 99: lanterns, kraken arms, a lighthouse and a solid gold pedestal for the tank, with glows, currents and halos for him.",
+  "homepage": "https://github.com/x-salmon/shellby",
+  "decor": [
+    {
+      "id": "lagoon-lantern",
+      "name": "Lagoon Lantern",
+      "category": "treasure",
+      "rarity": "common",
+      "description": "An old ship lantern that still glows. Nobody refills it. Nobody asks.",
+      "palette": {
+        "k": "#2b2118",
+        "i": "#5a4632",
+        "g": "#3e7a6a",
+        "y": "#ffd966",
+        "Y": "#fff4c2",
+        "o": "#e09b3d"
+      },
+      "pixels": [
+        "....kk....",
+        "...k..k...",
+        "...kiik...",
+        "..kiiiik..",
+        ".kgiiiigk.",
+        ".ki.yy.ik.",
+        ".kiyYYyik.",
+        ".kiyYYoik.",
+        ".kiyyyoik.",
+        ".ki.oo.ik.",
+        ".kgiiiigk.",
+        "..kiiiik..",
+        "..kkkkkk.."
+      ],
+      "unlock": {
+        "level": 21
+      }
+    },
+    {
+      "id": "kelp-arch",
+      "name": "Kelp Arch",
+      "category": "plant",
+      "rarity": "common",
+      "description": "Two kelp stalks that met in the middle and decided to stay that way.",
+      "palette": {
+        "l": "#7cc46a",
+        "g": "#3f8f4a",
+        "G": "#2a6234",
+        "d": "#1d4424",
+        "b": "#c9a55a"
+      },
+      "pixels": [
+        ".......lgggggl......",
+        ".....lgGddddGgl.....",
+        "....gGd......dGgb...",
+        "...bgd........dgg...",
+        "...gG..........Gg...",
+        "..lgd..........dgl..",
+        "..gG............Gg..",
+        "..gd............dg..",
+        ".lgG............Ggl.",
+        ".gd..............dg.",
+        ".gG..............Gg.",
+        "lgd..............dgl",
+        "gG................Gg",
+        "gd................dg",
+        "GG................GG",
+        "dd................dd"
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            10,
+            0
+          ]
+        },
+        {
+          "kind": "hide",
+          "at": [
+            10,
+            15
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 26
+      }
+    },
+    {
+      "id": "tide-clock",
+      "name": "Tide Clock",
+      "category": "treasure",
+      "rarity": "common",
+      "description": "Keeps perfect tidal time. Ask it the hour and it says \"low-ish\".",
+      "palette": {
+        "W": "#3d2817",
+        "w": "#6b4a2e",
+        "b": "#d9a441",
+        "B": "#a3741f",
+        "f": "#f3ead2",
+        "k": "#1e1a16"
+      },
+      "pixels": [
+        "...WWWWWWWW...",
+        "..WwwwwwwwwW..",
+        ".WwbbbbbbbbwW.",
+        ".WwbffkfffbwW.",
+        ".WwbffkfffbwW.",
+        ".WwbffkkkfbwW.",
+        ".WwbffffffbwW.",
+        ".WwBbbbbbbBwW.",
+        ".Ww...B....wW.",
+        ".Ww...B....wW.",
+        ".Ww..bbb...wW.",
+        ".Ww..BBB...wW.",
+        ".WwwwwwwwwwwW.",
+        "WWWWWWWWWWWWWW"
+      ],
+      "frames": [
+        [
+          "...WWWWWWWW...",
+          "..WwwwwwwwwW..",
+          ".WwbbbbbbbbwW.",
+          ".WwbffkfffbwW.",
+          ".WwbffkfffbwW.",
+          ".WwbffkkkfbwW.",
+          ".WwbffffffbwW.",
+          ".WwBbbbbbbBwW.",
+          ".Ww...B....wW.",
+          ".Ww..B.....wW.",
+          ".Wwbbb.....wW.",
+          ".WwBBB.....wW.",
+          ".WwwwwwwwwwwW.",
+          "WWWWWWWWWWWWWW"
+        ],
+        [
+          "...WWWWWWWW...",
+          "..WwwwwwwwwW..",
+          ".WwbbbbbbbbwW.",
+          ".WwbffkfffbwW.",
+          ".WwbffkfffbwW.",
+          ".WwbffkkkfbwW.",
+          ".WwbffffffbwW.",
+          ".WwBbbbbbbBwW.",
+          ".Ww...B....wW.",
+          ".Ww...B....wW.",
+          ".Ww..bbb...wW.",
+          ".Ww..BBB...wW.",
+          ".WwwwwwwwwwwW.",
+          "WWWWWWWWWWWWWW"
+        ],
+        [
+          "...WWWWWWWW...",
+          "..WwwwwwwwwW..",
+          ".WwbbbbbbbbwW.",
+          ".WwbffkfffbwW.",
+          ".WwbffkfffbwW.",
+          ".WwbffkkkfbwW.",
+          ".WwbffffffbwW.",
+          ".WwBbbbbbbBwW.",
+          ".Ww...B....wW.",
+          ".Ww....B...wW.",
+          ".Ww....bbb.wW.",
+          ".Ww....BBB.wW.",
+          ".WwwwwwwwwwwW.",
+          "WWWWWWWWWWWWWW"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "level": 29
+      }
+    },
+    {
+      "id": "brain-coral",
+      "name": "Brain Coral",
+      "category": "rock",
+      "rarity": "rare",
+      "description": "Thinks very slowly about very big things. Mostly about sitting there.",
+      "palette": {
+        "h": "#ffc4cf",
+        "p": "#e88fa0",
+        "P": "#b85a72",
+        "d": "#7a3348"
+      },
+      "pixels": [
+        ".....pphpp......",
+        "...phpPpPphp....",
+        "..pPpdPpdpPpp...",
+        ".phPdpPdpPdpPp..",
+        ".pPdpPdpPdpPdpp.",
+        "pPdpPdpPdpPdpPdp",
+        "pdpPdpPdpPdpPdpP",
+        "PpPdpPdpPdpPdpPP",
+        "dPPPPPPPPPPPPPPd",
+        ".dddddddddddddd."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            7,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 31
+      }
+    },
+    {
+      "id": "sunken-terminal",
+      "name": "Sunken Terminal",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "Still waiting for input after forty years underwater. Very patient. Very green.",
+      "palette": {
+        "C": "#8f8770",
+        "c": "#c9c2a8",
+        "b": "#f2efe4",
+        "d": "#5b5442",
+        "k": "#10261c",
+        "g": "#4dff88",
+        "G": "#1f7a45",
+        "s": "#e6d3a0",
+        "S": "#b39a6a"
+      },
+      "pixels": [
+        ".CCCCCCCCCCCCCCC..",
+        "CccccccccccccccbcC",
+        "CckkkkkkkkkkkkkkcC",
+        "CckGGGkGGkGGGkkkcC",
+        "CckkkkkkkkkkkkkkcC",
+        "CckGGkGGGGkGkkkkcC",
+        "CckkkkkkkkkkkkkkcC",
+        "CckggkgggkggkkkkcC",
+        "CckkkkkkkkkkkkkkcC",
+        "CccccccccccccccccC",
+        "dCCCCCCCCCCCCbCCCd",
+        "....CCcccccCC.....",
+        "...dCCCCCCCCCd....",
+        "..ssssSsssssssss..",
+        "sssssssSssssssssSs"
+      ],
+      "frames": [
+        [
+          ".CCCCCCCCCCCCCCC..",
+          "CccccccccccccccbcC",
+          "CckkkkkkkkkkkkkkcC",
+          "CckGGGkGGkGGGkkkcC",
+          "CckkkkkkkkkkkkkkcC",
+          "CckGGkGGGGkGkkkkcC",
+          "CckkkkkkkkkkkkkkcC",
+          "CckggkgggkkkkkkkcC",
+          "CckkkkkkkkkkkkkkcC",
+          "CccccccccccccccccC",
+          "dCCCCCCCCCCCCbCCCd",
+          "....CCcccccCC.....",
+          "...dCCCCCCCCCd....",
+          "..ssssSsssssssss..",
+          "sssssssSssssssssSs"
+        ]
+      ],
+      "fps": 2,
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            8,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 36
+      }
+    },
+    {
+      "id": "sea-fan",
+      "name": "Sea Fan",
+      "category": "plant",
+      "rarity": "rare",
+      "description": "A lace fan for a very large, very damp duchess. She never came back for it.",
+      "palette": {
+        "h": "#e3a1f0",
+        "f": "#b05ac8",
+        "F": "#7a3591",
+        "d": "#4a1d5c",
+        "t": "#6b4a2e",
+        "T": "#3d2817"
+      },
+      "pixels": [
+        "...h.f.h.f.h....",
+        "..fFhFfFhFfFh...",
+        ".hF.F.d.F.F.Fh..",
+        ".fdFfFhFdFhFdf..",
+        "hF.d.F.F.d.F.Fh.",
+        "fFhFdFfFhFdFhFf.",
+        ".F.F.d.F.F.d.F..",
+        ".fFdFhFdFhFdFf..",
+        "..F.F.F.d.F.F...",
+        "..dFhFdFfFhFd...",
+        "...F.d.F.F.F....",
+        "....FdFhFdF.....",
+        ".....F.d.F......",
+        "......dtd.......",
+        "......ttt.......",
+        ".....tttTt......"
+      ],
+      "unlock": {
+        "level": 39
+      }
+    },
+    {
+      "id": "anglerfish-lamp",
+      "name": "Anglerfish Lamp",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "All teeth and a reading light. He has never once read by it, but he likes the glow.",
+      "palette": {
+        "k": "#1a1f2e",
+        "b": "#3a4560",
+        "B": "#56648a",
+        "y": "#ffd23f",
+        "w": "#f2f2e8",
+        "r": "#2a3247",
+        "l": "#ffef8a",
+        "L": "#fffbe0",
+        "g": "#a8902a",
+        "h": "#5a5530"
+      },
+      "pixels": [
+        ".............lLl....",
+        "..............l.....",
+        ".............rr.....",
+        "...........rr.......",
+        ".........rr.........",
+        "....kkkkr...........",
+        "..kkbbbbkk..........",
+        ".kbBBbbbbbk.........",
+        "kbBybbbbbbbk..kk....",
+        "kbbbbbbbbbbbkkbk....",
+        "kwkwkwkwbbbbbbbk....",
+        "k.w.w.w.kbbbkkbk....",
+        "kwkwkwkwbbbk..kk....",
+        ".kbbbbbbbbk.........",
+        "..kkkkkkkk.........."
+      ],
+      "frames": [
+        [
+          ".............glg....",
+          "..............g.....",
+          ".............rr.....",
+          "...........rr.......",
+          ".........rr.........",
+          "....kkkkr...........",
+          "..kkbbbbkk..........",
+          ".kbBBbbbbbk.........",
+          "kbBybbbbbbbk..kk....",
+          "kbbbbbbbbbbbkkbk....",
+          "kwkwkwkwbbbbbbbk....",
+          "k.w.w.w.kbbbkkbk....",
+          "kwkwkwkwbbbk..kk....",
+          ".kbbbbbbbbk.........",
+          "..kkkkkkkk.........."
+        ],
+        [
+          ".............hgh....",
+          "..............h.....",
+          ".............rr.....",
+          "...........rr.......",
+          ".........rr.........",
+          "....kkkkr...........",
+          "..kkbbbbkk..........",
+          ".kbBBbbbbbk.........",
+          "kbBybbbbbbbk..kk....",
+          "kbbbbbbbbbbbkkbk....",
+          "kwkwkwkwbbbbbbbk....",
+          "k.w.w.w.kbbbkkbk....",
+          "kwkwkwkwbbbk..kk....",
+          ".kbbbbbbbbk.........",
+          "..kkkkkkkk.........."
+        ]
+      ],
+      "fps": 3,
+      "unlock": {
+        "level": 41
+      }
+    },
+    {
+      "id": "pearl-oyster",
+      "name": "Pearl Oyster",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Opens up to show off the pearl, then snaps shut the moment anyone gets ideas.",
+      "palette": {
+        "h": "#c9bfcf",
+        "s": "#9a8f9e",
+        "S": "#6b6170",
+        "k": "#2b2530",
+        "n": "#ffb3c1",
+        "p": "#fffaf0",
+        "P": "#d6d0e8"
+      },
+      "pixels": [
+        "................",
+        "................",
+        "................",
+        "................",
+        "....hhhhhhhh....",
+        "..hssssssssssh..",
+        ".hsSsSsSsSsSsSs.",
+        ".SkkkkkkkkkkkkS.",
+        "..sSsssSsssSss..",
+        "...SSSSSSSSSS..."
+      ],
+      "frames": [
+        [
+          "................",
+          "................",
+          "....hhhhhhhh....",
+          "..hssssssssssh..",
+          ".hsSsSsSsSsSsSs.",
+          ".SknnnnnnnnnnkS.",
+          ".SnnnnnpPnnnnnS.",
+          ".SknnnnPPnnnnkS.",
+          "..sSsssSsssSss..",
+          "...SSSSSSSSSS..."
+        ],
+        [
+          "....hhhhhhhh....",
+          "..hssssssssssh..",
+          ".hsSsSsSsSsSsSs.",
+          ".SSSSSSSSSSSSSS.",
+          "..knnnnnnnnnnk..",
+          ".SnnnnnppnnnnnS.",
+          ".SnnnnpppPnnnnS.",
+          ".SknnnnPPnnnnkS.",
+          "..sSsssSsssSss..",
+          "...SSSSSSSSSS..."
+        ],
+        [
+          "................",
+          "................",
+          "....hhhhhhhh....",
+          "..hssssssssssh..",
+          ".hsSsSsSsSsSsSs.",
+          ".SknnnnnnnnnnkS.",
+          ".SnnnnnpPnnnnnS.",
+          ".SknnnnPPnnnnkS.",
+          "..sSsssSsssSss..",
+          "...SSSSSSSSSS..."
+        ]
+      ],
+      "fps": 2,
+      "spots": [
+        {
+          "kind": "open",
+          "at": [
+            7,
+            6
+          ]
+        },
+        {
+          "kind": "sit",
+          "at": [
+            7,
+            4
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 46
+      }
+    },
+    {
+      "id": "diving-bell",
+      "name": "Diving Bell",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "A brass bell with a pocket of air inside. Bring a book, it is a long way down.",
+      "palette": {
+        "c": "#5a5a5a",
+        "k": "#2a1e10",
+        "b": "#c8963e",
+        "B": "#8a5f1f",
+        "h": "#f2d07a",
+        "g": "#7fd1c7",
+        "G": "#3b8a8a"
+      },
+      "pixels": [
+        ".......cc.......",
+        "......c..c......",
+        "......kkkk......",
+        "....kkbhbbkk....",
+        "...kbhbbbbbBk...",
+        "..kbhbbkkbbbBk..",
+        "..kbhbkggkbbBk..",
+        "..kbhbkgGkbbBk..",
+        ".kbhbbbkkbbbbBk.",
+        ".kbhbbbbbbbbbBk.",
+        ".kbhbkkbbkkbbBk.",
+        ".kbhkgGkkgGkbBk.",
+        ".kbhbkkbbkkbbBk.",
+        "kbhbbbbbbbbbbbBk",
+        "kBBBBBBBBBBBBBBk",
+        "kkkkkkkkkkkkkkkk"
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            8,
+            15
+          ]
+        },
+        {
+          "kind": "sleep",
+          "at": [
+            8,
+            15
+          ]
+        },
+        {
+          "kind": "sit",
+          "at": [
+            8,
+            2
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 48
+      }
+    },
+    {
+      "id": "kraken-arm",
+      "name": "Kraken Arm",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "Only one arm is showing. The other seven are being polite about it.",
+      "palette": {
+        "d": "#5a1426",
+        "R": "#8a2238",
+        "r": "#c2445a",
+        "h": "#e8798a",
+        "s": "#f5c6a8",
+        "S": "#d4977a",
+        "a": "#e6d3a0",
+        "A": "#b39a6a"
+      },
+      "pixels": [
+        "..........dRRRd.......",
+        ".........dRrrrRd......",
+        "........dRrhhrrRd.....",
+        "........dRhdddRrd.....",
+        ".......dRrhd.dsRd.....",
+        ".......dRrhrsd.d......",
+        ".......dRrhrsd........",
+        "........dRrhrsd.......",
+        "........dRrhrrsd......",
+        ".........dRrhrrsd.....",
+        "..........dRrhrrsd....",
+        "..........dRrhrrsd....",
+        "..........dRrhrrsd....",
+        ".........dRrhrrsSd....",
+        "........dRrhrrsSd.....",
+        ".......dRrhrrrsSd.....",
+        "......dRrhrrrsSd......",
+        ".....dRrhrrrrsSd......",
+        ".....dRrhrrrrsSd......",
+        "....dRrhrrrrrsSd......",
+        "....dRrhrrrrrsSd......",
+        "..AaaRrhrrrrrrsdaA....",
+        ".AaaaaaRrrrrrRaaaaaA..",
+        "AaaaaaaaaaaaaaaaaaaaaA"
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            12,
+            0
+          ]
+        },
+        {
+          "kind": "hide",
+          "at": [
+            3,
+            22
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 50
+      }
+    },
+    {
+      "id": "geode-cluster",
+      "name": "Geode Cluster",
+      "category": "rock",
+      "rarity": "rare",
+      "description": "Plain rock on the outside, a whole purple party on the inside. Relatable.",
+      "palette": {
+        "r": "#8a7f72",
+        "R": "#5e554b",
+        "d": "#3a332c",
+        "k": "#4a2370",
+        "A": "#7b3fb0",
+        "a": "#b57bdc",
+        "w": "#f0dcff"
+      },
+      "pixels": [
+        "....rrrrrrrr......",
+        "..rrRrrrrrrrrr....",
+        ".rRrdkkkkkkdrrr...",
+        ".rRdkAawaAakdrrr..",
+        "rRdkAawwaaAkkdrr..",
+        "rRdkAaawaAaAkdRr..",
+        "rRdkkAaaAaAAkdRr..",
+        "rrRdkkAAAAAkkdRr..",
+        ".rRRddkkkkkddRRr..",
+        "..RRRRddddddRRR...",
+        "....RRRRRRRRR....."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            8,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 53
+      }
+    },
+    {
+      "id": "lightning-jar",
+      "name": "Lightning Jar",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "A storm, caught and corked. It rattles the lid when it wants attention.",
+      "palette": {
+        "C": "#5a3a1a",
+        "c": "#8a5a2a",
+        "k": "#2e4a55",
+        "g": "#bfe6f0",
+        "G": "#6fa7b8",
+        "w": "#ffffff",
+        "y": "#fff27a",
+        "Y": "#ffb800"
+      },
+      "pixels": [
+        "...CccccC...",
+        "...CcccCC...",
+        "..kGgggggk..",
+        ".kgw.....Gk.",
+        ".kgw..y..Gk.",
+        ".kg..yy..Gk.",
+        ".kg.yY...Gk.",
+        ".kg.yyyy.Gk.",
+        ".kg...yY.Gk.",
+        ".kg...Yy.Gk.",
+        ".kg..yY..Gk.",
+        ".kg..Y...Gk.",
+        ".kg......Gk.",
+        ".kgGGGGGGGk.",
+        "..kkkkkkkk.."
+      ],
+      "frames": [
+        [
+          "...CccccC...",
+          "...CcccCC...",
+          "..kGgggggk..",
+          ".kgw...y.Gk.",
+          ".kgw..yY.Gk.",
+          ".kg..yY..Gk.",
+          ".kg.yyyy.Gk.",
+          ".kg..yY..Gk.",
+          ".kg.yY...Gk.",
+          ".kg.yyy..Gk.",
+          ".kg...yY.Gk.",
+          ".kg....Y.Gk.",
+          ".kg......Gk.",
+          ".kgGGGGGGGk.",
+          "..kkkkkkkk.."
+        ],
+        [
+          "...CccccC...",
+          "...CcccCC...",
+          "..kGgggggk..",
+          ".kgw.....Gk.",
+          ".kgw.....Gk.",
+          ".kg......Gk.",
+          ".kg..Y...Gk.",
+          ".kg......Gk.",
+          ".kg......Gk.",
+          ".kg...Y..Gk.",
+          ".kg......Gk.",
+          ".kg......Gk.",
+          ".kg......Gk.",
+          ".kgGGGGGGGk.",
+          "..kkkkkkkk.."
+        ]
+      ],
+      "fps": 5,
+      "unlock": {
+        "level": 56
+      }
+    },
+    {
+      "id": "shipwreck-mast",
+      "name": "Shipwreck Mast",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "The rest of the ship is somewhere. The crow's nest is his now, and he keeps watch.",
+      "palette": {
+        "d": "#3a2716",
+        "W": "#5a3f28",
+        "w": "#8a6a4a",
+        "c": "#e8dcc0",
+        "C": "#b8a888",
+        "s": "#e6d3a0",
+        "S": "#b39a6a"
+      },
+      "pixels": [
+        ".........W.d........",
+        ".........Ww.........",
+        "......dddddddd......",
+        "......dwwwwwwd......",
+        "......dWWWWWWd......",
+        ".......dddddd.......",
+        ".........Ww.........",
+        "...ddddddWwdddddd...",
+        "...ccccccWwcccccc...",
+        "...cccCccWwcccCcc...",
+        "...cCccccWwccccc....",
+        "....cccc.WwccCcc....",
+        "....ccC..Wwcc.c.....",
+        ".....c...Wwc........",
+        ".........Ww.........",
+        ".........Ww.........",
+        ".........Ww.........",
+        ".........Ww.........",
+        "........dWwd........",
+        ".......dWWwwd.......",
+        "....WwwwWWwwwwWd....",
+        "..sSWWWWWWWWWWWWss..",
+        ".sssssssssssssssssS.",
+        "ssssssssssssssssssss"
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            9,
+            2
+          ]
+        },
+        {
+          "kind": "climb",
+          "at": [
+            10,
+            14
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 59
+      }
+    },
+    {
+      "id": "lighthouse-beacon",
+      "name": "Lighthouse Beacon",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "Sweeps the tank all night so no snail ever runs aground. None ever have. You're welcome.",
+      "palette": {
+        "k": "#2a2a32",
+        "R": "#9a2a22",
+        "r": "#d9443a",
+        "w": "#f2efe4",
+        "y": "#fff27a",
+        "Y": "#ffd23f",
+        "b": "#fffbd0",
+        "g": "#7d8597",
+        "G": "#5c6373"
+      },
+      "pixels": [
+        "..........kk..........",
+        ".........kRRk.........",
+        "........kRRRRk........",
+        "bbbbbbbbkyYYyk........",
+        "...bbbbbkYyyYk........",
+        ".......kkkkkkkk.......",
+        "........kwwwwk........",
+        "........krrrRk........",
+        "........krrrRk........",
+        "........kwwwwk........",
+        ".......kwwwwwRk.......",
+        ".......krrrrrRk.......",
+        ".......krrkrrRk.......",
+        ".......kwwwwwRk.......",
+        "......kwwwwwwwRk......",
+        "......krrrrrrrRk......",
+        "......krrrrrrrRk......",
+        "......kwwwwwwwRk......",
+        ".....kwwwwkkwwwRk.....",
+        ".....krrrrkkrrrRk.....",
+        "....GgggggggggggggG...",
+        "...GggGgggggggGgggggG.",
+        "..GgggggGggggggggGgggG",
+        "GGGGGGGGGGGGGGGGGGGGGG"
+      ],
+      "frames": [
+        [
+          "..........kk..........",
+          ".........kRRk.........",
+          "........kRRRRk........",
+          "........kybbyk........",
+          "........kYbbYk........",
+          ".......kkkkkkkk.......",
+          "........kwwwwk........",
+          "........krrrRk........",
+          "........krrrRk........",
+          "........kwwwwk........",
+          ".......kwwwwwRk.......",
+          ".......krrrrrRk.......",
+          ".......krrkrrRk.......",
+          ".......kwwwwwRk.......",
+          "......kwwwwwwwRk......",
+          "......krrrrrrrRk......",
+          "......krrrrrrrRk......",
+          "......kwwwwwwwRk......",
+          ".....kwwwwkkwwwRk.....",
+          ".....krrrrkkrrrRk.....",
+          "....GgggggggggggggG...",
+          "...GggGgggggggGgggggG.",
+          "..GgggggGggggggggGgggG",
+          "GGGGGGGGGGGGGGGGGGGGGG"
+        ],
+        [
+          "..........kk..........",
+          ".........kRRk.........",
+          "........kRRRRk........",
+          "........kyYYykbbbbbbbb",
+          "........kYyyYkbbbbb...",
+          ".......kkkkkkkk.......",
+          "........kwwwwk........",
+          "........krrrRk........",
+          "........krrrRk........",
+          "........kwwwwk........",
+          ".......kwwwwwRk.......",
+          ".......krrrrrRk.......",
+          ".......krrkrrRk.......",
+          ".......kwwwwwRk.......",
+          "......kwwwwwwwRk......",
+          "......krrrrrrrRk......",
+          "......krrrrrrrRk......",
+          "......kwwwwwwwRk......",
+          ".....kwwwwkkwwwRk.....",
+          ".....krrrrkkrrrRk.....",
+          "....GgggggggggggggG...",
+          "...GggGgggggggGgggggG.",
+          "..GgggggGggggggggGgggG",
+          "GGGGGGGGGGGGGGGGGGGGGG"
+        ],
+        [
+          "..........kk..........",
+          ".........kRRk.........",
+          "........kRRRRk........",
+          "........kybbyk........",
+          "........kYbbYk........",
+          ".......kkkkkkkk.......",
+          "........kwwwwk........",
+          "........krrrRk........",
+          "........krrrRk........",
+          "........kwwwwk........",
+          ".......kwwwwwRk.......",
+          ".......krrrrrRk.......",
+          ".......krrkrrRk.......",
+          ".......kwwwwwRk.......",
+          "......kwwwwwwwRk......",
+          "......krrrrrrrRk......",
+          "......krrrrrrrRk......",
+          "......kwwwwwwwRk......",
+          ".....kwwwwkkwwwRk.....",
+          ".....krrrrkkrrrRk.....",
+          "....GgggggggggggggG...",
+          "...GggGgggggggGgggggG.",
+          "..GgggggGggggggggGgggG",
+          "GGGGGGGGGGGGGGGGGGGGGG"
+        ]
+      ],
+      "fps": 2,
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            10,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 60
+      }
+    },
+    {
+      "id": "message-buoy",
+      "name": "Message Buoy",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Bobs with a bottle tied on. The note inside says \"the logs are fine\". He wrote it.",
+      "palette": {
+        "y": "#ffd23f",
+        "k": "#2a2a2a",
+        "r": "#e04848",
+        "R": "#9a2a2a",
+        "w": "#f5f0e6",
+        "W": "#c8c0b0",
+        "b": "#6fbf8a",
+        "B": "#3a7a55",
+        "p": "#f2e6c8"
+      },
+      "pixels": [
+        "......y.......",
+        ".....kyk......",
+        "......k.......",
+        ".....kkk......",
+        "....krrrk.....",
+        "....krrRk.....",
+        "...kwwwwWk....",
+        "...kwwwwWk....",
+        "...krrrrRk....",
+        "..krrrrrrRk...",
+        "..kwwwwwwWk.k.",
+        "..kwwwwwwWkkb.",
+        ".krrrrrrrrRbpb",
+        ".kRRRRRRRRRbpB",
+        "..kkkkkkkkkbbB",
+        "....kkkkk....."
+      ],
+      "unlock": {
+        "level": 63
+      }
+    },
+    {
+      "id": "sage-scroll",
+      "name": "Sage Scroll",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Ancient wisdom in a language nobody reads. He nods at it knowingly anyway.",
+      "palette": {
+        "W": "#4a2a14",
+        "w": "#7a4a28",
+        "p": "#f2e2b8",
+        "P": "#c9b07a",
+        "r": "#6a4a8a",
+        "g": "#7d8597",
+        "G": "#5c6373"
+      },
+      "pixels": [
+        ".Ww............Ww.",
+        ".WwppppppppppppWw.",
+        ".WwprpprrpprppPWw.",
+        ".WwpppppppppppPWw.",
+        ".WwprrpprpprrpPWw.",
+        ".WwpppppppppppPWw.",
+        ".WwPPPPPPPPPPPPWw.",
+        ".Ww............Ww.",
+        "...GgggggggggggG..",
+        "..GGGGGGGGGGGGGGG."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            8,
+            1
+          ]
+        },
+        {
+          "kind": "nibble",
+          "at": [
+            4,
+            3
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 67
+      }
+    },
+    {
+      "id": "whirlpool",
+      "name": "Whirlpool",
+      "category": "bubbler",
+      "rarity": "rare",
+      "description": "A tiny maelstrom with big ambitions. It has swallowed two pebbles and one opinion.",
+      "palette": {
+        "w": "#e8fbff",
+        "c": "#8fd8e8",
+        "C": "#4aa8c0",
+        "d": "#1f6a85",
+        "k": "#0d3a4f"
+      },
+      "pixels": [
+        "......cccccc......",
+        "...ccCCCwwCCCcc...",
+        "..cCCddddddddCCc..",
+        ".cCddCCCCCCCCddCc.",
+        "cCdCCdwddddddCCdCc",
+        "cCdCdCCCCCCCCdCdCc",
+        "cCdCdCdkkkkdCdCdCc",
+        "cCdCdCCCCCCCCdCdCc",
+        "cCdCCddddddwdCCdCc",
+        ".cCddCCCCCCCCddCc.",
+        "..cCCddddddddCCc..",
+        "...ccCCCwwCCCcc...",
+        "......cccccc......"
+      ],
+      "frames": [
+        [
+          "......cccccc......",
+          "...ccCCCCCCCCcc...",
+          "..cCCddddddddwCc..",
+          ".cCddCCCCCCCCddwc.",
+          "cCdCCddddddwdCCdCc",
+          "cCdCdCCCCCCCCdCdCc",
+          "cCdCdCdkkkkdCdCdCc",
+          "cCdCdCCCCCCCCdCdCc",
+          "cCdCCdwddddddCCdCc",
+          ".cwddCCCCCCCCddCc.",
+          "..cCwddddddddCCc..",
+          "...ccCCCCCCCCcc...",
+          "......cccccc......"
+        ],
+        [
+          "......cccccc......",
+          "...ccCCCCCCCCcc...",
+          "..cCCddddddddCCc..",
+          ".cCddCCCCCCCCddCc.",
+          "cCdCCddddddddCCdCc",
+          "cCdCdCCCCCCCCdCdCw",
+          "wCdwdCdkkkkdCdwdCw",
+          "wCdCdCCCCCCCCdCdCc",
+          "cCdCCddddddddCCdCc",
+          ".cCddCCCCCCCCddCc.",
+          "..cCCddddddddCCc..",
+          "...ccCCCCCCCCcc...",
+          "......cccccc......"
+        ]
+      ],
+      "fps": 4,
+      "unlock": {
+        "level": 70
+      }
+    },
+    {
+      "id": "moon-jelly",
+      "name": "Moon Jelly",
+      "category": "bubbler",
+      "layer": "float",
+      "rarity": "rare",
+      "description": "Pulses gently, glows faintly and never, ever hurries. A role model.",
+      "palette": {
+        "h": "#ffffff",
+        "j": "#cfe8ff",
+        "J": "#8fb8e8",
+        "p": "#e8a8d8",
+        "P": "#c070b0",
+        "t": "#a8c8f0"
+      },
+      "pixels": [
+        "....jjjjjj....",
+        "..jjhhjjjjjj..",
+        ".jhjjpPjpPjjJ.",
+        "jhjjpjjpjjpjjJ",
+        "jjjjPpjPpjjjjJ",
+        "JjjjjjjjjjjjJJ",
+        ".JJtJJtJJtJJJ.",
+        "..t..t..t..t..",
+        "...t..t..t.t..",
+        "..t..t..t..t..",
+        "...t..t...t...",
+        "..t...t..t....",
+        "...t..t...t...",
+        "......t......."
+      ],
+      "frames": [
+        [
+          ".....jjjj.....",
+          "....jhhjjj....",
+          "...jhjpPjjJ...",
+          "...jjpjjpjJ...",
+          "...jjPpPpjJ...",
+          "...JjjjjjjJ...",
+          "....JtJJtJ....",
+          "....t.tt.t....",
+          "...t..t..t....",
+          "....t..t..t...",
+          "...t..t..t....",
+          "....t..t..t...",
+          "...t...t.t....",
+          ".....t..t....."
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "level": 73
+      }
+    },
+    {
+      "id": "wave-crest",
+      "name": "Wave Crest",
+      "category": "structure",
+      "rarity": "rare",
+      "description": "A wave frozen mid-curl in sea glass. Surf's permanently up.",
+      "palette": {
+        "w": "#ffffff",
+        "c": "#7fe0e0",
+        "C": "#3fb0c0",
+        "d": "#1f7a90",
+        "k": "#104858",
+        "s": "#e6d3a0"
+      },
+      "pixels": [
+        "..........wwww......",
+        "........wwcccwww....",
+        "......wwccCCCccw.w..",
+        ".....wcCCddddCcw..w.",
+        "....wcCdd....dCcw...",
+        "....cCd.......dCw...",
+        "...wcCd........wc...",
+        "...cCd.....w..wc....",
+        "..wcCd.....cwwc.....",
+        "..cCdd......cc......",
+        ".wcCCdd.............",
+        ".cCCCCCddddkk.......",
+        "wcCCCCCCCCdddddkkk..",
+        "ssssssssssssssssssss"
+      ],
+      "spots": [
+        {
+          "kind": "hide",
+          "at": [
+            8,
+            12
+          ]
+        },
+        {
+          "kind": "climb",
+          "at": [
+            11,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 76
+      }
+    },
+    {
+      "id": "drowned-bell",
+      "name": "Drowned Bell",
+      "category": "treasure",
+      "rarity": "rare",
+      "description": "Rang for a town that sank. Now it rings only when he bonks it, which is often.",
+      "palette": {
+        "d": "#4a3414",
+        "B": "#7a5a28",
+        "b": "#b08a4a",
+        "h": "#e0c080",
+        "v": "#4a9a8a",
+        "V": "#2f6a5f",
+        "g": "#3f8f4a",
+        "s": "#e6d3a0",
+        "S": "#b39a6a"
+      },
+      "pixels": [
+        "........dd........",
+        ".......dBBd.......",
+        "......dbhbBd......",
+        ".....dbhvbbBd.....",
+        "....dbhbbbbbBd....",
+        "....dbhbbvbbBd....",
+        "...dbhbbbbbvbBd...",
+        "...dbhbbbbbbbBd..g",
+        "..dbhvbbbbbbbbBdgg",
+        "..dbhbbbbbVbbbBd.g",
+        ".dbhbbbbbbbbbbbBdg",
+        ".dBBBBBBBBBBBBBBd.",
+        "dhbbbbvbbbbbbbbbBd",
+        "dBBBBBBBBBBBBBBBBd",
+        "........dd........",
+        ".......dBBd.......",
+        "sssSsssssssssSssss",
+        "SSSSSSSSSSSSSSSSSS"
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            8,
+            0
+          ]
+        },
+        {
+          "kind": "hide",
+          "at": [
+            4,
+            15
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 79
+      }
+    },
+    {
+      "id": "sovereign-throne",
+      "name": "Sovereign Throne",
+      "category": "structure",
+      "rarity": "epic",
+      "description": "Coral, gold and two very real gems. He sits on it for exactly as long as it takes to feel important.",
+      "palette": {
+        "k": "#2a0a14",
+        "d": "#5a1a2a",
+        "C": "#a83a52",
+        "c": "#e86a7a",
+        "g": "#ffd23f",
+        "G": "#b8860b",
+        "w": "#fff4b0",
+        "b": "#4ab0ff",
+        "r": "#ff3a5a"
+      },
+      "pixels": [
+        "........g.........",
+        "...g...gwg...g....",
+        "..gwg..gbg..gwg...",
+        "..GgggggggggggG...",
+        "..dcccccccccccd...",
+        "..dcCcccgcccCcd...",
+        "..dcCccgbgccCcd...",
+        "..dcCcccgcccCcd...",
+        "..dcCcccccccCcd...",
+        "..dcCcccccccCcd...",
+        "gGdcCcccccccCcdGg.",
+        "gwgdddddddddddgwg.",
+        "GgGgggggggggggGgG.",
+        ".dcCcccccccccCccd.",
+        ".dcCcrcccccrcCccd.",
+        ".dcCcccccccccCccd.",
+        ".dGgggggggggggggd.",
+        ".dcd.........dcd..",
+        ".dcd.........dcd..",
+        ".dCd.........dCd..",
+        "gGgGg.......gGgGg.",
+        "GGGGG.......GGGGG."
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            8,
+            12
+          ]
+        },
+        {
+          "kind": "hide",
+          "at": [
+            8,
+            19
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 80
+      }
+    },
+    {
+      "id": "bioluminescent-garden",
+      "name": "Bioluminescent Garden",
+      "category": "plant",
+      "rarity": "epic",
+      "description": "A whole garden that makes its own light. Nobody here has paid an electric bill in years.",
+      "palette": {
+        "h": "#e0fff8",
+        "g": "#4dffd2",
+        "G": "#1fa890",
+        "b": "#b07aff",
+        "B": "#6a3ab0",
+        "s": "#2a5a6a",
+        "S": "#16303a",
+        "k": "#0a1820"
+      },
+      "pixels": [
+        "..h.......h.........b...",
+        ".hgh.....hgh.......bhb..",
+        "gGgGg...gGgGg......bbb..",
+        ".GsG.....GsG..b.....s...",
+        "..s.......s..bhb....s..g",
+        "..s..b....s..bbb...s..hg",
+        "..s.bhb...s...s....s..g.",
+        ".s..bbb..s....s...s..s..",
+        ".s...s...s.....s..s..s..",
+        ".s...s..s..g...s..s.s...",
+        "..s..s..s.hgh..s.s..s...",
+        "..s...s.s.gGg..ss..s....",
+        "...s..s.s..s...s...s....",
+        "...s..s.s..s..s...s.....",
+        "SkkSkkSkSkkSkkSkkkSkkkkk",
+        "kkkkkkkkkkkkkkkkkkkkkkkk"
+      ],
+      "frames": [
+        [
+          "..h.......h.........B...",
+          ".hGh.....hGh.......BhB..",
+          "GgGgG...GgGgG......BBB..",
+          ".gsg.....gsg..B.....s...",
+          "..s.......s..BhB....s..G",
+          "..s..B....s..BBB...s..hG",
+          "..s.BhB...s...s....s..G.",
+          ".s..BBB..s....s...s..s..",
+          ".s...s...s.....s..s..s..",
+          ".s...s..s..G...s..s.s...",
+          "..s..s..s.hGh..s.s..s...",
+          "..s...s.s.GgG..ss..s....",
+          "...s..s.s..s...s...s....",
+          "...s..s.s..s..s...s.....",
+          "SkkSkkSkSkkSkkSkkkSkkkkk",
+          "kkkkkkkkkkkkkkkkkkkkkkkk"
+        ],
+        [
+          "..g.......g.........B...",
+          ".ggg.....ggg.......BgB..",
+          "gGgGg...gGgGg......BBB..",
+          ".GsG.....GsG..B.....s...",
+          "..s.......s..BgB....s..g",
+          "..s..B....s..BBB...s..gg",
+          "..s.BgB...s...s....s..g.",
+          ".s..BBB..s....s...s..s..",
+          ".s...s...s.....s..s..s..",
+          ".s...s..s..g...s..s.s...",
+          "..s..s..s.ggg..s.s..s...",
+          "..s...s.s.gGg..ss..s....",
+          "...s..s.s..s...s...s....",
+          "...s..s.s..s..s...s.....",
+          "SkkSkkSkSkkSkkSkkkSkkkkk",
+          "kkkkkkkkkkkkkkkkkkkkkkkk"
+        ]
+      ],
+      "fps": 2,
+      "unlock": {
+        "level": 83
+      }
+    },
+    {
+      "id": "trench-vent",
+      "name": "Trench Vent",
+      "category": "bubbler",
+      "rarity": "epic",
+      "description": "A chimney from the bottom of the world. Smells of sulphur and very old secrets.",
+      "palette": {
+        "R": "#2a1f1f",
+        "r": "#4a3a3a",
+        "o": "#ff6a2a",
+        "y": "#ffb84a",
+        "s": "#8a8a9a",
+        "S": "#5a5a6a",
+        "w": "#c8c8d8"
+      },
+      "pixels": [
+        "....ss..wws.....",
+        "...swwssSws.....",
+        "....sSwwss......",
+        ".....sswsS......",
+        "......SswwS.....",
+        ".....sSwss......",
+        "......ssSs......",
+        ".......sws......",
+        "......sSs.......",
+        ".......ss.......",
+        "......sws.......",
+        ".......S........",
+        "......RrrR......",
+        "......RoyR......",
+        ".....RrorrR.....",
+        ".....RrrorR.....",
+        "....RrrrorrR....",
+        "....RroRrrrR....",
+        "...RrrorrRrrR...",
+        "...RrrrorrrrR...",
+        "..RrRrrrorRrrR..",
+        "..RrrorrrrorrR..",
+        ".RrrrrRrrrrrrrR.",
+        "RRRRRRRRRRRRRRRR"
+      ],
+      "frames": [
+        [
+          "......SswwS.....",
+          ".....sSwss......",
+          "......ssSs......",
+          ".......sws......",
+          "......sSs.......",
+          ".......ss.......",
+          "......sws.......",
+          ".......S........",
+          "....ss..wws.....",
+          "...swwssSws.....",
+          "....sSwwss......",
+          ".....sswsS......",
+          "......RrrR......",
+          "......RoyR......",
+          ".....RrorrR.....",
+          ".....RrrorR.....",
+          "....RrrrorrR....",
+          "....RroRrrrR....",
+          "...RrrorrRrrR...",
+          "...RrrrorrrrR...",
+          "..RrRrrrorRrrR..",
+          "..RrrorrrrorrR..",
+          ".RrrrrRrrrrrrrR.",
+          "RRRRRRRRRRRRRRRR"
+        ],
+        [
+          "......sSs.......",
+          ".......ss.......",
+          "......sws.......",
+          ".......S........",
+          "....ss..wws.....",
+          "...swwssSws.....",
+          "....sSwwss......",
+          ".....sswsS......",
+          "......SswwS.....",
+          ".....sSwss......",
+          "......ssSs......",
+          ".......sws......",
+          "......RrrR......",
+          "......RoyR......",
+          ".....RrorrR.....",
+          ".....RrrorR.....",
+          "....RrrrorrR....",
+          "....RroRrrrR....",
+          "...RrrorrRrrR...",
+          "...RrrrorrrrR...",
+          "..RrRrrrorRrrR..",
+          "..RrrorrrrorrR..",
+          ".RrrrrRrrrrrrrR.",
+          "RRRRRRRRRRRRRRRR"
+        ]
+      ],
+      "fps": 4,
+      "unlock": {
+        "level": 86
+      }
+    },
+    {
+      "id": "prism-crystal",
+      "name": "Prism Crystal",
+      "category": "rock",
+      "rarity": "epic",
+      "description": "Splits light into every colour, then splits hairs about which is best.",
+      "palette": {
+        "w": "#ffffff",
+        "a": "#c8f0ff",
+        "A": "#8ac8f0",
+        "d": "#4a7ab0",
+        "k": "#2a3a6a",
+        "r": "#ff6a8a",
+        "y": "#ffe46a",
+        "g": "#6affb0",
+        "b": "#6ab0ff",
+        "s": "#7d8597",
+        "S": "#5c6373"
+      },
+      "pixels": [
+        "......w.......",
+        ".....waA......",
+        ".....waAd.....",
+        "....waaAd.....",
+        "....waAAd.....",
+        "...waaAAdd....",
+        "...wrAAAdd....",
+        "...waAyAdd....",
+        "..waaAAgAdd...",
+        "..waAAAAbdd...",
+        "..waaAAAAdd...",
+        ".waaAAAAAddd..",
+        ".waAAAAAAddd..",
+        ".waaAAAAAAdd..",
+        ".kwaAAAAAAddk.",
+        "..kkaAAAAddkk.",
+        "....kkkkkk....",
+        "..sSssssssSs..",
+        ".sssSsssssssS.",
+        "SSSSSSSSSSSSSS"
+      ],
+      "frames": [
+        [
+          "......w.......",
+          ".....waA......",
+          ".....waAd.....",
+          "....waaAd.....",
+          "....waAAd.....",
+          "...waaAAdd....",
+          "...waAAAdd....",
+          "...waAAAdd....",
+          "..waaAAAAdd...",
+          "..warAAAAdd...",
+          "..waayAAAdd...",
+          ".waaAAgAAddd..",
+          ".waAAAAbAddd..",
+          ".waaAAAAAAdd..",
+          ".kwaAAAAAAddk.",
+          "..kkaAAAAddkk.",
+          "....kkkkkk....",
+          "..sSssssssSs..",
+          ".sssSsssssssS.",
+          "SSSSSSSSSSSSSS"
+        ],
+        [
+          "......w.......",
+          ".....waA......",
+          ".....waAd.....",
+          "....waaAd.....",
+          "....wagAd.....",
+          "...waabAdd....",
+          "...waAAAdd....",
+          "...waAAAdd....",
+          "..waaAAAAdd...",
+          "..waAAAAAdd...",
+          "..waaAAAAdd...",
+          ".waaAAAAAddd..",
+          ".warAAAAAddd..",
+          ".waaAyAAAAdd..",
+          ".kwaAAAAAAddk.",
+          "..kkaAAAAddkk.",
+          "....kkkkkk....",
+          "..sSssssssSs..",
+          ".sssSsssssssS.",
+          "SSSSSSSSSSSSSS"
+        ]
+      ],
+      "fps": 3,
+      "unlock": {
+        "level": 91
+      }
+    },
+    {
+      "id": "elder-statue",
+      "name": "Elder Statue",
+      "category": "structure",
+      "rarity": "epic",
+      "description": "The first crab, carved in stone. His eyes still glow when someone ships on a Friday.",
+      "palette": {
+        "h": "#d0d0c8",
+        "s": "#a8a8a0",
+        "S": "#74746c",
+        "d": "#4a4a44",
+        "m": "#5a8a4a",
+        "M": "#3a6a2a",
+        "e": "#6ad0ff"
+      },
+      "pixels": [
+        "......hssss.......",
+        "....hsSSSSsss.....",
+        "...hsSddddSsss....",
+        "...hSdhsssdSss....",
+        "...hSdsSSsdSsm....",
+        "...sSdssdSdSsM....",
+        "....sSdddSSsmM....",
+        ".h...sSSSSssM...h.",
+        "hsh..e.ssss.e..hsh",
+        "sSs..d.dssd.d..sSs",
+        ".sSh.ssssssss.hSs.",
+        "..sSssSssssSssSs..",
+        "...dsssssssssssd..",
+        "...d.d.d..d.d.d...",
+        "..d.d.d....d.d.d..",
+        ".hsssssssssssssss.",
+        ".sSSSSSSSSSSSSSSd.",
+        "..sSssmssssssSsd..",
+        "..sSsMmssssssSsd..",
+        "..sSssssssssmSsd..",
+        "..sSssssssssMSsd..",
+        "..sSssssssssssSd..",
+        ".hssssssssssssssd.",
+        "dSSSSSSSSSSSSSSSSd"
+      ],
+      "spots": [
+        {
+          "kind": "climb",
+          "at": [
+            8,
+            0
+          ]
+        },
+        {
+          "kind": "sit",
+          "at": [
+            1,
+            15
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 94
+      }
+    },
+    {
+      "id": "world-shell",
+      "name": "World Shell",
+      "category": "treasure",
+      "rarity": "legendary",
+      "description": "Hold it to your ear and you hear the sea. Look inside and you see all of it.",
+      "palette": {
+        "k": "#4a2a1a",
+        "d": "#8a5a3a",
+        "P": "#d4a888",
+        "p": "#f5e0c8",
+        "o": "#2a6ab0",
+        "O": "#4a9ae0",
+        "g": "#4ab04a",
+        "w": "#ffffff",
+        "y": "#ffe46a"
+      },
+      "pixels": [
+        "........kkkkkk........",
+        "......kkpppppPkk......",
+        ".....kppPwPPPPPPk.....",
+        "....kpPPddddddPPPk....",
+        "...kpPddkkkkkkddPPk...",
+        "..kpPdkkoOOOookkdPPk..",
+        "..kpPdkOOgggOookdPPk..",
+        ".kpPdkoOwgggOoookdPPk.",
+        ".kpPdkOgggOOoogokdPPk.",
+        ".kpPdkoOgOOOoggokdPPk.",
+        ".kpPdkooOOooggggkdPPk.",
+        ".kpPdkoooOogggookdPPk.",
+        ".kpPdkkoooOOooookdPPk.",
+        "..kpPdkkoooooookkdPPk.",
+        "...kpPddkkkkkkddPPk...",
+        "....kpPPddddddPPPk....",
+        ".....kppPPPPPPPPk.....",
+        "......kkpppppPkk......",
+        "....dPkkkkkkkkkkPd....",
+        "...dPPPPPPPPPPPPPPd...",
+        "..ddddddddddddddddd..."
+      ],
+      "frames": [
+        [
+          "........kkkkkk........",
+          "......kkpppppPkk......",
+          ".....kppPPPPPPPPk.....",
+          "....kpPPddddddPPPk....",
+          "...kpPddkkkkkkddPyk...",
+          "..kpPdkkoOOOookkdPPk..",
+          "..kpPdkOOgggOookdPPk..",
+          ".kpPdkoOggggOoookdPPk.",
+          ".kpPdkOgggOOoogokdPPk.",
+          ".kpPdkoOgOOOwggokdPPk.",
+          ".kpPdkooOOooggggkdPPk.",
+          ".kpPdkoooOogggookdPPk.",
+          ".kpPdkkoooOOooookdPPk.",
+          "..kpPdkkoooooookkdPPk.",
+          "...kpPddkkkkkkddPPk...",
+          "....kpPPddddddPPPk....",
+          ".....kppPPPPPPPPk.....",
+          "......kkpppppPkk......",
+          "....dPkkkkkkkkkkPd....",
+          "...dPPPPPPPPPPPPPPd...",
+          "..ddddddddddddddddd..."
+        ],
+        [
+          "........kkkkkk........",
+          "......kkpppppPkk......",
+          ".....kppPPPPPPPPk.....",
+          "....kpPPddddddPPPk....",
+          "...kpPddkkkkkkddPPk...",
+          "..kpPdkkoOOOookkdPPk..",
+          "..kpPdkOOgggOookdPPk..",
+          ".kpPdkoOggggOoookdPPk.",
+          ".kpPdkOgggOOoogokdPPk.",
+          ".kpPdkoOgOOOoggokdPPk.",
+          ".kpPdkooOOooggggkdPPk.",
+          ".kpPdkoooOygggookdPPk.",
+          ".kpPdkkoooOOooookdPPk.",
+          "..kpPdwkoooooookkdPPk.",
+          "...kpPddkkkkkkddPPk...",
+          "....kpPPddddddPPPk....",
+          ".....kppPPPPPPPPk.....",
+          "......kkpppppPkk......",
+          "....dPkkkkkkkkkkPd....",
+          "...dPPPPPPPPPPPPPPd...",
+          "..ddddddddddddddddd..."
+        ]
+      ],
+      "fps": 3,
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            10,
+            0
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 97
+      }
+    },
+    {
+      "id": "supreme-pedestal",
+      "name": "Supreme Pedestal",
+      "category": "structure",
+      "rarity": "legendary",
+      "description": "Solid gold, three columns, one ruby. Built for the crab who has done absolutely everything.",
+      "palette": {
+        "k": "#3a2a08",
+        "d": "#7a5410",
+        "G": "#c8961a",
+        "g": "#ffd23f",
+        "w": "#fff8c8",
+        "r": "#e83a5a",
+        "b": "#3a8aff",
+        "p": "#b04aff"
+      },
+      "pixels": [
+        "...........ww...........",
+        "..........wrrG..........",
+        "..........rrrG..........",
+        "...........GG...........",
+        "...kkkkkkkkkkkkkkkkkk...",
+        "...kgwwgggggggggggGGk...",
+        "...kGGGGGGGGGGGGGGGdk...",
+        ".....kwGk.kwGk.kwGk.....",
+        ".....kgGk.kgGk.kgGk.....",
+        ".....kgGk.kgGk.kgGk.....",
+        ".....kbGk.kpGk.kbGk.....",
+        ".....kgGk.kgGk.kgGk.....",
+        ".....kgGk.kgGk.kgGk.....",
+        ".....kgGk.kgGk.kgGk.....",
+        "...kggggggggggggggggk...",
+        "..kwgggggggggggggggGGk..",
+        "..kGGGGGGGGGGGGGGGGGdk..",
+        ".kgggrgggbgggpgggbggggk.",
+        ".kddddddddddddddddddddk.",
+        "kwgggggggggggggggggggGGk",
+        "kGGGGGGGGGGGGGGGGGGGGGdk",
+        "kddddddddddddddddddddddk",
+        "kkkkkkkkkkkkkkkkkkkkkkkk"
+      ],
+      "spots": [
+        {
+          "kind": "sit",
+          "at": [
+            7,
+            3
+          ]
+        },
+        {
+          "kind": "hide",
+          "at": [
+            9,
+            14
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 99
+      }
+    }
+  ],
+  "effects": [
+    {
+      "id": "bubble-trail",
+      "name": "Bubble Trail",
+      "rarity": "common",
+      "description": "A steady string of bubbles. He is definitely up to something.",
+      "motion": "rise",
+      "count": 8,
+      "speed": 1.2,
+      "sprites": [
+        {
+          "palette": {
+            "b": "#9fe0f0",
+            "W": "#ffffff",
+            "d": "#3a9ab8"
+          },
+          "pixels": [
+            ".bb.",
+            "bW.d",
+            "b..d",
+            ".dd."
+          ]
+        },
+        {
+          "palette": {
+            "b": "#9fe0f0",
+            "W": "#ffffff",
+            "d": "#3a9ab8"
+          },
+          "pixels": [
+            "Wb",
+            "bd"
+          ]
+        },
+        {
+          "palette": {
+            "b": "#9fe0f0"
+          },
+          "pixels": [
+            "b"
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 23
+      }
+    },
+    {
+      "id": "ripple-step",
+      "name": "Ripple Step",
+      "rarity": "common",
+      "description": "Every step makes a ring. He walks in circles on purpose.",
+      "motion": "twinkle",
+      "count": 6,
+      "speed": 0.6,
+      "fps": 4,
+      "sprites": [
+        {
+          "palette": {
+            "c": "#a8ecf0",
+            "C": "#5ab8c8"
+          },
+          "pixels": [
+            "........",
+            "........",
+            "........",
+            "...cc...",
+            "...CC...",
+            "........",
+            "........",
+            "........"
+          ],
+          "frames": [
+            [
+              "........",
+              "........",
+              "..cccc..",
+              ".c....c.",
+              ".C....C.",
+              "..CCCC..",
+              "........",
+              "........"
+            ],
+            [
+              "..cccc..",
+              ".c....c.",
+              "c......c",
+              "c......c",
+              "C......C",
+              "C......C",
+              ".C....C.",
+              "..CCCC.."
+            ],
+            [
+              "........",
+              "..c..c..",
+              ".c....c.",
+              "........",
+              "........",
+              ".C....C.",
+              "..C..C..",
+              "........"
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 27
+      }
+    },
+    {
+      "id": "plankton-glow",
+      "name": "Plankton Glow",
+      "rarity": "rare",
+      "description": "The tiny drifting things have started glowing. He suspects they like him.",
+      "motion": "float",
+      "count": 16,
+      "speed": 0.4,
+      "fps": 3,
+      "sprites": [
+        {
+          "palette": {
+            "g": "#4dffb0",
+            "G": "#1f9a6a",
+            "W": "#e8fff4"
+          },
+          "pixels": [
+            ".G.",
+            "GgG",
+            ".G."
+          ],
+          "frames": [
+            [
+              ".g.",
+              "gWg",
+              ".g."
+            ],
+            [
+              "...",
+              ".G.",
+              "..."
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "g": "#7affd8",
+            "G": "#2a8a7a"
+          },
+          "pixels": [
+            "g"
+          ],
+          "frames": [
+            [
+              "G"
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 34
+      }
+    },
+    {
+      "id": "ink-puff",
+      "name": "Ink Puff",
+      "rarity": "rare",
+      "description": "Startled himself. Left a little cloud behind about it.",
+      "motion": "rise",
+      "count": 6,
+      "speed": 0.5,
+      "ink": true,
+      "sprites": [
+        {
+          "palette": {
+            "k": "#1a1428",
+            "K": "#3a2e52",
+            "p": "#5a4a7a"
+          },
+          "pixels": [
+            ".pKK..",
+            "pKkkK.",
+            "KkkkkK",
+            "KkkkK.",
+            ".KKp.."
+          ]
+        },
+        {
+          "palette": {
+            "k": "#1a1428",
+            "K": "#3a2e52",
+            "p": "#5a4a7a"
+          },
+          "pixels": [
+            ".KK",
+            "KkK",
+            "pK."
+          ]
+        },
+        {
+          "palette": {
+            "K": "#3a2e52"
+          },
+          "pixels": [
+            "K"
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 37
+      }
+    },
+    {
+      "id": "deep-sparkle",
+      "name": "Deep Sparkle",
+      "rarity": "rare",
+      "description": "Cold blue glints, the kind you only see far below the light.",
+      "motion": "twinkle",
+      "count": 10,
+      "speed": 0.8,
+      "fps": 5,
+      "sprites": [
+        {
+          "palette": {
+            "w": "#ffffff",
+            "b": "#8ac8ff",
+            "B": "#3a6ab8"
+          },
+          "pixels": [
+            ".....",
+            "..B..",
+            ".BbB.",
+            "..B..",
+            "....."
+          ],
+          "frames": [
+            [
+              "..b..",
+              "..b..",
+              "bbwbb",
+              "..b..",
+              "..b.."
+            ],
+            [
+              "B...B",
+              "..b..",
+              ".bwb.",
+              "..b..",
+              "B...B"
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "b": "#8ac8ff",
+            "w": "#ffffff"
+          },
+          "pixels": [
+            "b"
+          ],
+          "frames": [
+            [
+              "w"
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 43
+      }
+    },
+    {
+      "id": "pressure-shimmer",
+      "name": "Pressure Shimmer",
+      "rarity": "rare",
+      "description": "The water bends around him. Down here, that is a compliment.",
+      "motion": "float",
+      "count": 8,
+      "speed": 0.5,
+      "fps": 4,
+      "sprites": [
+        {
+          "palette": {
+            "c": "#c8f4ff",
+            "C": "#7ab8d0"
+          },
+          "pixels": [
+            ".cc.....",
+            "c..cc..C",
+            ".....CC."
+          ],
+          "frames": [
+            [
+              "....cc..",
+              "Cc.c..cc",
+              ".CC....."
+            ],
+            [
+              "cc......",
+              "..cc..cc",
+              "....CC.."
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 47
+      }
+    },
+    {
+      "id": "amethyst-aura",
+      "name": "Amethyst Aura",
+      "rarity": "rare",
+      "description": "Purple shards circle him like he owns a geode. He owns a geode.",
+      "motion": "orbit",
+      "count": 6,
+      "speed": 0.7,
+      "sprites": [
+        {
+          "palette": {
+            "w": "#f0dcff",
+            "a": "#b57bdc",
+            "A": "#7b3fb0"
+          },
+          "pixels": [
+            ".w.",
+            "waA",
+            "aAA",
+            ".A."
+          ]
+        },
+        {
+          "palette": {
+            "a": "#b57bdc",
+            "A": "#7b3fb0"
+          },
+          "pixels": [
+            "a.",
+            "aA",
+            ".A"
+          ]
+        },
+        {
+          "palette": {
+            "w": "#f0dcff"
+          },
+          "pixels": [
+            "w"
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 51
+      }
+    },
+    {
+      "id": "rain-cloud",
+      "name": "Rain Cloud",
+      "rarity": "rare",
+      "description": "His own personal weather. It only rains when he is thinking about bugs.",
+      "motion": "fall",
+      "count": 14,
+      "speed": 1.6,
+      "sprites": [
+        {
+          "palette": {
+            "b": "#8ab8f0",
+            "w": "#e0f0ff",
+            "B": "#4a78c0"
+          },
+          "pixels": [
+            "w",
+            "b",
+            "B"
+          ]
+        },
+        {
+          "palette": {
+            "b": "#8ab8f0",
+            "w": "#e0f0ff"
+          },
+          "pixels": [
+            "w",
+            "b"
+          ]
+        },
+        {
+          "palette": {
+            "b": "#8ab8f0",
+            "w": "#e0f0ff",
+            "B": "#4a78c0"
+          },
+          "pixels": [
+            ".w.",
+            "wbb",
+            "bbB",
+            ".B."
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 57
+      }
+    },
+    {
+      "id": "beam-sweep",
+      "name": "Beam Sweep",
+      "rarity": "rare",
+      "description": "Slow lighthouse beams wash over him. Ships stay clear of the keyboard.",
+      "motion": "twinkle",
+      "count": 4,
+      "speed": 0.5,
+      "fps": 3,
+      "sprites": [
+        {
+          "palette": {
+            "y": "#fff6b0",
+            "Y": "#ffd23f",
+            "w": "#ffffff"
+          },
+          "pixels": [
+            "......y.",
+            "....yy..",
+            "..yy....",
+            "wY......"
+          ],
+          "frames": [
+            [
+              ".y......",
+              "..yy....",
+              "....yy..",
+              "......Yw"
+            ],
+            [
+              "........",
+              "........",
+              "yyyyyyY.",
+              ".......w"
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 61
+      }
+    },
+    {
+      "id": "ember-float",
+      "name": "Ember Float",
+      "rarity": "rare",
+      "description": "Warm sparks drifting up from the vents. Cosy, in a slightly volcanic way.",
+      "motion": "rise",
+      "count": 12,
+      "speed": 0.8,
+      "fps": 6,
+      "sprites": [
+        {
+          "palette": {
+            "y": "#ffe46a",
+            "o": "#ff8a2a",
+            "r": "#c8341a"
+          },
+          "pixels": [
+            ".y.",
+            "yor",
+            ".r."
+          ],
+          "frames": [
+            [
+              ".o.",
+              "oyo",
+              ".r."
+            ],
+            [
+              "...",
+              ".o.",
+              ".r."
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "o": "#ff8a2a",
+            "y": "#ffe46a"
+          },
+          "pixels": [
+            "o"
+          ],
+          "frames": [
+            [
+              "y"
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 64
+      }
+    },
+    {
+      "id": "rune-glow",
+      "name": "Rune Glow",
+      "rarity": "rare",
+      "description": "Old symbols wheel around him. He can't read them, but they clearly rate him.",
+      "motion": "orbit",
+      "count": 5,
+      "speed": 0.5,
+      "fps": 2,
+      "sprites": [
+        {
+          "palette": {
+            "r": "#b08aff",
+            "R": "#6a4ac0",
+            "w": "#f0e8ff"
+          },
+          "pixels": [
+            "r.r",
+            ".w.",
+            "r.r",
+            ".R."
+          ],
+          "frames": [
+            [
+              "R.R",
+              ".r.",
+              "R.R",
+              ".R."
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "r": "#b08aff",
+            "R": "#6a4ac0",
+            "w": "#f0e8ff"
+          },
+          "pixels": [
+            "rrr",
+            "r..",
+            "rwr",
+            "..R",
+            "RRR"
+          ],
+          "frames": [
+            [
+              "RRR",
+              "R..",
+              "RrR",
+              "..R",
+              "RRR"
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "r": "#b08aff",
+            "w": "#f0e8ff"
+          },
+          "pixels": [
+            ".r.",
+            "rwr",
+            ".r.",
+            ".r."
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 69
+      }
+    },
+    {
+      "id": "vortex-idle",
+      "name": "Vortex Idle",
+      "rarity": "rare",
+      "description": "Stand still long enough and the water starts circling. Mind the snacks.",
+      "motion": "orbit",
+      "count": 8,
+      "speed": 1.4,
+      "fps": 4,
+      "sprites": [
+        {
+          "palette": {
+            "c": "#8fd8e8",
+            "C": "#3a98b0",
+            "w": "#e8fbff"
+          },
+          "pixels": [
+            "..w.",
+            ".c..",
+            "C...",
+            ".C.."
+          ],
+          "frames": [
+            [
+              "....",
+              "C.cw",
+              ".C..",
+              "...."
+            ],
+            [
+              ".C..",
+              "..C.",
+              "...c",
+              "..w."
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "c": "#8fd8e8"
+          },
+          "pixels": [
+            "c"
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 71
+      }
+    },
+    {
+      "id": "tidal-wake",
+      "name": "Tidal Wake",
+      "rarity": "rare",
+      "description": "Little white crests trail behind him like he means business.",
+      "motion": "float",
+      "count": 9,
+      "speed": 0.9,
+      "fps": 3,
+      "sprites": [
+        {
+          "palette": {
+            "w": "#ffffff",
+            "c": "#7fe0e0",
+            "C": "#3fb0c0"
+          },
+          "pixels": [
+            "..ww..",
+            ".wccw.",
+            "wcCCcw"
+          ],
+          "frames": [
+            [
+              "...ww.",
+              ".wwccw",
+              "wcCCcC"
+            ],
+            [
+              ".ww...",
+              "wccww.",
+              "CcCCcw"
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "w": "#ffffff",
+            "c": "#7fe0e0"
+          },
+          "pixels": [
+            ".w.",
+            "wcw"
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 74
+      }
+    },
+    {
+      "id": "abyss-eyes",
+      "name": "Abyss Eyes",
+      "rarity": "epic",
+      "description": "Something in the dark is watching. It seems friendly. Mostly.",
+      "motion": "twinkle",
+      "count": 5,
+      "speed": 0.4,
+      "fps": 2,
+      "sprites": [
+        {
+          "palette": {
+            "y": "#ffe46a",
+            "Y": "#c8961a",
+            "k": "#0a0a14"
+          },
+          "pixels": [
+            "yy...yy",
+            "Yk...Yk"
+          ],
+          "frames": [
+            [
+              ".......",
+              "YY...YY"
+            ],
+            [
+              "yy...yy",
+              "kY...kY"
+            ],
+            [
+              "yy...yy",
+              "Yk...Yk"
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "r": "#ff4a6a",
+            "R": "#a02a4a"
+          },
+          "pixels": [
+            "r.r",
+            "R.R"
+          ],
+          "frames": [
+            [
+              "...",
+              "R.R"
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 81
+      }
+    },
+    {
+      "id": "crown-glint",
+      "name": "Crown Glint",
+      "rarity": "epic",
+      "description": "A ring of tiny golden crowns. Modesty was never really an option.",
+      "motion": "orbit",
+      "count": 6,
+      "speed": 0.6,
+      "fps": 4,
+      "sprites": [
+        {
+          "palette": {
+            "g": "#ffd23f",
+            "G": "#b8860b",
+            "r": "#ff3a5a",
+            "w": "#fff8c8"
+          },
+          "pixels": [
+            "g.g.g",
+            "gwgrg",
+            "GGGGG"
+          ],
+          "frames": [
+            [
+              "g.w.g",
+              "ggggr",
+              "GGGGG"
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "w": "#ffffff",
+            "g": "#ffd23f"
+          },
+          "pixels": [
+            ".g.",
+            "gwg",
+            ".g."
+          ],
+          "frames": [
+            [
+              "...",
+              ".w.",
+              "..."
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 84
+      }
+    },
+    {
+      "id": "deep-current",
+      "name": "Deep Current",
+      "rarity": "epic",
+      "description": "A cold current from the trench threads past him, going somewhere important.",
+      "motion": "float",
+      "count": 10,
+      "speed": 2.2,
+      "sprites": [
+        {
+          "palette": {
+            "c": "#5ab0d8",
+            "C": "#2a6a98",
+            "w": "#c8f0ff"
+          },
+          "pixels": [
+            "CCccccw"
+          ]
+        },
+        {
+          "palette": {
+            "c": "#5ab0d8",
+            "C": "#2a6a98"
+          },
+          "pixels": [
+            "Cccc"
+          ]
+        },
+        {
+          "palette": {
+            "C": "#2a6a98",
+            "w": "#c8f0ff"
+          },
+          "pixels": [
+            "CCw.....",
+            "....CCCw"
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 89
+      }
+    },
+    {
+      "id": "prism-trail",
+      "name": "Prism Trail",
+      "rarity": "epic",
+      "description": "Rainbow flecks spill off him like light through a crystal.",
+      "motion": "fall",
+      "count": 14,
+      "speed": 0.7,
+      "fps": 6,
+      "sprites": [
+        {
+          "palette": {
+            "r": "#ff6a8a",
+            "y": "#ffe46a",
+            "g": "#6affb0",
+            "b": "#6ab0ff",
+            "w": "#ffffff"
+          },
+          "pixels": [
+            ".r.",
+            "ywg",
+            ".b."
+          ],
+          "frames": [
+            [
+              ".y.",
+              "gwb",
+              ".r."
+            ],
+            [
+              ".g.",
+              "bwr",
+              ".y."
+            ],
+            [
+              ".b.",
+              "rwy",
+              ".g."
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "r": "#ff6a8a",
+            "b": "#6ab0ff"
+          },
+          "pixels": [
+            "r"
+          ],
+          "frames": [
+            [
+              "b"
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 92
+      }
+    },
+    {
+      "id": "myth-halo",
+      "name": "Myth Halo",
+      "rarity": "legendary",
+      "description": "Golden motes circle him slowly. Legends say he earned every one.",
+      "motion": "orbit",
+      "count": 12,
+      "speed": 0.4,
+      "fps": 3,
+      "sprites": [
+        {
+          "palette": {
+            "w": "#fffbe0",
+            "g": "#ffd23f",
+            "G": "#c8961a"
+          },
+          "pixels": [
+            ".G.",
+            "GgG",
+            ".G."
+          ],
+          "frames": [
+            [
+              ".g.",
+              "gwg",
+              ".g."
+            ],
+            [
+              ".G.",
+              "GgG",
+              ".G."
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "w": "#fffbe0",
+            "g": "#ffd23f"
+          },
+          "pixels": [
+            "w"
+          ],
+          "frames": [
+            [
+              "g"
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 96
+      }
+    },
+    {
+      "id": "countdown-sparks",
+      "name": "Countdown Sparks",
+      "rarity": "legendary",
+      "description": "Three, two, one... one level to go. The sparks can't wait either.",
+      "motion": "rise",
+      "count": 9,
+      "speed": 1,
+      "fps": 2,
+      "sprites": [
+        {
+          "palette": {
+            "y": "#ffe46a",
+            "o": "#ff8a2a",
+            "w": "#ffffff"
+          },
+          "pixels": [
+            "wyyy.",
+            "...yo",
+            ".yyy.",
+            "...yo",
+            "wyyy."
+          ],
+          "frames": [
+            [
+              "wyyy.",
+              "...yo",
+              ".yyy.",
+              "yo...",
+              "yyyyo"
+            ],
+            [
+              "..y..",
+              ".wy..",
+              "..y..",
+              "..y..",
+              ".yyyo"
+            ]
+          ]
+        },
+        {
+          "palette": {
+            "w": "#ffffff",
+            "y": "#ffe46a"
+          },
+          "pixels": [
+            ".y.",
+            "ywy",
+            ".y."
+          ],
+          "frames": [
+            [
+              "...",
+              ".w.",
+              "..."
+            ]
+          ]
+        }
+      ],
+      "unlock": {
+        "level": 98
+      }
+    }
+  ]
+}

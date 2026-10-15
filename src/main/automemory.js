@@ -4,7 +4,7 @@
 // with a MEMORY.md index of one line per file that loads into every
 // conversation there. Shellby doesn't remember anything itself: it shows what
 // Claude has written (Toolbox → Setup), lets you correct or drop it, and
-// notices when Claude writes a new one (session.js memoryOf).
+// notices when Claude writes a new one (session/index.js memoryOf).
 //
 // A memory file:
 //   ---
@@ -101,7 +101,7 @@ function dropFromIndex(index, file) {
 
 /**
  * The first of these project folders that has memories, or the first one when
- * none has: a copy of a repo (worktrees.js) may keep its memories under the
+ * none has: a copy of a repo (worktrees/index.js) may keep its memories under the
  * checkout it came from.
  */
 function pickDir(cwds, dir = configDir()) {

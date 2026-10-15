@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const os = require('os');
 const path = require('path');
-const { createCopies, NAME_THE_BRANCH } = require('../src/main/copy-service');
+const { createCopies, NAME_THE_BRANCH } = require('../src/main/worktrees/copy-service');
 
 const ROOT = os.tmpdir(); // a folder that exists
 const GONE = path.join(os.tmpdir(), 'shellby-copy-that-was-tidied-away');

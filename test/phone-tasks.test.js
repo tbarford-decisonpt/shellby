@@ -4,7 +4,7 @@
 // command, and the hundredth task in an hour.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const pt = require('../src/main/phone-tasks');
+const pt = require('../src/main/channels/phone-tasks');
 const channels = require('../src/main/channels');
 
 const NOW = 1_800_000_000_000;

@@ -111,9 +111,14 @@ function createUsage(d) {
   }
 
   function onSpend(s, tab) {
-    spendLedger ??= spend.normalize(d.config.get('spendLedger'));
-    spendLedger = spend.record(spendLedger, spendSource(tab), s.weight, Date.now());
+    recordSpend(spendSource(tab), s.weight);
     d.usagePlan?.onSpend(tab, s.weight); // and towards what this turn cost (turncost.js)
+  }
+
+  /** Spend that isn't a tab's (a Council sitting): source is spend.record()'s. */
+  function recordSpend(source, weight) {
+    spendLedger ??= spend.normalize(d.config.get('spendLedger'));
+    spendLedger = spend.record(spendLedger, source, weight, Date.now());
     if (!spendSaveTimer) spendSaveTimer = setTimeout(saveSpend, SPEND_SAVE_MS);
   }
 
@@ -303,7 +308,7 @@ function createUsage(d) {
 
   return {
     armGuard, checkGuards, checkLimit, clockTime, guardSettings, limitWait, onSpend, onUsage,
-    outlookView, projectKeyOf, refreshOutlook, resetTarget, saveSpend, scheduleLimit, sendOutlook, spendSource,
+    outlookView, projectKeyOf, recordSpend, refreshOutlook, resetTarget, saveSpend, scheduleLimit, sendOutlook, spendSource,
     stop, tabCost, usageBreakdown, watchGuards, watchOutlook, windowShare,
   };
 }

@@ -6,7 +6,7 @@
 const { parseLine, KNOWN } = require('./stream');
 const { CLI_MODE } = require('./config');
 
-// Effort levels Claude Code takes (--effort). session.js re-exports this.
+// Effort levels Claude Code takes (--effort). session/args.js re-exports this.
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 // Every flag ClaudeSession.buildArgs() can emit. hidden: Claude Code accepts it
@@ -31,7 +31,7 @@ const REQUIRED_FLAGS = Object.freeze([
   { flag: '--resume' },
   { flag: '--resume-session-at', hidden: true },
   { flag: '--fork-session' },
-  // session.js OPTIONAL_FLAGS: passed only when the installed CLI lists them, but
+  // session/args.js OPTIONAL_FLAGS: passed only when the installed CLI lists them, but
   // the newest release must still have them.
   { flag: '--include-partial-messages' },
   { flag: '--forward-subagent-text' },
@@ -132,7 +132,7 @@ function auditEvents(lines, { expect = EXPECTED_KINDS } = {}) {
   };
 }
 
-/** The top-level event type session.js should log once, or null when it's known. */
+/** The top-level event type session/index.js should log once, or null when it's known. */
 function unknownType(ev) {
   if (!ev || typeof ev !== 'object' || typeof ev.type !== 'string') return null;
   return KNOWN.types.has(ev.type) ? null : ev.type.slice(0, 60);

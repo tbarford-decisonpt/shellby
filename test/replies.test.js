@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const {
   RemoteAnswers, supportsReplies, newNonce, deskOnlyReason,
   parseNtfyMessage, parseTelegramCallback, TTL_MS,
-} = require('../src/main/replies');
+} = require('../src/main/channels/replies');
 const channels = require('../src/main/channels');
 
 const NONCE = 'AbCdEfGhIjKlMnOpQrStUv';
@@ -384,6 +384,6 @@ test('another reader of the same bot is named, and failures back off, then reset
 });
 
 test('the back-off is five minutes at most by default', () => {
-  const { MAX_BACKOFF_MS } = require('../src/main/replies');
+  const { MAX_BACKOFF_MS } = require('../src/main/channels/replies');
   assert.equal(MAX_BACKOFF_MS, 5 * 60 * 1000);
 });

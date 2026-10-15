@@ -80,13 +80,25 @@
     $('tkKeysHint').hidden = !edit;
   }
 
+  // The rare pieces: how many are his, and the locked one nearest to done.
+  function milestoneRow(milestones, row, bar) {
+    const got = milestones.filter(t => !t.locked).length;
+    const share = t => (t.progress ? t.progress.current / t.progress.goal : 0);
+    const next = milestones.filter(t => t.locked && t.progress).sort((a, b) => share(b) - share(a))[0];
+    const text = next
+      ? [h('b', { text: `Closest: the ${next.name.toLowerCase()}. ` }), `${next.hint} (${next.progress.current.toLocaleString()} / ${next.progress.goal.toLocaleString()}).`]
+      : got === milestones.length ? 'Every milestone piece is his.' : 'One for each milestone: the Bugdex, nests, tides, molts, the reef, review, Wrapped, levels, quests and streaks.';
+    return row('Milestones', `${got} of ${milestones.length}`, text, bar(got, milestones.length));
+  }
+
   // Where more decor comes from, counted from the tray itself.
   function renderKey({ v, editing }) {
     $('tkKeySec').hidden = editing;
     if (editing) return;
     const decor = v.tray.filter(t => t.kind === 'decor');
     const have = decor.filter(t => !t.locked);
-    const earned = decor.filter(t => t.unlock?.achievement);
+    const milestones = decor.filter(t => t.milestone);
+    const earned = decor.filter(t => t.unlock?.achievement && !t.milestone);
     const nextUp = earned.find(t => t.locked && t.locked.reason === 'achievement');
     const seasonal = decor.filter(t => t.unlock?.season);
     const finds = v.tray.filter(t => t.kind === 'find');
@@ -105,11 +117,72 @@
       row('Trophies', `${trophies} of ${earned.length}`,
         nextUp ? [h('b', { text: `Next: the ${nextUp.name.toLowerCase()}. ` }), `${nextText}.`] : 'Every trophy piece is his.',
         bar(trophies, earned.length)),
+      ...(milestones.length ? [milestoneRow(milestones, row, bar)] : []),
       row('Seasons', `${seasonal.filter(t => !t.locked).length} of ${seasonal.length}`,
         `${one ? 'Turns' : 'Turn'} up in ${one ? 'its' : 'their'} season, then ${one ? 'stays' : 'stay'} for good.`),
       row('His finds', String(finds.length),
         finds.length ? 'Everything he digs up can go in, as many as he’s found.' : 'Whatever he digs up for you can go in. Nothing yet: give him time.'),
       ...(jars.length ? [row('Specimen jars', String(jars.length), 'Every kind of bug Claude has fixed, in a jar from the Bugdex.')] : []));
+  }
+
+  // ------------------------------------------------------------ milestone pieces (docs/TANK.md#milestones)
+
+  const HEX = /^#([0-9a-f]{6})$/i;
+  const lum = hex => {
+    const m = HEX.exec(hex || '');
+    if (!m) return 1;
+    const n = parseInt(m[1], 16);
+    return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  };
+
+  // A locked milestone piece as a silhouette: every pixel in its palette's darkest
+  // tone (the tile fades it to 35%), so you can tell its shape but not its colours.
+  function silhouette(t) {
+    const dark = Object.values(t.palette || {}).filter(c => HEX.test(c)).sort((a, b) => lum(a) - lum(b))[0] || '#000000';
+    const palette = {};
+    for (const k of Object.keys(t.palette || {})) palette[k] = dark;
+    return { ...t, palette };
+  }
+
+  // What a milestone tile says: the hint and how far along it is while locked
+  // ("Clear 10 bug nests · 7 / 10", with a ring round the picture), "Milestone" once his.
+  function milestoneBits(t) {
+    if (!t.locked) return { meta: 'Milestone', title: `Milestone: ${t.description}`, ring: null };
+    const p = t.progress;
+    const hint = t.hint || t.locked.text;
+    const count = p ? `${p.current.toLocaleString()} / ${p.goal.toLocaleString()}` : '';
+    return {
+      meta: count ? `${count} · ${hint}` : hint,
+      title: `Locked milestone. ${hint}${count ? ` (${count})` : ''}`,
+      ring: p ? `--ms-fill: ${Math.max(0, Math.min(1, p.current / p.goal)).toFixed(3)}` : null,
+    };
+  }
+
+  // Animated pieces play their frames in the tray while the pointer (or focus) is on them.
+  const STILL = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function playOnHover(btn, t) {
+    const pictures = [t.pixels, ...t.frames];
+    let timer = null, i = 0;
+    const show = n => btn.querySelector('.tk-thumb')?.replaceChildren(SB.tankPaint.thumb({ ...t, pixels: pictures[n] }, THUMB));
+    const start = () => {
+      if (timer || STILL()) return;
+      timer = setInterval(() => {
+        if (!btn.isConnected) { clearInterval(timer); timer = null; return; } // the tray re-rendered under the pointer
+        i = (i + 1) % pictures.length;
+        show(i);
+      }, Math.round(1000 / Math.max(1, t.fps || 2)));
+    };
+    const stop = () => {
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+      i = 0;
+      show(0);
+    };
+    btn.addEventListener('pointerenter', start);
+    btn.addEventListener('focus', start);
+    btn.addEventListener('pointerleave', stop);
+    btn.addEventListener('blur', stop);
   }
 
   function shelves(v) {
@@ -136,19 +209,23 @@
       const chosen = style && (lay.style[shelf] || (v.style[shelf]?.ref)) === t.ref;
       const left = t.max !== null ? t.max - used : null;
       const off = !!t.locked || (!style && (room <= 0 || left === 0));
-      const meta = t.locked ? t.locked.text
-        : style ? (chosen ? 'In the tank' : '')
-          : left !== null ? (left ? `${left} left` : 'All in the tank') : used ? `${used} in the tank` : '';
-      return h('button', {
-        type: 'button', class: `tk-item${t.locked ? ' locked' : ''}${chosen ? ' chosen' : ''}`,
+      const ms = t.milestone ? milestoneBits(t) : null;
+      const meta = ms ? ms.meta
+        : t.locked ? t.locked.text
+          : style ? (chosen ? 'In the tank' : '')
+            : left !== null ? (left ? `${left} left` : 'All in the tank') : used ? `${used} in the tank` : '';
+      const btn = h('button', {
+        type: 'button', class: `tk-item${t.locked ? ' locked' : ''}${chosen ? ' chosen' : ''}${ms ? ` tk-ms${t.locked ? ' tk-ms-locked' : ''}` : ''}`,
         disabled: off, 'aria-pressed': style ? String(chosen) : null,
-        title: t.locked ? `Locked: ${t.locked.text}` : t.description,
+        title: ms ? ms.title : t.locked ? `Locked: ${t.locked.text}` : t.description,
         dataset: style ? { ref: t.ref, style: shelf, keep: `item:${t.ref}` } : { ref: t.ref, keep: `item:${t.ref}` },
       },
-      h('span', { class: 'tk-thumb', 'aria-hidden': 'true' }, SB.tankPaint.thumb(t, THUMB)),
+      h('span', { class: 'tk-thumb', 'aria-hidden': 'true', style: ms?.ring || null }, SB.tankPaint.thumb(ms && t.locked ? silhouette(t) : t, THUMB)),
       h('span', { class: 'tk-item-name', text: t.name }),
       meta ? h('span', { class: 'tk-item-meta', text: meta }) : null,
       t.isNew && !t.locked && t.kind === 'decor' && !seen.has(t.ref) ? h('i', { class: 'dot-badge', 'aria-label': 'new' }) : null);
+      if (!t.locked && t.frames?.length) playOnHover(btn, t);
+      return btn;
     }));
     $('tkItems').setAttribute('aria-label', list.find(c => c.id === shelf)?.name || 'Tray');
     return shelf;

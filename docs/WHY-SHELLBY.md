@@ -23,7 +23,7 @@
   <br><sub>Instead of: resuming the session twice, tracking which is which, diffing by hand.</sub>
 - **Bring several copies home in order.** <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> shows every conversation's lane, answers the same permission for several at once (**Allow all**), and suggests a merge order. **Line them up** rebases each copy onto the one before and runs the checks in between, stopping at the first conflict or red check.
   <br><sub>Instead of: rebasing branch after branch by hand and rerunning the tests each time.</sub>
-- **Get a second opinion before you commit to a plan.** **The Council** puts a decision to five advisor crabs (Skeptic, Builder, Guard, Player, Elder) who argue it out with no tools, for about the cost of one reply in **Quick**, and Shellby rules on it.
+- **Get a second opinion before you commit to a plan.** **The Council** reads your project first, seats the advisor crabs whose angles matter for the question, and has them argue from the same checked facts. Shellby seals a decision (do it, don't, or first this), with the best case against, and turns it into a plan you can send. Tell it how the verdict went and each advisor earns a record.
   <br><sub>Instead of: asking the same question in three chats and weighing the answers yourself.</sub>
 - **See what your subagents are up to.** Each helper gets its own lane (task, activity, tools, tokens, time) and its own crab on your desktop. Permission cards tell you which helper is asking.
   <br><sub>Instead of: scrolling the transcript.</sub>

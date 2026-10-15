@@ -13,7 +13,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { savePng } = require('./lib/shot');
-const climb = require('../src/main/climb');
+const climb = require('../src/main/desktop/climb');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 9368;

@@ -5,7 +5,7 @@
 const leaving = require('./leaving');
 const recap = require('./recap');
 const secretscan = require('./secretscan');
-const streaks = require('./streaks');
+const streaks = require('./progression/streaks');
 
 // What finished, failed and used the window is noted as it happens; whether
 // you're at the keyboard comes from Windows' idle time, read once a minute and
@@ -22,7 +22,7 @@ const LEAVE_LINES_SHOWN = 12;
  * d: what this needs from main, read when it's used.
  *   config, critter, panel, manager, external, devServers: getters
  *   CAPTURE, RECAP_TEST (dev:away supplies the idle readings),
- *   powerMonitor (Electron's), native (native-windows.js), confirm ({ ask }),
+ *   powerMonitor (Electron's), native (desktop/native-windows.js), confirm ({ ask }),
  *   log, send, every (main's cleared-on-quit interval), speak, notify,
  *   showPanel, dialogLook, limitWait (usage/service.js),
  *   onIdleReading ({ idleMs, locked }) for each reading taken,

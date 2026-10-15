@@ -37,7 +37,7 @@ const DEFAULT_ANCHORS = Object.freeze({
   shellTop: Object.freeze([7, 0]),  // top of the shell
 });
 
-// Decor for his tank (src/main/tank.js). Pieces stand on the floor, against the
+// Decor for his tank (src/main/tank/index.js). Pieces stand on the floor, against the
 // back glass, or float in the water; substrates and backdrops are tiles the
 // tank repeats. Spots are where he can do something with a piece.
 const DECOR_CATEGORIES = ['structure', 'plant', 'rock', 'treasure', 'bubbler', 'substrate', 'backdrop'];
@@ -88,7 +88,7 @@ function checkUnlock(u, known) {
   if (u === undefined) return [{ default: true }, null];
   if (!isObj(u)) return [null, 'unlock must be an object'];
   const keys = Object.keys(u);
-  if (keys.length !== 1) return [null, 'unlock must have exactly one of default, achievement, season'];
+  if (keys.length !== 1) return [null, 'unlock must have exactly one of default, achievement, season, level'];
   if (hasOwn(u, 'default')) return u.default === true ? [{ default: true }, null] : [null, 'unlock.default must be true'];
   if (hasOwn(u, 'achievement')) {
     if (typeof u.achievement !== 'string' || !known.achievements.has(u.achievement)) return [null, `unknown achievement ${q(u.achievement)}`];
@@ -97,6 +97,11 @@ function checkUnlock(u, known) {
   if (hasOwn(u, 'season')) {
     if (typeof u.season !== 'string' || !known.seasons.has(u.season)) return [null, `unknown season ${q(u.season)}`];
     return [{ season: u.season }, null];
+  }
+  // A level reached (progression/levels.js): the highest ever, so a molt never takes it back.
+  if (hasOwn(u, 'level')) {
+    if (!isInt(u.level, 2, 99)) return [null, 'unlock.level must be an integer 2–99'];
+    return [{ level: u.level }, null];
   }
   return [null, `unknown unlock type ${q(keys[0])}`];
 }

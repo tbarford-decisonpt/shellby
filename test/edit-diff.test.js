@@ -1,6 +1,6 @@
 // The diff an edit card shows: worked out from the tool call (stream.js), with
 // line numbers and an overwritten file's old contents read before it runs
-// (session.js placeEdit), and kept off saved permission cards (history.js).
+// (session/place.js placeEdit), and kept off saved permission cards (history.js).
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');

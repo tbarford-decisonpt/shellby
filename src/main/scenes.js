@@ -12,7 +12,7 @@ const MAX_LINE = 24; // voice.js MAX_LINE
 
 // Props the renderer knows how to draw (src/renderer/critter/life.js).
 const PROPS = Object.freeze(['castle', 'castle-fall', 'bubbles', 'fly', 'shooting-star', 'juggle', 'heart', 'achoo', 'zz', 'notes', 'sweat']);
-// Things he can hold or wear for a scene. 'find' is his favourite find (gifts.js).
+// Things he can hold or wear for a scene. 'find' is his favourite find (gifts/index.js).
 const HOLDS = Object.freeze(['find', 'coffee', 'pebble', 'mic']);
 const WEARS = Object.freeze(['shades']);
 // Animations the scenes use, beyond his everyday habits (voice.js BITS).

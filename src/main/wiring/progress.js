@@ -1,34 +1,62 @@
-// What adds up: XP and levels (and the rooms they open), quests, dependency checkups,
+// What adds up: XP and levels (and the rooms they open), dependency checkups,
 // the flaky test detective and the week in review.
 // Kept out of main.js, which only wires it up.
 const os = require('os');
 const crabLine = require('../crab-line');
 const path = require('path');
 const changes = require('../changes');
-const character = require('../character');
+const character = require('../progression/character');
 const checkup = require('../checkup');
 const flaky = require('../flaky');
 const { fullOutput } = require('../bugdex/detect');
 const { projectOf } = require('../gitinfo');
 const { readRepo } = require('../projects/local');
-const quests = require('../quests');
+const { CHAPTERS } = require('../quests/chapters');
 const rooms = require('../rooms');
 const routineTemplates = require('../routines/templates');
-const shells = require('../shells');
+const shells = require('../progression/shells');
 const stickers = require('../stickers');
-const streaks = require('../streaks');
+const streaks = require('../progression/streaks');
 const weekly = require('../weekly');
-const { AWARDS, award, classifyCommand, levelFor, normalizeXp, unlocksBetween, xpSummary } = require('../xp');
+const levels = require('../progression/levels');
+const molting = require('../progression/molting');
+const bounties = require('../bounties');
+const { AWARDS, award, classifyCommand, levelOf, normalizeXp, unlocksBetween, xpSummary } = require('../progression/xp');
+
+const MAX_OUTPUT = 64 * 1024; // of a command's output, for onCommandResult listeners
 
 /** d: what main shares (main.js `shared`). */
 function wireProgress(d) {
   // ---- XP and levels
 
+  // The perks open at the highest level he has reached (progression/levels.js), and what they change here.
+  const perks = () => levels.perksFor(levels.everLevel(normalizeXp(d.config.get('xp'))));
+  const streakOpts = () => ({ perWeek: perks().has('tide-out-plus') ? 2 : streaks.TIDE_OUTS_PER_WEEK });
+  const streakNow = () => streaks.streakOf(d.config.get('streaks'), Date.now(), streakOpts());
+
+  // The fourth-bounty and bounty-reroll perks.
+  const bountyOpts = () => { const has = perks(); return { count: has.has('fourth-bounty') ? 4 : 3, canReroll: has.has('bounty-reroll') }; };
+
   function xpView() {
-    return xpSummary(d.config.get('xp'), Date.now(), currentStreak());
+    const xp = normalizeXp(d.config.get('xp'));
+    return {
+      ...xpSummary(xp, Date.now(), streakNow(), { tierName: molting.tierShell(xp.molt.count + 1).name, bounties: bountyOpts() }),
+      moltBadge: molting.moltBadge(xp.molt.count), canMolt: molting.canMolt(xp),
+    };
   }
 
-  const currentStreak = () => streaks.streakOf(d.config.get('streaks'), Date.now()).current;
+  /** The bounty-reroll perk: swap one of today's bounties, once a day. */
+  function rerollBounty(id) {
+    if (d.CAPTURE || !d.config || !bountyOpts().canReroll || typeof id !== 'string') return { ok: false };
+    const xp = normalizeXp(d.config.get('xp'));
+    const day = new Date();
+    const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+    const r = bounties.reroll(xp.bounties, key, id, bountyOpts());
+    if (r.ok) d.config.set({ xp: { ...xp, bounties: r.state } });
+    const v = xpView();
+    d.send(d.panel, 'xp', v);
+    return { ok: r.ok, view: v };
+  }
 
   // What a level-up unlocked, in words: "the Reef Warden title and the Kelp badge".
   function unlockedText(list) {
@@ -64,40 +92,33 @@ function wireProgress(d) {
     return v;
   }
 
+  // What the panel's "New room" card says about a room: its quest chapter too.
+  const announce = ({ id, name, text, chapter }) => {
+    const c = chapter && CHAPTERS.find(ch => ch.id === chapter);
+    return { id, name, text, ...(c ? { chapter: { n: c.n, title: c.title } } : {}) };
+  };
+
   // A task of his own finished: maybe a new room opens, and the panel says so.
+  // The XP for it has landed first, so a level that finishes the core loop
+  // (first-run.js) opens the game's rooms in the same card.
   function roomTaskDone() {
     if (d.CAPTURE || !d.config) return;
     const r = rooms.taskDone(d.config.get('rooms'));
     if (!r.state || r.state.all) return; // every door already open: nothing to count
-    d.config.set({ rooms: r.state });
-    d.send(d.panel, 'rooms', { view: roomsPanelView(), opened: r.opened.map(({ id, name, text }) => ({ id, name, text })) });
+    const c = d.coreLoopNow?.() ? rooms.reachCore(r.state) : { state: r.state, opened: [] };
+    d.config.set({ rooms: c.state });
+    d.send(d.panel, 'rooms', { view: roomsPanelView(), opened: [...r.opened, ...c.opened].map(announce) });
   }
 
-  // Quests (quests.js): the features worth finding, done the first time each
-  // really succeeds. The scripted screenshots show a fresh line.
-  function questsPanelView() {
-    return quests.questsView(d.CAPTURE ? null : d.config.get('quests'));
-  }
-
-  function setQuests(next) {
-    if (next && !d.CAPTURE) d.config.set({ quests: next });
-    const v = questsPanelView();
-    d.send(d.panel, 'quests', { view: v });
-    return v;
-  }
-
-  // Called where each feature succeeds (a review sent, a branch made, a copy
-  // merged home, work held for the reset). Only the first time counts.
-  function questDone(id) {
+  // The core loop is done (wiring/first-run.js): the game's rooms that tasks
+  // have already earned open now, with a card.
+  function reachCoreRooms() {
     if (d.CAPTURE || !d.config) return;
-    const r = quests.completeQuest(d.config.get('quests'), id, Date.now());
-    if (!r.quest) return;
-    d.config.set({ quests: r.state });
-    const pick = q => q && { id: q.id, icon: q.icon, title: q.title, why: q.why, go: q.go };
-    // The card first, so a level-up the XP brings lands after it.
-    d.send(d.panel, 'quests', { view: questsPanelView(), done: pick(r.quest), next: pick(r.next), finished: r.finished });
-    awardXp('quest', { label: r.quest.title });
-    if (r.finished) awardXp('questline');
+    const before = rooms.normalizeRooms(d.config.get('rooms'));
+    const r = rooms.reachCore(before);
+    if (!r.state || r.state.core === before.core) return;
+    d.config.set({ rooms: r.state });
+    d.send(d.panel, 'rooms', { view: roomsPanelView(), opened: r.opened.map(announce) });
   }
 
   // The crab in a line, for pull requests and commits (crab-line.js): only what's public about him.
@@ -115,13 +136,22 @@ function wireProgress(d) {
   function awardXp(kind, meta = {}) {
     if (kind === 'ship') setTimeout(d.checkNudges, 3000); // a push means a fresh commit: update streak data
     if (d.CAPTURE || !d.config) return;
-    const r = award(d.config.get('xp'), kind, new Date(), { ...meta, streak: currentStreak() });
+    const now = Date.now();
+    const has = perks();
+    // The streak bonus as it stands, ebbing gently after a break (progression/streaks.js), never all at once.
+    const mult = streaks.ebbMultiplier(d.config.get('streaks'), now, streakOpts());
+    const r = award(d.config.get('xp'), kind, new Date(now), { ...meta, mult, restedPool: has.has('rested-plus') ? 200 : undefined, bounties: bountyOpts() });
     if (r.changed) d.config.set({ xp: r.state });
+    if (r.gained) d.config.set({ streaks: streaks.noteEbb(d.config.get('streaks'), mult, now) });
+    const ever = levels.everLevel(r.state);
     // Trophies count the event even when repetition left it paying nothing. Streak
     // and level are reported every time, so the day's first award credits old progress.
     if (XP_STATS[r.kind]) d.stat(XP_STATS[r.kind]);
-    d.stat('streak', { n: streaks.streakOf(d.config.get('streaks'), Date.now()).longest });
+    d.stat('streak', { n: streakNow().longest });
     d.stat('level', { n: r.after.level });
+    d.stat('ever-level', { n: ever });
+    d.wardrobe?.setEverLevel?.(ever);
+    d.emitAward?.({ kind: r.kind, gained: r.gained, meta, level: r.after.level, everLevel: ever });
     // The week-in-review counts it even when repetition left it paying nothing.
     // Shipping is counted where the project is known (recordShipped).
     if (WEEK_XP_KINDS.has(r.kind)) noteWeek(r.kind);
@@ -139,14 +169,30 @@ function wireProgress(d) {
     d.levelUpAt = r.after.level;
     d.levelUpMarks = r.after.marks;
     const text = (LEVELUP_TEXT[r.kind] || (() => `${AWARDS[r.kind].label}.`))(meta);
+    // After a molt every level's unlocks are already his: the climb back is for the next tier shell.
+    const replay = r.state.molt.count > 0;
+    const fresh = replay ? [] : unlocksBetween(r.before.level, r.after.level);
     // The new title is already the card's heading.
-    const unlocked = unlockedText(unlocksBetween(r.before.level, r.after.level).filter(u => !(u.kind === 'title' && u.name === r.after.title)));
-    const shell = molt(r.before.level, r.after.level);
+    const unlocked = unlockedText(fresh.filter(u => !(u.kind === 'title' && u.name === r.after.title)));
+    const shell = replay ? null : molt(r.before.level, r.after.level);
     if (!shell) {
       d.flashState('levelup', 6500);
       d.send(d.critter, 'critter:burst', d.outfit().confetti);
     }
-    d.send(d.panel, 'xp:levelup', { level: r.after.level, title: r.after.title, rank: r.after.rank, text, unlocked, shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' } });
+    const milestone = replay ? null : levels.milestone(r.after.level);
+    d.send(d.panel, 'xp:levelup', {
+      level: r.after.level, title: r.after.title, rank: r.after.rank, text, unlocked,
+      shell: shell && { ...shells.renderShell(shell), name: shell.name, kind: 'home' },
+      milestone, unlocks: fresh.map(u => ({ ...u })), molts: r.state.molt.count,
+      canMolt: r.after.level === levels.MAX_LEVEL,
+    });
+    d.emitLevelUp?.({ from: r.before.level, to: r.after.level, everLevel: ever, milestone, unlocks: fresh });
+    // A level that finishes the core loop (first-run.js) opens the game's rooms;
+    // a task's XP leaves that to roomTaskDone, so its rooms share one card.
+    if (r.kind !== 'task' && d.coreLoopNow?.()) d.reachCoreRooms?.();
+    if (milestone?.tier === 'legend') {
+      d.life?.remember?.('level', { name: `level ${r.after.level}, ${r.after.title}` }); // the journal's "Became …"
+    }
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
       const body = [shell ? `${r.after.title}. He outgrew his shell and moved into a ${shell.name}!` : `${r.after.title}. ${text}`, unlocked].filter(Boolean).join(' ');
       d.notify(`Level up! Shellby is level ${r.after.level}`, body, () => { d.showPanel({ focusInput: false }); d.send(d.panel, 'panel:view', shell ? 'wardrobe' : 'trophies'); }, { tone: 'celebrate', pet: true });
@@ -154,7 +200,7 @@ function wireProgress(d) {
     return r;
   }
 
-  // Past level 99 (xp.js marks): each mark gets a level-up's party. There's
+  // Past level 99 (progression/xp.js marks): each mark gets a level-up's party. There's
   // nothing left to unlock, so it says how far off the next one is.
   function markEarned(r) {
     const { marks, title, rank, needed, into } = r.after;
@@ -171,7 +217,7 @@ function wireProgress(d) {
     return r;
   }
 
-  // The character sheet (character.js): the first time his stats make him a
+  // The character sheet (progression/character.js): the first time his stats make him a
   // class he has never been, it's kept and celebrated. Once per class, so two
   // close stats trading places can't announce it over and over. Only stat XP
   // can change his class, so it's announced just after the thing that did it.
@@ -189,7 +235,7 @@ function wireProgress(d) {
   }
 
   // A level-up that unlocks a shell: he crawls out of the old one and moves into
-  // the newest (see shells.js). Returns the new shell, or null when none unlocked.
+  // the newest (see progression/shells.js). Returns the new shell, or null when none unlocked.
   const MOLT_MS = 5200;
   function molt(before, after) {
     const fresh = shells.unlockedBetween(before, after);
@@ -198,7 +244,7 @@ function wireProgress(d) {
     const was = d.outfit();
     const from = was.home;
     const h = shells.normalizeHome(d.config.get('home'));
-    // The old shell keeps its stickers; his favourites come with him (stickers.js).
+    // The old shell keeps its stickers; his favourites come with him (stickers/index.js).
     const carried = stickers.carryOnMolt(d.config.get('stickers'), d.shellIdOf(d.stickerService.wornShellObj()), next.id, d.stickerService.shellSpots(d.activeSkin(), next).slots.length, Date.now());
     d.config.set({ home: { ...h, worn: next.id }, stickers: carried });
     d.flashState('molting', MOLT_MS);
@@ -211,6 +257,17 @@ function wireProgress(d) {
     d.send(d.panel, 'homes', d.homesView());
     d.send(d.panel, 'stickers', d.stickersView());
     return next;
+  }
+
+  /**
+   * A shell command Claude ran has finished (wiring/sessions.js): tell the game
+   * packages (the reef reads lint and coverage from it) through onCommandResult.
+   *   c: the pending command ({ command, project, dir, cwd }), item: its tool_result
+   */
+  function noteCommand(c, item, tail = '') {
+    if (d.CAPTURE || !c?.command) return;
+    const output = `${item?.text || ''}${tail ? `\n${tail}` : ''}`.slice(-MAX_OUTPUT);
+    d.emitCommandResult?.({ kind: classifyCommand(c.command), command: c.command, project: c.project || null, dir: c.dir || c.cwd || null, ok: !item?.isError, output });
   }
 
   // ---- dependency checkups (checkup.js)
@@ -228,6 +285,7 @@ function wireProgress(d) {
       const r = checkup.recordCheckup(d.config.get('checkups'), key, name, check, result, Date.now());
       if (!r.entry) return;
       d.config.set({ checkups: r.state });
+      d.questDone?.(r.patched ? 'patched' : 'checkup'); // quest chapters (wiring/quest-line.js)
       d.send(d.panel, 'checkups', checkupsView());
       if (r.pays) awardXp('deps', { project: name, label: r.patched ? 'Patched the dependencies' : AWARDS.deps.label });
       // Known vulnerabilities are a Barnacled Anchor in the Bugdex: seen, then caught once patched.
@@ -282,7 +340,7 @@ function wireProgress(d) {
     return { ok: true };
   }
 
-  // ---- the flaky test detective (flaky.js)
+  // ---- the flaky test detective (flaky/index.js)
 
   // One snapshot per repo at a time: Claude often runs two test commands back to back.
   const flakySnapshots = new Map();      // lower-cased folder -> promise of { root, tree } or null
@@ -393,6 +451,7 @@ function wireProgress(d) {
     d.config.set({ flaky: flaky.setStatus(d.config.get('flaky'), key, id, act.status, Date.now()) });
     d.send(d.panel, 'flaky', flakyView());
     d.showPanel({ focusInput: false, tabId: res.tabId });
+    if (action === 'fix' || action === 'quarantine') d.questDone?.('flaky-look');
     return res;
   }
 
@@ -462,6 +521,7 @@ function wireProgress(d) {
   function noteAwayRun(ms, { held = false } = {}) {
     if (d.CAPTURE || !d.config) return;
     d.config.set({ weekly: weekly.recordAwayRun(d.config.get('weekly'), Date.now(), ms, { held }) });
+    if (!held) d.questDone?.('away');
   }
 
   // What the plan bought (the card's "What your plan bought you"): Claude's
@@ -485,7 +545,7 @@ function wireProgress(d) {
     const now = Date.now();
     const xp = normalizeXp(d.config.get('xp'));
     return weekly.weekSummary(d.config.get('weekly'), now, {
-      xp, stickers: d.stickerState(), streak: streaks.streakOf(d.config.get('streaks'), now), level: levelFor(xp.total),
+      xp, stickers: d.stickerState(), streak: streakNow(), level: levelOf(xp),
       usage: d.config.get('lastUsage'),
     });
   }
@@ -506,8 +566,8 @@ function wireProgress(d) {
   return {
     crabSummary, crabTrailer,
     awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
-    knownFolder, noteAwayRun, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime, questDone, questsPanelView,
-    roomTaskDone, roomsPanelView, runCheckup, setQuests, setRooms, showFlaky, weekView, xpView,
+    knownFolder, noteAwayRun, noteCommand, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime,
+    rerollBounty, reachCoreRooms, roomTaskDone, roomsPanelView, runCheckup, setRooms, showFlaky, weekView, xpView,
   };
 }
 

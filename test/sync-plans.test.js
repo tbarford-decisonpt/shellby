@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const plans = require('../src/main/sync-plans');
+const plans = require('../src/main/sync/plans');
 
 const routine = (over = {}) => ({
   id: 'r1', name: 'Tidy', prompt: 'Tidy my Downloads', cwd: null, mode: 'smart', model: '',

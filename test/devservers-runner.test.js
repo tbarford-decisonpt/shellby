@@ -11,7 +11,7 @@ const os = require('os');
 const path = require('path');
 const runner = require('../src/main/devservers/runner');
 const nativeLaunch = require('../src/main/devservers/launch');
-const native = require('../src/main/native-windows');
+const native = require('../src/main/desktop/native-windows');
 const out = require('../src/main/devservers/output');
 
 const skip = process.platform !== 'win32' && 'Windows only';
@@ -214,4 +214,26 @@ test('cleanLogs removes old logs no server uses, and nothing else', () => {
   assert.equal(runner.cleanLogs(dir, new Set([used]), { now }), 1);
   assert.deepEqual(fs.readdirSync(dir).sort(), ['notes.txt', 'srv-bbbbbbbb.log']);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('stopping a server ends what lost its parent too, which taskkill /T cannot find', { skip: skip || (!require('../src/main/process-job').available() && 'needs job objects') }, async () => {
+  const processJob = require('../src/main/process-job');
+  const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-srv-orphan-')));
+  const pidFile = path.join(dir, 'orphan.pid');
+  // The "server" starts a node through `start /b`, which leaves it no parent once cmd ends.
+  const script = path.join(dir, 'orphan.js');
+  fs.writeFileSync(script, `require('fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`);
+  const helper = path.join(dir, 'spawner.cmd');
+  fs.writeFileSync(helper, `@start "" /b "${process.execPath}" "${script}"\r\n`);
+  const r = runner.start({ root: dir, command: `cmd /d /c "${helper}" & ping -n 30 127.0.0.1 >nul`, logFile: path.join(dir, 'srv.log') });
+  assert.ok(r.ok, r.error);
+  started.push(r.pid);
+  const orphan = Number(await until(() => fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf8')));
+  assert.ok(orphan > 0, 'the orphan started');
+  const alive = pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+  try {
+    assert.equal(processJob.ownedPids().has(orphan), false, 'a server is not one of the tasks swept or held back at quit');
+    await runner.stop(r.pid);
+    assert.ok(await until(() => !alive(orphan), 5000), 'nothing is left running');
+  } finally { if (alive(orphan)) process.kill(orphan); }
 });

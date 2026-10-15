@@ -12,7 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { canvas, argv } = require('./lib/png');
-const { SHELLS } = require('../src/main/shells');
+const { SHELLS } = require('../src/main/progression/shells');
 
 // Just enough DOM for sprite.js: elements with attributes and children.
 function element(tag) {

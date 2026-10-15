@@ -1,13 +1,13 @@
-// Shell stickers (stickers.js): the first time a project ships, Shellby gets a
+// Shell stickers (stickers/index.js): the first time a project ships, Shellby gets a
 // sticker for it and slaps it on his shell; shipping it again makes the sticker
 // better. The drawing is generated from the project (stickers/art.js), so only
 // the counts and where each one sits are stored.
 // Moved out of main.js.
 const fs = require('fs');
-const shells = require('../shells');
+const shells = require('../progression/shells');
 const stickerArt = require('./art');
-const stickers = require('../stickers');
-const streaks = require('../streaks');
+const stickers = require('./index');
+const streaks = require('../progression/streaks');
 const { projectOf, trackedFiles, stickerFile } = require('../gitinfo');
 const { shellMask, stickerSlots, STICKER } = require('./slots');
 
@@ -81,7 +81,7 @@ function createStickers(d) {
   }
 
   // What the repo itself says about its sticker: its main language, and its own
-  // drawing if it ships one (.shellby/sticker.json, validated in stickers.js).
+  // drawing if it ships one (.shellby/sticker.json, validated in stickers/index.js).
   async function factsOf(root) {
     const f = projectFacts.get(root);
     if (f && Date.now() - f.at < FACTS_MS) return f;

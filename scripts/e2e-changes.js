@@ -156,6 +156,8 @@ const ntfy = http.createServer((req, res) => {
     await ev("SB.send('edit b.txt made in the copy')");
     await idle();
     check(await until("!document.getElementById('branchChip').hidden"), 'the tab shows the branch it works on');
+    // Your checkout's branch shows first; the copy's takes over once the tab list catches up (shared/latest.js).
+    await until("/^add-greeting-/.test(document.getElementById('branchLabel').textContent)");
     const label = await ev("document.getElementById('branchLabel').textContent");
     check(/^add-greeting-[0-9a-f]{6}$/.test(label), `named as Claude suggested (${label})`);
     check(await ev("document.getElementById('folderLabel').textContent").then(t => t.endsWith('proj')), 'the folder chip still shows your project');

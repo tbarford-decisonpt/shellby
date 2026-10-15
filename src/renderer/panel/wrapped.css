@@ -1,0 +1,53 @@
+/* Shellby panel — Shellby Wrapped (docs/WRAPPED.md): the year in slides, on a
+   card-sheet. Tokens come from panel.css. */
+.wrapped-box { width: min(100%, 520px); display: grid; gap: 10px; }
+.wrapped-box .card-head { margin-bottom: 0; gap: 8px; }
+.wr-years { display: flex; gap: 4px; margin-left: auto; }
+.wr-years + .icon-btn { margin-left: 0; }
+.wr-years .btn { position: relative; }
+.wr-years .dot-badge { top: 2px; right: 2px; }
+
+.wr-progress { display: flex; gap: 4px; }
+.wr-progress i { flex: 1; height: 3px; border-radius: 2px; background: var(--line-soft); }
+.wr-progress i.done { background: var(--glass); }
+.wr-progress i.on { background: #ffc15e; }
+
+.wr-slide {
+  min-height: 300px; padding: 18px 18px 14px; border-radius: var(--r-lg);
+  background: radial-gradient(120% 90% at 15% 10%, rgba(127, 214, 194, .12), transparent 60%),
+    radial-gradient(90% 80% at 100% 100%, rgba(255, 122, 92, .1), transparent 60%), var(--abyss);
+  border: 1px solid var(--line-soft);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .wr-slide > * { animation: wr-in .42s var(--ease-out) both; }
+  .wr-slide > :nth-child(2) { animation-delay: .06s; }
+  .wr-slide > :nth-child(3) { animation-delay: .12s; }
+  .wr-slide > :nth-child(n + 4) { animation-delay: .2s; }
+  @keyframes wr-in { from { opacity: 0; transform: translateY(6px); } }
+}
+.wr-eyebrow { margin: 0; font: 600 var(--fs-11) var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: #ffc15e; }
+.wr-title { margin: 6px 0 0; font: 600 var(--fs-18) var(--font-pixel); color: var(--sand); }
+.wr-big { margin: 12px 0 4px; color: var(--sand-dim); }
+.wr-big b { font: 500 44px/1 var(--font-mono); color: var(--sand); }
+.wr-lines { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; color: var(--sand-dim); font-size: var(--fs-12-5); }
+.wr-lines li::before { content: "· "; color: var(--glass); }
+.wr-art { float: right; margin: -4px 0 6px 10px; }
+.wr-art canvas, .wr-pieces canvas { display: block; image-rendering: pixelated; }
+
+.wr-heat { margin-top: 12px; display: grid; gap: 3px; }
+.wr-heat-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; }
+.wr-heat-row i { height: 14px; border-radius: 2px; background: rgba(127, 214, 194, calc(.08 + var(--heat, 0) * .85)); }
+.wr-heat-axis { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.wr-heat-days { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+
+.wr-pieces { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.wr-pieces li { display: grid; place-items: center; width: 48px; height: 48px; border-radius: var(--r); background: var(--reef); border: 1px solid rgba(242, 193, 78, .35); }
+.wr-card-row { margin-top: 16px; gap: 8px; }
+[data-wrapped-card]:disabled { opacity: .5; cursor: progress; }
+
+.wr-nav { display: flex; align-items: center; gap: 8px; }
+.wr-nav .wr-count { margin: 0 auto; }
+
+/* The 🎁 on Trophies: a dot while a year is waiting to be opened. */
+.wr-open { position: relative; }
+.wr-open.fresh::after { content: ""; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: #ffc15e; }

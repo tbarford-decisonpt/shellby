@@ -274,7 +274,7 @@
     const play = CUES[name];
     if (!play || calm) return false;
     // Animations off still plays them: sound isn't motion, and main only sends
-    // a hop or a bump for one that really happened (src/main/motion.js still).
+    // a hop or a bump for one that really happened (src/main/desktop/motion.js still).
     if (!mix.fx) return false;
     const now = Date.now();
     if (now - (lastAt[name] || 0) < (MIN_GAP_MS[name] || 0)) return false;

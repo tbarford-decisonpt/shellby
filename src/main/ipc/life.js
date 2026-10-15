@@ -3,12 +3,12 @@
 // Kept out of main.js, which only wires it up.
 const { app, dialog, shell } = require('electron');
 const os = require('os');
-const { sendToBottom } = require('../desktop-layer');
+const { sendToBottom } = require('../desktop/desktop-layer');
 const confirm = require('../confirm');
-const native = require('../native-windows');
+const native = require('../desktop/native-windows');
 const { registerProjectsIpc } = require('../projects/ipc');
 const { run: runCli } = require('../claude/cli');
-const shells = require('../shells');
+const shells = require('../progression/shells');
 
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
@@ -101,7 +101,7 @@ function registerLifeIpc(ipcMain, d) {
   // ---- shells (homes he moves into as he levels up)
   ipcMain.handle('homes:get', () => d.homesView());
   ipcMain.handle('homes:wear', (_e, id) => {
-    if (!d.isStr(id) || !shells.unlockedAt(id, d.currentLevel())) return { ok: false, error: 'He has to grow into that shell first.', view: d.homesView() };
+    if (!d.isStr(id) || !shells.unlockedAt(id, d.currentLevel(), d.config.get('home'))) return { ok: false, error: 'He has to grow into that shell first.', view: d.homesView() };
     d.config.set({ home: { ...shells.normalizeHome(d.config.get('home')), worn: id } });
     d.broadcastSkin();
     d.send(d.panel, 'stickers', d.stickersView());

@@ -1,0 +1,72 @@
+/* Shellby panel — the Logbook: every game system on one page (logbook.js).
+   Tokens come from panel.css. */
+
+body[data-view="logbook"] .view-logbook { display: block; overflow-y: auto; padding: 14px 16px 20px; animation: fadein .18s var(--ease-out); }
+.view-logbook {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
+.lb-intro { margin: 0 0 10px; }
+
+.lb-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.lb-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: var(--r-lg);
+  background: var(--reef); border: 1px solid var(--line);
+}
+.lb-card.pinned { border-color: var(--glass); }
+.lb-card.missing, .lb-card.quiet { opacity: .72; }
+.lb-card.missing .lb-text { color: var(--sand-faint); font-style: italic; }
+.lb-loose:not(.quiet), .lb-tide:not(.quiet) { border-color: rgba(255, 122, 92, .45); background: linear-gradient(160deg, var(--coral-dim), transparent 60%), var(--reef); }
+
+.lb-head { display: flex; align-items: center; gap: 8px; }
+.lb-icon { font-size: 18px; line-height: 1; }
+.lb-title { flex: 1; margin: 0; font-size: 14px; }
+.lb-new { font-size: 11px; padding: 1px 6px; border-radius: 99px; background: var(--glass-dim); color: var(--glass); }
+.lb-pin, .lb-fold {
+  border: 0; background: none; color: var(--sand-dim); cursor: pointer; padding: 2px 4px; border-radius: var(--r-sm);
+  font-size: 12px; opacity: .5; transition: opacity .15s, background .15s;
+}
+.lb-pin.on { opacity: 1; }
+.lb-card:hover .lb-pin, .lb-card:hover .lb-fold, .lb-pin:focus-visible, .lb-fold:focus-visible { opacity: 1; }
+.lb-pin:hover, .lb-fold:hover { background: var(--line-soft); }
+
+.lb-body { display: flex; flex-direction: column; gap: 6px; }
+.lb-text { margin: 0; color: var(--sand); font-size: 13px; }
+.lb-bar { height: 5px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.lb-bar i { display: block; height: 100%; background: var(--glass); border-radius: inherit; transition: width .3s var(--ease-out); }
+
+.lb-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.lb-rows li { display: flex; align-items: baseline; gap: 6px; color: var(--sand-dim); }
+.lb-rows li.done { color: var(--sand-faint); text-decoration: line-through; }
+.lb-rows li.now { color: var(--sand); }
+.lb-row-mark { width: 16px; text-align: center; flex: none; }
+.lb-row-text { flex: 1; min-width: 0; }
+.lb-row-n { color: var(--sand-faint); font-variant-numeric: tabular-nums; }
+
+.lb-chart { display: flex; align-items: flex-end; gap: 3px; height: 34px; }
+.lb-chart i { flex: 1; background: var(--glass-dim); border-top: 2px solid var(--glass); border-radius: 2px 2px 0 0; }
+
+.lb-feeds { list-style: none; margin: 2px 0 0; padding: 6px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 2px; }
+.lb-feed {
+  display: flex; align-items: baseline; gap: 6px; width: 100%; text-align: left; border: 0; background: none;
+  color: var(--sand-dim); font: inherit; font-size: 12px; padding: 2px 4px; border-radius: var(--r-sm); cursor: pointer;
+}
+.lb-feed:hover, .lb-feed:focus-visible { background: var(--line-soft); color: var(--sand); }
+.lb-feed-arrow { color: var(--glass); flex: none; }
+.lb-feed-to { margin-left: auto; color: var(--glass); font-size: 11px; flex: none; }
+.lb-go { align-self: flex-start; margin-top: 2px; }
+
+.lb-chapters { margin-top: 16px; }
+.lb-chapters h3 { margin: 0 0 8px; font-size: 14px; }
+.lb-chapter-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lb-chapter-list > li { padding: 8px 10px; border-radius: var(--r); border: 1px solid var(--line); background: var(--reef); }
+.lb-chapter-list > li.locked { opacity: .6; }
+.lb-chapter-list > li.done { border-color: var(--glass-dim); }
+.lb-chapter-list p { margin: 4px 0; }
+.lb-ch-head { display: flex; align-items: center; gap: 8px; }
+.lb-ch-head b { flex: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-view="logbook"] .view-logbook { animation: none; }
+  .lb-bar i { transition: none; }
+}

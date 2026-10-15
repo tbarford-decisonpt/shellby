@@ -404,7 +404,7 @@ a visit is in progress, or the screen is locked (`calm()`).
 | `src/main/config.js` | 2 defaults |
 | `src/main/life.js` | ticks, earning, actions, view (+~90) |
 | `src/main/main.js` | deps, state payload, menu, IPC, capture pin (+~40) |
-| `src/main/xp.js`, `src/main/bond.js` | award kinds, earn kinds, memories |
+| `src/main/progression/xp.js`, `src/main/bond.js` | award kinds, earn kinds, memories |
 | `src/main/voice.js` | need occasions and lines |
 | `src/main/wardrobe/achievements.js` | 5 trophies |
 | `src/preload/preload.js` | `needs.feed/rinse/tuck/seenIntro` |

@@ -230,3 +230,41 @@ test("a turn's cost splits out what each helper spent, by the Agent call that se
   assert.match(turncost.costLine(r.cost), /\(helpers 5k\)/);
   s.close();
 });
+
+test('an ultracode run is a card, not a job or a helper: its agents walk out as crabs, it counts towards the meters, and it ends', async () => {
+  const { s, items } = makeSession();
+  const crews = [];
+  const spends = [];
+  s.on('crew', c => crews.push(c));
+  s.on('spend', x => spends.push(x));
+  s.send('Audit the repo\n\nultracode');
+  const r = await result(s);
+  assert.deepEqual(r.waiting, ['Audit the repo in parallel'], 'the turn ended, the run goes on');
+  const done = await waitFor(s, 'item', i => i.kind === 'ultracode' && i.status === 'completed');
+  assert.deepEqual([done.name, done.runId, done.counts.total, done.counts.done], ['audit', 'wf_fake1', 7, 7]);
+  assert.match(done.summary, /all 4 are fixed/);
+  assert.match(done.costText, /^at least \$/);
+  assert.ok(!items.some(i => i.kind === 'task'), 'no task items: the card says it all');
+  assert.equal(s.jobView().length, 0, 'not a background command');
+  const most = Math.max(...crews.map(c => c.filter(t => t.workflow && t.status === 'running').length));
+  assert.equal(most, 3, 'a few crabs out at once, never more');
+  assert.equal(s.runningCrew().length, 0, 'all home when it ends');
+  assert.ok(spends.some(x => x.messageId === 'ultracode:w1ultra' && x.weight > 0), 'its tokens count towards the meters');
+  assert.ok(items.filter(i => i.kind === 'ultracode' && !i.live).length >= 2, 'its start and end are kept');
+  s.close();
+});
+
+test('Stop on an ultracode run asks Claude Code to stop it, the way TaskStop does', async () => {
+  const { s } = makeSession();
+  s.send('Audit forever\n\nultracode');
+  await result(s);
+  const busy = await waitFor(s, 'item', i => i.kind === 'ultracode' && i.counts.running === 7);
+  assert.ok(s.hiddenCrew() === 4, 'the rest are "+N more"');
+  const stopped = waitFor(s, 'item', i => i.kind === 'ultracode' && i.status === 'stopped');
+  assert.equal((await s.stopRun(busy.id)).ok, true);
+  await stopped;
+  assert.equal((await s.stopRun(busy.id)).ok, false, 'not twice');
+  assert.equal(s.runView(busy.id).status, 'stopped');
+  assert.equal(s.hiddenCrew(), 0);
+  s.close();
+});

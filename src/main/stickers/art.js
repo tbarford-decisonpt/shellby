@@ -245,7 +245,7 @@ function shrink(rows, n) {
   return out;
 }
 
-// A repo's own sticker (.shellby/sticker.json), already validated by stickers.js.
+// A repo's own sticker (.shellby/sticker.json), already validated by stickers/index.js.
 function fromCustom(c) {
   const full = { palette: { ...c.palette }, pixels: [...c.pixels] };
   const h = full.pixels.length, w = Math.max(...full.pixels.map(r => r.length));

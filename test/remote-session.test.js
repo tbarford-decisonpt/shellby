@@ -1,5 +1,5 @@
 // A conversation in a folder on another computer: its Claude Code runs there
-// over ssh (session.js remote). A stand-in ssh (fixtures/fake-ssh.js) runs the
+// over ssh (session/index.js remote). A stand-in ssh (fixtures/fake-ssh.js) runs the
 // remote command with sh, in a home of its own whose claude is the fake CLI,
 // so the whole path is real except the network.
 const { test, after } = require('node:test');

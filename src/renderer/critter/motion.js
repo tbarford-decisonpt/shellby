@@ -4,7 +4,7 @@
 /* global api:writable, clampN:writable, flags:writable, paintBody:writable, root:writable, setDir:writable */
 
 // ---- on the move: thrown, landing, strolling, and up on your windows. Main
-// moves the window (src/main/motion.js, perching.js); this is how he looks
+// moves the window (src/main/desktop/motion.js, perching.js); this is how he looks
 // while it does: one body class per beat, all of it in critter.css.
 const MOTION_FLAGS = [
   'flying', 'fly-left', 'fly-fall', 'fly-fling', 'fly-pop', 'landed', 'walking', 'walk-left',
@@ -152,7 +152,7 @@ document.addEventListener('mousemove', e => {
   if (through) setOver(!!e.target.closest?.('#crab, #bgBadge, #srvPill, .helper'));
 });
 
-// ---- up a wall or hanging from the top of the screen (src/main/climbing.js).
+// ---- up a wall or hanging from the top of the screen (src/main/desktop/climbing.js).
 // His body (#pose) turns about the middle of the window; main has put the
 // window where that brings his feet to the edge.
 const SURFACES = ['left', 'right', 'ceiling'];

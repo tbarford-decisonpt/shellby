@@ -12,7 +12,7 @@ const mcpServers = require('../mcpservers');
 const routineDraft = require('./draft');
 const { isModel } = require('../models');
 const { MAX_TABS } = require('../sessions');
-const { missedOnStartup, nextRun, describeSchedule, Scheduler } = require('../routines');
+const { missedOnStartup, nextRun, describeSchedule, Scheduler } = require('./index');
 
 const MAX_ROUTINES = 50;
 const ROUTINE_TABS_KEPT = 6;             // finished routine tabs left open before the oldest closes

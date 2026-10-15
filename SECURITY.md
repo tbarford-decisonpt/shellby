@@ -175,7 +175,17 @@ Off until you turn it on. It reads the clipboard and the last failed background 
 
 ### The Council
 
-Each advisor and the chair is a one-off `claude -p` call with no tools (`--tools ''`), no MCP servers (`--strict-mcp-config`) and no saved session, so a sitting can only answer, never act. **Include this project** hands it a few KB read by Shellby (the start of the README, `CLAUDE.md`'s headings, the last eight commit subjects, which files are uncommitted), not access to the folder.
+Each advisor and the chair is a one-off `claude -p` call with no tools (`--tools ''`), no MCP servers (`--strict-mcp-config`) and no saved session, so they can only answer, never act.
+
+**Read the project first** adds one call that can read and nothing else (`src/main/council/look.js`):
+
+- It runs in the project folder with only Read, Grep and Glob (`--tools Read,Grep,Glob`), pre-approved (`--allowedTools`) under `--permission-mode dontAsk`, so anything else is refused rather than asked about. No MCP servers, no saved session, and `--max-budget-usd 0.3` stops it at about 30 cents (the cap is checked between turns, so one turn can run slightly over).
+- Keeping it inside the folder is Claude Code's job, through `--restricted`, which also refuses bypass mode and ignores your settings files. Shellby only offers the read when the installed Claude Code lists `--restricted`, and when you don't sign in or reach Claude (a proxy, a certificate) through those settings files, since the read would then fail.
+- It never reads your home folder, a folder above it, or the root of a drive.
+- Files that usually hold secrets (`.env*`, `*.pem`, `*.key`, SSH keys, `.npmrc`, `.netrc`, `.git/config`, anything named `secret` or `credentials`) are denied to it (`--disallowedTools`). The prompt tells it never to quote a secret, every claim goes through the same key redaction as dev-server logs, and a fact that names a secrets file anyway is dropped. Any other file in the project can be read.
+- Each fact names a file, and Shellby checks that file is a plain file inside the project, by its real path, so a link or junction out of the folder is dropped. That checks *where* a fact says it came from, not that the claim is true: the advisors are told the claims are the reader's.
+- The prompt tells it that file contents are material, not instructions, and characters you can't see (direction overrides, zero-width, tag characters) are stripped from everything the council says. A file written to steer it can still colour the facts and the verdict, so nothing the council says runs on its own: **Plan the next steps** opens as a draft you read and send, and **Add to Notes** marks the note as Claude's, so running it opens a draft too.
+- `council.json` in Shellby's data folder keeps the last 20 sittings, with the project folder each one read and the facts it found.
 
 ### Continue in a terminal
 

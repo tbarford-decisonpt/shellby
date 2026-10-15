@@ -11,9 +11,9 @@ const { createRoutines } = require('../routines/service');
 const { createAway } = require('../away-service');
 const { createKeepWarm } = require('../keepwarm-service');
 const { createStickers } = require('../stickers/service');
-const { createCopies } = require('../copy-service');
+const { createCopies } = require('../worktrees/copy-service');
 const confirm = require('../confirm');
-const native = require('../native-windows');
+const native = require('../desktop/native-windows');
 
 /** d: what main shares (main.js `shared`). */
 function wireServices(d) {

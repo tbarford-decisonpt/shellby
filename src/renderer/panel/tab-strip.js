@@ -49,11 +49,29 @@
     [...strip.querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === to)?.querySelector('[role="tab"]').focus();
   }
 
+  // Why a tab is flagged as clashing, or that it shares its folder (for the tab and its signature).
+  function clashOf(t) {
+    const shares = SB.sharesWith?.(t);
+    return SB.clashLine?.(t.id) || (shares ? `Shares its folder with "${shares}": changes either one makes, the other sees.` : '');
+  }
+
+  // Everything a tab is drawn from. A working conversation reports a token count, a cache, a plan
+  // step many times a second; none of that is on its tab, so a strip whose signature has not changed
+  // is left as it is instead of being rebuilt and measured again for each report.
+  let drawnSig = new WeakMap();   // a strip -> the signature of what it shows
+  function tabSig(t, active) {
+    const clash = clashOf(t);
+    const lifted = !!drag?.moved && t.id === drag.id;
+    const ctx = t.context ? [contextText(t.context), contextLevel(t.context), t.context.pct] : null;
+    const look = L.tabClass(t, { active, clash, dragging: lifted });
+    return JSON.stringify([t.id, active, lifted, look, clash, L.icon(t, window.ShellbyTabSort.activity(t)),
+      shownTitle(t), t.title, t.branchOf?.title, t.agent, t.safeMode, t.crew, ctx]);
+  }
+
   // One tab. .tab draws it; inside it the role=tab part and its × sit side by
   // side (a button can't live inside a tab).
   function tabEl(t, active) {
-    const shares = SB.sharesWith?.(t);
-    const clash = SB.clashLine?.(t.id) || (shares ? `Shares its folder with "${shares}": changes either one makes, the other sees.` : '');
+    const clash = clashOf(t);
     return h('div', {
       class: L.tabClass(t, { active, clash, dragging: !!drag?.moved && t.id === drag.id }),
       role: 'presentation',
@@ -85,8 +103,14 @@
     // A busy tab redraws the strip as it streams; keep the keyboard on the tab (or ×) it was on.
     const focused = strip.contains(document.activeElement) ? document.activeElement : null;
     const keep = focused && { id: focused.closest('[data-tab-id]')?.dataset.tabId, x: focused.classList.contains('tab-x') };
-    strip.replaceChildren(...ids.map(id => state.tabs.get(id)).filter(Boolean).map(t => tabEl(t, t.id === activeId)));
-    if (keep?.id) {
+    const shown = ids.map(id => state.tabs.get(id)).filter(Boolean);
+    const sig = shown.map(t => tabSig(t, t.id === activeId)).join('\n');
+    const same = drawnSig.get(strip) === sig && strip.children.length === shown.length;
+    if (!same) {
+      drawnSig.set(strip, sig);
+      strip.replaceChildren(...shown.map(t => tabEl(t, t.id === activeId)));
+    }
+    if (!same && keep?.id) {
       const tab = [...strip.querySelectorAll('[data-tab-id]')].find(el => el.dataset.tabId === keep.id);
       tab?.querySelector(keep.x ? '.tab-x' : '[role="tab"]')?.focus({ preventScroll: true });
     }
@@ -160,6 +184,7 @@
     renaming = tabId;
     SB.editTitle(el, shownTitle(tab), async title => {
       renaming = null;
+      drawnSig = new WeakMap(); // the name box is not in the signature: draw the strip again whatever was typed
       if (title) {
         tab.title = title;
         if (!tab.saved) tab.named = true;

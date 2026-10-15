@@ -1,4 +1,4 @@
-// Telling you when you're not at the PC (channels.js: your phone, with Allow
+// Telling you when you're not at the PC (channels/index.js: your phone, with Allow
 // and Deny for permission prompts), and the stream overlay (obs.js).
 // Kept out of main.js, which only wires it up.
 const crypto = require('crypto');
@@ -9,7 +9,7 @@ const confirm = require('../confirm');
 const focus = require('../focus');
 const { ObsServer } = require('../obs');
 const { qrRows } = require('../qr');
-const { RemoteAnswers, deskOnlyReason } = require('../replies');
+const { RemoteAnswers, deskOnlyReason } = require('../channels/replies');
 
 /** d: what main shares (main.js `shared`). */
 function wireChannels(d) {
@@ -110,7 +110,7 @@ function wireChannels(d) {
   }
 
   // A permission prompt goes to the phone, with Allow / Deny on it when you've
-  // said it may and the prompt is one the phone is allowed to answer (replies.js).
+  // said it may and the prompt is one the phone is allowed to answer (channels/replies.js).
   function askOnPhone(tabId, item, tab) {
     const event = { kind: 'asking', project: tab.title, message: `${item.label || ''} ${item.detail || ''}`.trim() };
     // A task the phone started always asks there: it's where you are.
@@ -146,7 +146,7 @@ function wireChannels(d) {
   function createRemote() {
     d.remote = new RemoteAnswers({
       getChannel: () => ({ settings: channelSettings(), secret: d.channelSecret }),
-      // Belt and braces: replies.js already refuses these, but the phone never
+      // Belt and braces: channels/replies.js already refuses these, but the phone never
       // gets to answer anything the card would have warned about.
       onAnswer: (tabId, requestId, decision) => {
         const pending = d.manager.tabs.get(tabId)?.session.pending.get(requestId);

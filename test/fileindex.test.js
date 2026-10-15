@@ -95,3 +95,22 @@ test('onForget hears every forget, and a listener that throws harms nothing', ()
   forget(42);
   assert.deepEqual(heard, ['C:\\somewhere']);
 });
+
+test('lists past their time are dropped on the next request, not kept until 20 newer folders push them out', async t => {
+  const fileindex = require('../src/main/fileindex');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'shellby-fi-cache-'));
+  const dirs = ['a', 'b', 'c'].map(n => { const d = path.join(base, n); fs.mkdirSync(d); fs.writeFileSync(path.join(d, 'x.txt'), ''); return d; });
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  try {
+    const before = fileindex.cachedCount();
+    await list(dirs[0]);
+    await list(dirs[1]);
+    assert.equal(fileindex.cachedCount(), before + 2);
+    t.mock.timers.tick(fileindex.CACHE_MS + 1);
+    await list(dirs[2]);
+    assert.equal(fileindex.cachedCount(), 1, 'only the fresh list is left');
+  } finally {
+    t.mock.timers.reset();
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
