@@ -19,14 +19,21 @@ const TOP = 6;                       // rows before the rest become "Everything 
 const RATES = [[/haiku/i, 1], [/sonnet/i, 3], [/opus|fable/i, 5]];
 const DEFAULT_RATE = 3;
 
-const KINDS = new Set(['tab', 'routine', 'workflow']);
+// A rate of 1 is $1 per million input tokens: Haiku's list price. Sonnet's and
+// Opus's are 3 and 5 times that, so weightOf() times this is roughly dollars.
+const USD_PER_WEIGHT = 1e-6;
+
+const KINDS = new Set(['tab', 'routine', 'workflow', 'council']);
 const num = v => (Number.isFinite(v) && v > 0 ? v : 0);
 const clip = (s, n) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, n) : '');
+
+/** A model's relative price per input token (Haiku is 1). */
+const rateOf = model => (RATES.find(([re]) => re.test(model || '')) || [null, DEFAULT_RATE])[1];
 
 /** What one API call cost, in model-weighted tokens (0 when there's nothing to count). */
 function weightOf(usage, model) {
   if (!usage || typeof usage !== 'object') return 0;
-  const rate = (RATES.find(([re]) => re.test(model || '')) || [null, DEFAULT_RATE])[1];
+  const rate = rateOf(model);
   const tokens = num(usage.input_tokens) + 5 * num(usage.output_tokens)
     + 1.25 * num(usage.cache_creation_input_tokens) + 0.1 * num(usage.cache_read_input_tokens);
   return Math.round(rate * tokens);
@@ -118,4 +125,4 @@ function weightSince(ledger, since, key = null) {
   return total;
 }
 
-module.exports = { weightOf, normalize, record, windowStart, breakdown, weightSince, BUCKET_MS, KEEP_MS, WINDOW_MS };
+module.exports = { weightOf, USD_PER_WEIGHT, normalize, record, windowStart, breakdown, weightSince, BUCKET_MS, KEEP_MS, WINDOW_MS };

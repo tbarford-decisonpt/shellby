@@ -9,7 +9,8 @@ const os = require('os');
 const path = require('path');
 const { app } = require('electron');
 const P = require('../council/prompts');
-const { convene } = require('../council/run');
+const { convene, SEAT_MODEL } = require('../council/run');
+const { estimate } = require('../council/cost');
 const { gather } = require('../council/context');
 const { LOOK_BUDGET_USD } = require('../council/look');
 const { CouncilStore, summary, records, cleanOutcome } = require('../council/store');
@@ -69,8 +70,9 @@ function registerCouncilIpc(ipcMain, d) {
   const sessionDir = s => (d.isStr(s.root) && fs.existsSync(s.root) ? s.root : d.currentCwd?.() || os.homedir());
   const view = () => {
     const root = projectRoot();
+    const s = settings();
     return {
-      settings: settings(), roster: P.ROSTER, defaults: P.DEFAULT_IDS, records: records(store.list()),
+      settings: s, estimate: estimateOf(s, !!root && !readBlocked()), roster: P.ROSTER, defaults: P.DEFAULT_IDS, records: records(store.list()),
       project: root ? { name: path.basename(root), root, blocked: readBlocked() } : null,
       limits: {
         custom: P.MAX_CUSTOM, seated: P.MAX_SEATED, min: P.MIN_SEATED, pickMin: P.MIN_PICK, pickMax: P.MAX_PICK,
@@ -79,6 +81,12 @@ function registerCouncilIpc(ipcMain, d) {
     };
   };
   let sitting = false;
+  // What a sitting costs counts towards your usage meters, as the Council, for the project it read.
+  const recordSpend = (out, root) => {
+    if (!out?.weight) return;
+    const { project, pk } = root ? d.usageService?.projectKeyOf?.(root) || {} : {};
+    d.usageService?.recordSpend?.({ key: 'c:council', kind: 'council', label: 'Council', project, pk }, out.weight);
+  };
 
   ipcMain.handle('council:view', () => view());
   ipcMain.handle('council:save', (_e, raw) => {
@@ -117,6 +125,7 @@ function registerCouncilIpc(ipcMain, d) {
       return { ok: false, error: "The council couldn't sit. Try again." };
     } finally { sitting = false; }
     if (out.detail) d.log.warn(`council: ${out.detail}`);
+    recordSpend(out, root);
     if (!out.ok) return { ok: false, error: out.error };
     const session = {
       id: d.randomUUID(), at: Date.now(), question: P.cleanQuestion(r.question),
@@ -159,6 +168,15 @@ function registerCouncilIpc(ipcMain, d) {
   });
 }
 
+/** What the next sitting should cost, in dollars: { low, high }. canRead: the project can be read. */
+function estimateOf(s, canRead) {
+  return estimate({
+    mode: s.mode, model: s.model, seatModel: SEAT_MODEL[s.model],
+    seats: s.pick ? [P.MIN_PICK, P.MAX_PICK] : s.seated.length,
+    read: canRead && s.read, pick: s.pick,
+  });
+}
+
 const DECISION_WORD = { do: 'Do it', dont: "Don't", first: 'Do this first' };
 const decided = c => (c.decision ? `${DECISION_WORD[c.decision]}. ` : '');
 const bullets = items => items.map(x => `- ${x}`).join('\n');
@@ -192,4 +210,4 @@ function noteText(s) {
   return c.next.length ? `${head}\n${bullets(c.next)}` : head;
 }
 
-module.exports = { registerCouncilIpc, planPrompt, noteText, priorNote };
+module.exports = { registerCouncilIpc, planPrompt, noteText, priorNote, estimateOf };

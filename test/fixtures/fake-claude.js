@@ -222,7 +222,7 @@ if (args.includes('--json-schema')) {
         const ids = [...system.matchAll(/^- (\S+) \(/gm)].map(m => m[1]);
         answer = { rebuttals: ids.map((id, i) => ({ seat: id, to: ids[(i + 1) % ids.length], reply: `${id} stands firm`, vote: 'conditional' })) };
       } else answer = chair;
-      out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer, total_cost_usd: 0.001 });
+      out({ type: 'result', subtype: 'success', is_error: false, result: '', structured_output: answer, total_cost_usd: 0.001, usage: { input_tokens: 1200, output_tokens: 300 } });
       return;
     } else if (!schema.properties.reply) answer = { workflow_json: hello(), note: 'Says good morning every day at nine.' };
     else if (!prompt.includes('The test run that just finished')) {

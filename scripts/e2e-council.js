@@ -73,6 +73,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await count('#ccModes [data-mode]') === 2, 'there are two ways to sit, Quick and Debate');
     check(await ev(`document.getElementById('ccProject').checked && document.getElementById('ccReadText').textContent === 'Read ${path.basename(project)} first'`), 'it offers to read the project first, by name');
     check((await text('#ccHint')).includes('he picks') && (await text('#ccHint')).includes('2 calls'), 'the hint says he picks and Quick with a read is two calls');
+    check(/About \$\d+\.\d\d–\d+\.\d\d/.test(await text('#ccHint')), 'the hint gives a dollar range before it sits');
     await shot('council-empty');
 
     // ---- Quick, reading the project first
@@ -92,6 +93,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(await count('#ccOpinions .cc-row') === PICKED, 'the minutes list every advisor');
     check(await count('#ccOpinions .cc-flip') === PICKED, 'each says what would change their mind');
     check((await text('.cc-cost')).startsWith('2 calls'), 'the minutes say it took two calls');
+    check((await text('.cc-cost')).includes('under $0.01 of your plan'), 'and what they really cost');
     await shot('council-quick');
     await ev("document.querySelector('#ccOpinions .cc-cite').click()");
     check(await until("document.querySelector('#ccDeck .cc-card[data-fact=\"1\"]').classList.contains('is-lit')"), 'a cited fact lights its card on the table');
