@@ -3,7 +3,7 @@
    coral, each signal's last reading against its best, a sparkline, the next
    step and the watch toggle; and the Coral list on the Tank page
    (html/reef-tank.html). Everything comes through api.getGame('reef') and
-   api.onGame, and the only things it can ask for are watch, stop and check. */
+   api.onGame, and the only things it can ask for are watch, stop, check and a Fix this prompt. */
 'use strict';
 (function () {
   const { h, api, $ } = SB;
@@ -55,12 +55,28 @@
 
   const TREND = { up: ['▲', 'getting better'], down: ['▼', 'slipping'], flat: ['·', 'steady'] };
 
-  function signalRow(sig) {
+  // Fix this / Fix the worst: Shellby writes the prompt (reef/prompts.js) and it
+  // goes in the box of a new conversation in the project's folder. Nothing is
+  // sent until you press Enter.
+  async function fix(r, sig) {
+    try {
+      const f = await api.gameAct('reef', 'fix', { id: r.id, sig });
+      if (!f?.prompt) { SB.toast(f?.error || 'Nothing to fix there right now.'); return; }
+      SB.setView('chat');
+      await SB.newTabIn({ cwd: f.root || r.root, draft: f.prompt });
+    } catch {
+      SB.toast("Couldn't write that prompt just now. Try again in a moment.");
+    }
+  }
+
+  function signalRow(r, sig) {
     const [mark, words] = TREND[sig.trend] || TREND.flat;
+    const canFix = r?.on && sig.fixable;
     return h('li', { class: `reef-sig${sig.near ? ' near' : ''}`, dataset: { sig: sig.id } },
       h('div', { class: 'reef-sig-main' },
         h('span', { class: 'reef-sig-label', text: sig.label }),
-        h('span', { class: 'reef-sig-hint muted small', text: sig.hint })),
+        h('span', { class: 'reef-sig-hint muted small', text: sig.hint }),
+        canFix ? h('button', { type: 'button', class: 'link-btn inline reef-fix', title: 'Puts a prompt for this in a new conversation, to read before you send it', onclick: () => fix(r, sig.id) }, 'Fix this') : null),
       sparkline(sig),
       h('span', { class: `reef-trend ${sig.trend}`, title: words, 'aria-label': words, text: mark }),
       h('span', { class: 'reef-sig-val' },
@@ -107,14 +123,15 @@
         : `${r.stageName} · ${plural(r.polyps, 'polyp')}${r.paidToday ? ' · paid out today' : ''}`;
     card.dataset.stage = r ? String(r.stage) : '';
     const buttons = watched
-      ? [h('button', { type: 'button', class: 'btn slim-btn', disabled: busy, onclick: () => act('check', { id: r.id }), title: 'Read the ledgers and coverage again now. The escape-hatch count runs once a day.' }, busy ? 'Checking…' : 'Check now'),
+      ? [r.worst ? h('button', { type: 'button', class: 'btn primary slim-btn reef-fix-worst', title: 'Puts a prompt for the signal with the most room to get better in a new conversation', onclick: () => fix(r, 'worst') }, 'Fix the worst') : null,
+        h('button', { type: 'button', class: 'btn slim-btn', disabled: busy, onclick: () => act('check', { id: r.id }), title: 'Read the ledgers and coverage again now. The escape-hatch count runs once a day.' }, busy ? 'Checking…' : 'Check now'),
         h('button', { type: 'button', class: 'btn ghost slim-btn', disabled: busy, onclick: () => act('unwatch', { root: local.root }) }, 'Stop watching')]
       : [h('button', { type: 'button', class: 'btn primary slim-btn', disabled: busy, onclick: () => act('watch', { root: local.root }) }, busy ? 'Starting…' : 'Watch this reef')];
-    $('reefActions').replaceChildren(...buttons);
+    $('reefActions').replaceChildren(...buttons.filter(Boolean));
     const next = watched && r.next;
     $('reefNext').hidden = !next;
     if (next) $('reefNext').replaceChildren(h('span', { class: 'reef-next-label', text: 'Next best: ' }), next.text);
-    $('reefSignals').replaceChildren(...(r?.signals || []).map(signalRow));
+    $('reefSignals').replaceChildren(...(r?.signals || []).map(sig => signalRow(r, sig)));
     $('reefSignals').hidden = !r?.signals?.length;
     const waiting = watched ? r.waiting : [];
     $('reefWaiting').hidden = !waiting.length;
