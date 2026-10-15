@@ -47,7 +47,9 @@ async function run(settings, body) {
     conn = await connect(target.webSocketDebuggerUrl);
     const { ev } = conn;
     const until = async (expr, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await ev(expr)) return true; await wait(150); } return false; };
-    await until("!!window.SB && document.body.classList.contains('rooms-ready')", 20000);
+    // Started, not just its bar ready: the panel's start ends on the chat (boot.js), and leaves a
+    // screen opened sooner at once.
+    await until("!!window.SB && document.body.classList.contains('rooms-ready') && performance.getEntriesByName('shellby:panel-ready').length > 0", 20000);
     await body({ ev, until, data });
   } finally {
     conn?.close();
