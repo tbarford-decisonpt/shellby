@@ -76,7 +76,7 @@ function renderCrew(crew, more, ended = []) {
       el.querySelector('svg')?.replaceWith(helperSprite(el.dataset.hue, c.accessories));
     }
     // Themed name tag only: a native `title` would pop an unstyled OS tooltip.
-    // While a helper is sent a message, or sends one, the tag shows it (session.js noteMessage).
+    // While a helper is sent a message, or sends one, the tag shows it (session/crew.js noteMessage).
     el.querySelector('.tag').textContent = c.bubble ? helperTalk(c.bubble) : helperTag(c);
     el.classList.toggle('talking', !!c.bubble);
     el.classList.toggle('heard', c.bubble?.kind === 'heard');

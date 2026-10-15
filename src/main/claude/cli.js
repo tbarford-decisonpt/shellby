@@ -250,7 +250,7 @@ async function checkStatus({ configured = null } = {}) {
   try { info = JSON.parse(auth.stdout); } catch { /* not logged in or old CLI */ }
   const status = applyLapsed({
     installed: true, exe, version,
-    // What this version takes, for the flags Shellby only passes when it can (session.js OPTIONAL_FLAGS).
+    // What this version takes, for the flags Shellby only passes when it can (session/args.js OPTIONAL_FLAGS).
     flags: help.ok ? helpFlags(help.stdout) : null,
     picked: !!configured && exe === configured, // Settings shows where it came from
     loggedIn: !!info.loggedIn,

@@ -276,7 +276,7 @@ function createRemoteService(deps) {
     return folders().find(f => samePath(f.anchor, cwd)) || null;
   }
 
-  /** How a session in `place` starts its Claude Code (session.js remote). */
+  /** How a session in `place` starts its Claude Code (session/index.js remote). */
   function launch(place) {
     return { exe: sshCommand.exe, argsPrefix: sshCommand.prefix, host: place.host, dir: place.dir, env: askEnv || {}, extra: configArgs };
   }

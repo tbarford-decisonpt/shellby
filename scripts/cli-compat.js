@@ -85,7 +85,7 @@ const initialize = () => ({
 });
 
 /**
- * A long-lived stream-json process, the way session.js runs one. Every stdout
+ * A long-lived stream-json process, the way session/ runs one. Every stdout
  * line is kept; onEvent sees each parsed one and may write back.
  */
 function launch(exe, args, { cwd, onEvent = () => {} } = {}) {

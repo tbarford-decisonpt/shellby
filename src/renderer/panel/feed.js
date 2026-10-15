@@ -527,7 +527,7 @@
           badge ? h('span', { class: `effort-badge effort-${badge.level}`, title: badge.detail, text: badge.text }) : null,
           h('span', { class: 'turn-cost-line', text: cost.line })));
       }
-      // A turn whose process went (main's session.js ended()): its error block is just above.
+      // A turn whose process went (main's session/index.js ended()): its error block is just above.
       if (!item.ok && !item.interrupted && item.error && !item.crashed) this.append(this.troubleBlock(item.trouble, item.error));
       // ...and its helpers went with it.
       if (item.interrupted || item.crashed) for (const lane of this.lanes.values()) if (lane.status === 'running') lane.finish({ ok: false, stopped: true });

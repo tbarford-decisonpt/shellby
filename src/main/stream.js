@@ -173,7 +173,7 @@ function tokensOf(u) {
 
 // What one API call cost, for the usage-by-project ledger (spend.js). Claude Code
 // sends one assistant event per content block, each repeating the message's id
-// and usage, so callers count each id once (session.js). parent: the Agent call
+// and usage, so callers count each id once (session/). parent: the Agent call
 // a helper's call was made under, or null for the main thread's own.
 function spendFrom(ev) {
   const m = ev?.type === 'assistant' ? ev.message : null;
@@ -489,10 +489,10 @@ function toItems(ev) {
 }
 
 // The events Shellby knows, including the ones it reads past on purpose. Anything
-// else is new from Claude Code: session.js logs it once, and the nightly CLI
+// else is new from Claude Code: session/ logs it once, and the nightly CLI
 // check (cli-contract.js, scripts/cli-compat.js) flags it before a user meets it.
 const KNOWN = Object.freeze({
-  // control_response is read by session.js (answers to Shellby's own requests).
+  // control_response is read by session/ (answers to Shellby's own requests).
   // stream_event: the reply as it's written (only its words become items); prompt_suggestion: what you might ask next.
   types: new Set(['system', 'assistant', 'user', 'result', 'rate_limit_event', 'control_request', 'control_response', 'stream_event', 'prompt_suggestion']),
   // init, task_*, compact_boundary, a mod's ui_* and commands_changed become items; the rest is progress chatter.
@@ -503,7 +503,7 @@ const KNOWN = Object.freeze({
     'session_title_changed',
     // The whole list of what runs in the background: task_* says the same a task at a time.
     'background_tasks_changed']),
-  // can_use_tool becomes a permission card; hook_callback is answered by session.js.
+  // can_use_tool becomes a permission card; hook_callback is answered by session/.
   control: new Set(['can_use_tool', 'hook_callback']),
 });
 

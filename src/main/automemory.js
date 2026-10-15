@@ -4,7 +4,7 @@
 // with a MEMORY.md index of one line per file that loads into every
 // conversation there. Shellby doesn't remember anything itself: it shows what
 // Claude has written (Toolbox → Setup), lets you correct or drop it, and
-// notices when Claude writes a new one (session.js memoryOf).
+// notices when Claude writes a new one (session/index.js memoryOf).
 //
 // A memory file:
 //   ---

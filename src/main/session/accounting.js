@@ -1,12 +1,12 @@
 'use strict';
 
 // ClaudeSession's spend, token, cache and context-window bookkeeping, mixed
-// into its prototype by session.js.
+// into its prototype by session/index.js.
 
-const { weightOf } = require('./spend');
-const ctx = require('./context');
-const turncost = require('./turncost');
-const eff = require('./efficiency');
+const { weightOf } = require('../spend');
+const ctx = require('../context');
+const turncost = require('../turncost');
+const eff = require('../efficiency');
 
 const accounting = {
   // What each API call cost, for the usage-by-project ledger (spend.js). One

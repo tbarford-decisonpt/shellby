@@ -13,7 +13,7 @@ const planPace = require('./plan-pace');
 const mods = require('./mods');
 const todos = require('../renderer/shared/todos');
 
-// What a helper is saying, or was just told, for a few seconds (session.js noteMessage): null when quiet.
+// What a helper is saying, or was just told, for a few seconds (session/crew.js noteMessage): null when quiet.
 function talkOf(c, now = Date.now()) {
   const said = c.said && now - c.said.at < TALK_MS ? c.said : null;
   const heard = c.heard && now - c.heard.at < TALK_MS ? c.heard : null;
@@ -54,8 +54,8 @@ class SessionManager extends EventEmitter {
   // and getEffortPick() true, each one is sized from its first message instead (effort-pick.js).
   // getRemote(cwd) -> how to start Claude Code on another computer when cwd is
   // one of its folders, or null (remote/service.js launch): read at each start.
-  // getFallbackModel() and getChrome() are Settings' (session.js has what they do);
-  // supports(flag): whether the installed Claude Code takes one of session.js's OPTIONAL_FLAGS.
+  // getFallbackModel() and getChrome() are Settings' (session/ has what they do);
+  // supports(flag): whether the installed Claude Code takes one of session/args.js OPTIONAL_FLAGS.
   constructor({ getExe, history, getMode, getModel, getEffort = () => '', getEffortPick = () => false, getOutputStyle = () => '', getFallbackModel = () => '', getChrome = () => false, supports = () => true, argsPrefix = [], getEnv = () => ({}), prepareTurn = null, compose = text => text, windowShare = null, getSelfAware = () => null, onTool = null, decorate = null, getRemote = () => null, savePictures = null }) {
     super();
     Object.assign(this, { getExe, history, getMode, getModel, getEffort, getEffortPick, getOutputStyle, getFallbackModel, getChrome, supports, argsPrefix, getEnv, prepareTurn, compose, windowShare, getSelfAware, onTool, decorate, getRemote, savePictures });
@@ -80,7 +80,7 @@ class SessionManager extends EventEmitter {
     const session = new ClaudeSession({
       remote: () => this.getRemote(session.cwd), // only ever called once it exists
       // Asked again at each start: Claude Code may move while the tab is open
-      // (session.js). The path found now stands in should it go missing, so
+      // (session/). The path found now stands in should it go missing, so
       // the start fails the usual way (ENOENT, "can't find Claude Code").
       exe: () => this.getExe() || exe, argsPrefix: this.argsPrefix,
       cwd: historyEntry?.cwd || cwd,
@@ -303,7 +303,7 @@ class SessionManager extends EventEmitter {
 
   /**
    * The panel's queue while a turn runs, [{ id, text, attachments }] in order:
-   * it goes to Claude at its next step (session.js steer). Only for the turn it
+   * it goes to Claude at its next step (session/control.js steer). Only for the turn it
    * was queued behind: one the panel has since sent on its own isn't steered
    * in too. What has gone in already this turn stays out, should the panel not
    * have heard yet. -> whether it was taken.
@@ -362,7 +362,7 @@ class SessionManager extends EventEmitter {
   }
 
   /**
-   * Safe mode on or off for one conversation (session.js safeMode): its process
+   * Safe mode on or off for one conversation (session/index.js safeMode): its process
    * is let go of now, so the next message starts it the new way, resumed.
    * -> { ok } | { ok: false, error }
    */

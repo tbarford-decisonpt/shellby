@@ -1,101 +1,45 @@
 // One conversation = one long-lived `claude -p` process speaking stream-json on
 // stdin/stdout. Permission prompts, interrupts and mode switches go over the same
 // control protocol the Claude Agent SDK uses, so no API key is ever involved.
+// The class keeps the process's life and what it says; the rest is mixed in:
+// how it's launched (args.js), answering it (control.js), what it costs
+// (accounting.js) and its helpers (crew.js).
 const { spawn, execFile } = require('child_process');
-const fs = require('fs');
 const os = require('os');
-const path = require('path');
-const { TASKKILL } = require('./system32'); // by full path: Claude runs in project folders
+const { TASKKILL } = require('../system32'); // by full path: Claude runs in project folders
 const readline = require('readline');
 const { EventEmitter } = require('events');
 const { randomUUID } = require('crypto');
-const { parseLine, spendFrom } = require('./stream');
-const { troubleOf, remoteTroubleOf } = require('./trouble');
-const remoteSsh = require('./remote/ssh');
-const ctx = require('./context');
-const planPace = require('./plan-pace');
-const eff = require('./efficiency');
-const { claudeEnv } = require('./claude/cli');
-const { CLI_MODE } = require('./config');
-const { annotatePermission } = require('./safety');
-const { plainPermission } = require('./plain-words');
-const { lineOf, MAX_TEXT } = require('../renderer/shared/diff');
-const crabmcp = require('./crabmcp');
-const processJob = require('./process-job');
-const todos = require('../renderer/shared/todos');
-const jobs = require('./jobs');
-const { memoryOf } = require('./automemory');
-const { accounting } = require('./session-accounting');
-const { crew, TALK_MS } = require('./session-crew');
+const { parseLine, spendFrom } = require('../stream');
+const { troubleOf, remoteTroubleOf } = require('../trouble');
+const remoteSsh = require('../remote/ssh');
+const ctx = require('../context');
+const planPace = require('../plan-pace');
+const eff = require('../efficiency');
+const { claudeEnv } = require('../claude/cli');
+const { annotatePermission } = require('../safety');
+const { plainPermission } = require('../plain-words');
+const crabmcp = require('../crabmcp');
+const processJob = require('../process-job');
+const todos = require('../../renderer/shared/todos');
+const jobs = require('../jobs');
+const { memoryOf } = require('../automemory');
+const { unknownType } = require('../cli-contract');
+const { args, EFFORTS, OPTIONAL_FLAGS, WORK_HOOK, STEER_HOOK, writeConfig, removeFile, initHooks } = require('./args');
+const { control, DENY_MESSAGE } = require('./control');
+const { placeEdit } = require('./place');
+const { accounting } = require('./accounting');
+const { crew, TALK_MS } = require('./crew');
 
-// The tools that can change files, for the beforeWork hook.
-const WORK_TOOLS = 'Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell';
-const WORK_HOOK = 'shellby-before-work';
-// Every finished tool call on the main thread, so what you typed while Claude
-// works can go in before its next step (steer()).
-const STEER_HOOK = 'shellby-steer';
-
-const DENY_MESSAGE = 'The user declined this action in Shellby. Ask them how they would like to proceed.';
-
-const PLACE_MAX_BYTES = 2 * 1024 * 1024;
-
-// Where an Edit lands in its file, so its diff can show real line numbers and
-// a link can open the file at that line; and for a Write over a file that's
-// already there, what it's replacing, so that's a diff too rather than a wall
-// of green. Read before the edit runs: the CLI reports a tool call before it
-// executes it. Off the main thread, which a 2 MB file would hold up: the
-// session keeps the items after it waiting meanwhile (inOrder()).
-async function placeEdit(item) {
-  const first = item.edits?.[0];
-  if (!item.filePath || !first) return;
-  let text;
-  try {
-    if ((await fs.promises.stat(item.filePath)).size > PLACE_MAX_BYTES) return;
-    text = (await fs.promises.readFile(item.filePath, 'utf8')).replace(/\r\n/g, '\n');
-  } catch { return; } // a new file: nothing to compare with
-  if (item.name === 'Write' || item.toolName === 'Write') {
-    item.edits = [{ old: text.slice(0, MAX_TEXT), new: first.new }];
-    item.line = 1;
-  } else if (first.old) {
-    item.line = lineOf(text, first.old.replace(/\r\n/g, '\n'));
-  }
-}
-
-// Effort levels Claude Code takes (--effort). '' leaves it to Claude Code.
-const { EFFORTS, unknownType } = require('./cli-contract');
-// Flags newer than the rest, passed only when this Claude Code lists them in
-// its --help (claude/cli.js helpFlags): an older one stops at a flag it doesn't
-// know, and every turn would fail. On another computer its version isn't known,
-// so they're left out there.
-const OPTIONAL_FLAGS = Object.freeze(['--include-partial-messages', '--forward-subagent-text', '--fallback-model', '--name', '--agent', '--safe-mode', '--chrome']);
-// A conversation's name as Claude Code shows it (--name): one line, not too long.
-const NAME_MAX = 100;
-const cleanName = v => (typeof v === 'string' ? v.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX) : '');
 // How often the reply's words as they're written reach the panel, at most.
 const PARTIAL_MS = 50;
-// How long Shellby waits for the CLI to answer one of its own control requests.
-const REQUEST_TIMEOUT_MS = 15000;
-
-// A conversation's --mcp-config, in the temp folder (yours alone). null if it
-// can't be written: the definitions then go on the command line as before.
-function writeConfig(config) {
-  const file = path.join(os.tmpdir(), `shellby-mcp-${randomUUID()}.json`);
-  try { fs.writeFileSync(file, JSON.stringify(config), { mode: 0o600, flag: 'wx' }); return file; } catch { return null; }
-}
-const removeFile = file => { if (file) fs.rm(file, { force: true }, () => {}); };
-
-// The hooks Shellby registers with initialize: steering always, the work hook
-// when something watches work (beforeWork). scripts/cli-compat.js sends the same.
-function initHooks(watchWork) {
-  const steerAt = [{ matcher: '.*', hookCallbackIds: [STEER_HOOK] }];
-  const hooks = { PostToolUse: steerAt, PostToolUseFailure: steerAt };
-  if (watchWork) hooks.PreToolUse = [{ matcher: WORK_TOOLS, hookCallbackIds: [WORK_HOOK] }];
-  return hooks;
-}
+// How long a closed stdin waits for the CLI to go before it's killed.
+const CLOSE_KILL_MS = 3000;
 
 // Where an event type Shellby has never seen gets noted (main.js passes its
 // log, which scrubs it). Once per type per run: a chatty new event mustn't fill
 // the log, and the type name alone says what a Claude Code update added.
+/** @type {{ warn: (...args: unknown[]) => void } | null} */
 let logger = null;
 const loggedTypes = new Set();
 function setLogger(log) { logger = log || null; }
@@ -106,7 +50,39 @@ function noteUnknown(event) {
   try { logger?.warn('Claude Code sent an event Shellby does not know yet', type); } catch { /* the log never matters more than the turn */ }
 }
 
-class ClaudeSession extends EventEmitter {
+/**
+ * What a ClaudeSession is made with (the constructor's comment says what each is).
+ * @typedef {object} SessionOptions
+ * @property {string | (() => string)} exe
+ * @property {string} cwd
+ * @property {string} mode
+ * @property {string} [model]
+ * @property {string} [effort]
+ * @property {string} [outputStyle]
+ * @property {string} [fallbackModel]
+ * @property {boolean} [chrome]
+ * @property {boolean} [safeMode]
+ * @property {string} [agent]
+ * @property {() => string} [name]
+ * @property {(flag: string) => boolean} [supports]
+ * @property {string | null} [resumeId]
+ * @property {string | null} [resumeAt]
+ * @property {string[]} [argsPrefix]
+ * @property {() => Record<string, string>} [extraEnv]
+ * @property {{ tokens?: number, window?: number } | null} [context]
+ * @property {string[]} [allowedTools]
+ * @property {{ mcpServers?: Record<string, unknown> } | null} [mcpConfig]
+ * @property {string | null} [systemNote]
+ * @property {{ tools: unknown[], call: Function } | null} [mcp]
+ * @property {() => { exe: string, host: string, dir: string, env: Record<string, string>, extra?: string[], argsPrefix?: string[] } | null} [remote]
+ */
+
+/** @typedef {typeof args & typeof control & typeof accounting & typeof crew} SessionMixins */
+// EventEmitter at run time: the mixins join the prototype at the end of this
+// file. The cast only lets the class (and tsc) see their methods on `this`.
+const Base = /** @type {new () => EventEmitter & SessionMixins} */ (/** @type {unknown} */ (EventEmitter));
+
+class ClaudeSession extends Base {
   // argsPrefix lets tests run a fake CLI script: exe=node, argsPrefix=[script].
   // extraEnv: () => {} of variables to add when the process starts (GitHub access).
   // context: the last reading of how full it is ({ tokens, window }), so a
@@ -140,9 +116,35 @@ class ClaudeSession extends EventEmitter {
   // then Claude Code may have moved (its installer took the npm copy away and
   // left the native one, say): a path fixed when the tab opened would fail
   // every turn after that until Shellby restarted.
+  /** @param {SessionOptions} options */
   constructor({ exe, cwd, mode, model, effort = '', outputStyle = '', fallbackModel = '', chrome = false, safeMode = false, agent = '', name = () => '', supports = () => true, resumeId = null, resumeAt = null, argsPrefix = [], extraEnv = () => ({}), context = null, allowedTools = [], mcpConfig = null, systemNote = null, mcp = null, remote = () => null }) {
     super();
-    Object.assign(this, { exe, cwd, mode, model, effort, outputStyle, fallbackModel, chrome, safeMode, agent, nameOf: name, supports, resumeId, argsPrefix, extraEnv, allowedTools, mcpConfig, systemNote, mcp, remote });
+    this.exe = exe;
+    this.cwd = cwd;
+    this.mode = mode;
+    this.model = model;
+    this.effort = effort;
+    this.outputStyle = outputStyle;
+    this.fallbackModel = fallbackModel;
+    this.chrome = chrome;
+    this.safeMode = safeMode;
+    this.agent = agent;
+    this.nameOf = name;
+    this.supports = supports;
+    this.resumeId = resumeId;
+    this.argsPrefix = argsPrefix;
+    this.extraEnv = extraEnv;
+    this.allowedTools = allowedTools;
+    this.mcpConfig = mcpConfig;
+    this.systemNote = systemNote;
+    this.mcp = mcp;
+    this.remote = remote;
+    // Set by the manager (sessions.js) for a conversation that can move into a
+    // copy of its folder: whether it's in one now, and the folder it copies.
+    /** @type {(() => boolean) | null} */
+    this.inCopy = null;
+    /** @type {(() => string | null) | null} */
+    this.copyOf = null;
     // Set by rewindTo(): the next start resumes the conversation only up to this
     // transcript entry, as a fork, so the original is left as it was. Kept in
     // History too (sessions.js), so a restart before the next message honours it.
@@ -174,6 +176,7 @@ class ClaudeSession extends EventEmitter {
     this.interrupting = false;
     // While an edit's file is being read (placeEdit), what came after it waits
     // here, so items still reach listeners in the order Claude Code sent them.
+    /** @type {(() => void)[] | null} */
     this.held = null;
     this.createdFiles = new Set(); // paths Claude wrote/edited this conversation
     this.tasks = new Map();        // subagent task_id -> { status, description, ... }
@@ -195,53 +198,6 @@ class ClaudeSession extends EventEmitter {
     this.growths = [];             // how much the last few turns grew the context, for the crowded nudge
     this.plan = null;              // Claude's own to-do list, statuses only (plan-pace.js); the turn keeps its pace
     this.partial = null;           // { text, timer }: the reply's words written since they last went out
-  }
-
-  buildArgs() {
-    const args = [
-      '-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
-      '--permission-prompt-tool', 'stdio',
-      // Each message echoed back as Claude reads it: how a steer is known to have landed.
-      '--replay-user-messages',
-      '--permission-mode', CLI_MODE[this.mode] || 'default',
-      // Lets the user switch into Autonomous mid-conversation; it has no effect
-      // unless that mode is actually selected.
-      '--allow-dangerously-skip-permissions',
-    ];
-    if (this.systemNote) args.push('--append-system-prompt', this.systemNote);
-    if (this.model) args.push('--model', this.model);
-    if (EFFORTS.includes(this.effort)) args.push('--effort', this.effort);
-    if (this.outputStyle) args.push('--settings', JSON.stringify({ outputStyle: this.outputStyle }));
-    // The rest only when this Claude Code takes them (OPTIONAL_FLAGS).
-    const can = flag => !this.remoteHost && !!this.supports?.(flag);
-    // The reply as it's written, and what each helper says, not only its tool calls.
-    if (can('--include-partial-messages')) args.push('--include-partial-messages');
-    if (can('--forward-subagent-text')) args.push('--forward-subagent-text');
-    if (this.fallbackModel && this.fallbackModel !== this.model && can('--fallback-model')) args.push('--fallback-model', this.fallbackModel);
-    if (this.chrome && can('--chrome')) args.push('--chrome');
-    if (this.safeMode && can('--safe-mode')) args.push('--safe-mode');
-    if (this.agent && can('--agent')) args.push('--agent', this.agent);
-    const name = cleanName(this.nameOf?.());
-    if (name && can('--name')) args.push('--name', name);
-    // The crab's own tools are allowed outright: they can't run anything or
-    // change anything that matters, so a permission card for each would be noise.
-    const allowed = [...(this.allowedTools || []), ...(this.mcp ? [`mcp__${crabmcp.SERVER}`] : [])];
-    if (allowed.length) args.push('--allowedTools', allowed.join(','));
-    const mcpConfig = this.fullMcpConfig();
-    if (this.mcpConfig) args.push('--strict-mcp-config', '--mcp-config', this.mcpConfigFile || JSON.stringify(mcpConfig));
-    else if (mcpConfig) args.push('--mcp-config', JSON.stringify(mcpConfig));
-    if (this.sessionId) {
-      args.push('--resume', this.sessionId);
-      if (this.resumeAt) args.push(`--resume-session-at=${this.resumeAt}`, '--fork-session');
-    }
-    return args;
-  }
-
-  // The MCP servers this process loads beyond the usual ones: a routine's or
-  // workflow step's own (strict), with the crab's in-app server alongside.
-  fullMcpConfig() {
-    if (!this.mcp) return this.mcpConfig;
-    return { ...(this.mcpConfig || {}), mcpServers: { ...(this.mcpConfig?.mcpServers || {}), ...crabmcp.servers() } };
   }
 
   /** The CLI's path as it is now (exe may be a function: see the constructor). */
@@ -397,15 +353,17 @@ class ClaudeSession extends EventEmitter {
       try {
         this.emit('item', item); // still held: what its listeners emit goes after what came before
       } finally {
-        const rest = this.held;
+        const rest = this.held || [];
         this.held = null;
         // One of these may be another edit, which holds the rest again.
         while (rest.length && !this.held) {
-          const fn = rest.shift();
+          const fn = /** @type {() => void} */ (rest.shift()); // the loop checked there is one
           // A listener that throws mustn't strand the rest (it's still reported, as before).
           try { fn(); } catch (err) { setImmediate(() => { throw err; }); }
         }
-        if (this.held) this.held.push(...rest);
+        // fn() may have held them again: tsc only sees the null set above.
+        const heldAgain = /** @type {(() => void)[] | null} */ (this.held);
+        if (heldAgain) heldAgain.push(...rest);
       }
     });
   }
@@ -416,11 +374,6 @@ class ClaudeSession extends EventEmitter {
     if (!this.proc) return;
     this.kill();
     this.ended(null);
-  }
-
-  async answerMcp(event) {
-    const response = await crabmcp.handle(event.request.message, this.mcp);
-    this.write({ type: 'control_response', response: { subtype: 'success', request_id: event.request_id, response: { mcp_response: response } } });
   }
 
   // The reply's words as they're written go out together, every PARTIAL_MS at
@@ -528,17 +481,6 @@ class ClaudeSession extends EventEmitter {
     return jobs.view(this.jobs, now);
   }
 
-  /**
-   * Ask Claude Code to stop one background command or watch, the way its own
-   * TaskStop does. -> { ok } | { ok: false, error }.
-   */
-  async stopJob(taskId) {
-    const job = this.jobs.byId.get(taskId);
-    if (!job || job.status !== 'running') return { ok: false, error: "That isn't running any more." };
-    const r = await this.request('stop_task', { task_id: taskId });
-    return r.ok ? { ok: true } : { ok: false, error: r.error };
-  }
-
   // Claude's to-do list moved: 'todos' with the list at a glance (shared/todos.js).
   noteTodos(item) {
     if (todos.apply(this.todos, item)) this.emit('todos', todos.summary(this.todos));
@@ -592,115 +534,6 @@ class ClaudeSession extends EventEmitter {
     });
   }
 
-  // decision: 'allow' | 'always' | 'deny'. answers: AskUserQuestion's
-  // { [question text]: chosen label(s) or the user's own words }. via: 'phone'
-  // when it was answered from a notification (replies.js), 'deck' from a Stream
-  // Deck key (deck.js), so the card says so. afterPlan: the mode an approved
-  // plan's work goes on in (a note's Plan, sessions.js), else Claude Code's default.
-  respond(requestId, decision, message, answers, via, afterPlan = null) {
-    const item = this.pending.get(requestId);
-    if (!item) return false;
-    this.pending.delete(requestId);
-    let response;
-    if (decision === 'deny') {
-      response = { behavior: 'deny', message: message || DENY_MESSAGE };
-    } else {
-      response = { behavior: 'allow', updatedInput: item.input };
-      // Claude reads the user's choices from updatedInput.answers (checked against the real CLI).
-      if (item.toolName === 'AskUserQuestion' && answers) {
-        const asked = new Set((item.input?.questions || []).map(q => q?.question));
-        const clean = {};
-        for (const [q, a] of Object.entries(answers)) if (asked.has(q) && typeof a === 'string' && a.trim()) clean[q] = a.trim().slice(0, 2000);
-        response.updatedInput = { ...item.input, answers: clean };
-      }
-      if (decision === 'always' && item.suggestions.length) response.updatedPermissions = item.suggestions;
-      if (item.toolName === 'ExitPlanMode') this.setPlanning(false); // the plan's approved: on to the work
-      // As Claude Code's own "Yes, and auto-accept edits" does: the mode rides on the approval.
-      if (item.toolName === 'ExitPlanMode' && afterPlan && afterPlan !== 'plan' && CLI_MODE[afterPlan]) {
-        response.updatedPermissions = [...(response.updatedPermissions || []), { type: 'setMode', mode: CLI_MODE[afterPlan], destination: 'session' }];
-        this.mode = afterPlan;
-      }
-    }
-    this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
-    this.emitItem({ kind: 'decision', requestId, decision, toolName: item.toolName, ...(via === 'phone' || via === 'deck' ? { via } : {}) });
-    return true;
-  }
-
-  cancelPending() {
-    for (const id of this.pending.keys()) this.emit('item', { kind: 'decision', requestId: id, decision: 'cancelled' });
-    this.pending.clear();
-  }
-
-  interrupt() {
-    if (this.busy && this.waiting) {
-      // Claude never saw it, so there's nothing to interrupt: the turn just ends.
-      this.waiting = null;
-      this.setBusy(false);
-      this.emitItem({ kind: 'result', ok: false, interrupted: true, error: null, durationMs: 0 });
-      return;
-    }
-    if (!this.proc || !this.busy) return;
-    this.interrupting = true;
-    for (const id of [...this.pending.keys()]) this.respond(id, 'deny', 'Interrupted by the user.');
-    this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'interrupt' } });
-    // If the CLI doesn't wind down promptly, kill it; the session can be resumed.
-    const proc = this.proc;
-    setTimeout(() => { if (this.proc === proc && this.busy) this.kill(); }, 8000);
-  }
-
-  /**
-   * Ask the running CLI something over the control protocol and wait for its
-   * answer. -> { ok: true, response } | { ok: false, error }. Never throws.
-   */
-  request(subtype, payload = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
-    if (!this.proc) return Promise.resolve({ ok: false, error: "This conversation isn't running right now." });
-    const id = randomUUID();
-    return new Promise(resolve => {
-      const timer = setTimeout(() => this.answered({ request_id: id, subtype: 'error', error: "Claude Code didn't answer." }), timeoutMs);
-      this.requests.set(id, { resolve, timer });
-      this.write({ type: 'control_request', request_id: id, request: { subtype, ...payload } });
-    });
-  }
-
-  answered(r) {
-    const waiting = r && this.requests.get(r.request_id);
-    if (!waiting) return;
-    this.requests.delete(r.request_id);
-    clearTimeout(waiting.timer);
-    waiting.resolve(r.subtype === 'success' ? { ok: true, response: r.response || {} } : { ok: false, error: String(r.error || 'Claude Code said no.') });
-  }
-
-  // Effort for this conversation: the flag for the next start, and the running
-  // process told now, so the very next turn thinks harder (or less).
-  setEffort(effort) {
-    this.effort = EFFORTS.includes(effort) ? effort : '';
-    if (this.proc) this.request('apply_flag_settings', { settings: { effortLevel: this.effort || null } });
-  }
-
-  /**
-   * Make the next start pick the conversation up only as far as `anchor` (a
-   * transcript entry from an earlier result), as a new fork. No anchor: the
-   * next message starts a new conversation.
-   */
-  async rewindTo(anchor) {
-    await this.stop();
-    if (anchor) this.resumeAt = anchor;
-    else this.sessionId = null;
-    this.lastUuid = null;
-    this.setContext(0);
-    // The panel rebuilds the list from what's left of the feed; here it starts over.
-    this.todos = todos.create();
-    this.emit('todos', todos.summary(this.todos));
-  }
-
-  setMode(mode) {
-    this.mode = mode;
-    this.setPlanning(mode === 'plan');
-    if (this.proc) {
-      this.write({ type: 'control_request', request_id: randomUUID(), request: { subtype: 'set_permission_mode', mode: CLI_MODE[mode] } });
-    }
-  }
-
   // The main thread's tool calls still running, and the moment Claude reads a
   // steer: the CLI echoes each message as it takes it in (--replay-user-messages).
   // A turn's first message is echoed too, but nothing is steered by then.
@@ -736,34 +569,10 @@ class ClaudeSession extends EventEmitter {
     this.emit('plan');
   }
 
-  // A tool call on the main thread has finished (or failed). What you queued
-  // meanwhile goes in now, written ahead of this answer so the CLI has it before
-  // it hands the tool's result back: Claude reads it before its next step, like
-  // Claude Code's own queue. Only once nothing else of this step is still
-  // running (until Claude has read it, Stop can't take it back), not for a
-  // subagent's tools, whose steer would wait on the whole subagent, and not
-  // once you've pressed Stop.
-  steer(requestId, input) {
-    try {
-      this.openTools.delete(input?.tool_use_id);
-      const stopping = this.interrupting || input?.is_interrupt;
-      if (this.busy && !stopping && !input?.agent_id && !this.openTools.size && this.proc?.stdin.writable) {
-        for (const s of this.takeSteers?.() || []) {
-          this.write({ type: 'user', message: { role: 'user', content: s.content } });
-          this.steered.push(s.item);
-        }
-      }
-    } catch { /* it waits for the next step, or goes when the turn ends */ }
-    this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: {} } });
-  }
-
-  async answerHook(requestId, input) {
-    let response = {};
-    try { response = (await this.beforeWork?.(input || {})) || {}; } catch { /* let the tool run */ }
-    this.write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
-  }
-
-  /** End the process (not the conversation) and wait until it's gone. The next send() resumes it. */
+  /**
+   * End the process (not the conversation) and wait until it's gone. The next send() resumes it.
+   * @returns {Promise<void>}
+   */
   stop(timeoutMs = 8000) {
     const proc = this.proc;
     if (!proc || proc.exitCode !== null) return Promise.resolve();
@@ -789,11 +598,12 @@ class ClaudeSession extends EventEmitter {
     if (!this.proc) return;
     const proc = this.proc;
     try { proc.stdin.end(); } catch { /* ignore */ }
-    setTimeout(() => { if (this.proc === proc) this.kill(); }, 3000);
+    setTimeout(() => { if (this.proc === proc) this.kill(); }, CLOSE_KILL_MS);
   }
 }
 
-Object.defineProperties(ClaudeSession.prototype, Object.getOwnPropertyDescriptors(accounting));
-Object.defineProperties(ClaudeSession.prototype, Object.getOwnPropertyDescriptors(crew));
+for (const mixin of [args, control, accounting, crew]) {
+  Object.defineProperties(ClaudeSession.prototype, Object.getOwnPropertyDescriptors(mixin));
+}
 
 module.exports = { ClaudeSession, DENY_MESSAGE, EFFORTS, OPTIONAL_FLAGS, initHooks, setLogger, placeEdit, TALK_MS };

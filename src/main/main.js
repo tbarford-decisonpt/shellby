@@ -121,7 +121,7 @@ if (process.argv.includes('--capture-screenshots') && !process.env.SHELLBY_USER_
 // "Report a problem" offers to paste into an issue. See log.js.
 const LOG_DIR = path.join(app.getPath('userData'), 'logs');
 const log = new Log(LOG_DIR, { home: os.homedir() });
-// An event type a Claude Code update added is noted here, once (session.js).
+// An event type a Claude Code update added is noted here, once (session/).
 require('./session').setLogger(log);
 // ("starting" is written below, once this is known to be the Shellby that stays.)
 

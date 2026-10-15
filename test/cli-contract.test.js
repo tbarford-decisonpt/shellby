@@ -33,7 +33,7 @@ test('every flag Shellby launches with is in the contract, and every contract fl
 test('the contract asks for exactly the permission modes and efforts Shellby uses', () => {
   assert.deepEqual([...contract.REQUIRED_MODES].sort(), [...new Set(Object.values(CLI_MODE))].sort());
   assert.ok(contract.REQUIRED_MODES.includes('default'), 'Ask mode launches as "default", which --help no longer lists');
-  assert.equal(contract.EFFORTS, EFFORTS, 'session.js uses the contract\'s list, not a copy');
+  assert.equal(contract.EFFORTS, EFFORTS, 'session/args.js uses the contract\'s list, not a copy');
   for (const e of EFFORTS) {
     const args = new ClaudeSession({ exe: 'x', cwd: os.tmpdir(), mode: 'ask', effort: e }).buildArgs();
     assert.equal(args[args.indexOf('--effort') + 1], e);

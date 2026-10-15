@@ -19,7 +19,7 @@ claude -p --input-format stream-json --output-format stream-json --verbose
 - **Subagents** come through as `task_started` / `task_progress` / `task_notification` system events. Their messages carry `parent_tool_use_id`, the Agent call that spawned them, and their permission prompts carry `agent_id`, which equals the `task_id`. That's all it takes to route every event, prompt and helper crab to the right lane.
 - **Background commands and watches** (`Bash { run_in_background }`, `Monitor`) come through as the same `task_*` events with `task_type: "local_bash"` (helpers are `local_agent`), and only `task_started` says the type, so later events are known by their task id (jobs.js). A command's exit code is only in `task_notification`'s summary. Stop sends a `stop_task` control request, as Claude Code's own TaskStop does. A helper sent another message (`SendMessage`) starts again under that call's id while its messages keep the first Agent call's.
 - **Claude's own to-do list** is its `TaskCreate` / `TaskUpdate` calls (`TodoWrite` in older versions); the new to-do's id comes back in `TaskCreate`'s result (shared/todos.js).
-- **Newer flags** (`session.js` `OPTIONAL_FLAGS`: `--include-partial-messages`, `--forward-subagent-text`, `--fallback-model`, `--name`, `--agent`, `--safe-mode`, `--chrome`) are passed only when the installed CLI's `--help` lists them (`claude/cli.js` `helpFlags`, read with the status check), and never over ssh, where the version isn't known. An older CLI stops at a flag it doesn't know, so without this check every turn would fail.
+- **Newer flags** (`session/args.js` `OPTIONAL_FLAGS`: `--include-partial-messages`, `--forward-subagent-text`, `--fallback-model`, `--name`, `--agent`, `--safe-mode`, `--chrome`) are passed only when the installed CLI's `--help` lists them (`claude/cli.js` `helpFlags`, read with the status check), and never over ssh, where the version isn't known. An older CLI stops at a flag it doesn't know, so without this check every turn would fail.
 - **The reply as it's written** comes as `stream_event` `content_block_delta` / `text_delta` events. The session batches them into `partial` items every 50 ms. They reach the panel but are never saved, and the panel swaps them for the finished `text` item. **Prompt suggestions** (`promptSuggestions: true` in `initialize`) arrive after a turn as `prompt_suggestion` events and are never saved either. Claude Code only sends them when a server-side switch allows it. As of 2.1.296 the dev PC's account got none, even with `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION` set. **A helper's words** (`--forward-subagent-text`) are assistant events with `parent_tool_use_id`. They show in its lane, and their first line goes in its crab's bubble.
 - **`/goal`** has no event of its own: Claude Code answers with a `<synthetic>`-model reply, `Goal set: …` or `Goal cleared: …` (`stream.js` `goalOf`), and the panel pins the goal from that.
 - **Cloud sessions** (`--teleport`, `--cloud`, `--from-pr`) open in a terminal through `handoff.js` `cloudArgs`, which allows a fixed set of arguments only. A cloud session's description goes only to PowerShell, as a single-quoted literal, never to cmd.
@@ -246,7 +246,7 @@ Claude Code ships often, and Shellby drives it through flags and a protocol that
 
 A pass updates the **Works with Claude Code** badge in the README (a shields.io endpoint, `cli-compat.json` on the `badges` branch, which the workflow creates on its first run). A failure turns the badge red with the last version that worked, and opens an issue labelled `cli-compat`, or comments on the open one once per new version. The next pass closes it.
 
-The app watches too: a top-level event type Shellby has never seen is written to the log once per run (`session.js`), so a "Report a problem" paste says what a Claude Code update added.
+The app watches too: a top-level event type Shellby has never seen is written to the log once per run (`session/index.js`), so a "Report a problem" paste says what a Claude Code update added.
 
 `test/fixtures/cli-transcripts/` holds real transcripts, scrubbed of paths, names, ids and per-user setup, and a unit test audits them on every CI run. To record one for a new version, on a signed-in machine (one tiny Haiku turn):
 
@@ -441,7 +441,8 @@ src/main/        Electron main process
   ipc/             the panel's and crab's IPC handlers, one module per area: `registerXIpc(ipcMain, shared)`;
                    index.js registers them all behind the window check (ipc-guard.js)
   sessions.js      parallel conversations (tabs) + the critter's rolled-up mood
-  session.js       one Claude Code process per conversation (stream-json + control protocol)
+  session/         one Claude Code process per conversation (stream-json + control protocol): index.js its life
+                   and what it says; args.js how it starts, control.js answering it, accounting.js what it costs, crew.js its helpers
   stream.js        pure parser: CLI events (incl. subagent tasks) → UI items
   checks.js        turn checks: which test commands a folder has, running them (cmd, fixed lines only), the verdict and the bring-home gate
   shots.js         before/after pictures of a dev server either side of a turn, in a hidden locked-down window
@@ -468,7 +469,7 @@ src/main/        Electron main process
   external.js      Claude Code sessions outside Shellby: the local hook listener and session tracking
   remote/          Claude Code on other computers over ssh: ssh.js (pure: every command line and remote script, the ssh config),
                    askpass.js (ssh's questions asked in the panel), agent.js (Windows' ssh agent and keys), service.js (computers,
-                   checks, folders and their stand-ins on this PC); wiring/remote.js ties it in, and session.js starts a tab whose
+                   checks, folders and their stand-ins on this PC); wiring/remote.js ties it in, and session/ starts a tab whose
                    folder is a stand-in through ssh
   deck.js          the Stream Deck keys (pure: what each shows, what a press does) and the token-guarded 127.0.0.1 server
                    the plugin listens to; deck-pack.js zips src/streamdeck/ into a .streamDeckPlugin; wiring/deck.js ties it in

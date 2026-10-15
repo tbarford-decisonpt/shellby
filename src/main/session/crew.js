@@ -1,7 +1,7 @@
 'use strict';
 
 // ClaudeSession's helpers (subagents) and their messages, mixed into its
-// prototype by session.js.
+// prototype by session/.
 
 // How long a helper shows a message it sent or was sent (noteMessage).
 const TALK_MS = 8000;

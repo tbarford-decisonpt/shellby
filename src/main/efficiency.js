@@ -42,7 +42,7 @@ const daysBack = (now, n) => { const d = new Date(now); return dayKey(new Date(d
 /**
  * One API call's token counts from an assistant event, or null. Claude Code
  * repeats a call's usage on every content block, so callers count each
- * messageId once (session.js). main: not inside a subagent.
+ * messageId once (session/). main: not inside a subagent.
  */
 function callFrom(ev) {
   const m = ev?.type === 'assistant' ? ev.message : null;
