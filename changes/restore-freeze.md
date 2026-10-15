@@ -1,0 +1,2 @@
+### Fixed
+- **A panel full of busy tabs no longer freezes after you minimize it.** With a lot of conversations working at once, the panel used to redraw the whole tab strip for every progress report, fell behind, and stayed frozen (for minutes, in the worst case) while it caught up after you restored or maximized it. It now keeps up with the newest report and skips redrawing tabs that look the same.
