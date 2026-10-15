@@ -449,7 +449,7 @@ SB.closeMenus = ({ refocus = false } = {}) => {
 };
 
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .tab-review, .slash-menu, .snip-more, .note-more, .vw-where, #input')) SB.closeMenus();
+  if (!e.target.closest('.popover, .mode-chip, .folder-chip, .ctx-chip, .usage, .tab-all, .tab-review, .slash-menu, .snip-more, .note-more, .vw-where, .ft-where, #input')) SB.closeMenus();
 });
 
 // Up/Down walk a menu's items (wrapping round), Home/End jump to either end.

@@ -42,6 +42,7 @@
     { id: 'bringHome', group: 'This conversation', keys: ['Ctrl+Shift+H'], what: 'Bring its own copy home (merge it back)' },
     { id: 'outline', group: 'This conversation', keys: ['Ctrl+Shift+O'], what: 'Outline: every message you sent and the files each turn touched' },
     { id: 'trail', group: 'This conversation', keys: ['Ctrl+Shift+E'], what: 'Trail: the files Claude has read, searched and changed, with him walking it' },
+    { id: 'files', group: 'This conversation', keys: ['Ctrl+Shift+F'], what: 'All files: the whole project beside the chat, lit up as Claude reads and writes' },
     { id: 'problems', group: 'This conversation', keys: ['Ctrl+Shift+M'], what: 'Problems: the errors its checks found, file by file, each with Fix it' },
     { id: 'cycleMode', fixed: true, group: 'This conversation', keys: ['Shift+Tab'], what: 'Next permission mode (in the box)' },
 

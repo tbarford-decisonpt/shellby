@@ -206,6 +206,7 @@
     // ------------------------------------------------------------ items
     render(item, { replay = false } = {}) {
       SB.trailTake?.(this, item, replay); // where he's been in the files (trail.js)
+      SB.filesTake?.(this, item, replay); // and lit up in All files (files-dock.js)
       // Claude's to-do list moves with its tool calls, replayed or live (native-strip.js draws it;
       // an unfocused pane keeps a line of it, tab-panes.js).
       if ((item.kind === 'tool' || item.kind === 'tool_result') && T.apply(this.todos, item)) {
@@ -329,6 +330,7 @@
         case 'shell': return this.renderShell(item, replay);
         case 'error': return this.append(this.troubleBlock(item.trouble, item.text));
         case 'lesson': return SB.renderLesson ? this.append(SB.renderLesson(item)) : undefined; // lessons.js
+        case 'keepwarm': return SB.renderKeepWarm?.(this, item); // keepwarm.js
         // What a mod shows (toolbox-mods.js): always under its own name, so it can't pass for Claude or Shellby.
         case 'modlog': return this.append(h('div', { class: 'home-mark mod-mark' },
           h('span', { class: 'chg-icon', 'aria-hidden': 'true', text: '🧩' }),

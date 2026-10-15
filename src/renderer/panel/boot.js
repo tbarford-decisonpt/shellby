@@ -41,6 +41,7 @@
       SB.onTurnEnded(tab, item);
       api.listSessions().then(s => { state.sessions = s; });
     }
+    if (item.kind === 'keepwarm') SB.onKeepWarmItem?.(tab, item); // a ping's turn ends with its receipt (keepwarm.js)
     if (item.kind === 'decision' || item.kind === 'result') SB.syncBusyUi();
   });
   api.onTabSteering(({ tabId, ids }) => {

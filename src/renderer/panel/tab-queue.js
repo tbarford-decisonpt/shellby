@@ -8,7 +8,7 @@
   const input = $('input');
   // Theirs (tab-send.js, loaded before this).
   const syncBusyUi = () => SB.syncBusyUi();
-  const sendNow = (tab, text, attachments) => SB.sendNow(tab, text, attachments);
+  const sendNow = (tab, text, attachments, opts) => SB.sendNow(tab, text, attachments, opts);
   const autosize = () => SB.autosize();
   const renderAttachments = () => SB.renderAttachments();
 
@@ -16,8 +16,9 @@
 
   // What's queued behind a running turn goes to Claude at his next step, the
   // way Claude Code's queue does (main's session/control.js steer), so main hears of
-  // every change to it. A /command can only start a turn: it, and everything
-  // after it, wait for this one to end.
+  // every change to it. A /command can only start a turn, and one with a file
+  // picked needs a turn of its own to carry it: it, and everything after it,
+  // wait for this one to end.
   function syncSteers(tab) {
     const { live, items, key } = L.steerPlan(tab);
     if (key === tab.steerKey) return;
@@ -42,10 +43,11 @@
 
   // Each queued message has an id of its own, for main to say which went in.
   // Each window numbers its own apart, since a queue can move between them
-  // with its conversation (tab-panes.js).
+  // with its conversation (tab-panes.js). selected: the file picked in All files
+  // when it was typed, which goes with it (files-select.js).
   const QUEUE_PREFIX = `q${Math.random().toString(36).slice(2, 7)}-`;
   let queued = 0;
-  const queueItem = (text, attachments) => ({ id: `${QUEUE_PREFIX}${++queued}`, text, attachments });
+  const queueItem = (text, attachments, selected = null) => ({ id: `${QUEUE_PREFIX}${++queued}`, text, attachments, ...(selected ? { selected } : {}) });
   SB.queueItem = queueItem;
 
   // ------------------------------------------------------------ queued messages
@@ -98,11 +100,12 @@
   }
   SB.removeQueued = removeQueued;
 
-  // Pull a queued message back into the box to edit (whatever was typed there is queued in its place).
+  // Pull a queued message back into the box to edit (whatever was typed there is queued in its place,
+  // with the pick as it is now). Its own pick stays behind: sent again, it takes the one then.
   function editQueued(tab, i) {
     if (!tab.queue[i] || tab.queue[i].taken) return; // Claude is reading it already
     const [m] = tab.queue.splice(i, 1);
-    if (input.value.trim() || tab.attachments.length) tab.queue.splice(i, 0, queueItem(input.value.trim(), [...tab.attachments]));
+    if (input.value.trim() || tab.attachments.length) tab.queue.splice(i, 0, queueItem(input.value.trim(), [...tab.attachments], SB.treePickOpts?.(tab)?.selected));
     input.value = m.text;
     tab.attachments = [...m.attachments];
     renderAttachments();
@@ -115,7 +118,7 @@
   async function drain(tab) {
     if (tab.busy || tab.queuePaused || !tab.queue.length) return;
     const next = tab.queue.shift();
-    if (!(await sendNow(tab, next.text, next.attachments))) tab.queue.unshift(next);
+    if (!(await sendNow(tab, next.text, next.attachments, { ...(next.selected ? { selected: next.selected } : {}), fromQueue: true }))) tab.queue.unshift(next);
     if (tab.isActive) syncBusyUi();
   }
 

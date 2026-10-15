@@ -144,7 +144,11 @@ class SessionManager extends EventEmitter {
     session.inCopy = () => !!tab.worktree;
     session.copyOf = () => tab.worktree?.originalCwd || null;
 
-    session.on('item', item => this.onItem(tab, item));
+    // Keep warm's ping is keepwarm-service.js's business: none of its turn is
+    // saved, shown or counted as a turn of yours; its result settles ping().
+    // Only what the process says: a note made meanwhile (note(), safe mode, the
+    // crab's suggestions) is the tab's as ever. Its usage readings go through.
+    session.on('item', item => (tab.pinging && item.kind !== 'usage' ? this.onPingItem(tab, item) : this.onItem(tab, item)));
     session.on('spend', s => this.emit('spend', tab.id, s, tab));
     session.on('call', c => this.emit('call', tab.id, c, tab));
     session.on('cache', () => this.changed());
@@ -159,6 +163,8 @@ class SessionManager extends EventEmitter {
     session.on('planning', () => this.changed());
     session.on('tool', () => this.changed());
     session.on('exit', () => {
+      // A process stopped mid-ping sends no result (session.js ended), so the ping is settled here.
+      if (tab.pinging) this.settlePing(tab, { ok: false, error: 'its Claude Code process ended', tokens: null, denied: false });
       // Its mods ended with it: their status lines go too (plugin null: all of them).
       this.emit('item', tab.id, { kind: 'modstatus', plugin: null, text: null }, tab);
       this.changed();
@@ -337,6 +343,7 @@ class SessionManager extends EventEmitter {
   // between turns, not mid-turn, so "just before it" can't be put back. turnOf
   // is the message whose turn it went into, which the panel offers instead.
   takeSteers(tab) {
+    if (tab.pinging) return []; // after the ping, as a turn of its own
     const taken = [];
     for (const m of tab.steers) {
       let content;
@@ -397,6 +404,55 @@ class SessionManager extends EventEmitter {
     if (tab) this.onItem(tab, item);
   }
 
+  /**
+   * Keep warm's ping (keepwarm-service.js): one message through the tab's
+   * running process and nothing else send() does. No History, effort pick,
+   * preamble, decorate or prepareTurn, so the conversation's cached prompt
+   * and its effort stay exactly as they were.
+   * -> a promise of { ok, error, tokens, denied } when its turn ends.
+   */
+  ping(tabId, text) {
+    const tab = this.require(tabId);
+    const s = tab.session;
+    // A process on its way out (a stop asked for, or exited and not yet closed) would drop it unanswered.
+    if (!s.proc || s.stopping || s.proc.exitCode != null || s.busy || s.pending.size || tab.inTerminal || tab.pinging) return Promise.reject(new Error("That conversation can't take a ping now."));
+    return new Promise(resolve => {
+      // growths: put back after, so a one-word reply doesn't slow the "filling up" pace (turncost.js).
+      tab.pinging = { resolve, denied: false, growths: s.growths };
+      try { s.send(text); } catch (err) {
+        tab.pinging = null;
+        resolve({ ok: false, error: err.message, tokens: null, denied: false });
+      }
+    });
+  }
+
+  // An item of a ping's turn: a tool it asks for is refused (nobody's there to
+  // say yes, and a ping uses none), and its result ends the ping.
+  onPingItem(tab, item) {
+    const p = tab.pinging;
+    if (item.kind === 'permission') {
+      p.denied = true;
+      tab.session.respond(item.requestId, 'deny', 'Keep-warm pings use no tools.');
+      return;
+    }
+    if (item.kind !== 'result') return;
+    this.settlePing(tab, { ok: !!item.ok && !p.denied, error: item.error || null, tokens: item.tokens || null, denied: p.denied });
+  }
+
+  settlePing(tab, r) {
+    const p = tab.pinging;
+    tab.pinging = null;
+    tab.session.growths = p.growths;
+    p.resolve(r);
+    this.changed();
+  }
+
+  /** Counts as just used, for stopIdle: Keep warm lets go of the tabs it kept (keepwarm-service.js stop). */
+  touch(tabId) {
+    const tab = this.tabs.get(tabId);
+    if (tab) tab.activeAt = Date.now();
+  }
+
   respond(tabId, requestId, decision, message, answers, via) {
     const tab = this.tabs.get(tabId);
     if (!tab) return false;
@@ -455,6 +511,8 @@ class SessionManager extends EventEmitter {
     // Closed by hand mid-turn: no result is coming, and it wasn't cut off either.
     // Quitting (kill) leaves the mark, so the next start says what didn't finish.
     if (!kill && tab.saved && tab.session.busy) this.history.markTurn?.(tab.id, null);
+    // A ping in flight would never hear its result once the listeners are gone: settle it here.
+    if (tab.pinging) this.settlePing(tab, { ok: false, error: 'the conversation was closed', tokens: null, denied: false });
     tab.session.removeAllListeners();
     if (kill) tab.session.kill();
     tab.session.close();
@@ -480,14 +538,15 @@ class SessionManager extends EventEmitter {
    * a claude process and a full set of MCP servers (dozens of processes, over a
    * GB) for nothing; the tab stays open, and its next message resumes it. Not a
    * tab that's working, waiting on you, or has something running in the
-   * background. -> the ids of the tabs stopped.
+   * background. keep(id): true for a tab Keep warm still keeps
+   * (keepwarm-service.js isKept). -> the ids of the tabs stopped.
    */
-  stopIdle(idleMs, now = Date.now()) {
+  stopIdle(idleMs, now = Date.now(), keep = () => false) {
     const stopped = [];
     for (const tab of this.tabs.values()) {
       const s = tab.session;
       if (!s.proc || s.busy || s.pending.size || s.runningCrew().length) continue;
-      if (now - tab.activeAt < idleMs) continue;
+      if (now - tab.activeAt < idleMs || keep(tab.id)) continue; // keep: Keep warm still needs its process
       s.stop().catch(() => {});
       stopped.push(tab.id);
     }
@@ -584,8 +643,11 @@ class SessionManager extends EventEmitter {
     const now = Date.now();
     for (const t of this.tabs.values()) {
       pending += t.session.pending.size;
-      if (t.session.busy) { busy++; tools.push({ tool: t.session.tool, toolAt: t.session.toolAt }); }
-      if (t.session.busy && t.session.planning) planning++;
+      // A keep-warm ping is nobody's work: no crab at work, no "running" in the tray, no
+      // Multitasker. What else the tab has going (its jobs, its helpers) still shows.
+      const working = t.session.busy && !t.pinging;
+      if (working) { busy++; tools.push({ tool: t.session.tool, toolAt: t.session.toolAt }); }
+      if (working && t.session.planning) planning++;
       for (const p of t.session.pending.values()) if (p.toolName === 'ExitPlanMode') plans++;
       for (const j of t.session.jobView()) if (j.status === 'running') jobs.push({ ...j, tabId: t.id });
       for (const c of t.session.runningCrew()) {

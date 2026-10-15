@@ -19,6 +19,7 @@ const changes = require('./changes');
 const fileIndex = require('./fileindex');
 const { parseTarget } = require('./filelinks');
 const { parseWorktrees, okDir } = require('./leaving');
+const { readStatus } = require('./viewer-status');
 
 const { TREE } = changes;
 const HEADS = 'refs/heads/';
@@ -35,6 +36,8 @@ const MAX_PLACE_TREES = 20;          // worktrees in the header's menu
 const MAX_PLACE_BRANCHES = 30;       // branches checked for commits of their own, newest first
 const PLACES_MS = 10000;             // the menu's list is reused this long, per repo
 const AT_ONCE = 4;                   // the menu's git status, rev-list and rev-parse runs at a time, across the whole viewer
+const MAX_PICKED = 300;                                      // the picked file's path, at most (selectedNote)
+const PICK_UNSAFE = /[\0-\x1f\x7f-\x9f\p{Cf}\p{Zl}\p{Zp}]/u; // control, format (bidi) and separator characters
 
 // buffer: the output as bytes (a blob, sniffed for NUL before it's decoded). env: added to git's own.
 // exit: answer { code, out } (code: git's exit code, null when it didn't run or timed out) rather than
@@ -224,6 +227,29 @@ async function locate(cwd, target, { home = os.homedir() } = {}) {
   return { inside: true, rel: path.relative(root, file).split(path.sep).join('/'), line: t.line };
 }
 
+/**
+ * The line a prompt carries for the file picked in the file tree (panel/files-select.js): only a
+ * file still there, inside the conversation's repo (or its folder, outside git), never in a folder
+ * too wide to browse. Nothing is read from the file. rel: its path in the tree (relative to the
+ * repo's root), so a conversation moved into its own worktree keeps its pick: the same file there.
+ * The name comes from the repo, and the line is one Claude takes as Shellby's own words: a name
+ * with a control, format or separator character, or longer than MAX_PICKED, is refused, and the
+ * rest goes in quotes, which a Windows name can't hold. -> the line, or null
+ */
+async function selectedNote(cwd, rel, { home = os.homedir() } = {}) {
+  if (!okDir(cwd) || !plainRel(rel) || rel.length > MAX_PICKED || PICK_UNSAFE.test(rel)) return null;
+  const root = longPath((await changes.rootOf(cwd)) || cwd);
+  if (!root || tooWide(cwd, home) || tooWide(root, home)) return null;
+  const abs = path.resolve(root, rel);
+  if (!isUnder(root, abs)) return null; // by name first: nothing outside the folder is touched
+  const file = longPath(abs);           // then links followed: a junction out of it ends outside
+  if (!file || !isUnder(root, file)) return null;
+  try { if (!fs.statSync(file).isFile()) return null; } catch { return null; }
+  const shown = path.relative(root, file).split(path.sep).join('/');
+  if (shown.length > MAX_PICKED || PICK_UNSAFE.test(shown)) return null; // a link inside can name another file
+  return `[Shellby: the user has the file ${JSON.stringify(shown)} selected in the file tree; "this" or "it" may mean it.]`;
+}
+
 /** Tool calls that could write, until their results come in; then nudge(cwd) once for each. */
 function writeWatch(nudge) {
   const writing = new Set();
@@ -248,7 +274,7 @@ function createViewer({ home = os.homedir() } = {}) {
   // look running, last[mode] = { at, result }; shown = the mode of the list the panel was last handed;
   // gen counts nudges. origin = { tabId, root, base }: the conversation the first handle was opened
   // from, carried through the header menu's picks; places = that menu's list (placesOf), placing = its
-  // build while one runs.
+  // build while one runs. statusHead, statusCached, statusLine: the file tree's status reads (viewer-status.js).
   const handles = new Map();
   let line = Promise.resolve(); // viewer snapshots take turns: eight handles never hash a big repo at once
 
@@ -453,11 +479,11 @@ function createViewer({ home = os.homedir() } = {}) {
     return h.kind === 'branch' ? readBlob(h, rel) : readInside(h.root, rel);
   }
 
-  /** All files: fileindex.js's list for a folder; a branch's own tree, with its folders. */
-  async function treeOf(id) {
+  /** All files: fileindex.js's list for a folder (fresh: not the cached one); a branch's own tree, with its folders. */
+  async function treeOf(id, { fresh = false } = {}) {
     const h = handles.get(id);
     if (!h) return { ok: false, expired: true };
-    if (h.kind !== 'branch') return { ok: true, entries: await fileIndex.list(h.root) };
+    if (h.kind !== 'branch') return { ok: true, entries: await fileIndex.list(h.root, { fresh }) };
     // The tip as it is now, not where the last changes look left it: Refresh asks for both at once, and
     // computeBranch moves h.commit only after its own rev-parse. A branch gone since keeps its last tree.
     const at = await liveRoot(h);
@@ -466,6 +492,29 @@ function createViewer({ home = os.homedir() } = {}) {
     if (tip) h.commit = tip;
     const t = await pathsAt(h, h.commit, at);
     return { ok: true, entries: t ? fileIndex.withFolders(t.list) : [] };
+  }
+
+  // The file tree's marks (viewer-status.js), for a folder handle only. One read at a time per
+  // handle, in order, so each one's commit check compares with the one before. Asked again within
+  // REFRESH_MS with no nudge between, the last answer stands, without its commits and staged files
+  // (they lit once). staleFor's h.last = {} and h.pending = {} drop the reuse and the share, as
+  // they do for a changes look.
+  function statusOf(id) {
+    const h = handles.get(id);
+    if (!h) return Promise.resolve({ ok: false, expired: true });
+    if (h.kind !== 'folder') return Promise.resolve({ ok: false, error: 'Only a folder has a status.' });
+    if (!longPath(h.root)) return Promise.resolve({ ok: false, gone: true, error: 'This folder is gone.' });
+    if (h.pending.status) return h.pending.status;
+    const last = h.last.status;
+    if (last && Date.now() - last.at < REFRESH_MS) return Promise.resolve(last.result);
+    const gen = h.gen;
+    const p = (h.statusLine || Promise.resolve()).then(() => readStatus(h, git)).then(result => {
+      if (result.ok && h.gen === gen) h.last.status = { at: Date.now(), result: { ...result, committed: [], staged: [] } };
+      return result;
+    }).finally(() => { if (h.pending.status === p) delete h.pending.status; });
+    h.statusLine = p.catch(() => {});
+    h.pending.status = p;
+    return p;
   }
 
   // ---- the header's menu (panel/viewer.js): the repo's worktrees, and its branches still in flight.
@@ -625,12 +674,13 @@ function createViewer({ home = os.homedir() } = {}) {
   }
 
   return {
-    open, openBranch, get: id => handles.get(id) || null, changesOf, diffOf, read, treeOf,
+    open, openBranch, get: id => handles.get(id) || null, changesOf, diffOf, read, treeOf, statusOf,
     placesOf, switchTo, close: id => { handles.delete(id); }, staleFor, keepTabs,
   };
 }
 
 module.exports = {
-  readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, branchOf, writeWatch, countStatus, checkoutBranch, limiter,
+  readInside, sameDir, isUnder, longPath, tooWide, createViewer, locate, selectedNote, branchOf, writeWatch, countStatus, checkoutBranch, limiter,
   MAX_BYTES, SNIFF_BYTES, MAX_HANDLES, REFRESH_MS, EMPTY_TREE, TREE_MAX, HEAD_REF, MAX_PLACE_TREES, MAX_PLACE_BRANCHES, PLACES_MS,
+  PICK_UNSAFE, MAX_PICKED,
 };

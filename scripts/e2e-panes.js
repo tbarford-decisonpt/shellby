@@ -854,6 +854,11 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
       check(await pop.until(`[...SB.state.tabs.get('${A}').el.querySelectorAll('.msg.assistant')].some(m => m.textContent.includes('echo: hello from its own window'))`), 'a message sent there is answered there');
       await pop.until(`!SB.state.tabs.get('${A}').busy`);
       check(!(await ev(`SB.state.tabs.has('${A}')`)), 'and the panel never grew a copy');
+      // No All files in a window of its own: Ctrl+Shift+F opens the Trail there, and closes it again.
+      await pop.ev("SB.toggleDrawer('files')");
+      check(await pop.until("!document.getElementById('trail').hidden && document.getElementById('drawerTabTrail').getAttribute('aria-selected') === 'true'"), 'Ctrl+Shift+F in its own window opens the Trail');
+      await pop.ev("SB.toggleDrawer('files')");
+      check(await pop.until("document.getElementById('trail').hidden"), 'and a second press closes it');
 
       // Its ×: back in the panel, with the box as it was left.
       await pop.ev(`document.getElementById('input').value = 'typed in the window'`);

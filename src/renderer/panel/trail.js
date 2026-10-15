@@ -5,6 +5,7 @@
    what he works with, and his helpers walk their own. Above the map: what's
    worth a look (going in circles, a change whose test nobody ran, a file that
    holds secrets). Below it: the replay, every step again, the feed following.
+   It is the File manager's first tab; the second, All files, is files-dock.js's, and this file keeps the drawer they share: its tabs, width and grip.
    What it all means is shared/trail.js's (pure); this file draws it. */
 'use strict';
 (function () {
@@ -22,6 +23,8 @@
   const playBtn = $('trailPlay');
   const liveBtn = $('trailLive');
   const toggleBtn = $('trailBtn');
+  const panelEl = $('trailPanel');
+  const tabBtns = [...drawer.querySelectorAll('.drawer-tabs [role="tab"]')];
 
   const MIN_CHAT = 340;     // what the chat keeps beside it before the panel grows
   const SCREEN_GAP = 16;    // a grown panel stays this far inside the screen (pane-room.js)
@@ -31,6 +34,7 @@
   const LANDED_MS = 2400;   // how long a step the trail sent you to stays lit
   const OPEN_KEY = 'shellby.trail.open';
   const SCOPE_KEY = 'shellby.trail.scope';
+  const TAB_KEY = 'shellby.drawer.tab';  // the File manager's tab: 'trail' or 'files'
   const WIDTH_KEY = 'shellby.trail.width';
   const TRAIL_W = 272;      // its width until you drag it (trail.css --trail-w)
   const MIN_W = 220;        // narrower and the names no longer fit beside their marks
@@ -56,6 +60,8 @@
   let landedEl = null;      // the feed's step lit by the replay
   const closed = new Map(); // tab id -> folder keys closed
   const tests = new Map();  // tab id -> { sig, map } (ipc trail:tests)
+  let shows = !SB.solo && SB.pref(TAB_KEY) !== 'trail' ? 'files' : 'trail'; // the tab up when the drawer is open: All files unless the Trail was left up (a conversation's own window has none)
+  const tabs = new Map(); // the drawer's other tabs: name -> { show({ focus }), hide() } (files-dock.js)
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ------------------------------------------------------------ taking items in
@@ -116,9 +122,10 @@
   // ------------------------------------------------------------ opening
 
   SB.trailOpen = () => open;
+  SB.drawerShows = () => (open ? shows : null);
   SB.toggleTrail = async (force, { focus = false } = {}) => {
     const want = force ?? !open;
-    if (want === open) { if (want && focus) map.focus(); return; }
+    if (want === open) { if (want && focus) showTab(shows, { focus }); return; }
     open = want;
     drawer.hidden = !open;
     document.body.classList.toggle('trail-open', open);
@@ -126,6 +133,7 @@
     // A conversation's own window keeps the panel's choice as it is.
     if (!SB.solo) try { window.localStorage.setItem(OPEN_KEY, open ? '1' : ''); } catch { /* lasts this session */ }
     if (!open) {
+      tabs.get(shows)?.hide();
       stopPlay();
       replayAt = null;
       unland();
@@ -138,8 +146,49 @@
     await makeRoom();
     if (!open) return; // closed again while the panel grew
     setWidth(drawer.getBoundingClientRect().width); // a width kept from a wider window fits this one
+    showTab(shows, { focus });
+  };
+
+  // ------------------------------------------------------------ its tabs
+
+  // The drawer's other tabs register here (files-dock.js), so this file never reaches into theirs.
+  SB.drawerTab = (name, hooks) => {
+    tabs.set(name, hooks);
+    if (open && shows === name) hooks.show({ focus: false });
+  };
+
+  // One tab up at a time: the Trail's own panel, or one registered above.
+  function showTab(name, { focus = false } = {}) {
+    if (name !== 'trail' && !tabs.has(name)) name = 'trail';
+    if (shows !== name) tabs.get(shows)?.hide();
+    if (shows === 'trail' && name !== 'trail') {
+      // Leaving the Trail: its replay stops (it would keep scrolling the feed), and its empty look goes.
+      stopPlay();
+      replayAt = null;
+      unland();
+      drawer.classList.remove('nothing-yet');
+    }
+    shows = name;
+    if (!SB.solo) try { window.localStorage.setItem(TAB_KEY, name); } catch { /* lasts this session */ }
+    drawer.dataset.tab = name;
+    for (const b of tabBtns) {
+      const on = b.dataset.tab === name;
+      b.setAttribute('aria-selected', String(on));
+      b.tabIndex = on ? 0 : -1;
+    }
+    panelEl.hidden = name !== 'trail';
+    if (name !== 'trail') return tabs.get(name).show({ focus });
     paint();
     if (focus) map.focus();
+  }
+
+  // Ctrl+Shift+E and Ctrl+Shift+F: the drawer on that tab, or closed when that tab is already up.
+  SB.toggleDrawer = (name, { focus = false } = {}) => {
+    if (name !== 'trail' && !tabs.has(name)) name = 'trail'; // a tab this window has none of (All files in solo)
+    if (open && shows === name) return SB.toggleTrail(false);
+    if (open) return showTab(name, { focus });
+    shows = name;
+    return SB.toggleTrail(true, { focus });
   };
 
   // The chat keeps MIN_CHAT beside the drawer: the panel grows toward the
@@ -164,11 +213,11 @@
   const closedOf = id => { if (!closed.has(id)) closed.set(id, new Set()); return closed.get(id); };
 
   function paint() {
-    if (!open) return;
+    if (!open || shows !== 'trail') return;
     const tab = tabNow();
     const s = tab?.trail;
     if (!s || !s.seq) { paintEmpty(tab); return; }
-    drawer.classList.remove('empty');
+    drawer.classList.remove('nothing-yet');
     const v = T.view(s, { upTo: replayAt ?? Infinity, scope, busy: !!tab.busy });
     paintScope();
     paintRows(tab, v);
@@ -179,7 +228,7 @@
   }
 
   function paintEmpty(tab) {
-    drawer.classList.add('empty');
+    drawer.classList.add('nothing-yet');
     paintScope();
     rowsEl.replaceChildren(h('div', { class: 'trail-empty' },
       h('p', { class: 'trail-empty-lead', text: tab?.busy ? 'Setting off…' : 'No tracks yet.' }),
@@ -238,7 +287,7 @@
     marksOf(f, dir, isRoot),
     dir ? null : h('span', { class: 'tr-acts' },
       h('button', { type: 'button', class: 'tr-act', dataset: { act: 'mention' }, title: 'Put it in your message (@)', 'aria-label': `Mention ${node.name} in your message`, tabindex: '-1', text: '@' }),
-      h('button', { type: 'button', class: 'tr-act', dataset: { act: 'open' }, title: 'Open it in your editor (Shift+Enter)', 'aria-label': `Open ${node.name} in your editor`, tabindex: '-1' }, SB.icon('M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .4-.4.8-.8.8H3.3c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8h3.2', { width: 1.4 }))));
+      h('button', { type: 'button', class: 'tr-act', dataset: { act: 'open' }, title: 'Open it in the file viewer (Shift+Enter) · Ctrl: your editor', 'aria-label': `Open ${node.name}`, tabindex: '-1' }, SB.icon('M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v3.2c0 .4-.4.8-.8.8H3.3c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8h3.2', { width: 1.4 }))));
     return el;
   }
 
@@ -519,7 +568,13 @@
     setTimeout(() => el.classList.remove('history-landed'), LANDED_MS);
   }
 
-  const openIt = (node, reveal = false) => node?.path && SB.openFile(node.path, { tabId, reveal });
+  // In the file viewer, as a file link opens (files.js); Ctrl opens your editor, Shift shows it in
+  // its folder. A conversation's own window has no viewer: the editor, as before.
+  function openIt(node, { ctrl = false, shift = false } = {}) {
+    if (!node?.path) return;
+    if (ctrl || shift || SB.solo || !SB.viewer) return SB.openFile(node.path, { tabId, reveal: shift });
+    SB.viewer.openLink(tabId, node.path);
+  }
 
   // @path in the box, where the caret is (fileindex.js mention's form).
   function mention(node) {
@@ -551,15 +606,15 @@
     active = Number(row.dataset.i);
     markActive();
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (act === 'open') return openIt(r.node, e.shiftKey);
+    if (act === 'open') return openIt(r.node, { ctrl: e.ctrlKey, shift: e.shiftKey });
     if (act === 'mention') return mention(r.node);
     if (r.node.kind === 'dir') return toggleDir(r.node);
-    if (e.shiftKey) return openIt(r.node, true);
+    if (e.shiftKey) return openIt(r.node, { shift: true });
     goToStep(r.node);
   });
   rowsEl.addEventListener('dblclick', (e) => {
     const row = e.target.closest('.tr-file');
-    if (row && !e.target.closest('[data-act]')) openIt(rowList[Number(row.dataset.i)]?.node);
+    if (row && !e.target.closest('[data-act]')) openIt(rowList[Number(row.dataset.i)]?.node, { ctrl: e.ctrlKey });
   });
   // The map keeps the keyboard; the rows aren't stops of their own.
   rowsEl.addEventListener('mousedown', (e) => { if (!e.target.closest('[data-act]')) { e.preventDefault(); map.focus({ preventScroll: true }); } });
@@ -583,7 +638,7 @@
       case 'Enter':
         e.preventDefault();
         if (!r) return;
-        if (e.shiftKey) return openIt(r.node);
+        if (e.shiftKey) return openIt(r.node, { ctrl: e.ctrlKey });
         if (r.node.kind === 'dir') return toggleDir(r.node);
         return goToStep(r.node);
       case ' ': e.preventDefault(); return play();
@@ -605,6 +660,21 @@
     scope = b.dataset.scope;
     try { window.localStorage.setItem(SCOPE_KEY, scope); } catch { /* lasts this session */ }
     paint();
+  });
+  const tabList = drawer.querySelector('.drawer-tabs');
+  tabList.addEventListener('click', (e) => {
+    const b = e.target.closest('[role="tab"]');
+    if (b && b.dataset.tab !== shows) showTab(b.dataset.tab);
+  });
+  // Arrow keys move between the tabs, Home and End to the ends.
+  tabList.addEventListener('keydown', (e) => {
+    const i = tabBtns.indexOf(document.activeElement);
+    const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabBtns.length - 1 }[e.key];
+    if (i < 0 || to === undefined) return;
+    e.preventDefault();
+    const b = tabBtns[(to + tabBtns.length) % tabBtns.length];
+    showTab(b.dataset.tab);
+    b.focus();
   });
   scrub.addEventListener('input', () => { stopPlay(); goTo(Number(scrub.value)); });
   playBtn.addEventListener('click', play);

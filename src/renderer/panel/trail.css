@@ -24,8 +24,7 @@ body.trail-over .trail { box-shadow: -18px 0 36px rgba(0, 0, 0, .5); }
 body.resizing-trail { user-select: none; cursor: col-resize; }
 
 /* ---------- head */
-.trail-head { display: flex; align-items: center; gap: 8px; padding: 8px 6px 6px 12px; border-bottom: 1px solid var(--line-soft); }
-.trail-title { margin: 0; font: 600 var(--fs-15) var(--font-pixel); color: var(--sand); letter-spacing: .02em; }
+.trail-head { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 6px 0 4px; border-bottom: 1px solid var(--line-soft); }
 .trail-scope { display: inline-flex; margin-left: auto; padding: 2px; border-radius: var(--r-sm); background: var(--reef); }
 .trail-scope button {
   border: 0; background: none; color: var(--sand-faint); font: 500 var(--fs-11) var(--font-body);
@@ -34,6 +33,18 @@ body.resizing-trail { user-select: none; cursor: col-resize; }
 .trail-scope button:hover { color: var(--sand); }
 .trail-scope button[aria-pressed="true"] { background: var(--reef-3); color: var(--sand); }
 .trail-scope button:focus-visible { outline: 2px solid var(--glass); outline-offset: 1px; }
+
+/* The File manager's tabs (All files, Trail) sit on the head's line, in place of its title (kept for screen
+   readers as .sr-only). This turn / All is the Trail's own. */
+.drawer-tabs { display: flex; gap: 0; align-self: stretch; min-width: 0; }
+.drawer-tabs [role="tab"] { margin-bottom: -1px; padding: 0 8px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--sand-dim); font: inherit; font-size: var(--fs-12); white-space: nowrap; cursor: pointer; }
+.drawer-tabs [role="tab"]:hover { color: var(--sand); }
+.drawer-tabs [role="tab"][aria-selected="true"] { color: var(--sand); border-bottom-color: var(--glass); }
+.drawer-tabs [role="tab"]:focus-visible { outline: 2px solid var(--glass); outline-offset: -2px; }
+.trail[data-tab="files"] .trail-scope { display: none; }
+.trail[data-tab="files"] .trail-head #trailClose { margin-left: auto; }
+.trail-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.trail-panel[hidden] { display: none; }
 
 /* ---------- what's worth a look */
 .trail-signals { display: grid; gap: 6px; padding: 0 8px; }

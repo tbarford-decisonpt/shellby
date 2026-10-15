@@ -56,7 +56,8 @@ function withFolders(files) {
   return [...dirs, ...files];
 }
 
-async function list(cwd) {
+/** fresh: read it again now, whatever is cached (the new list is cached in its place). */
+async function list(cwd, { fresh = false } = {}) {
   if (typeof cwd !== 'string' || !path.isAbsolute(cwd) || !fs.existsSync(cwd)) return [];
   const key = path.resolve(cwd).toLowerCase();
   const now = Date.now();
@@ -64,7 +65,7 @@ async function list(cwd) {
   // for MAX_CACHED newer folders to push them out kept them for the whole run.
   for (const [k, v] of cache) if (now - v.at >= CACHE_MS) cache.delete(k);
   const hit = cache.get(key);
-  if (hit) return hit.entries;
+  if (hit && !fresh) return hit.entries;
   const entries = (async () => withFolders((await gitFiles(cwd)) || walk(cwd)))();
   cache.set(key, { at: Date.now(), entries });
   if (cache.size > MAX_CACHED) cache.delete(cache.keys().next().value);

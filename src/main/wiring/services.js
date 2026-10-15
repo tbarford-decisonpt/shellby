@@ -9,6 +9,7 @@ const { createUsage } = require('../usage/service');
 const { createHeldQueue } = require('../held-service');
 const { createRoutines } = require('../routines/service');
 const { createAway } = require('../away-service');
+const { createKeepWarm } = require('../keepwarm-service');
 const { createStickers } = require('../stickers/service');
 const { createCopies } = require('../worktrees/copy-service');
 const confirm = require('../confirm');
@@ -24,6 +25,8 @@ function wireServices(d) {
   const HELD_GRACE_MS = FORECAST_TEST ? 1000 : 60 * 1000;
   // Dev/e2e only: the idle readings come from dev:away instead of Windows.
   const RECAP_TEST = !app.isPackaged && process.env.SHELLBY_RECAP_TEST === '1';
+  // Dev/e2e only: how long before expiry a keep-warm ping goes, so a check needn't wait 55 minutes.
+  const KEEPWARM_LEAD_MS = (!app.isPackaged && Number(process.env.SHELLBY_KEEPWARM_LEAD_MS)) || null;
 
   // main's own helpers, and the panel's (wiring/panel.js), whenever that is wired.
   const send = (...a) => d.send(...a);
@@ -96,8 +99,14 @@ function wireServices(d) {
     heldList: heldService.heldList, holdForReset: heldService.holdForReset, scheduleHeld: heldService.scheduleHeld,
     syncKeepAwake: heldService.syncKeepAwake, queueTabs: heldService.queueTabs,
   });
+  const keepWarm = createKeepWarm({
+    log, send, powerSaveBlocker, CAPTURE, leadMs: KEEPWARM_LEAD_MS,
+    get manager() { return d.manager; },
+    get panel() { return d.panel; },
+  });
   const awayService = createAway({
     log, send, showPanel, every, powerMonitor, native, confirm, CAPTURE, RECAP_TEST,
+    onIdleReading: r => keepWarm.reading(r),
     get config() { return d.config; },
     get critter() { return d.critter; },
     get panel() { return d.panel; },
@@ -146,7 +155,7 @@ function wireServices(d) {
   const { shellIdOf, shellStickers, shipped, stickerState } = stickerService;
   const { changeRef, retireWorktree } = copyService;
   return {
-    FORECAST_TEST, RECAP_TEST, awayService, copyService, heldService, routineService, stickerService, usageService,
+    FORECAST_TEST, RECAP_TEST, awayService, copyService, heldService, routineService, stickerService, usageService, keepWarm,
     checkLimit, onUsage, outlookView, projectKeyOf, refreshOutlook, saveSpend, sendOutlook, spendSource, tabCost, usageBreakdown, watchGuards, watchOutlook, windowShare,
     heldList, holdForReset, queueTabs, queueTask, queueWaits, reopenForHeld, saveHeld, scheduleHeld, syncKeepAwake,
     chatRoutine, draftRoutine, repairRoutine, routineTabs, routineTestView, routineTests, routines, routinesView, runRoutine, saveRoutines, startScheduler, testRoutine,

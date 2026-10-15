@@ -1,0 +1,64 @@
+/* All files, the File manager's second tab (files-dock.js): the project's tree with its git marks,
+   lit purple for a read, orange for a write and green for a commit while Claude works. */
+.files-dock { --ft-read: #b9a2ff; --ft-write: #ffa64d; --ft-commit: #7ee08f; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.files-dock[hidden] { display: none; }
+
+.ft-branch { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px 6px; }
+.ft-where { display: inline-flex; align-items: baseline; gap: 5px; min-width: 0; padding: 2px 7px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--reef); color: var(--sand); font: inherit; font-size: var(--fs-12); cursor: pointer; }
+.ft-where:hover, .ft-where:focus-visible { border-color: var(--glass); outline: none; }
+.ft-branch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+.ft-ab { color: var(--sand-dim); font-family: var(--font-mono); font-size: var(--fs-10-5); }
+.ft-sums { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand-dim); font-family: var(--font-mono); font-size: var(--fs-10-5); }
+.ft-err { margin-left: auto; color: var(--amber); font-size: var(--fs-12); }
+.ft-nogit { color: var(--sand-faint); font-size: var(--fs-12); }
+.ft-filter { margin: 0 10px 6px; }
+.ft-filter[hidden] { display: none; }
+
+.ft-tree { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 0 0 12px; outline: none; }
+.ft-pins { position: sticky; top: 0; z-index: 2; height: 0; overflow: visible; }
+.ft-pins > .ft-row { background: var(--ink); }
+.ft-pin-more { height: 12px; line-height: 10px; text-align: center; color: var(--sand-faint); background: var(--ink); border-bottom: 1px solid var(--line-soft); }
+
+.ft-row { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px 0 calc(8px + var(--d, 0) * 12px); color: var(--sand); white-space: nowrap; cursor: default; }
+.ft-row:hover, .ft-row[aria-selected="true"] { background: var(--reef-2); }
+.ft-tree:focus-visible .ft-row[aria-selected="true"] { box-shadow: inset 2px 0 var(--glass); }
+.ft-chev { flex: none; width: 10px; color: var(--sand-faint); font-size: var(--fs-10); }
+.ft-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ft-dir .ft-name { color: var(--sand-dim); }
+.ft-row.picked .ft-name { text-decoration: underline; text-decoration-color: var(--glass); text-underline-offset: 3px; }
+.ft-row.revealed { opacity: .62; }
+.ft-row.deleted .ft-name { text-decoration: line-through; color: var(--sand-faint); }
+.ft-sum, .ft-n { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-10-5); color: var(--sand-faint); }
+.ft-n .add { color: var(--glass); }
+.ft-n .del { color: #ffc9bb; }
+.ft-st { flex: none; width: 1.2em; margin-left: auto; text-align: center; font-family: var(--font-mono); font-size: var(--fs-11); font-weight: 600; }
+.ft-sum + .ft-st, .ft-n + .ft-st { margin-left: 4px; }
+.ft-st.st-m, .ft-st.st-t { color: var(--glass); }
+.ft-st.st-a, .ft-st.st-u { color: #c9f2e7; }
+.ft-st.st-d { color: #ffc9bb; }
+.ft-st.st-r { color: var(--amber); }
+.ft-st.st-conflict { color: var(--danger); }
+
+/* Lit: the tone sweeps across the row, or sits there solid with reduced motion. */
+.ft-row.lit { --tone: var(--ft-read); box-shadow: inset 3px 0 var(--tone); background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 30%, transparent), color-mix(in srgb, var(--tone) 6%, transparent)); }
+.ft-row.lit.t-write { --tone: var(--ft-write); }
+.ft-row.lit.t-commit { --tone: var(--ft-commit); }
+@media (prefers-reduced-motion: no-preference) {
+  .ft-row.lit { background-size: 200% 100%; animation: ft-sweep 1.2s ease-out; }
+  @keyframes ft-sweep { from { background-position: 100% 0; } to { background-position: 0 0; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ft-row.lit { background: color-mix(in srgb, var(--tone) 22%, transparent); }
+}
+
+.ft-more, .ft-note { margin: 0; padding: 8px 12px; color: var(--sand-faint); font-size: var(--fs-12); }
+.ft-foot { display: flex; align-items: center; gap: 6px; padding: 6px 10px 8px; border-top: 1px solid var(--line-soft); background: rgba(7, 16, 18, .6); }
+.ft-foot[hidden] { display: none; }
+.ft-picked { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sand-dim); font-size: var(--fs-12); }
+.ft-picked:empty::before { content: 'Click a file to talk about it'; color: var(--sand-faint); }
+.ft-unpick[hidden] { display: none; }
+.ft-follow { display: inline-flex; align-items: center; gap: 4px; color: var(--sand-dim); font-size: var(--fs-12); white-space: nowrap; }
+
+/* The picked file's chip above the box (files-select.js). */
+.att.pick { border-color: color-mix(in srgb, var(--glass) 55%, transparent); }
+.att.pick .pick-label { color: var(--sand-faint); }

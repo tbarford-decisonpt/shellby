@@ -1,12 +1,13 @@
 // ci: the trail: files read, searched and changed, the crab on them, circles, secrets, untested, replay
 // The trail (Ctrl+Shift+E), end to end against the fake CLI's "crawl" turn in a
 // throwaway repository:
-//   1. Ctrl+Shift+E opens it beside the chat (the panel grows to keep the chat usable)
+//   1. Ctrl+Shift+E opens it beside the chat, on the File manager's Trail tab (the panel grows to keep the chat usable)
 //   2. a turn that wanders: what it read, what a search found, what it changed
 //      (+/− from the turn's diff), .env called a secret, a file outside the project
 //   3. what's worth a look: going in circles, a change whose test nobody ran,
 //      a secret; each action puts its words in the box, unsent
 //   4. a row goes to its step in the feed; @ mentions it in the box
+//   4b. a row's open button opens the file in the viewer; Ctrl+double-click opens the editor
 //   5. the replay: step 1 puts him back on the first file and lights its step
 //   6. a change waiting for your OK: its row says so and he stands on it
 //   7. its width: drag the line on its left edge, arrow keys, Home/End, double-click
@@ -108,11 +109,24 @@ fs.mkdirSync(claudeConfig);
     await ev("document.getElementById('input').focus()");
     await key('e', { ctrl: true, shift: true });
     check(await until("!document.getElementById('trail').hidden && document.body.classList.contains('trail-open')"), 'Ctrl+Shift+E opens the trail');
-    check(await until("document.getElementById('trail').classList.contains('empty')"), 'with nothing on it yet, it says what it will show');
+    check(await until("document.getElementById('trail').classList.contains('nothing-yet')"), 'with nothing on it yet, it says what it will show');
+    // The panel's .empty (the welcome screen's look) once rode on the drawer and pushed its header down.
+    check(await ev("Math.abs(document.querySelector('#trail .trail-head').getBoundingClientRect().top - document.getElementById('trail').getBoundingClientRect().top) <= 2"), 'its header stays at the top while it is empty');
     check(await until(`document.body.classList.contains('trail-over') || document.getElementById('chatView').getBoundingClientRect().width - document.getElementById('trail').getBoundingClientRect().width >= 330`),
       `the chat keeps room beside it (the panel went from ${widthBefore} px to ${await ev('window.innerWidth')} px)`);
     check(await ev("document.activeElement === document.getElementById('trailMap')"), 'the map has the keyboard');
     check(await ev("document.getElementById('trailBtn').getAttribute('aria-pressed')") === 'true', 'the subbar\'s Trail button shows it\'s open');
+    check(await ev("document.getElementById('trailTitle').textContent") === 'File manager', 'the drawer is the File manager');
+    check(await ev("document.getElementById('drawerTabTrail').getAttribute('aria-selected') === 'true' && !document.getElementById('trailPanel').hidden && document.getElementById('filesDock').hidden"), 'Ctrl+Shift+E chose the Trail tab');
+    check(await ev("(() => { const t = [...document.querySelectorAll('.trail-head .drawer-tabs [role=tab]')].map(b => b.id); return t.join() === 'drawerTabFiles,drawerTabTrail' && document.getElementById('trailTitle').getBoundingClientRect().width <= 1 && document.querySelector('.drawer-tabs').getBoundingClientRect().top < document.getElementById('trailPanel').getBoundingClientRect().top; })()"), 'All files is the first tab, on the header line, and the title is there for screen readers only');
+    await ev("document.getElementById('drawerTabTrail').focus()");
+    await key('ArrowLeft');
+    check(await until("document.getElementById('drawerTabFiles').getAttribute('aria-selected') === 'true' && document.getElementById('drawerTabTrail').getAttribute('aria-selected') === 'false' && !document.getElementById('filesDock').hidden && document.getElementById('trailPanel').hidden"), 'the left arrow on the tab list selects All files, the first tab');
+    await key('ArrowRight');
+    check(await until("document.getElementById('drawerTabTrail').getAttribute('aria-selected') === 'true' && document.getElementById('drawerTabFiles').getAttribute('aria-selected') === 'false' && document.getElementById('filesDock').hidden && !document.getElementById('trailPanel').hidden"), 'and the right arrow brings the Trail back');
+    await ev("document.getElementById('drawerTabTrail').click()");
+    check(await until("document.getElementById('drawerTabTrail').getAttribute('aria-selected') === 'true' && !document.getElementById('trailPanel').hidden"), 'the Trail tab brings the Trail back');
+    await ev("document.getElementById('trailMap').focus()");
 
     // ---- 2. a turn that wanders
     await ev("SB.send('crawl 70')");
@@ -153,6 +167,17 @@ fs.mkdirSync(claudeConfig);
     await ev(`${row('util.js')}.querySelector('[data-act="mention"]').click()`);
     check((await input()).trim() === '@src/util.js', `@ puts it in the box as a mention ("${(await input()).trim()}")`);
     await clearInput();
+
+    // ---- 4b. a row opens in the viewer, as a file link does; Ctrl opens the editor
+    await clearInput();
+    await ev("window.__opened = []; window.__openFile = SB.openFile; SB.openFile = (p, o) => { window.__opened.push({ p, reveal: !!o?.reveal }); }");
+    await ev(`${row('util.js')}.querySelector('[data-act="open"]').click()`);
+    check(await until("SB.state.view === 'viewer' && SB.viewer.current()?.file === 'src/util.js'"), "a row's open button opens it in the viewer");
+    await ev('SB.goBack()');
+    check(await until("SB.state.view === 'chat'"), 'Back returns to the chat');
+    await ev(`${row('util.js')}.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, ctrlKey: true }))`);
+    check(await until('window.__opened.length === 1') && await ev("SB.state.view === 'chat' && /util\\.js$/.test(window.__opened[0].p)"), 'Ctrl+double-click opens the editor instead');
+    await ev('SB.openFile = window.__openFile');
 
     // ---- 5. the replay
     const steps = Number(await ev("document.getElementById('trailScrub').max"));
@@ -197,6 +222,8 @@ fs.mkdirSync(claudeConfig);
     await key('Home');
     const narrowest = await ev(trailW);
     check(narrowest < w0 - 30 && narrowest >= 200, `Home makes it as narrow as it goes (${narrowest})`);
+    const headFit = await ev("(() => { const h = document.querySelector('.trail-head'); const r = h.getBoundingClientRect(); const kids = [...h.children].filter(e => e.offsetParent); return { over: h.scrollWidth - h.clientWidth, rows: new Set(kids.map(e => Math.round(e.getBoundingClientRect().top / 4))).size, out: kids.some(e => e.getBoundingClientRect().right > r.right + 0.5 || e.getBoundingClientRect().left < r.left) }; })()");
+    check(headFit.over <= 0 && !headFit.out, `at its narrowest the header row fits: tabs, This turn / All and × (${JSON.stringify(headFit)})`);
     await key('End');
     check(await until("document.body.classList.contains('trail-over') || document.getElementById('chatView').getBoundingClientRect().width - document.getElementById('trail').getBoundingClientRect().width >= 340"), 'End widens it only as far as leaves the chat its room');
     await ev("document.getElementById('trailGrip').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))");

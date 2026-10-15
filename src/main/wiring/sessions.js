@@ -291,7 +291,7 @@ function wireSessions(d) {
     });
     d.native?.attach(d.manager); // to-dos ticked off, background commands finishing (wiring/native.js)
     setInterval(() => {
-      const stopped = d.manager.stopIdle(d.TAB_IDLE_STOP_MS);
+      const stopped = d.manager.stopIdle(d.TAB_IDLE_STOP_MS, Date.now(), id => !!d.keepWarm?.isKept(id));
       if (stopped.length) d.log.info('Stopped idle tabs', `${stopped.length} quiet for ${d.TAB_IDLE_STOP_MS / 60000} min`);
       const compacted = compactIdleTabs(d);
       if (compacted.length) d.log.info('Compacted idle tabs', `${compacted.length} before their cache ran out`);

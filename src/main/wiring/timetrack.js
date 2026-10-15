@@ -63,7 +63,7 @@ function wireTimetrack(d) {
       // Where Claude is working right now: Shellby's busy tabs by folder, and
       // sessions elsewhere by the folder name the plugin sends.
       claudeAt: () => ({
-        dirs: [...(d.manager?.tabs.values() || [])].filter(t => t.session?.busy).map(t => t.worktree?.originalCwd || t.session?.cwd).filter(Boolean),
+        dirs: [...(d.manager?.tabs.values() || [])].filter(t => t.session?.busy && !t.pinging).map(t => t.worktree?.originalCwd || t.session?.cwd).filter(Boolean),
         names: (d.external?.summary.sessions || []).filter(s => s.state === 'working' || s.state === 'asking').map(s => s.project),
       }),
       resolve: dir => projectOf(dir),
@@ -406,9 +406,10 @@ function wireTimetrack(d) {
   }
 
   // A message of yours into an open tab: what you type (task:send), or one held
-  // for after the usage reset (releaseMessage). Returns { ok, tabId, turnId,
-  // item } or { ok: false, error }.
-  function sendToTab(tabId, text, files) {
+  // for after the usage reset (releaseMessage). note: a line from Shellby that goes
+  // to Claude after it (the file picked in All files) and not into the chat; never after a /command,
+  // which goes as typed. Returns { ok, tabId, turnId, item } or { ok: false, error }.
+  function sendToTab(tabId, text, files, { note = null } = {}) {
     const tab = d.manager.tabs.get(tabId);
     // A folder on another computer needs Claude Code there, not here (remote/service.js).
     const elsewhere = !!tab && !!d.remoteService?.placeOf(tab.session.cwd);
@@ -423,7 +424,8 @@ function wireTimetrack(d) {
       tab.shellRuns = [];
       // !! sends a message that starts with !; Up brings it back as typed, still !!.
       const said = text.startsWith('!!') ? text.slice(1) : text;
-      const turnId = d.manager.send(tabId, composePrompt(ran + said, files), { kind: 'user', text: said, attachments: files, title });
+      const told = note && !said.trimStart().startsWith('/') ? `\n\n${note}` : '';
+      const turnId = d.manager.send(tabId, composePrompt(ran + said + told, files), { kind: 'user', text: said, attachments: files, title });
       d.rememberPrompt(text);
       d.wake();
       return { ok: true, tabId, turnId, item: { kind: 'user', text: said, attachments: files, turnId } };

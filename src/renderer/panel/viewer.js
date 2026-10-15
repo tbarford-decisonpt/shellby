@@ -325,9 +325,9 @@
     SB.openMenu(menu, anchor, () => placeRows(r));
   }
 
-  function placeRows(r) {
+  function placeRows(r, onPick = pick) {
     if (!r?.ok) return [h('div', { class: 'menu-label', text: 'Worktrees' }), h('p', { class: 'small muted vw-menu-note', text: "Couldn't list worktrees." })];
-    const row = p => SB.menuItem(p.label, V.placeSub(p, SB.relTime), () => pick(p), { glyph: p.current ? '✓' : '' });
+    const row = p => SB.menuItem(p.label, V.placeSub(p, SB.relTime), () => onPick(p), { glyph: p.current ? '✓' : '' });
     const trees = r.places.filter(p => p.kind === 'worktree');
     const branches = r.places.filter(p => p.kind === 'branch');
     return [
@@ -409,5 +409,15 @@
       if (cur && state.view === 'viewer') drawLive();
     },
     current: () => (cur ? { id: cur.id, root: cur.root, file: cur.file, side: cur.side, files: cur.files, kind: cur.kind, branch: cur.branch, gone: cur.gone, looking: cur.looking || 0 } : null),
+    // All files (files-dock.js) uses the header menu's rows for its own branch row, and opens a
+    // place it picked there, or a file in one: main issued the handle, or opens it again (reopen).
+    placeRows,
+    reopen: me => reopen(me),
+    openPicked: (req, handle, place, opts = {}) => start(req, { ...opts, handle, place }),
+    async openPlace(req, place, opts = {}) {
+      const r = await reopen({ req, place });
+      if (!r?.ok) return SB.toast(r?.error || "Couldn't open that.");
+      return start(req, { ...opts, handle: r, place });
+    },
   };
 })();
