@@ -11,6 +11,7 @@ const flaky = require('../flaky');
 const { fullOutput } = require('../bugdex/detect');
 const { projectOf } = require('../gitinfo');
 const { readRepo } = require('../projects/local');
+const { CHAPTERS } = require('../quests/chapters');
 const rooms = require('../rooms');
 const routineTemplates = require('../routines/templates');
 const shells = require('../progression/shells');
@@ -91,13 +92,33 @@ function wireProgress(d) {
     return v;
   }
 
+  // What the panel's "New room" card says about a room: its quest chapter too.
+  const announce = ({ id, name, text, chapter }) => {
+    const c = chapter && CHAPTERS.find(ch => ch.id === chapter);
+    return { id, name, text, ...(c ? { chapter: { n: c.n, title: c.title } } : {}) };
+  };
+
   // A task of his own finished: maybe a new room opens, and the panel says so.
+  // The XP for it has landed first, so a level that finishes the core loop
+  // (first-run.js) opens the game's rooms in the same card.
   function roomTaskDone() {
     if (d.CAPTURE || !d.config) return;
     const r = rooms.taskDone(d.config.get('rooms'));
     if (!r.state || r.state.all) return; // every door already open: nothing to count
+    const c = d.coreLoopNow?.() ? rooms.reachCore(r.state) : { state: r.state, opened: [] };
+    d.config.set({ rooms: c.state });
+    d.send(d.panel, 'rooms', { view: roomsPanelView(), opened: [...r.opened, ...c.opened].map(announce) });
+  }
+
+  // The core loop is done (wiring/first-run.js): the game's rooms that tasks
+  // have already earned open now, with a card.
+  function reachCoreRooms() {
+    if (d.CAPTURE || !d.config) return;
+    const before = rooms.normalizeRooms(d.config.get('rooms'));
+    const r = rooms.reachCore(before);
+    if (!r.state || r.state.core === before.core) return;
     d.config.set({ rooms: r.state });
-    d.send(d.panel, 'rooms', { view: roomsPanelView(), opened: r.opened.map(({ id, name, text }) => ({ id, name, text })) });
+    d.send(d.panel, 'rooms', { view: roomsPanelView(), opened: r.opened.map(announce) });
   }
 
   // The crab in a line, for pull requests and commits (crab-line.js): only what's public about him.
@@ -166,6 +187,9 @@ function wireProgress(d) {
       canMolt: r.after.level === levels.MAX_LEVEL,
     });
     d.emitLevelUp?.({ from: r.before.level, to: r.after.level, everLevel: ever, milestone, unlocks: fresh });
+    // A level that finishes the core loop (first-run.js) opens the game's rooms;
+    // a task's XP leaves that to roomTaskDone, so its rooms share one card.
+    if (r.kind !== 'task' && d.coreLoopNow?.()) d.reachCoreRooms?.();
     if (milestone?.tier === 'legend') {
       d.life?.remember?.('level', { name: `level ${r.after.level}, ${r.after.title}` }); // the journal's "Became …"
     }
@@ -543,7 +567,7 @@ function wireProgress(d) {
     crabSummary, crabTrailer,
     awardXp, checkWrapUp, checkedUp, checkupsView, flakyAct, flakyOn, flakyTree, flakyView,
     knownFolder, noteAwayRun, noteCommand, noteFix, noteRed, noteTestRun, noteWeek, noteWorkTime,
-    rerollBounty, roomTaskDone, roomsPanelView, runCheckup, setRooms, showFlaky, weekView, xpView,
+    rerollBounty, reachCoreRooms, roomTaskDone, roomsPanelView, runCheckup, setRooms, showFlaky, weekView, xpView,
   };
 }
 

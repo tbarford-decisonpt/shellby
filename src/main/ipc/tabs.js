@@ -137,6 +137,7 @@ function registerTabsIpc(ipcMain, d) {
       return { ok: false, error: err.message };
     }
     const r = d.sendToTab(tabId, text, files);
+    if (r.ok) d.firstRunStep?.('message'); // First steps (first-run.js)
     return r.ok ? { ok: true, tabId: r.tabId, turnId: r.turnId } : r;
   });
   // What's queued behind the turn that's running, to go in at Claude's next step

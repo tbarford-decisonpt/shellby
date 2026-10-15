@@ -259,6 +259,7 @@
         <div class="row-label">Your tricks</div>
         <div class="pinned-chips"></div>
       </div>
+      <section class="first-run-card" aria-label="First steps" hidden></section>
       <section class="quest-card" aria-label="Your next quest" hidden></section>
       <div class="suggestions"></div>
       <p class="empty-hint"><kbd class="hotkey-hint">Ctrl+Alt+Space</kbd> opens me anywhere · drop files or paste a screenshot · <kbd>/</kbd> for skills · <kbd>Ctrl+K</kbd> jumps anywhere · <kbd>Shift+Tab</kbd> switches mode</p>
@@ -492,6 +493,7 @@
       <span class="hl-live" id="hlLive"><i></i>live</span>
       <button type="button" class="btn ghost slim-btn" id="hlRecheck" title="Read every sensor again now">Recheck</button>
     </div>
+    <p class="view-lede newcomer-only" id="hlLede">He keeps an eye on your PC while you work: he sweats when it runs hot and gets dizzy when memory fills up. Nothing to set up; this page says why.</p>
 
     <section class="hl-hero" id="hlHero" data-level="ok" aria-live="polite">
       <div class="hl-tank" aria-hidden="true">
@@ -657,6 +659,7 @@
       <button type="button" class="btn ghost slim-btn" id="markSeenBtn" title="Clear every new badge in the Wardrobe" hidden>Mark all seen</button>
       <button type="button" class="btn ghost slim-btn share-icon" data-share-card title="Share a picture of your Shellby" aria-label="Share a picture of your Shellby">📸</button>
     </div>
+    <p class="view-lede newcomer-only" id="wdLede">His wardrobe. Tap a hat, shell or colour and he wears it on your desktop straight away. More unlock as he levels up.</p>
     <div class="season-banner" id="seasonBanner" hidden></div>
     <div class="stage" id="wdStage" role="group" aria-label="Preview">
       <div class="stage-fx" id="wdFx" aria-hidden="true"></div>
@@ -800,7 +803,7 @@
       </details>
     </section>
     <!-- Review mastery (review-mastery.js, docs/CLAUDE-CODE.md#review-mastery) -->
-    <section class="rm-card" id="rmCard" aria-labelledby="rmTitle">
+    <section class="rm-card" id="rmCard" data-room="mastery" aria-labelledby="rmTitle">
       <div class="rm-head">
         <h3 id="rmTitle">Review mastery</h3>
         <span class="rm-tier" id="rmTier"></span>
@@ -842,6 +845,7 @@
       </nav>
     </div>
     <p class="muted small lb-intro">What’s going on, what to do next, and what each thing leads to. Every card opens its screen.</p>
+    <p class="view-lede newcomer-only" id="lbNewcomer">Just starting? First steps on the chat’s start screen come first. This page fills up as you two work.</p>
     <div class="lb-cards" id="lbCards" aria-live="polite"></div>
     <section class="lb-chapters" id="lbChapters" aria-labelledby="lbChaptersHead" tabindex="-1">
       <h3 id="lbChaptersHead">Quest line <span class="muted small" id="lbChapterCount"></span></h3>
@@ -1623,7 +1627,7 @@
       </div>
     </section>
     <!-- The reef on a project's page (reef.js, docs/REEF.md): shown under the page while it's open -->
-    <section class="reef-card" id="reefCard" aria-labelledby="reefTitle" hidden>
+    <section class="reef-card" id="reefCard" data-room="reef" aria-labelledby="reefTitle" hidden>
       <div class="reef-head">
         <div class="reef-coral" id="reefCoral" aria-hidden="true"></div>
         <div class="reef-head-text">
@@ -2383,6 +2387,16 @@
         <p class="small muted" id="pushToTalkMsg">Tap the shortcut to open Shellby; hold it and say what you need. Windows' own speech recognition does the listening, on this PC. What you said waits in the box for you to send.</p>
       </section>
 
+      <!-- rooms.js and first-run.js: screens that open as you go, and the way round it -->
+      <section class="setting-group" id="screensGroup" data-nav="Screens">
+        <h3>Screens</h3>
+        <p class="small muted" id="screensLede">Some of his screens join the bar as you two work together, so there’s less to take in on day one.</p>
+        <div class="row">
+          <button type="button" class="btn" id="showEverythingBtn">Show everything now</button>
+          <button type="button" class="btn ghost" id="firstRunAgainBtn" hidden>Bring back First steps</button>
+        </div>
+      </section>
+
       <section class="setting-group" id="usesGroup" data-nav="What you use">
         <h3>What you use</h3>
         <p class="small muted" id="usesLede">Which screens you open, counted on this PC and never sent anywhere.</p>
@@ -2917,6 +2931,7 @@
 <script src="rooms.js"></script>
 <script src="uses.js"></script>
 <script src="quests.js"></script>
+<script src="first-run.js"></script>
 <script src="workmode.js"></script>
 <script src="outfitcode.js"></script>
 <script src="xp.js"></script>

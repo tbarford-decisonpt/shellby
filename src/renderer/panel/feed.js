@@ -125,7 +125,8 @@
       // and rose again under the pointer. They're rebuilt only when what they say changes.
       const tour = state.settings.firstTour && !SB.isCrabOnly();
       this.shuffled ||= [...SUGGESTIONS].sort(() => Math.random() - 0.5);
-      const picks = this.shuffled.slice(0, (SB.questCardShows?.() ? 2 : 3) - (tour ? 1 : 0));
+      const card = SB.firstRunCardShows?.() || SB.questCardShows?.();
+      const picks = this.shuffled.slice(0, (card ? 2 : 3) - (tour ? 1 : 0));
       const shown = JSON.stringify([tour, picks]);
       if (shown !== this.shownSuggestions) {
         this.shownSuggestions = shown;
@@ -135,6 +136,7 @@
           ...(tour ? [chip('Show me around a project: what it is, how to run it, where to start', firstTour, 0)] : []),
           ...picks.map((s, i) => chip(s, () => SB.send(s), i + (tour ? 1 : 0))));
       }
+      SB.renderFirstRun?.(e.querySelector('.first-run-card'));
       SB.renderQuestCard?.(e.querySelector('.quest-card'));
       const pinned = state.pinned || [];
       e.querySelector('.pinned-row').hidden = !pinned.length;

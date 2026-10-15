@@ -331,6 +331,27 @@ body:not([data-view="chat"]) .tabstrip { display: none; }
 .quest-go { margin-top: 8px; }
 @media (prefers-reduced-motion: reduce) { .quest-card { animation: none; } }
 
+/* First steps (first-run.js): the quest card's shape, in the coral of a fresh start. */
+.first-run-card {
+  margin: 0 0 12px; padding: 10px 12px 11px; text-align: left;
+  border-radius: var(--r); border: 1px solid color-mix(in srgb, var(--coral) 30%, transparent); border-left: 3px solid var(--coral);
+  background: linear-gradient(color-mix(in srgb, var(--coral) 7%, transparent), rgba(17, 35, 42, .6));
+  animation: rise .5s var(--ease-out) backwards;
+}
+.first-run-card .fr-eyebrow { color: var(--coral); }
+.first-run-card .quest-pips i.now { background: var(--coral); }
+.fr-steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.fr-step { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-12-5); color: var(--sand-dim); }
+.fr-step.now { color: var(--sand); }
+.fr-step.done b, .fr-step.skipped b { font-weight: 500; color: var(--sand-faint); }
+.fr-step.done b { text-decoration: line-through; text-decoration-color: var(--sand-faint); }
+.fr-mark { width: 18px; flex: none; text-align: center; }
+.fr-body { flex: 1; min-width: 0; }
+.fr-step.done .fr-mark { color: #7bd389; }
+.fr-text { margin: 2px 0 0; font-size: var(--fs-12); line-height: 1.45; color: var(--sand-dim); }
+.fr-actions { display: flex; gap: 6px; margin-top: 6px; }
+@media (prefers-reduced-motion: reduce) { .first-run-card { animation: none; } }
+
 /* messages */
 .msg { margin: 0 0 14px; animation: rise .25s var(--ease-out); }
 .msg.user {
@@ -909,6 +930,7 @@ select.field option { background: var(--reef); }
 .history-del { border: 0; background: none; color: var(--sand-faint); padding: 0 12px; border-radius: 0 var(--r) var(--r) 0; }
 .history-del:hover { color: var(--danger); background: rgba(255, 90, 74, .08); }
 .history-empty { text-align: center; color: var(--sand-faint); padding: 30px 0; font-size: var(--fs-13); }
+.history-start { margin-top: 10px; }
 .history-note { text-align: center; }
 .history-tabs { margin-top: 8px; }
 /* Ticked off: quieter, but never so quiet you can't read it (see .h-done for the chip). */

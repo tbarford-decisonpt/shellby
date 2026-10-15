@@ -410,6 +410,9 @@ body.reordering .tab-edge { pointer-events: none; }
 .view-head .slim-btn { margin-left: auto; }
 .slim-btn { height: 28px; padding: 0 11px; font-size: var(--fs-12-5); }
 .view-lede { margin: -4px 0 14px; color: var(--sand-dim); font-size: var(--fs-13); }
+/* A word on what a screen is for, only until First steps are done (first-run.js sets body.newcomer). */
+body:not(.newcomer) .newcomer-only { display: none; }
+.newcomer-only.view-lede { margin-top: 8px; }
 .new-pill { font: 700 var(--fs-9-5)/16px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; border-radius: 99px; background: var(--coral); color: #1a0d09; }
 .toolbox-controls { display: grid; gap: 8px; margin-bottom: 12px; }
 .seg { display: flex; gap: 2px; padding: 3px; border-radius: var(--r); background: var(--abyss); border: 1px solid var(--line-soft); }

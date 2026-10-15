@@ -425,7 +425,10 @@ contextBridge.exposeInMainWorld('shellby', {
   getRooms: invoke('rooms:get'),
   openRoom: invoke('rooms:open'),
   openAllRooms: invoke('rooms:all'),
-  onRooms: on('rooms'),
+  seenRoom: invoke('rooms:seen'), onRooms: on('rooms'),
+  // First steps for someone new (first-run.js): done by the real thing, never ticked
+  getFirstRun: invoke('firstrun:get'), skipFirstStep: invoke('firstrun:skip'), hideFirstRun: invoke('firstrun:hide'),
+  sawChanges: fire('firstrun:saw-changes'), onFirstRun: on('first-run'),
   // what you use: screens opened, counted on this PC (feature-use.js)
   featureUsed: fire('features:used'),
   featureReport: invoke('features:report'),

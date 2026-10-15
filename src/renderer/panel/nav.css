@@ -68,6 +68,17 @@ body:not(.rooms-ready) .dock-btn:not(.dock-shellby):not([data-view-btn="chat"]) 
 }
 
 .shellby-tabs button.room-new { animation: room-open 1.6s var(--ease-out) 2; }
+/* A room with no door of its own (the Reef card, Review mastery) stays out of sight too. */
+[data-room].room-locked { display: none !important; }
+/* A room that opened says "new" on its door until it's first visited. */
+.shellby-tabs button.room-fresh { position: relative; }
+.dock-btn.room-fresh::after, .shellby-tabs button.room-fresh::after {
+  content: "new"; position: absolute; top: 2px; right: calc(50% - 26px); pointer-events: none;
+  padding: 1px 3px; border-radius: 4px; background: var(--coral); color: #2a0f0a;
+  font: 700 var(--fs-10)/1 var(--font-mono); letter-spacing: .04em; text-transform: uppercase;
+}
+/* His screen's tabs are narrow: a coral dot there, as on the other badges. */
+.shellby-tabs button.room-fresh::after { content: ""; top: 3px; right: 3px; width: 7px; height: 7px; padding: 0; border-radius: 50%; box-shadow: 0 0 0 2px var(--abyss); }
 .shellby-tabs button[aria-current="page"] { background: var(--reef-2); color: var(--sand); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 
 /* popups clear the bar (and the composer, in chat) */
