@@ -10,8 +10,8 @@ const yearbook = require('../yearbook');
 const { slides, cardTiles } = require('../yearbook-slides');
 const bugdex = require('../bugdex');
 const { speciesById } = require('../bugdex/species');
-const streaks = require('../streaks');
-const { normalizeXp } = require('../xp');
+const streaks = require('../progression/streaks');
+const { normalizeXp } = require('../progression/xp');
 const { normalizeStats } = require('../wardrobe/achievements');
 const { isTestRun } = require('../test-desktop');
 
@@ -144,7 +144,7 @@ function wireYearbook(d) {
       speciesName: id => speciesById(id)?.name || null,
       pieceName: decorName,
       deepCuts,
-      reef: null, // the reef's biggest improvement, once reef.js keeps a history of readings
+      reef: null, // the reef's biggest improvement, once reef/index.js keeps a history of readings
     }).map(sl => (sl.id === 'bugdex' && sl.nemesis ? { ...sl, nemesis: { ...sl.nemesis, art: bugArt(sl.nemesis.id) } } : sl))
       .map(sl => (sl.id === 'pieces' ? { ...sl, pieces: sl.pieces.slice(0, 12).map(p => ({ ...p, art: decorArt(p.key) })) } : sl));
     return {

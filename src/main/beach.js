@@ -1,11 +1,11 @@
 // The beach (Shellby's screen → Beach): a scene that only grows. Every project
 // you've shipped is a sandcastle, built bigger as its sticker goes up a tier
-// (stickers.js); your streak is the tide, and the best one you've had leaves a
-// high-water line of seaweed that never goes back out (streaks.js); his finds
-// wash up along it (gifts.js); projects you're working on but haven't shipped
+// (stickers/index.js); your streak is the tide, and the best one you've had leaves a
+// high-water line of seaweed that never goes back out (progression/streaks.js); his finds
+// wash up along it (gifts/index.js); projects you're working on but haven't shipped
 // are plots with a bucket and spade waiting for a castle. Past them all, once
 // Claude has fixed a bug or two, a rock pool where the Bugdex's catches swim
-// (bugdex.js).
+// (bugdex/index.js).
 //
 // Everything here is laid out in "art pixels" (one unit is one pixel of the
 // scene), so the renderer only paints (src/renderer/panel/beach-paint.js).
@@ -18,7 +18,7 @@
 // Pure: no I/O, no clock (callers pass `now`). See test/beach.test.js.
 
 const stickers = require('./stickers');
-const streaks = require('./streaks');
+const streaks = require('./progression/streaks');
 const gifts = require('./gifts');
 const bugdex = require('./bugdex');
 const moon = require('./moon');

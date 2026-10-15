@@ -68,7 +68,7 @@ These must not grow; new code goes in new files.
 | `src/preload/preload.js` | 799 |
 | `src/renderer/panel/bugdex-battle.js` | 775 |
 | `src/main/wiring/bugdex.js` | 741 |
-| `src/main/bugdex.js` | 693 |
+| `src/main/bugdex/index.js` | 693 |
 | `src/main/bugdex/species.js` | 686 |
 
 ### Naming collision
@@ -177,9 +177,9 @@ Each WP commits its rebuilt `panel.html`. On a merge conflict in `panel.html`, t
 
 ### 2.1 Quest line expansion (WP4)
 
-**Module:** `src/main/quests.js` (currently 73 lines, grows to about 300). The quest copy goes in a new `src/main/quests/chapters.js` (data only) so the logic file stays small.
+**Module:** `src/main/quests/index.js` (currently 73 lines, grows to about 300). The quest copy goes in a new `src/main/quests/chapters.js` (data only) so the logic file stays small.
 
-**Data model** (stored in config `quests`, merged by `sync-life.js` as today through `normalizeQuests().done`, so new ids sync without changes):
+**Data model** (stored in config `quests`, merged by `sync/life.js` as today through `normalizeQuests().done`, so new ids sync without changes):
 
 ```js
 { done: { [questId]: at }, hidden, chapters: { [chapterId]: { unlockedAt, doneAt } }, seenChapter: id|null }
@@ -246,7 +246,7 @@ How unlocking works:
 
 ### 2.2 Streak fix (WP1)
 
-**Module:** `src/main/streaks.js`.
+**Module:** `src/main/progression/streaks.js`.
 
 **New state fields:**
 
@@ -277,7 +277,7 @@ How unlocking works:
 
 ### 2.3 Levels 20 to 99 fully fleshed out (WP1)
 
-**New module:** `src/main/levels.js`. It is pure and holds the catalogue, so `xp.js` doesn't grow.
+**New module:** `src/main/progression/levels.js`. It is pure and holds the catalogue, so `xp.js` doesn't grow.
 
 - `TITLES`, `RANKS`, `UNLOCKS` and `nextUnlock` move out of `xp.js`; `xp.js` re-exports them for compatibility.
 - **Unlock kinds:** `title | rank | shell | decor | effect | perk | chapter | size | ceremony`.
@@ -394,7 +394,7 @@ How unlocking works:
 
 **Where the new items live:**
 
-- New hand-made level shells: `src/main/shells-extra.js`. `shells.js` concatenates them into `SHELLS`. Each must pass the mask test in `test/shells.test.js`.
+- New hand-made level shells: `src/main/progression/shells-extra.js`. `shells.js` concatenates them into `SHELLS`. Each must pass the mask test in `test/shells.test.js`.
 - Level decor: `src/wardrobe/depths.json` (a new pack with `unlock: { level }`).
 - Effects: the same pack, `effects` kind.
 - Art budget: about 30 decor pieces, about 20 effects and 9 shells. WP1 can ship the table with the art landing in follow-ups. `levels.js` filters out unlocks whose item key isn't in the catalogue, so missing art never shows a broken unlock. `test/levels.test.js` lists what is missing as a warning, not a failure.
@@ -565,7 +565,7 @@ Called from `bugdex-reward.js reward()` (add one line, `nests.onCaught(e, r, rep
 
 ### 2.6 Reef health per project (WP3)
 
-**Module:** `src/main/reef.js` (pure). Signal parsers go in `src/main/reef/signals.js` (pure).
+**Module:** `src/main/reef/index.js` (pure). Signal parsers go in `src/main/reef/signals.js` (pure).
 
 **Opt-in.** It is off per project until you press "Watch this reef" on Projects. Quest `reef-on` points there.
 
@@ -658,7 +658,7 @@ Called from `bugdex-reward.js reward()` (add one line, `nests.onCaught(e, r, rep
 
 ### 2.7 Molting: optional prestige at 99 (WP1)
 
-**Module:** `src/main/molting.js` (pure).
+**Module:** `src/main/progression/molting.js` (pure).
 
 **State**, inside the `xp` config so it syncs:
 
@@ -698,7 +698,7 @@ xp.molt = { count: 0, base: 0 /* total XP at last molt */, at: [timestamps], wor
 
 #### Tier shells
 
-Hand-made, one per molt tier: `src/main/shells-molt.js` (data, about 12 × 25 lines).
+Hand-made, one per molt tier: `src/main/progression/shells-molt.js` (data, about 12 × 25 lines).
 
 Constraint: a shell must fit the same 13 × 12 grid inside the 22 × 13 sprite and only use cells that are shell or empty in every skin (`test/shells.test.js` mask check). The "insane" look therefore comes from new **render features**, not a bigger silhouette. Added to the shell format, all optional:
 
@@ -723,7 +723,7 @@ Constraint: a shell must fit the same 13 × 12 grid inside the 22 × 13 sprite a
 | XI | Aurora Spire | Tall spire, green to pink aurora `cycle` |
 | XII | Leviathan Crown | Gold and rubies, flame `frames` on top, gold aura, 6 sparkles |
 
-Procedural shells for k > 12: `src/main/shell-gen.js` (pure, seeded `mulberry32(k)`).
+Procedural shells for k > 12: `src/main/progression/shell-gen.js` (pure, seeded `mulberry32(k)`).
 
 - **silhouette:** one of the 12 hand-made masks (`k % 12`), so it always fits the skin mask.
 - **pattern family**, from `floor(k / 12) % 6`: spiral, bands, scales, circuit, spots or cracks, filled into the mask procedurally.
@@ -941,9 +941,9 @@ Notes:
 | WP | Theme | Creates | Modifies (owner-exclusive) |
 |---|---|---|---|
 | **WP0** Foundation (first, short) | Contracts | `src/main/game-hub.js`, `src/main/ipc/game.js`, `src/main/wiring/quest-line.js` (moved code), stub wiring files, stub html/js/css pieces, `test/game-hub.test.js` | `xp.js` (AWARDS table only), `wardrobe/achievements.js` (INCREMENTS/MAXIMA and `emptyStats` keys only), `preload.js`, `config.js` DEFAULTS, `main.js`, `ipc/index.js`, `html/frame.html`, `wiring/progress.js` (quest code moved out), `panel.html` rebuild |
-| **WP1** Progression | Streaks, levels, molting, shells | `src/main/levels.js`, `src/main/molting.js`, `src/main/shells-extra.js`, `src/main/shells-molt.js`, `src/main/shell-gen.js`, `src/wardrobe/depths.json`, `src/main/wiring/levels.js`, `src/main/wiring/molting.js`, renderer `levels-ui.js`, `molt.js`, `molt.css`, `html/molt.html`; tests `levels`, `molting`, `shell-gen`, `streaks` (extended), `xp` (extended) | `xp.js` (except AWARDS), `streaks.js`, `bounties.js`, `shells.js`, `wardrobe/catalog.js` (checkUnlock level), `wardrobe/service.js` (everLevel), `shared/sprite.js`, `wiring/progress.js` (levelup, onAward and onCommandResult emitters; WP4's four questDone one-liners are the agreed exception), `wiring/streaks.js`, renderer `xp.js`, `celebrate.js`, `docs/WARDROBE.md` |
+| **WP1** Progression | Streaks, levels, molting, shells | `src/main/progression/levels.js`, `src/main/progression/molting.js`, `src/main/progression/shells-extra.js`, `src/main/progression/shells-molt.js`, `src/main/progression/shell-gen.js`, `src/wardrobe/depths.json`, `src/main/wiring/levels.js`, `src/main/wiring/molting.js`, renderer `levels-ui.js`, `molt.js`, `molt.css`, `html/molt.html`; tests `levels`, `molting`, `shell-gen`, `streaks` (extended), `xp` (extended) | `xp.js` (except AWARDS), `streaks.js`, `bounties.js`, `shells.js`, `wardrobe/catalog.js` (checkUnlock level), `wardrobe/service.js` (everLevel), `shared/sprite.js`, `wiring/progress.js` (levelup, onAward and onCommandResult emitters; WP4's four questDone one-liners are the agreed exception), `wiring/streaks.js`, renderer `xp.js`, `celebrate.js`, `docs/WARDROBE.md` |
 | **WP2** Bugs | Battles, fix reports, history, nests | `src/main/bugdex/quality.js`, `bugdex/history.js`, `bugdex/nests.js`, `src/main/wiring/bugdex-nests.js`, renderer `bugdex-report.js`, `bugdex-nests.js` (and css); tests `bugdex-quality`, `bugdex-history`, `bugdex-nests`, `bugdex-battle` (extended) | `bugdex/battle.js`, `wiring/bugdex-battles.js`, `wiring/bugdex-reward.js`, `wiring/bugdex-checks.js`, `wiring/bugdex.js` (at most 5 lines), renderer `bugdex-battle.js` (at most 5 lines), `html/bugdex.html`, `docs/BUGDEX.md`, `scripts/e2e-battle.js` |
-| **WP3** Reef and Review | Reef health, coral, review mastery | `src/main/reef.js`, `src/main/reef/signals.js`, `src/main/review-mastery.js`, `src/main/wiring/reef.js`, `src/main/wiring/review.js`, renderer `reef.js`, `reef.css`, `review-mastery.js`, `html/reef.html`; tests `reef`, `reef-signals`, `review-mastery`, `docs/REEF.md` | `tank.js` (REF_RE plus the `coral:` branch in `library`), `html/projects.html` (include line), `html/trophies.html` (review section), `ipc/tabs.js` and `ipc/corrections.js` (one-liners), renderer `tank-paint.js` (coral sway, if needed) |
+| **WP3** Reef and Review | Reef health, coral, review mastery | `src/main/reef/index.js`, `src/main/reef/signals.js`, `src/main/review-mastery.js`, `src/main/wiring/reef.js`, `src/main/wiring/review.js`, renderer `reef.js`, `reef.css`, `review-mastery.js`, `html/reef.html`; tests `reef`, `reef-signals`, `review-mastery`, `docs/REEF.md` | `tank.js` (REF_RE plus the `coral:` branch in `library`), `html/projects.html` (include line), `html/trophies.html` (review section), `ipc/tabs.js` and `ipc/corrections.js` (one-liners), renderer `tank-paint.js` (coral sway, if needed) |
 | **WP4** Logbook and Quests | Hub, chapters | `src/main/logbook.js`, `src/main/quests/chapters.js`, `src/main/wiring/logbook.js`, renderer `logbook.js`, `logbook.css`, `html/logbook.html`; tests `logbook`, `quests` (extended), `scripts/e2e-logbook.js`, `docs/LOGBOOK.md` | `quests.js`, `wiring/quest-line.js`, `rooms.js`, `feature-use.js`, `html/wardrobe.html` (tab button), `html/chat.html` (quest card link), `wiring/events.js` (perfect tide and quest hooks), `wiring/github.js` (cifix hook), routines/workflows/council wiring hook lines, the four one-liners in `wiring/progress.js` |
 | **WP5** Yearbook and Milestones | Wrapped, rare pieces | `src/main/yearbook.js`, `src/main/wiring/yearbook.js`, `src/wardrobe/milestones.json`, renderer `wrapped.js`, `wrapped-card.js`, `wrapped.css`, `html/wrapped.html`; tests `yearbook`, `packs` (extended), `tank` (extended), `docs/WRAPPED.md` | `wardrobe/achievements.js` (ACHIEVEMENTS entries only), `tank.js` (`library` hint/progress fields, `CATEGORIES`; not REF_RE), `ipc/tank.js`, renderer `tank-render.js`, `tank.js`, `docs/TANK.md` |
 

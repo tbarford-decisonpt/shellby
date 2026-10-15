@@ -47,7 +47,7 @@ const LINK_TEXT = Object.freeze({
   wardrobe: 'Shows in his Outfits.',
 });
 
-// What the next unlock is for, by kind (levels.js / xp.js unlock kinds).
+// What the next unlock is for, by kind (progression/levels.js / progression/xp.js unlock kinds).
 const UNLOCK_FEEDS = Object.freeze({
   decor: { to: 'tank', text: 'Goes in your tank.' },
   tank: { to: 'tank', text: 'More room in his tank.' },

@@ -5,7 +5,7 @@ const os = require('os');
 const crabLine = require('../crab-line');
 const path = require('path');
 const changes = require('../changes');
-const character = require('../character');
+const character = require('../progression/character');
 const checkup = require('../checkup');
 const flaky = require('../flaky');
 const { fullOutput } = require('../bugdex/detect');
@@ -13,14 +13,14 @@ const { projectOf } = require('../gitinfo');
 const { readRepo } = require('../projects/local');
 const rooms = require('../rooms');
 const routineTemplates = require('../routines/templates');
-const shells = require('../shells');
+const shells = require('../progression/shells');
 const stickers = require('../stickers');
-const streaks = require('../streaks');
+const streaks = require('../progression/streaks');
 const weekly = require('../weekly');
-const levels = require('../levels');
-const molting = require('../molting');
+const levels = require('../progression/levels');
+const molting = require('../progression/molting');
 const bounties = require('../bounties');
-const { AWARDS, award, classifyCommand, levelOf, normalizeXp, unlocksBetween, xpSummary } = require('../xp');
+const { AWARDS, award, classifyCommand, levelOf, normalizeXp, unlocksBetween, xpSummary } = require('../progression/xp');
 
 const MAX_OUTPUT = 64 * 1024; // of a command's output, for onCommandResult listeners
 
@@ -28,7 +28,7 @@ const MAX_OUTPUT = 64 * 1024; // of a command's output, for onCommandResult list
 function wireProgress(d) {
   // ---- XP and levels
 
-  // The perks open at the highest level he has reached (levels.js), and what they change here.
+  // The perks open at the highest level he has reached (progression/levels.js), and what they change here.
   const perks = () => levels.perksFor(levels.everLevel(normalizeXp(d.config.get('xp'))));
   const streakOpts = () => ({ perWeek: perks().has('tide-out-plus') ? 2 : streaks.TIDE_OUTS_PER_WEEK });
   const streakNow = () => streaks.streakOf(d.config.get('streaks'), Date.now(), streakOpts());
@@ -117,7 +117,7 @@ function wireProgress(d) {
     if (d.CAPTURE || !d.config) return;
     const now = Date.now();
     const has = perks();
-    // The streak bonus as it stands, ebbing gently after a break (streaks.js), never all at once.
+    // The streak bonus as it stands, ebbing gently after a break (progression/streaks.js), never all at once.
     const mult = streaks.ebbMultiplier(d.config.get('streaks'), now, streakOpts());
     const r = award(d.config.get('xp'), kind, new Date(now), { ...meta, mult, restedPool: has.has('rested-plus') ? 200 : undefined, bounties: bountyOpts() });
     if (r.changed) d.config.set({ xp: r.state });
@@ -176,7 +176,7 @@ function wireProgress(d) {
     return r;
   }
 
-  // Past level 99 (xp.js marks): each mark gets a level-up's party. There's
+  // Past level 99 (progression/xp.js marks): each mark gets a level-up's party. There's
   // nothing left to unlock, so it says how far off the next one is.
   function markEarned(r) {
     const { marks, title, rank, needed, into } = r.after;
@@ -193,7 +193,7 @@ function wireProgress(d) {
     return r;
   }
 
-  // The character sheet (character.js): the first time his stats make him a
+  // The character sheet (progression/character.js): the first time his stats make him a
   // class he has never been, it's kept and celebrated. Once per class, so two
   // close stats trading places can't announce it over and over. Only stat XP
   // can change his class, so it's announced just after the thing that did it.
@@ -211,7 +211,7 @@ function wireProgress(d) {
   }
 
   // A level-up that unlocks a shell: he crawls out of the old one and moves into
-  // the newest (see shells.js). Returns the new shell, or null when none unlocked.
+  // the newest (see progression/shells.js). Returns the new shell, or null when none unlocked.
   const MOLT_MS = 5200;
   function molt(before, after) {
     const fresh = shells.unlockedBetween(before, after);
@@ -220,7 +220,7 @@ function wireProgress(d) {
     const was = d.outfit();
     const from = was.home;
     const h = shells.normalizeHome(d.config.get('home'));
-    // The old shell keeps its stickers; his favourites come with him (stickers.js).
+    // The old shell keeps its stickers; his favourites come with him (stickers/index.js).
     const carried = stickers.carryOnMolt(d.config.get('stickers'), d.shellIdOf(d.stickerService.wornShellObj()), next.id, d.stickerService.shellSpots(d.activeSkin(), next).slots.length, Date.now());
     d.config.set({ home: { ...h, worn: next.id }, stickers: carried });
     d.flashState('molting', MOLT_MS);
@@ -316,7 +316,7 @@ function wireProgress(d) {
     return { ok: true };
   }
 
-  // ---- the flaky test detective (flaky.js)
+  // ---- the flaky test detective (flaky/index.js)
 
   // One snapshot per repo at a time: Claude often runs two test commands back to back.
   const flakySnapshots = new Map();      // lower-cased folder -> promise of { root, tree } or null

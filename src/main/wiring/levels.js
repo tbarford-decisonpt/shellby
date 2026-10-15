@@ -1,9 +1,9 @@
-// Levels 1 to 99 and what each unlocks (levels.js): installs the real everLevel
+// Levels 1 to 99 and what each unlocks (progression/levels.js): installs the real everLevel
 // on d (the highest level ever reached, 99 after any molt) and registers the
 // 'unlocks' view the panel's level ladder reads (renderer levels-ui.js).
 // Kept out of main.js, which only wires it up.
-const levels = require('../levels');
-const { normalizeXp, levelOf } = require('../xp');
+const levels = require('../progression/levels');
+const { normalizeXp, levelOf } = require('../progression/xp');
 
 /** d: what main shares (main.js `shared`). */
 function wireLevels(d) {

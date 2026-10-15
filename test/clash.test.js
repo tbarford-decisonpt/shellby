@@ -1,8 +1,8 @@
-// Clash warnings across copies (src/main/clash.js): which copies changed the
+// Clash warnings across copies (src/main/worktrees/clash.js): which copies changed the
 // same files, in what order they're listed, and which clashes are news.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const clash = require('../src/main/clash');
+const clash = require('../src/main/worktrees/clash');
 
 const ROOT = 'C:\\code\\shop';
 const copy = (tabId, files, o = {}) => ({ tabId, title: `T ${tabId}`, branch: `shellby/${tabId}-abc123`, base: 'main', root: ROOT, files, ...o });

@@ -1,4 +1,4 @@
-// History sync between PCs (history-sync.js, github/history-gist.js): what
+// History sync between PCs (history/sync.js, github/history-gist.js): what
 // travels, how two PCs' copies merge, and two PCs syncing through one fake gist.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const hs = require('../src/main/history-sync');
+const hs = require('../src/main/history/sync');
 const { syncHistory, whereFrom } = require('../src/main/github/history-gist');
 const { History: Batched } = require('../src/main/history');
 

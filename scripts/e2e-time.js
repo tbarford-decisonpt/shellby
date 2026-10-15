@@ -119,7 +119,7 @@ async function cdp(url) {
     const r = await main.ev(`(async () => { try {
       const req = process.mainModule.require;
       const { BrowserWindow, app } = req('electron');
-      const { TimeTracker } = req(${JSON.stringify(path.join(ROOT, 'src', 'main', 'timetrack-service.js'))});
+      const { TimeTracker } = req(${JSON.stringify(path.join(ROOT, 'src', 'main', 'timetrack/service.js'))});
       const { timesheetHtml } = req(${JSON.stringify(path.join(ROOT, 'src', 'main', 'timesheet.js'))});
       const tt = req(${JSON.stringify(path.join(ROOT, 'src', 'main', 'timetrack.js'))});
       const state = tt.normalize(JSON.parse(req('fs').readFileSync(${JSON.stringify(path.join(profile, 'settings.json'))}, 'utf8')).timeTracking);

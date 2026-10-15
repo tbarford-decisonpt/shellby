@@ -9,7 +9,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { savePng } = require('./lib/shot');
-const { xpForLevel, xpForMarks, AWARDS } = require('../src/main/xp');
+const { xpForLevel, xpForMarks, AWARDS } = require('../src/main/progression/xp');
 const { ACHIEVEMENTS } = require('../src/main/wardrobe/achievements');
 
 const ROOT = path.join(__dirname, '..');

@@ -89,7 +89,7 @@ function phaseOf(state) {
 
 /**
  * The activity for where he is now. Pure.
- *   s.level, s.title  his level and title (xp.js)
+ *   s.level, s.title  his level and title (progression/xp.js)
  *   s.state, s.busy   the crab's state and how many tasks are running
  *   s.task            the running task's title, only when you share it
  *   s.health          { mood } from the health monitor, or null

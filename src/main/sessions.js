@@ -115,7 +115,7 @@ class SessionManager extends EventEmitter {
       // down mid-turn (history.takeCutOff), until a turn here finishes.
       outcome: historyEntry?.lastOutcome === 'cut' ? 'cut' : null,
       unread: false,
-      worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees.js)
+      worktree: historyEntry?.worktree || null, // its own copy of the repo (worktrees/index.js)
       // A branch of another conversation (branch.js): where it came from, the
       // folders it must keep out of, and what Claude is told before its first
       // message (where it is now). All kept in History so a restart keeps them.
@@ -175,7 +175,7 @@ class SessionManager extends EventEmitter {
       this.emit('item', tab.id, raw, tab);
       return;
     }
-    // A long tool result's tail is only for main to read (flaky.js): it's
+    // A long tool result's tail is only for main to read (flaky/index.js): it's
     // neither saved with the tab nor sent to the panel.
     let { tail, images, ...item } = raw;
     // A tool's pictures are saved apart (tool-pictures.js): the item names them.

@@ -11,7 +11,7 @@ const os = require('os');
 const path = require('path');
 const runner = require('../src/main/devservers/runner');
 const nativeLaunch = require('../src/main/devservers/launch');
-const native = require('../src/main/native-windows');
+const native = require('../src/main/desktop/native-windows');
 const out = require('../src/main/devservers/output');
 
 const skip = process.platform !== 'win32' && 'Windows only';

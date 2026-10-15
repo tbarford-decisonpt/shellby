@@ -26,14 +26,14 @@ const { UPSTREAM: PACKS_REPO, publishPack } = require('../github/publish');
 const issueWork = require('../github/pullrequest');
 const { GitHubService } = require('../github/service');
 const { syncHistory, whereFrom } = require('../github/history-gist');
-const historySync = require('../history-sync');
+const historySync = require('../history/sync');
 const { secretGate } = require('../secret-gate');
 const { SUGGESTED: SUGGESTED_MARKETPLACES, normalizeSource } = require('../marketplace');
-const shells = require('../shells');
+const shells = require('../progression/shells');
 const stickers = require('../stickers');
-const syncLife = require('../sync-life');
-const syncPrefs = require('../sync-prefs');
-const syncPlans = require('../sync-plans');
+const syncLife = require('../sync/life');
+const syncPrefs = require('../sync/prefs');
+const syncPlans = require('../sync/plans');
 const tankShare = require('../tank/share');
 const voice = require('../voice');
 const { KNOWN_ACHIEVEMENTS } = require('../wardrobe/achievements');
@@ -64,7 +64,7 @@ function wireGithub(d) {
       onSynced: before => {
         d.broadcastWardrobe(); d.send(d.panel, 'xp', d.xpView()); d.send(d.panel, 'homes', d.homesView()); d.send(d.panel, 'stickers', d.stickersView()); d.refreshStatusLine();
         d.settingsSynced?.(before);
-        // Routines and workflows added, changed or deleted on another PC (sync-plans.js).
+        // Routines and workflows added, changed or deleted on another PC (sync/plans.js).
         if (JSON.stringify(d.config.data.routines) !== JSON.stringify(before.routines)) d.send(d.panel, 'routines', d.routinesView());
         if (JSON.stringify(d.config.data.workflows) !== JSON.stringify(before.workflows)) d.workflows?.reload();
         const news = syncPlans.describeArrived(syncPlans.arrived(before, d.config.data));
@@ -93,7 +93,7 @@ function wireGithub(d) {
       // So are routines and workflows; whether one is on, or its last run, isn't shared.
       const planStamps = syncPlans.restamp(patch, prev, stamps.plans, Date.now());
       if (planStamps) { stamps.plans = planStamps; changed = true; }
-      // A favourite find or your birthday follows the PC that set it last (sync-life.js).
+      // A favourite find or your birthday follows the PC that set it last (sync/life.js).
       if ('finds' in patch && (patch.finds?.favourite ?? null) !== (prev.finds?.favourite ?? null)) { stamps.life = { ...stamps.life, favouriteAt: Date.now() }; changed = true; }
       if ('bond' in patch && JSON.stringify(patch.bond?.birthday ?? null) !== JSON.stringify(prev.bond?.birthday ?? null)) { stamps.life = { ...stamps.life, birthdayAt: Date.now() }; changed = true; }
       if (changed) d.config.set({ syncStamps: stamps });
@@ -112,7 +112,7 @@ function wireGithub(d) {
     d.prBadge.summary = () => d.crabSummary();
   }
 
-  // ---- History sync (history-sync.js): its own file, not settings.json, since
+  // ---- History sync (history/sync.js): its own file, not settings.json, since
   // it keeps the gist's index for a 304. pc: this PC's id in it, made once.
   const historyFile = () => path.join(app.getPath('userData'), 'history-sync.json');
   const historyState = {
@@ -249,7 +249,7 @@ function wireGithub(d) {
   const SLOT_OK = new Set(['shell', 'neck', 'hat', 'face', 'held']);
 
   // A swap: when you both share your stickers by name, a friend's visit leaves
-  // one of theirs (stickers.js receiveGuest). It goes in the book; the shell is yours to decide.
+  // one of theirs (stickers/index.js receiveGuest). It goes in the book; the shell is yours to decide.
   function stickerSwap(v) {
     if (d.CAPTURE || !d.config || !d.visitor || d.visitor.login !== v.login) return; // gone already
     if (d.stickerState().card !== 'names') return; // a swap goes both ways
@@ -262,7 +262,7 @@ function wireGithub(d) {
     d.send(d.panel, 'stickers', d.stickersView());
     if (!r.fresh) return;
     const gifted = d.stickersView().projects.find(p => p.id === r.project.id);
-    if (!gifted) return; // made room for itself and lost (stickers.js caps friends' gifts)
+    if (!gifted) return; // made room for itself and lost (stickers/index.js caps friends' gifts)
     d.sayText(`@${v.login} left me a sticker!`, 'visit', 7000);
     d.send(d.panel, 'stickers:new', gifted);
     if (!(d.panel?.isVisible() && d.panel.isFocused())) {
@@ -402,7 +402,7 @@ function wireGithub(d) {
       d.awardXp('merged', { project: pr.repo, label: `Merged ${where}` });
       d.flashState('success', 4500);
       d.speak('merged');
-      d.stickerService.shippedMerge(pr); // a merge ships the project: its sticker (stickers.js)
+      d.stickerService.shippedMerge(pr); // a merge ships the project: its sticker (stickers/index.js)
       d.backlogMerged?.(pr); // one opened from Next up: offer to tick its task off (wiring/backlog.js)
       d.tankGauges?.merged(); // the chest in his tank glints (tank/gauges.js)
     }

@@ -63,7 +63,7 @@ async function trackedFiles(root) {
 }
 
 /**
- * The repo's own sticker, .shellby/sticker.json, as parsed JSON (stickers.js
+ * The repo's own sticker, .shellby/sticker.json, as parsed JSON (stickers/index.js
  * validates it), or null. Small files only, never followed out of the repo.
  */
 async function stickerFile(root) {
@@ -93,7 +93,7 @@ const COMMITS_MAX = 1000;
 /**
  * Your commits on any local branch between two times (ms), oldest first:
  * [{ at, subject }]. "Yours" is the repo's user.email when there is one. For
- * the time tracker's invoice lines and estimates (timetrack.js).
+ * the time tracker's invoice lines and estimates (timetrack/index.js).
  */
 async function commitsBetween(root, from, to) {
   if (!okDir(root) || !Number.isFinite(from) || !Number.isFinite(to)) return [];

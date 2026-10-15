@@ -19,7 +19,7 @@ const INTERRUPT_KILL_MS = 8000;
 const control = {
   // decision: 'allow' | 'always' | 'deny'. answers: AskUserQuestion's
   // { [question text]: chosen label(s) or the user's own words }. via: 'phone'
-  // when it was answered from a notification (replies.js), 'deck' from a Stream
+  // when it was answered from a notification (channels/replies.js), 'deck' from a Stream
   // Deck key (deck.js), so the card says so. afterPlan: the mode an approved
   // plan's work goes on in (a note's Plan, sessions.js), else Claude Code's default.
   respond(requestId, decision, message, answers, via, afterPlan = null) {

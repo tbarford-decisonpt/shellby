@@ -3,9 +3,9 @@
 const fs = require('fs');
 const path = require('path');
 const demo = require('./capture-demo');
-const streaks = require('./streaks');
+const streaks = require('./progression/streaks');
 const voice = require('./voice');
-const { xpSummary } = require('./xp');
+const { xpSummary } = require('./progression/xp');
 
 const HOME = 'C:\\Users\\you';
 const now = Date.now();
@@ -143,7 +143,7 @@ async function shot(win, file) {
   console.log('wrote', path.relative(process.cwd(), file));
 }
 
-// Projects for the sticker shots (stickers.js): a mix of tiers, marks and ages.
+// Projects for the sticker shots (stickers/index.js): a mix of tiers, marks and ages.
 function demoStickers(now) {
   const DAY = 24 * 3600 * 1000;
   const list = [

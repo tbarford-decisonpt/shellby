@@ -36,7 +36,7 @@ const STAT_COUNTS = Object.freeze({
 });
 // High-water marks within the year: payload { n }.
 const STAT_MAXIMA = Object.freeze({ 'review-tier': 'reviewTier', 'reef-thriving': 'thrivingMax' });
-// XP kinds (xp.js AWARDS) that are counted as well as paid.
+// XP kinds (progression/xp.js AWARDS) that are counted as well as paid.
 const KIND_COUNTS = Object.freeze({ merged: 'merged', quiz: 'quizzes' });
 
 const COUNTS = ['xp', 'tasks', 'tideOuts', 'deploys', 'merged', 'catches', 'newSpecies', 'shiny', 'nestsCleared', 'cleanFixes', 'held',
@@ -184,7 +184,7 @@ function noteStat(s, y, event, p, now) {
  *   'xp'      { kind, gained, project? }   an award paid (d.onAward)
  *   'stat'    { event, payload }           an achievement stat (d.onStat)
  *   'trophy'  { id, pieces: [key] }        a trophy earned, with the tank pieces it brought
- *   'tideout' {}                           a tide-out day used (streaks.js)
+ *   'tideout' {}                           a tide-out day used (progression/streaks.js)
  */
 function note(state, event, payload = {}, now = new Date()) {
   const when = asDate(now);
@@ -237,10 +237,10 @@ function markShown(state, year) {
 /**
  * Once, on the first run: fill in this year from what Shellby already kept,
  * so the first Wrapped isn't empty. sources (all optional, already normalized):
- *   days         ['YYYY-MM-DD']  active days (streaks.js keeps 400, achievements 400)
- *   xpDaily      { day: xp }     xp.js keeps 30 days
+ *   days         ['YYYY-MM-DD']  active days (progression/streaks.js keeps 400, achievements 400)
+ *   xpDaily      { day: xp }     progression/xp.js keeps 30 days
  *   xpDailyKinds { day: { kind: xp } }
- *   bugMonths    { 'YYYY-MM': { device: { jars, shinies } } }   bugdex.js months
+ *   bugMonths    { 'YYYY-MM': { device: { jars, shinies } } }   bugdex/index.js months
  *   bugFirsts    [first catch time, ms]  one per species caught
  *   level        the level now
  *   medals, molts  tide medals and molts so far, so the next one counts as one

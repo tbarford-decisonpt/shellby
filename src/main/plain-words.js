@@ -9,7 +9,7 @@
 // installs, going online, pushing, and what's hard to undo.
 // Pure. See test/plain-words.test.js; session/ attaches them to items.
 const path = require('path');
-const { classifyCommand } = require('./xp');
+const { classifyCommand } = require('./progression/xp');
 const { commandKind } = require('./bugdex/detect');
 const { onlyLooks } = require('./worktrees');
 

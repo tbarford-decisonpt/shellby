@@ -1,4 +1,4 @@
-/* Shellby panel — levels and what they unlock (src/main/levels.js): a thin bar
+/* Shellby panel — levels and what they unlock (src/main/progression/levels.js): a thin bar
    under the XP bar toward the next unlock ("Next: 🐚 Ammonite at Lv 32, 1,240 XP
    to go", everything at that level on hover), the whole ladder from 2 to 99, the
    Molt button at 99, and the ceremony a milestone level gets (20, 30 … 99).

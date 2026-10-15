@@ -2,7 +2,7 @@
 // kept awake while one runs.
 // Kept out of main.js, which only wires it up.
 const focus = require('../focus');
-const streaks = require('../streaks');
+const streaks = require('../progression/streaks');
 
 /** d: what main shares (main.js `shared`). */
 function wireFocus(d) {

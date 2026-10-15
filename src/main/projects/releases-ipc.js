@@ -83,7 +83,7 @@ function registerReleasesIpc(ipcMain, d, { git = worktrees.git } = {}) {
     };
   }
 
-  // Shipped: his sticker for the project learns of the release (stickers.js).
+  // Shipped: his sticker for the project learns of the release (stickers/index.js).
   const released = (root, version) => { try { d.shipped?.(root, 'release', { version }); } catch { /* a sticker that can't be saved mustn't undo a release */ } };
 
   async function once(root, fn) {

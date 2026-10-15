@@ -5,8 +5,8 @@ const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 
 /**
  * d: {
- *   history                       history.js's store
- *   search                        optional: history-search.js's HistorySearch over it
+ *   history                       history/index.js's store
+ *   search                        optional: history/search.js's HistorySearch over it
  *   manager                       the tab manager (tabs, close, rename)
  *   openTab({ tabId, historyEntry })
  *   isPoppedOut(id), showPopout(id)   a conversation in a window of its own (wiring/popouts.js)
@@ -21,7 +21,7 @@ function registerHistoryIpc(ipcMain, d) {
   const { history, manager, search } = d;
 
   ipcMain.handle('session:list', () => history.list());
-  // Inside the messages (history-search.js): ranked, with snippets and where each hit is.
+  // Inside the messages (history/search.js): ranked, with snippets and where each hit is.
   ipcMain.handle('session:search', async (_e, { query, project, pc, from, to } = {}) => {
     if (!search || !isStr(query) || query.length > 300) return { results: [], facets: { projects: [], pcs: [] } };
     const filters = {

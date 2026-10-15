@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { HOME, SHELLS, unlockedAt, unlockedBetween, wornShell, normalizeHome, homesView, tierShell, shellById, moltOf, withMolts, renderShell } = require('../src/main/shells');
+const { HOME, SHELLS, unlockedAt, unlockedBetween, wornShell, normalizeHome, homesView, tierShell, shellById, moltOf, withMolts, renderShell } = require('../src/main/progression/shells');
 
 const SKINS_DIR = path.join(__dirname, '..', 'src', 'skins');
 const skins = fs.readdirSync(SKINS_DIR).filter(f => f.endsWith('.json')).map(f => JSON.parse(fs.readFileSync(path.join(SKINS_DIR, f), 'utf8')));

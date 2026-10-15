@@ -4,7 +4,7 @@
 // and the game-hub every game screen registers with. Kept out of main.js, which
 // only wires it up.
 const { createGameHub } = require('../game-hub');
-const { levelFor, normalizeXp } = require('../xp');
+const { levelFor, normalizeXp } = require('../progression/xp');
 
 /** d: what main shares (main.js `shared`). */
 function wireGameHooks(d) {

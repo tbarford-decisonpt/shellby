@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { covers, panelCalm, veil, DESKTOP_CLASSES } = require('../src/main/desktop-layer');
+const { covers, panelCalm, veil, DESKTOP_CLASSES } = require('../src/main/desktop/desktop-layer');
 
 const crab = { x: 1700, y: 860, width: 200, height: 180 };
 
@@ -69,8 +69,8 @@ test('veil ignores a missing or destroyed window', () => {
 
 // ---------------------------------------------------------------- on top of your apps
 // The Win32 side, stubbed: desktop-layer.js reaches it through the module object.
-const native = require('../src/main/native-windows');
-const { pin, sendToBottom, tuckUnder, setOnTop, isPinned } = require('../src/main/desktop-layer');
+const native = require('../src/main/desktop/native-windows');
+const { pin, sendToBottom, tuckUnder, setOnTop, isPinned } = require('../src/main/desktop/desktop-layer');
 
 const HOST = 900, HWND_BOTTOM = 1, HWND_TOPMOST = -1, HWND_NOTOPMOST = -2;
 let calls;

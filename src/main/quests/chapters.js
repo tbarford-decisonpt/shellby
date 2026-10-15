@@ -1,4 +1,4 @@
-// The quest line's chapters (quests.js runs them): data only, so the logic
+// The quest line's chapters (quests/index.js runs them): data only, so the logic
 // stays small. Chapter 1 is the original four quests, ids unchanged, so a saved
 // line still loads. Every later chapter teaches one screen and how it feeds the
 // next one: the reef, the Bugdex, automation, review, the tank, tide events.

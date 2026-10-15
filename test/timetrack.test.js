@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const tt = require('../src/main/timetrack');
-const { timesheetHtml, exportName } = require('../src/main/timesheet');
+const { timesheetHtml, exportName } = require('../src/main/timetrack/timesheet');
 const { parseArgs } = require('../src/cli/shellby');
 
 // Saturday 3 October 2026, mid-morning (local time).

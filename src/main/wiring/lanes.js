@@ -1,5 +1,5 @@
 // Running many conversations at once: the board of lanes, the merge order with
-// "Line them up" (merge-train.js), and answering identical permission prompts
+// "Line them up" (worktrees/merge-train.js), and answering identical permission prompts
 // across conversations in one go. The deciding is lanes.js; this is the git,
 // the asking and the answering. Kept out of main.js, which only wires it up.
 //
@@ -7,7 +7,7 @@
 // and lining copies up only ever starts after you've said yes to it.
 const confirm = require('../confirm');
 const lanesLib = require('../lanes');
-const { runTrain, trainLine } = require('../merge-train');
+const { runTrain, trainLine } = require('../worktrees/merge-train');
 const worktrees = require('../worktrees');
 
 const DIFF_TIMEOUT_MS = 15000;

@@ -1,4 +1,4 @@
-/* Shellby panel — the Molt sheet (src/main/molting.js): at level 99 he can molt,
+/* Shellby panel — the Molt sheet (src/main/progression/molting.js): at level 99 he can molt,
    starting again at level 1 with everything kept, for a tier shell of his own.
    The sheet shows the shell he'll move into (with its frames, colour cycle, glow
    and sparkles, drawn by shared/sprite.js), what he keeps, and the tier shells

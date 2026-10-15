@@ -17,7 +17,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { savePng } = require('./lib/shot');
-const { SHELLS } = require('../src/main/shells');
+const { SHELLS } = require('../src/main/progression/shells');
 const { startMockGitHub } = require('../test/fixtures/mock-github');
 
 const ROOT = path.join(__dirname, '..');

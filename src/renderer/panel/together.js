@@ -1,6 +1,6 @@
 /* Shellby panel — Finds and Us, two tabs of Shellby's screen about the two of
    you, none of which needs Claude. Finds is the shelf of everything he's dug up
-   (src/main/gifts.js); Us is your beach (beach.js draws it, with him on it),
+   (src/main/gifts/index.js); Us is your beach (beach.js draws it, with him on it),
    how close you are, his temperament, games, your birthday, the scenes you've
    caught him in and the moments he remembers (bond.js, playtime.js,
    scenes.js). Main sends one view for both (life.js). */

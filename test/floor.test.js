@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { roster, tracksOn, COLONY_MAX, NAMES } = require('../src/main/floor');
+const { roster, tracksOn, COLONY_MAX, NAMES } = require('../src/main/desktop/floor');
 
 const configOf = obj => ({ get: k => obj[k] });
 

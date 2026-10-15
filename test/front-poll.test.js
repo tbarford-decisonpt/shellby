@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createFrontReader, createBeat, signature, FAST_MS, SLOW_MS, STILL_AFTER } = require('../src/main/front-poll');
+const { createFrontReader, createBeat, signature, FAST_MS, SLOW_MS, STILL_AFTER } = require('../src/main/desktop/front-poll');
 
 function fakeNative(front) {
   const calls = { describe: 0, quick: 0 };

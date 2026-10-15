@@ -1,5 +1,5 @@
 // The world around him: Claude Code sessions elsewhere, PC health, telling you
-// when you're away (channels.js), the stream overlay (obs.js), the Stream Deck
+// when you're away (channels/index.js), the stream overlay (obs.js), the Stream Deck
 // keys (deck.js), desk lighting (rgb.js), your Discord profile (discord.js),
 // music, typing, the weather, the shellby command and the crab card.
 // Kept out of main.js, which only wires it up.
@@ -39,7 +39,7 @@ function registerSurroundingsIpc(ipcMain, d) {
   ipcMain.handle('health:clear-log', () => { d.config.set({ healthLog: [] }); return d.health.view(); });
   ipcMain.on('health:viewed', () => d.stat('health-viewed'));
 
-  // ---- telling you when you're away (channels.js)
+  // ---- telling you when you're away (channels/index.js)
   ipcMain.handle('channels:get', () => d.channelsView());
   ipcMain.handle('channels:set', async (_e, patch) => {
     const next = channels.normalizeChannelSettings(d.channelSettings(), patch && typeof patch === 'object' ? patch : {});
@@ -73,7 +73,7 @@ function registerSurroundingsIpc(ipcMain, d) {
     return d.channelsView();
   });
 
-  // ---- starting a task from your phone (phone-tasks.js): turning it on asks
+  // ---- starting a task from your phone (channels/phone-tasks.js): turning it on asks
   // in the confirmation window, and the folder only comes from the picker.
   ipcMain.handle('phoneTasks:get', () => d.phoneTasksView());
   ipcMain.handle('phoneTasks:set', (_e, patch) => d.setPhoneTasks({

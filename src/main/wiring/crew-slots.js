@@ -3,7 +3,7 @@
 // place, and shrinks once they've walked home. And saving his spot, which is
 // his own, not the widened window's left edge.
 // Kept out of main.js, which only wires it up.
-const { clampToDisplays } = require('../placement');
+const { clampToDisplays } = require('../desktop/placement');
 
 const SHRINK_AFTER_MS = 1100; // let helpers walk home first
 

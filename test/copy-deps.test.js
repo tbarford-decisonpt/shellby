@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCopyDeps, installDir, homesOf, refusal, registryOnly, installedAlready, depsSentence, ARGS } = require('../src/main/copy-deps');
+const { installCopyDeps, installDir, homesOf, refusal, registryOnly, installedAlready, depsSentence, ARGS } = require('../src/main/worktrees/copy-deps');
 const { findNpm } = require('../src/main/depwatch');
 
 const W = { root: path.resolve('/repo'), path: path.resolve('/home/abc123/repo'), cwd: path.resolve('/home/abc123/repo/app') };

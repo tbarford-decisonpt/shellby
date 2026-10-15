@@ -2,7 +2,7 @@
    kind of bug Claude has fixed for you, as a pixel creature in a jar. Seen ones
    are silhouettes, caught ones are in colour with their stats, and the ones
    still unfixed in a tab are "on the loose". Main sends the whole page as one
-   view (src/main/bugdex.js view()); nothing here is ever put in as HTML. */
+   view (src/main/bugdex/index.js view()); nothing here is ever put in as HTML. */
 'use strict';
 (function () {
   const { h, api, state, $, plural } = SB;

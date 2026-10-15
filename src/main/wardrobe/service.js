@@ -5,7 +5,7 @@ const { loadCatalog, installPack, removePack } = require('./catalog');
 const { SEASONS, KNOWN_SEASONS, activeSeasons, featuredSeason, isActive, nextStart } = require('./seasons');
 const { ACHIEVEMENTS, KNOWN_ACHIEVEMENTS, normalizeStats, recordStat, evaluate, progress } = require('./achievements');
 const { encodeOutfit, decodeOutfit, resolveEntries } = require('./codes');
-const { everLevel } = require('../levels');
+const { everLevel } = require('../progression/levels');
 
 const SLOTS = ['hat', 'face', 'neck', 'held', 'shell', 'effect'];
 const EMPTY_OUTFIT = Object.freeze({ hat: null, face: null, neck: null, held: null, shell: null, effect: null });
@@ -63,7 +63,7 @@ class Wardrobe extends EventEmitter {
   // Where you are, for the seasons: south of the equator, spring comes in September.
   where() { return { south: !!this.south() }; }
   get stats() { return normalizeStats(this.config.get('stats')); }
-  // The highest level he has ever reached (levels.js): what { level } unlocks read. A molt never lowers it.
+  // The highest level he has ever reached (progression/levels.js): what { level } unlocks read. A molt never lowers it.
   get everLevel() { return everLevel(this.config.get('xp')); }
 
   // ------------------------------------------------------------ catalog
@@ -369,7 +369,7 @@ class Wardrobe extends EventEmitter {
     };
   }
 
-  // Every piece of tank decor, with whether it's unlocked and new (src/main/tank.js lays them out).
+  // Every piece of tank decor, with whether it's unlocked and new (src/main/tank/index.js lays them out).
   decorView(d = this.data, stats = this.stats) {
     return [...this.catalog.decor.values()].map(item => ({ ...publicItem(item), locked: this.lockInfo(item, d, stats), isNew: d.newItems.includes(item.key) }));
   }

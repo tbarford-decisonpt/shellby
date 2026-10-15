@@ -174,7 +174,7 @@ const missingPytest = (cmd, output) => (cmd === FIXED.pytest || VENV_PYTEST.incl
 /**
  * One finished command -> { cmd, ok, durationMs, failed, tail, problems?, timedOut?, error?, needsEnv? }. Pure.
  * The exit code is the truth (it's our own run, nothing masks it); the output
- * is only read for which tests failed (flaky.js knows the runners' formats).
+ * is only read for which tests failed (flaky/index.js knows the runners' formats).
  * pytest missing from the python that ran it isn't a failing test: that's an
  * error (needsEnv), and it doesn't hold up bringing a copy home.
  */

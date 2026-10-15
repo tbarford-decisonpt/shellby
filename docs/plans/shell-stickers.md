@@ -24,7 +24,7 @@
 - **Sticker spots** are computed from each shell's shape (3–6 per shell), and the same
   spot number lands in the same place on a friend's crab, whatever skin it wears here.
 
-The code: `src/main/stickers.js` (state, pure), `stickers/art.js` (drawing),
+The code: `src/main/stickers/index.js` (state, pure), `stickers/art.js` (drawing),
 `stickers/slots.js` (spots), the `shell stickers` section of `main.js`, and
 `src/renderer/panel/stickers.js` (the Sticker Book). Tests: `test/stickers.test.js`,
 `scripts/e2e-stickers.js`, `scripts/e2e-stickers-molt.js`, and the swap in
@@ -300,7 +300,7 @@ least-shipped untouched ones are dropped from the *book*, never from a shell.
 ### Modules
 | File | Kind | Does |
 |---|---|---|
-| `src/main/stickers.js` | **pure** (callers pass `now`, like `xp.js`/`streaks.js`) | `normalize`, `recordShip(state, project, kind, now, meta)` → `{ state, minted, tierUp, newMarks }`, `tierFor`, `weathering(project, now)`, `autoPlace`, `carryOnMolt`, `merge(local, remote)` for sync |
+| `src/main/stickers/index.js` | **pure** (callers pass `now`, like `xp.js`/`streaks.js`) | `normalize`, `recordShip(state, project, kind, now, meta)` → `{ state, minted, tierUp, newMarks }`, `tierFor`, `weathering(project, now)`, `autoPlace`, `carryOnMolt`, `merge(local, remote)` for sync |
 | `src/main/stickers/art.js` | **pure** | seed → full and micro art; language palettes; pixel font; shapes |
 | `src/main/stickers/slots.js` | **pure** | shell mask → slots |
 | `src/main/gitinfo.js` | I/O | `projectOf(dir)`, `languageOf(root)` (cached) |

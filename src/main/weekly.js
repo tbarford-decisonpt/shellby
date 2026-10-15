@@ -12,7 +12,7 @@
 // from before the ledger existed are filled in from what was already stored:
 // XP per day (xp.daily), the XP log, and each sticker's last ship. Pure: no
 // I/O, no clock (callers pass `now`). See test/weekly.test.js.
-const { characterSheet } = require('./character');
+const { characterSheet } = require('./progression/character');
 
 const KEEP_DAYS = 70;           // ten weeks: this one, last one, and room to spare
 const MAX_PROJECTS_A_DAY = 20;
@@ -190,7 +190,7 @@ const LOG_KINDS = { fixed: 'fixed', tests: 'tests', task: 'task', deps: 'deps', 
 /**
  * Tally a window of days [from, to) (ms, local midnights). Days the ledger
  * kept are read from it; earlier ones from the XP log and the stickers.
- *   xp: normalized XP state (xp.js); stickers: normalized sticker state (stickers.js)
+ *   xp: normalized XP state (progression/xp.js); stickers: normalized sticker state (stickers/index.js)
  */
 function tally(s, from, to, { xp, stickers } = {}) {
   const totals = Object.fromEntries(KINDS.map(k => [k, 0]));
@@ -275,7 +275,7 @@ function topProjectOf(work, shipped) {
 
 /**
  * The last seven days (today included) and the seven before, for the card.
- *   streak: { current, longest } (streaks.js); level: levelFor() (xp.js)
+ *   streak: { current, longest } (progression/streaks.js); level: levelFor() (progression/xp.js)
  */
 function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, level = null, usage = null } = {}) {
   const s = normalizeWeekly(stateIn);
@@ -322,7 +322,7 @@ function weekSummary(stateIn, now, { xp = null, stickers = null, streak = null, 
     prev: { projects: prev.projects.length, ships: ships(prev), green: prev.totals.fixed, tasks: prev.totals.task },
     streak: { current: count(streak?.current), longest: count(streak?.longest) },
     level: level ? { level: level.level, title: level.title, color: level.rank?.color || null } : null,
-    // The character sheet (character.js): stats, class, and what this week added.
+    // The character sheet (progression/character.js): stats, class, and what this week added.
     character: xp ? characterSheet(xp, now) : null,
     plan: planOf(s, cur, prev, t.task, usage, now),
   };

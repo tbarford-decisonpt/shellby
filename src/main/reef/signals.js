@@ -1,4 +1,4 @@
-// The reef's signals (reef.js): what each one is, which way is better, the
+// The reef's signals (reef/index.js): what each one is, which way is better, the
 // smallest change that counts as a new best, and the readers that turn what's
 // already lying around into a number. Nothing here runs anything: the counts
 // come from output Claude's own commands printed, coverage files a test run

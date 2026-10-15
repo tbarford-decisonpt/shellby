@@ -1,7 +1,7 @@
 // The Bugdex, wired up: where Shellby sees a bug (a failed command in one of
 // his tabs, a crashed dev server, a red build, a clash bringing a copy home, a
 // secret stopped at the push), and where he sees it fixed. The rules are the
-// pure modules (bugdex.js, bugdex/*.js); this holds the snapshots, the git
+// pure modules (bugdex/index.js, bugdex/*.js); this holds the snapshots, the git
 // checks, the moment he jars it and the rewards. See docs/plans/bugdex.md.
 //
 // Nothing a command printed is kept: detect.js reads it and hands back a
@@ -21,7 +21,7 @@ const { speciesById } = require('../bugdex/species');
 const { cmdKey } = require('../flaky/ids');
 const { projectOf } = require('../gitinfo');
 const { activeSeasons } = require('../wardrobe/seasons');
-const { normalizeXp } = require('../xp');
+const { normalizeXp } = require('../progression/xp');
 const events = require('../events');
 const boards = require('../board');
 const { makeBattles } = require('./bugdex-battles');
@@ -504,7 +504,7 @@ function wireBugdex(d) {
     if (p) update(s => bugdex.engage(s, p.id, Date.now()));
   }
 
-  // ---- turns (wiring/sessions.js, timetrack.js)
+  // ---- turns (wiring/sessions.js, timetrack/index.js)
 
   /** A turn started or ended with the code at this tree: remembered, for the revert check. */
   async function treeSeen(root, tree) {
@@ -716,7 +716,7 @@ function wireBugdex(d) {
     });
     if (response !== 0) return { ok: false, canceled: true };
     // A reset marker, not nothing: sync carries it, so other PCs start over too
-    // instead of handing the old counts back (bugdex.js merge).
+    // instead of handing the old counts back (bugdex/index.js merge).
     save(bugdex.normalize({ resetAt: Date.now() }));
     push();
     return { ok: true };

@@ -1,14 +1,14 @@
-// Molting at level 99 (molting.js): the 'molt' view the Molt sheet reads
+// Molting at level 99 (progression/molting.js): the 'molt' view the Molt sheet reads
 // (renderer molt.js), the molt itself (asked first, then the ceremony on the
 // crab: out of his shell, into the tier shell), wearing a tier shell, and the
 // quests that belong to it (ninety-nine, molt-or-stay, every-shell).
 // Kept out of main.js, which only wires it up.
 const { app } = require('electron');
-const levels = require('../levels');
-const molting = require('../molting');
-const shells = require('../shells');
+const levels = require('../progression/levels');
+const molting = require('../progression/molting');
+const shells = require('../progression/shells');
 const stickers = require('../stickers');
-const { normalizeXp, levelOf } = require('../xp');
+const { normalizeXp, levelOf } = require('../progression/xp');
 
 const MOLT_MS = 5200;      // as long as the level-up shell change (wiring/progress.js)
 const EVERY_SHELL = 10;    // shells worn for the every-shell quest

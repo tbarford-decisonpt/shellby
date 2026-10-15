@@ -1,5 +1,5 @@
 // End-to-end check that your friends list, settings and his finds and bond
-// follow you between PCs (sync-prefs.js, friends.js mergeSync, sync-life.js), against the dev app over CDP with a
+// follow you between PCs (sync/prefs.js, friends.js mergeSync, sync/life.js), against the dev app over CDP with a
 // mock GitHub (test/fixtures/mock-github.js). Two isolated profiles stand in
 // for two PCs signed in to the same account, one after the other:
 //   1. PC A, with finds on his shelf and a bond, picks its settings, adds two friends and syncs.

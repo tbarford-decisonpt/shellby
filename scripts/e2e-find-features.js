@@ -91,7 +91,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await ev("[...document.querySelectorAll('#usesNever .uses-row')].find(r => r.querySelector('b').textContent === 'Us').querySelector('button').click()");
     check(await ev('SB.state.view') === 'us', 'Take a look goes there');
     check(/never sent anywhere/.test(await ev("document.getElementById('usesLede').textContent")), 'and it says the count stays on this PC');
-    const sync = require(path.join(ROOT, 'src', 'main', 'sync-prefs.js'));
+    const sync = require(path.join(ROOT, 'src', 'main', 'sync/prefs.js'));
     check(!JSON.stringify(Object.keys(sync.PREFS || {})).includes('featureUse'), 'the count is not one of the settings Sync carries');
   } catch (e) {
     check(false, e.message);

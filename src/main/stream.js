@@ -279,7 +279,7 @@ function toolItem(b, sub) {
   // What it's doing, in plain words, for the Working bar (plain-words.js).
   const plain = plainWords.describe(b.name, input);
   if (plain) item.doing = plain.doing;
-  // Its result only says it started: not a finished run (flaky.js).
+  // Its result only says it started: not a finished run (flaky/index.js).
   if ((b.name === 'Bash' || b.name === 'PowerShell') && input.run_in_background === true) item.background = true;
   const fp = writtenPath(b.name, input);
   if (fp) { item.filePath = fp; item.writeChars = writeChars(b.name, input); item.edits = editsOf(b.name, input); }
@@ -426,7 +426,7 @@ function toItems(ev) {
           text: truncate(full, MAX_RESULT_CHARS), ...sub,
         };
         // Test runners print their failures last: main reads the end of a
-        // long result for the flaky test detective (flaky.js), then drops it.
+        // long result for the flaky test detective (flaky/index.js), then drops it.
         if (full.length > MAX_RESULT_CHARS) item.tail = full.slice(-MAX_RESULT_CHARS);
         // Pictures are saved apart and named on the item instead (sessions.js).
         const images = resultImages(b.content);

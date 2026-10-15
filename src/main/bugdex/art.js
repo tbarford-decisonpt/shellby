@@ -1,6 +1,6 @@
 // The Bugdex's drawing helpers: a species as a silhouette, grown a stage, in
 // gold, shiny or spectral, in a jar for him to hold up, or shrunk to a 3×3
-// speck for the tide pool. Art is the gifts.js format: rows of characters,
+// speck for the tide pool. Art is the gifts/index.js format: rows of characters,
 // '.' empty, every other character a palette key.
 //
 // Pure. See test/bugdex.test.js.

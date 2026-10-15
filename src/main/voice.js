@@ -14,7 +14,7 @@
 // A fourth rule lives in the renderer: anything that matters (a health alert, a
 // red build, a countdown) outranks everything here.
 
-const { classifyCommand } = require('./xp');
+const { classifyCommand } = require('./progression/xp');
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -56,7 +56,7 @@ const OCCASIONS = Object.freeze({
   // --- what the work actually is (from the tool stream)
   tests: { every: 3 * MINUTE, ttl: 5 * SECOND },
   passed: { every: 2 * MINUTE, ttl: 6 * SECOND },
-  fixed: { every: 2 * MINUTE, ttl: 7 * SECOND }, // red tests green again, on changed code (xp.js 'fixed')
+  fixed: { every: 2 * MINUTE, ttl: 7 * SECOND }, // red tests green again, on changed code (progression/xp.js 'fixed')
   merged: { every: 2 * MINUTE, ttl: 7 * SECOND }, // one of your pull requests merged
   push: { every: 2 * MINUTE, ttl: 6 * SECOND },
   deploy: { every: 2 * MINUTE, ttl: 7 * SECOND },
@@ -97,7 +97,7 @@ const OCCASIONS = Object.freeze({
   tank: { every: 3 * HOUR, ttl: 7 * SECOND },
   tankNew: { every: 0, ttl: 6 * SECOND },
 
-  // --- things he digs up (gifts.js) and remembers (bond.js)
+  // --- things he digs up (gifts/index.js) and remembers (bond.js)
   found: { every: 0, ttl: 7 * SECOND },
   memory: { every: 3 * HOUR, ttl: 8 * SECOND },
   milestone: { every: 0, ttl: 10 * SECOND },
@@ -106,7 +106,7 @@ const OCCASIONS = Object.freeze({
   idle: { every: 25 * MINUTE, ttl: 6 * SECOND },
   oops: { every: 10 * MINUTE, ttl: 4 * SECOND }, // a clumsy habit (trip, stuck)
 
-  // --- up on your windows (see perch.js)
+  // --- up on your windows (see desktop/perch.js)
   perch: { every: 3 * MINUTE, ttl: 5 * SECOND },
   ride: { every: 2 * MINUTE, ttl: 4 * SECOND },
   shaken: { every: 30 * SECOND, ttl: 4 * SECOND },
@@ -119,13 +119,13 @@ const OCCASIONS = Object.freeze({
   typingBurst: { every: 10 * MINUTE, ttl: 5 * SECOND },
   typingRecord: { every: 0, ttl: 7 * SECOND },
 
-  // --- the weather outside (weather.js remarkFor), as it turns
+  // --- the weather outside (weather/index.js remarkFor), as it turns
   rainStart: { every: 2 * HOUR, ttl: 7 * SECOND },
   snowStart: { every: 2 * HOUR, ttl: 7 * SECOND },
   stormStart: { every: 2 * HOUR, ttl: 7 * SECOND },
   rainStopped: { every: 2 * HOUR, ttl: 6 * SECOND },
 
-  // --- up the edges of the screen (see climb.js)
+  // --- up the edges of the screen (see desktop/climb.js)
   climb: { every: 3 * MINUTE, ttl: 4 * SECOND },
   stuck: { every: 30 * SECOND, ttl: 4 * SECOND },
   leap: { every: MINUTE, ttl: 4 * SECOND },
@@ -291,7 +291,7 @@ const TEMPERAMENT_INFO = Object.freeze({
 });
 
 // What he does with his claws when there's nothing to do. The renderer animates
-// these (critter.css); strolling is the one that moves his window (motion.js).
+// these (critter.css); strolling is the one that moves his window (desktop/motion.js).
 // The small fidgets (settling his shell, a scratch, a yawn) fill the gaps
 // between the bigger habits; trip and stuck are the rare clumsy ones.
 const BITS = Object.freeze(['dig', 'polish', 'peek', 'stretch', 'flop', 'shuffle', 'scratch', 'yawn', 'trip', 'stuck']);
@@ -305,7 +305,7 @@ const BIT_WEIGHT = Object.freeze({
 
 // ---------------------------------------------------------------- what the work is
 
-// A finished shell command, scored the same way XP scores it (see xp.js), is
+// A finished shell command, scored the same way XP scores it (see progression/xp.js), is
 // the clearest signal of what just happened.
 const RESULT_OCCASION = Object.freeze({ tests: 'passed', ship: 'push', deploy: 'deploy' });
 

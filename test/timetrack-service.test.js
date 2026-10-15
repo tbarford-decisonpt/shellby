@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { TimeTracker } = require('../src/main/timetrack-service');
+const { TimeTracker } = require('../src/main/timetrack/service');
 const tt = require('../src/main/timetrack');
 
 const SHELLBY = 'c:\\users\\jacob\\documents\\github\\shellby';

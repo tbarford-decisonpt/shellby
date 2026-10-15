@@ -1,4 +1,4 @@
-// What his pals get up to (src/main/floor.js). Pure, so test/colony.test.js
+// What his pals get up to (src/main/desktop/floor.js). Pure, so test/colony.test.js
 // runs it in node; floor.js in this folder draws whatever it decides.
 //
 // A pal is { id, name, hue, x, dir, mode, target, then, until }. With a

@@ -7,7 +7,7 @@
 const crypto = require('crypto');
 const { ANSI_RE, cmdKey, masked, normalizeCmd } = require('../flaky/ids');
 const { readRun } = require('../flaky/parsers');
-const { classifyCommand } = require('../xp');
+const { classifyCommand } = require('../progression/xp');
 const { flagsOf } = require('./cheats');
 
 const MAX_TEXT = 64 * 1024;    // only the end of a long output: the error is near the bottom

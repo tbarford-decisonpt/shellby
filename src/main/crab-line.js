@@ -1,6 +1,6 @@
 // The crab, in a line, for places other people read: the "Built with
 // Shellby" badge on your pull requests (github/pr-badge.js) and the trailer on
-// Shellby's own bring-home commits (worktrees.js). Only what's already public
+// Shellby's own bring-home commits (worktrees/index.js). Only what's already public
 // about him (level, title, class) and a count of bugs Claude fixed this week.
 // Never a project, a file or an error. See docs/plans/viral.md §6.
 //
@@ -14,7 +14,7 @@ const lvl = v => (Number.isFinite(v) ? Math.min(99, Math.max(1, Math.floor(v))) 
 const n = v => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
 const plural = (k, one, many) => `${k} ${k === 1 ? one : many}`;
 
-/** Bugs jarred in the last week, from the Bugdex's log (bugdex.js normalize: newest first, at most 30). */
+/** Bugs jarred in the last week, from the Bugdex's log (bugdex/index.js normalize: newest first, at most 30). */
 function bugsThisWeek(log, now) {
   return (Array.isArray(log) ? log : []).filter(e => e && Number.isFinite(e.at) && now - e.at < 7 * DAY && now >= e.at).length;
 }

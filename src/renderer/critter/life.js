@@ -88,7 +88,7 @@
     'crumbs': () => Array.from({ length: 6 }, (_, i) => el('i', 'crumb', { '--d': `${i * 280}ms`, '--dx': `${(i % 2 ? 1 : -1) * (4 + (i * 5) % 9)}px` })),
     'suds': () => Array.from({ length: 9 }, (_, i) => el('i', 'sud', { '--d': `${i * 230}ms`, '--x': `${(i % 3) * 9 - 12}px`, '--s': `${5 + (i * 3) % 6}px` })),
     'hearts': () => ['♥', '♥'].map((t, i) => { const e = el('i', 'love', { '--d': `${i * 320}ms`, '--x': `${i * 10 - 5}px` }); e.textContent = t; return e; }),
-    // A bug scooped into a jar (src/main/bugdex.js): a splash as it drops in,
+    // A bug scooped into a jar (src/main/bugdex/index.js): a splash as it drops in,
     // a puff of sparkles as the cork goes on, and the jar in his claw (critter:hold)
     // settling with one little rock (life.css). A ghost leaves a wisp behind.
     'jar': msg => {

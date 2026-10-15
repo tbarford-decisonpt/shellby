@@ -22,7 +22,7 @@ const { detailOf } = require('../trouble');
 const usage = require('../usage');
 const accounts = require('../usage/accounts');
 const voice = require('../voice');
-const { classifyCommand, markRed } = require('../xp');
+const { classifyCommand, markRed } = require('../progression/xp');
 
 /** d: what main shares (main.js `shared`). */
 function wireSessions(d) {
@@ -37,7 +37,7 @@ function wireSessions(d) {
   }
   const toolPicture = (tabId, id) => toolPictures.read(picturesDir(), tabId, id);
 
-  // A project's code when its tests last failed (by project, as xp.js marks red).
+  // A project's code when its tests last failed (by project, as progression/xp.js marks red).
   const redTrees = new Map();
 
   // A command that went well pays its XP, and he says so. A test pass on code
@@ -218,7 +218,7 @@ function wireSessions(d) {
         const dir = tab.session?.cwd || '';
         // On another computer the folder here is only a stand-in: nothing to compare runs in.
         const inProject = dir && path.resolve(dir) !== path.resolve(os.homedir()) && !d.remoteService?.placeOf(dir);
-        // A test run: the code as it was when it started, so a later run can be compared (flaky.js).
+        // A test run: the code as it was when it started, so a later run can be compared (flaky/index.js).
         const tree = inProject && !item.background ? d.flakyTree(item.detail, dir) : null;
         // ...and for a command that could catch a bug still on the loose (wiring/bugdex.js).
         const bugTree = inProject && !item.background ? d.bugdex?.commandStart({ command: item.detail, dir }) : null;
@@ -247,7 +247,7 @@ function wireSessions(d) {
         d.noteCommand?.(c, item, tail); // the game packages' onCommandResult (wiring/progress.js)
         const kind = !item.isError && meant;
         if (kind) awardCommand(kind, c);
-        // A push, deploy or release ships the project: its sticker (stickers.js).
+        // A push, deploy or release ships the project: its sticker (stickers/index.js).
         const ship = c.dir && stickers.shipOf(kind, c.command);
         if (ship) d.shipped(c.dir, ship.kind, ship.meta);
         // gh pr create: the tab's work is a pull request now, so it gets the badge (github/pr-badge.js).
@@ -278,7 +278,7 @@ function wireSessions(d) {
         const json = JSON.stringify(saved);
         if (json !== openTabsSaved) { openTabsSaved = json; d.config.set({ openTabs: saved }); }
       }
-      // A conversation closed: its transcript lines still on their way go down now (history.js).
+      // A conversation closed: its transcript lines still on their way go down now (history/index.js).
       const open = new Set(summary.map(t => t.id));
       for (const id of openIds) if (!open.has(id)) d.history?.flush?.(id);
       openIds = open;
@@ -463,7 +463,7 @@ function wireSessions(d) {
 
   // The meter only moves when a turn reports usage, so usage spent elsewhere
   // (another device, the terminal) would wait for your next prompt. Ask Claude
-  // Code directly (usage.js: no message is sent, so it costs nothing) when the
+  // Code directly (usage/index.js: no message is sent, so it costs nothing) when the
   // panel comes up, after the PC wakes and at startup, at most every couple of
   // minutes. Not counted against a tab: no turn of Shellby's spent it.
   let usageProbe = null;

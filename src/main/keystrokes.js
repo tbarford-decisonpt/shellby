@@ -12,10 +12,10 @@
 // the message is handled, when the raw input data has often been freed already.
 // A window of our own also hears nothing but its keyboard events.
 //
-// Best effort, like native-windows.js: no koffi, not Windows, or a call that
+// Best effort, like desktop/native-windows.js: no koffi, not Windows, or a call that
 // fails all come back as null ("can't hear the keyboard"), never an exception.
 let koffi = null;
-try { koffi = require('koffi'); } catch { /* native-windows.js already said so */ }
+try { koffi = require('koffi'); } catch { /* desktop/native-windows.js already said so */ }
 
 const WM_INPUT = 0x00FF;
 const RID_INPUT = 0x10000003;

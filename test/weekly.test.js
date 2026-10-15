@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeWeekly, recordDay, recordWork, recordTrophy, markWrapped, weekSummary, wrapUpDue, dayKey, KEEP_DAYS } = require('../src/main/weekly');
-const { normalizeXp } = require('../src/main/xp');
+const { normalizeXp } = require('../src/main/progression/xp');
 const stickers = require('../src/main/stickers');
 
 // Friday 2 October 2026, mid-morning (local time).

@@ -66,7 +66,7 @@
           h('span', { text: SB.shortPath(s.cwd, 30) }),
           s.done ? h('span', { class: 'h-done', text: '✓ done' }) : null,
           s.inTerminal ? h('span', { class: 'h-term', text: 'in a terminal' }) : null,
-          // Synced from another PC (history-sync.js): Claude picks it up with a recap.
+          // Synced from another PC (main's history/sync.js): Claude picks it up with a recap.
           s.elsewhere ? h('span', { class: 'h-term', text: `from ${s.elsewhere}` }) : null,
           open ? h('span', { class: 'h-open', text: popped ? 'open in a window' : 'open' }) : null)),
       // Only a conversation Claude Code has a record of can carry on elsewhere.

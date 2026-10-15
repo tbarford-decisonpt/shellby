@@ -1,4 +1,4 @@
-// Quests (quests.js): the features worth finding, a chapter at a time. Each
+// Quests (quests/index.js): the features worth finding, a chapter at a time. Each
 // quest is done the first time the real thing succeeds: some call
 // d.questDone(id) where they succeed, the rest are read here off the stats and
 // XP awards every system already reports (d.onStat, d.onAward), so a chapter
@@ -31,7 +31,7 @@ const STAT_QUESTS = Object.freeze({
   molted: 'molt-or-stay',
 });
 
-// XP awards (xp.js AWARDS kinds) that finish a quest.
+// XP awards (progression/xp.js AWARDS kinds) that finish a quest.
 const AWARD_QUESTS = Object.freeze({ quiz: 'quiz', helped: 'helped', medal: 'medal', cifix: 'cifix' });
 
 const questFor = (map, key, payload) => {

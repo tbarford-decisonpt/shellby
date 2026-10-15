@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { clampToDisplays, panelPosition } = require('../src/main/placement');
+const { clampToDisplays, panelPosition } = require('../src/main/desktop/placement');
 const { validate, loadSkins, BUILTIN_DIR } = require('../src/main/skins');
 const { Config, CLI_MODE, MODES } = require('../src/main/config');
 const { History } = require('../src/main/history');

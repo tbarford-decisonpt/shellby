@@ -3,7 +3,7 @@
 // glint, the "+XP" float and a surprise's badge.
 /* global api:writable, drawSelf:writable, flags:writable, paintBody:writable, px:writable, skin:writable, slap:writable, spriteHost:writable */
 
-// ---- a new sticker (src/main/stickers.js): the first time a project ships,
+// ---- a new sticker (src/main/stickers/index.js): the first time a project ships,
 // he holds its sticker up in his claw, turns his shell to you and slaps it on,
 // with a little puff of sand. Main says where it goes, in sprite pixels.
 const stickerFly = document.getElementById('stickerFly');

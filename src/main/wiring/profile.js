@@ -1,5 +1,5 @@
 // Your profile, opened first at boot: the settings (config.js) and the
-// conversations' history (history.js), each tidied as it opens.
+// conversations' history (history/index.js), each tidied as it opens.
 // Kept out of main.js, which only wires it up.
 const { app } = require('electron');
 const path = require('path');

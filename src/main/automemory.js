@@ -101,7 +101,7 @@ function dropFromIndex(index, file) {
 
 /**
  * The first of these project folders that has memories, or the first one when
- * none has: a copy of a repo (worktrees.js) may keep its memories under the
+ * none has: a copy of a repo (worktrees/index.js) may keep its memories under the
  * checkout it came from.
  */
 function pickDir(cwds, dir = configDir()) {

@@ -66,7 +66,7 @@ function usageEvent(tabId, title, usage) {
   return { kind: 'usage', tabId, title: String(title || 'Untitled'), pct: w.pct, resetsAt: Number.isFinite(w.resetsAt) ? w.resetsAt : null };
 }
 
-/** A bug caught for the Bugdex (bugdex.js): its species id, and whether it's new to the book. Nothing about the bug itself. */
+/** A bug caught for the Bugdex (bugdex/index.js): its species id, and whether it's new to the book. Nothing about the bug itself. */
 function bugEvent(species, isNew = false) {
   if (typeof species !== 'string' || !/^[a-z0-9-]{1,40}$/.test(species)) return null;
   return { kind: 'bug', species, isNew: !!isNew };

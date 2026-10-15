@@ -10,7 +10,7 @@ const { run: runCli } = require('../claude/cli');
 const claudeSetup = require('../claude/setup');
 const confirm = require('../confirm');
 const editor = require('../editor');
-const { HistorySearch } = require('../history-search');
+const { HistorySearch } = require('../history/search');
 const { guardIpc, windowPolicy } = require('../ipc-guard');
 const { createLean } = require('../lean');
 const { createModsService } = require('../mods-service');
@@ -175,7 +175,7 @@ function registerIpc(electronIpcMain, d) {
     openPath: p => shell.openPath(p),
   });
 
-  // ---- his tank (tank.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
+  // ---- his tank (tank/index.js, ipc/tank.js): decor from the wardrobe, his finds, where they stand
   const tankIpc = registerTankIpc(ipcMain, {
     config, stat: d.stat,
     speak: (occasion, opts) => d.speak?.(occasion, opts),

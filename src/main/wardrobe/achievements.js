@@ -33,24 +33,24 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'open-house', name: 'Open House', icon: '🏡', description: "A friend's crab drops by", stat: 'visitorsHosted', goal: 1, rewards: ['sea-glass', 'friendship-bracelet'] },
   { id: 'pen-pals', name: 'Pen Pals', icon: '💌', description: 'Wave to friends 5 times', stat: 'wavesSent', goal: 5, rewards: ['message-bottle'] },
   { id: 'green-light', name: 'Green Light', icon: '🟢', description: 'Fix a failing build on one of your pull requests', stat: 'buildsFixed', goal: 1, rewards: ['green-flag', 'lighthouse'] },
-  // Up on your windows (src/main/perch.js).
+  // Up on your windows (src/main/desktop/perch.js).
   { id: 'window-sill', name: 'Window Sill', icon: '🪟', description: 'Shellby climbs up onto one of your windows', stat: 'perchesMade', goal: 1, rewards: ['spyglass'] },
   { id: 'hang-on', name: 'Hang On!', icon: '🎢', description: 'Drag a window 2,000 px with Shellby riding it', stat: 'longestRide', goal: 2000, rewards: ['racing-goggles'] },
   { id: 'rodeo', name: 'Rodeo', icon: '🤠', description: 'Shake Shellby off a window 10 times', stat: 'timesShaken', goal: 10, rewards: ['cowboy-hat'], hidden: true },
   { id: 'leap-of-faith', name: 'Leap of Faith', icon: '🪂', description: 'Shellby falls off one window and lands on another', stat: 'windowLeaps', goal: 1, rewards: ['parachute'], hidden: true },
   { id: 'trapeze', name: 'Trapeze', icon: '🎪', description: 'Throw Shellby onto a window and he catches the title bar', stat: 'windowCatches', goal: 1, rewards: ['ringmaster-collar'], hidden: true },
-  // Up the edges of the screen (src/main/climb.js) and mischief (src/main/mischief.js).
+  // Up the edges of the screen (src/main/desktop/climb.js) and mischief (src/main/mischief.js).
   { id: 'spider-crab', name: 'Spider-Crab', icon: '🧗', description: 'Shellby climbs the side of your screen 10 times', stat: 'wallsClimbed', goal: 10, rewards: ['climbing-helmet'] },
   { id: 'sticky-feet', name: 'Sticky Feet', icon: '🦎', description: 'Throw Shellby at the edge of the screen and he sticks to it', stat: 'wallsStuck', goal: 1, rewards: ['chalk-bag'], hidden: true },
   { id: 'little-gremlin', name: 'Little Gremlin', icon: '😈', description: 'Shellby gets up to mischief 10 times', stat: 'pranksPulled', goal: 10, rewards: ['bandit-mask'], hidden: true },
-  // Shell stickers (src/main/stickers.js).
+  // Shell stickers (src/main/stickers/index.js).
   { id: 'tagged', name: 'Tagged', icon: '🏷️', description: 'Ship a project and earn its sticker', stat: 'stickersEarned', goal: 1, rewards: ['sticker-sheet'] },
   { id: 'sticker-bomb', name: 'Sticker Bomb', icon: '🎨', description: 'Ship 10 different projects', stat: 'stickersEarned', goal: 10, rewards: ['paint-can'] },
   { id: 'shiny', name: 'Shiny', icon: '✨', description: 'Ship one project often enough that its sticker goes holo', stat: 'holoStickers', goal: 1, rewards: ['holo-visor'] },
   { id: 'liftoff', name: 'Liftoff', icon: '🚀', description: 'Release version 1.0 of something', stat: 'majorReleases', goal: 1, rewards: ['rocket'] },
   { id: 'well-traveled', name: 'Well Traveled', icon: '🧳', description: 'Put stickers on 3 different shells', stat: 'stickeredShells', goal: 3, rewards: ['luggage-tag'] },
   { id: 'swap-meet', name: 'Swap Meet', icon: '🤝', description: "A visiting friend's crab leaves you one of their stickers", stat: 'friendStickers', goal: 1, rewards: ['trade-binder'] },
-  // Just the two of you (src/main/life.js, gifts.js, bond.js, playtime.js). None of these need Claude.
+  // Just the two of you (src/main/life.js, gifts/index.js, bond.js, playtime.js). None of these need Claude.
   { id: 'beachcomber', name: 'Beachcomber', icon: '🐚', description: 'Shellby digs you up his first gift', stat: 'findsMade', goal: 1, rewards: ['sand-pail', 'pebble-floor'] },
   { id: 'magpie', name: 'Magpie', icon: '🐦', description: 'Shellby digs you up 25 gifts', stat: 'findsMade', goal: 25, rewards: ['metal-detector'] },
   { id: 'curator', name: 'Curator', icon: '🏛️', description: 'Complete a set of finds on the shelf', stat: 'setsCompleted', goal: 1, rewards: ['treasure-chest'] },
@@ -68,7 +68,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'squeaky-clean', name: 'Squeaky Clean', icon: '🧼', description: 'Give Shellby 25 rinses', stat: 'rinsesGiven', goal: 25, rewards: ['bath-sponge'] },
   { id: 'night-night', name: 'Night Night', icon: '🧸', description: 'Tuck Shellby in 10 times', stat: 'tuckIns', goal: 10, rewards: ['sleepy-teddy'] },
   { id: 'golden-tummy', name: 'Golden Tummy', icon: '✨', description: 'Share a golden plankton with Shellby', stat: 'goldenSnacks', goal: 1, rewards: ['golden-spoon'], hidden: true },
-  // The shipyard: the work XP already pays for (xp.js AWARDS), fed from awardXp in main.js.
+  // The shipyard: the work XP already pays for (progression/xp.js AWARDS), fed from awardXp in main.js.
   { id: 'launch-day', name: 'Launch Day', icon: '🛰️', description: 'Deploy or publish something', stat: 'deploys', goal: 1, rewards: ['mission-patch'] },
   { id: 'back-to-green', name: 'Back to Green', icon: '🧪', description: 'Turn failing tests green 10 times', stat: 'testsFixed', goal: 10, rewards: ['test-tube'] },
   { id: 'ghostbuster', name: 'Ghostbuster', icon: '👻', description: 'Fix a flaky test for good', stat: 'flakesFixed', goal: 1, rewards: ['proton-pack'], hidden: true },
@@ -83,7 +83,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'on-a-roll', name: 'On a Roll', icon: '🔥', description: 'Keep a 7-day streak going', stat: 'longestStreak', goal: 7, rewards: ['flame-scarf'] },
   { id: 'unstoppable', name: 'Unstoppable', icon: '☄️', description: 'Keep a 30-day streak going', stat: 'longestStreak', goal: 30, rewards: ['blazing-crest'], hidden: true },
   { id: 'double-digits', name: 'Double Digits', icon: '🪸', description: 'Reach level 10', stat: 'level', goal: 10, rewards: ['coral-laurel', 'sunken-ship'] },
-  // His tank (src/main/tank.js): the most pieces it's held at once.
+  // His tank (src/main/tank/index.js): the most pieces it's held at once.
   { id: 'moving-in', name: 'Moving In', icon: '🪴', description: 'Put the first piece of decor in his tank', stat: 'tankPieces', goal: 1, rewards: ['sunken-chest'] },
   { id: 'interior-designer', name: 'Interior Designer', icon: '🏰', description: 'Have 15 pieces in his tank at once', stat: 'tankPieces', goal: 15, rewards: ['coral-fan'] },
   { id: 'house-guest', name: 'House Guest', icon: '🛋️', description: "A friend's crab drops by while his tank is on your calling card", stat: 'houseGuests', goal: 1, rewards: ['guest-bench'] },
@@ -92,7 +92,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'on-display', name: 'On Display', icon: '🖼️', description: 'Put 3 complete sets of finds on display in his tank', stat: 'setsShown', goal: 3, rewards: ['display-plinth'] },
   { id: 'upsized', name: 'Upsized', icon: '📦', description: 'Move him into the 30 gallon tank', stat: 'tankSize', goal: 3, rewards: ['old-anchor'] },
   { id: 'night-light', name: 'Night Light', icon: '🌙', description: 'Watch him fall asleep in his tank', stat: 'tankNaps', goal: 1, rewards: ['moon-lamp'], hidden: true },
-  // The Bugdex (src/main/bugdex.js).
+  // The Bugdex (src/main/bugdex/index.js).
   { id: 'gotcha', name: 'Gotcha!', icon: '🫙', description: 'Catch your first bug for the Bugdex', stat: 'bugsCaught', goal: 1, rewards: ['bug-net', 'specimen-jar'] },
   { id: 'field-notes', name: 'Field Notes', icon: '📓', description: 'Catch 10 different kinds of bug', stat: 'bugSpecies', goal: 10, rewards: ['magnifier'] },
   { id: 'naturalist', name: 'Naturalist', icon: '🌿', description: 'Catch every bug in one habitat of the Bugdex', stat: 'habitatsDone', goal: 1, rewards: ['bug-terrarium'] },
@@ -110,7 +110,7 @@ const ACHIEVEMENTS = Object.freeze([
   { id: 'spick-and-span', name: 'Spick and Span', icon: '🌸', description: 'Finish Spring Clean while it\'s on', stat: 'eventsSpringClean', goal: 1, rewards: ['flower-pot'] },
   { id: 'beachcombed', name: 'Beachcombed', icon: '🌊', description: 'Finish Low Tide while it\'s on', stat: 'eventsLowTide', goal: 1, rewards: ['giant-clam'] },
   { id: 'tide-turner', name: 'Tide Turner', icon: '🏅', description: 'Win 6 tide event medals', stat: 'eventMedals', goal: 6, rewards: [] },
-  // Sparkly finds and bugs (gifts.js, bugdex.js).
+  // Sparkly finds and bugs (gifts/index.js, bugdex/index.js).
   { id: 'glimmer', name: 'Glimmer', icon: '✨', description: 'Find your first sparkly one, find or bug', stat: 'sparkles', goal: 1, rewards: ['glitter-jar'] },
   { id: 'shiny-hunter', name: 'Shiny Hunter', icon: '🌟', description: 'Find 5 sparkly ones', stat: 'sparkles', goal: 5, rewards: ['sparkle-trail'] },
   { id: 'dazzled', name: 'Dazzled', icon: '💎', description: 'A sparkly legendary', stat: 'legendarySparkles', goal: 1, rewards: [], hidden: true },
@@ -269,17 +269,17 @@ const INCREMENTS = {
 // "Keep the high-water mark" events: payload { n }.
 const MAXIMA = {
   'crew-size': 'maxCrew', parallel: 'maxParallel', ride: 'longestRide',
-  // Shell stickers (src/main/stickers.js) report their totals.
+  // Shell stickers (src/main/stickers/index.js) report their totals.
   'stickers-earned': 'stickersEarned', 'holo-stickers': 'holoStickers', 'one-point-oh': 'majorReleases', 'stickered-shells': 'stickeredShells', 'friend-stickers': 'friendStickers',
   // Bond level and the number of different scenes seen (src/main/life.js) report their totals.
   'bond-level': 'bondLevel', 'scenes-seen': 'scenesSeen',
-  // The longest streak (streaks.js) and the XP level (xp.js), reported by awardXp in main.js.
+  // The longest streak (progression/streaks.js) and the XP level (progression/xp.js), reported by awardXp in main.js.
   streak: 'longestStreak', level: 'level',
-  // The pieces in his tank (src/main/tank.js), reported when you save it.
+  // The pieces in his tank (src/main/tank/index.js), reported when you save it.
   'tank-pieces': 'tankPieces',
   // ...and its life (src/main/tank/life.js): plants on show, sets on display, the biggest tank (SIZES index + 1).
   'tank-plants': 'tankPlants', 'sets-shown': 'setsShown', 'tank-size': 'tankSize',
-  // The Bugdex (src/main/bugdex.js) reports how many kinds of bug, and of ghost, it has caught.
+  // The Bugdex (src/main/bugdex/index.js) reports how many kinds of bug, and of ghost, it has caught.
   'bug-species': 'bugSpecies', 'ghost-species': 'ghostSpecies',
   // Tide event medals won, all years (src/main/events.js).
   'event-medal': 'eventMedals',

@@ -347,7 +347,7 @@ the work is in drawing fewer frames, not cheaper ones:
   frame clock only presents a frame when one of them actually moves. They stop with everything else when he's covered, the screen
   is locked, or nobody is at the desk.
 - **The window in front** is read once for the game and cover checks
-  (front-poll.js): its exe is kept while it stays in front, and the poll goes
+  (desktop/front-poll.js): its exe is kept while it stays in front, and the poll goes
   from 2 s to 5 s after half a minute without a change.
 - **Away**: no key or mouse for five minutes (`powerMonitor.getSystemIdleTime`,
   in the front poll in wiring/windows.js) is treated like being covered.
@@ -452,13 +452,14 @@ src/main/        Electron main process
                    (the trail, Ctrl+Shift+E, is the panel's own: renderer/shared/trail.js; parity.js answers its trail:tests)
   filelinks.js     file links in a conversation: which editor, its vscode://-style link, and what's never opened (pure); ipc/files.js opens them
   safety.js        flags "runs a file Claude wrote" / "changes Claude Code itself"
-  clash.js         copies that changed the same files (pure); clash-scan.js asks git which files each changed
-  home-line.js     copies coming home into one checkout take turns; clashes sorted out one copy at a time, each brought home by itself
+  worktrees/       a copy of the project per tab: index.js (making, moving into and bringing home copies), copy-deps.js
+                   (node_modules for a new copy), copy-service.js, clash.js (copies that changed the same files, pure) and
+                   clash-scan.js (asking git which files each changed), home-line.js (copies coming home into one checkout
+                   take turns, clashes sorted out one copy at a time), merge-train.js (lining finished copies up)
   toolbox.js       skills/agents/commands/MCP scan + "learned a new trick" watcher
   marketplace.js   the Skill Shop, on top of Claude Code's own `claude plugin` CLI
   confirm.js       themed confirmation windows (installs, sign-in, publishing), each in its own sandbox
-  routines.js      schedule maths + scheduler for recurring tasks
-  routines/        draft.js (Claude's prompts and answers for routines: Describe it, the editor's chat, Fix with Claude),
+  routines/        index.js (schedule maths + scheduler for recurring tasks), draft.js (Claude's prompts and answers for routines: Describe it, the editor's chat, Fix with Claude),
                    templates.js (the built-in routines) and service.js (starting a run, making room, holding it)
   corrections.js   learning from corrections (pure): the same comment, Deny or undo twice in a project -> a rule offered;
                    learned-rules.js appends it to that project's CLAUDE.md, correction-draft.js lets Claude word it
@@ -477,11 +478,17 @@ src/main/        Electron main process
   btw.js           /btw side questions: a tool-less -p on a fork of the conversation that saves nothing
   council/         The Council: the advisors, the chair and their schemas (prompts.js), reading the project first and picking who sits with a read-only -p (look.js), quick/debate sittings as tool-less -p calls (run.js), project context (context.js), the last sittings, their outcomes and each advisor's record (store.js)
   quiz.js          "Quiz me" on a turn's changes: Claude's questions from the diff (tool-less -p, --json-schema); main keeps the answers
-  xp.js            XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync, and what a shell command means
+  progression/     xp.js (XP and levels: awards, falloff and bonuses, the level curve and its unlocks, per-PC counts for sync,
+                   and what a shell command means), levels.js (levels 1 to 99 and their unlocks), streaks.js (streaks and nudges,
+                   pure; gitinfo.js finds a folder's repo and its last commit), shells.js, shells-extra.js, shells-molt.js and
+                   shell-gen.js (the shells he grows into), molting.js (the prestige at 99), character.js (the character sheet)
   bounties.js      the day's three bounties, picked from the date alone
-  shells.js        the shells he grows into as he levels up (molting)
   moon.js          the real moon's phase from the clock alone (pure): moonlit finds and the beach's night sky
-  motion.js        throws (release velocity, flight, landing) and idle strolls
+  desktop/         him on your screen: motion.js (throws: release velocity, flight, landing; idle strolls), climb.js and
+                   climbing.js (the screen's edges), perch.js and perching.js (title bars), native-windows.js (what other
+                   windows are doing), front-poll.js (the window in front), floor.js (the strip beside him), desktop-layer.js
+                   (keeps the critter on the wallpaper layer: koffi → user32), placement.js (pure geometry for placing the
+                   critter and panel across monitors)
   work-pose.js     how he works (pure): the pose for the tool Claude has running, and which tab or outside session moved last
   voice.js         what he says and when (pure): line pools, cooldowns, temperament, idle habits
   dictation.js     push-to-talk: tap-or-hold on the hotkey, and Windows' offline speech recognizer in one warm PowerShell
@@ -495,23 +502,30 @@ src/main/        Electron main process
   held.js          messages and routine runs held for after the usage reset (pure list ops; held-service.js sends them)
   selfaware.js     what Claude is told about Shellby (a fixed note, the usage line at 80% and 95%) and the feature offers it may make;
                    crabmcp.js serves the crab's tools (say, celebrate, wear, status, suggest) to Shellby's own conversations
-  usage.js         the usage meter without a prompt: a short-lived `claude -p` asked for its /usage data; usage/ holds
+  usage/           index.js (the usage meter without a prompt: a short-lived `claude -p` asked for its /usage data),
                    ledger.js (what each turn cost, pure: the per-turn ledger, a prompt's kind of ask, and the estimate the
                    composer shows; wiring/usageplan.js brackets each turn and answers usage:estimate), scan.js (what Claude Code used lately, from its transcripts) and service.js
   notes.js         Notes (pure): a list per project and a General one, their limits
-  sync-prefs.js    which settings sync between PCs, each checked by its own rule, and the newest change wins
-  sync-life.js     his life between PCs: finds, bond points and games as each PC's own share (a find swapped away stays gone), records, quests, scenes, his seed
-  history-sync.js  which conversations sync between PCs (pure): the trimmed copy that travels, the merge, the recap Claude gets; github/history-gist.js moves it
+  sync/            what follows you between PCs: prefs.js (which settings, each checked by its own rule, and the newest change
+                   wins), life.js (finds, bond points and games as each PC's own share, a find swapped away stays gone; records,
+                   quests, scenes, his seed), plans.js (routines and workflows)
+  history/         index.js (local conversation index + transcripts), search.js (searching inside past conversations),
+                   sync.js (which conversations sync between PCs, pure: the trimmed copy that travels, the merge, the recap
+                   Claude gets; github/history-gist.js moves it)
+  timetrack/       time on each project: index.js (built from what Shellby sees), service.js (the 15-second look at the
+                   window in front), timesheet.js (the printable timesheet), timesync.js (Toggl Track, Clockify or Harvest)
+  channels/        telling you when you're away: index.js, messages.js (what a phone notification says), replies.js
+                   (answering from your phone), phone-tasks.js (starting a task from it)
   events.js        tide events (pure): six short named runs inside the seasons, their goals, medals, boosts and the bug that comes along;
                    wiring/events.js counts every stat toward them, says when one starts or ends, and gives the medal (docs/plans/viral.md)
   today.js         the app's one calendar: captureClock for screenshots, SHELLBY_TODAY for dev and test runs, the real day otherwise
   board.js         the friends' board (pure): you and friends who share their Bugdex, ranked by this month's catches
-  gifts.js         finds from digging (pure): rarities, sets, sparkly ones, the shelf; gifts/portraits/ holds the big
+  gifts/           index.js (finds from digging, pure: rarities, sets, sparkly ones, the shelf); portraits/ holds the big
                    drawings, one file per set (scripts/finds-sheet.js draws them to a PNG); life.js does the digging
   swaps.js         swapping finds with friends (pure): offers, answers and call-offs as letters on calling cards (github/mail.js)
   eggs.js          crab eggs (pure): laying, the hash on your card, hatching, the baby both crabs get; wiring/social.js ties both in
   crab-line.js     the crab in a line (pure): the PR badge's text and the bring-home commit trailer
-  bugdex.js        the Bugdex (pure): catches, stages, badges, the league, sync and the friends' share; bugdex/ holds species,
+  bugdex/          index.js (the Bugdex, pure: catches, stages, badges, the league, sync and the friends' share), species,
                    detect, lifecycle, cheats, art, lore, battle (the bug battle, in memory only) and portraits/ (the
                    big drawings, one file per habitat; scripts/bugdex-sheet.js draws them to a PNG); wiring/bugdex.js ties it in
   fileindex.js     @ mentions: the files in a conversation's folder and a fuzzy match over them
@@ -528,26 +542,22 @@ src/main/        Electron main process
                    Fix this build, Address the review and Releases CI (mrwork.js); wiring/gitlab.js ties it in
   ci-hub.js        GitHub's and GitLab's watchers as the one d.ci everything reads: keys "owner/repo#12" and "group/project!12"
   friends.js       visiting crabs: friends list, drop-ins, guestbook and souvenirs, on top of github/card.js and mail.js
-  streaks.js       streaks and nudges (pure); gitinfo.js finds a folder's repo and its last commit
   startfrom.js     prompts for Fix this build, Address the review and loose ends (pure): log trimming
                    and redaction (GitHub Actions logs and GitLab job traces), review threads quoted, TODO parsing;
                    github/prwork.js and gitlab/mrwork.js fetch them
-  desktop-layer.js keeps the critter on the wallpaper layer (koffi → user32)
   claude/          Claude Code itself: cli.js finds the CLI, checks auth, scrubs billing env vars; setup.js (its hooks and CLAUDE.md files); tricks.js (what's
                    new in its changelog); update.js keeps the CLI itself current: the daily registry check, `claude update` on request or by itself while idle, tell | auto | off (fetch and run are injected; wiring/claude-updates.js)
-  depwatch.js      dependency watch; depwatch/ holds parse, prompts, python and tools (each package manager's checker)
-  tank.js          his tank; tank/ holds gauges, glass, layouts, life, share and tidy (docs/TANK.md)
+  depwatch/        index.js (dependency watch), parse, prompts, python and tools (each package manager's checker)
+  tank/            index.js (his tank), gauges, glass, layouts, life, share and tidy (docs/TANK.md)
   yearbook.js      the year as it happens, for Shellby Wrapped (pure); yearbook-slides.js turns a year into slides (docs/WRAPPED.md)
-  stickers.js      shell stickers (pure); stickers/ holds art (drawing), slots (where they fit) and service
-  weather.js       the weather; weather/service.js fetches it
+  stickers/        index.js (shell stickers, pure), art (drawing), slots (where they fit) and service
+  weather/         index.js (the weather), service.js fetches it
   hooks/           Toolbox → Setup → Hooks: draft.js (Ask Claude for one), recipes.js (ready-made ones), test.js (Test run)
-  history.js       local conversation index + transcripts
   log.js           the log behind "Report a problem" (scrubbed of paths and tokens)
   trouble.js       a failed turn in one sentence and the button for the next step (pure); the raw words go to the log
   skins.js         loads and validates skins
   config.js        settings in %APPDATA%\Shellby\settings.json
   workmode.js      Work mode (pure): the settings it lays over yours, where a change made in it is kept, and what else it quiets
-  placement.js     pure geometry for placing the critter and panel across monitors
   capture.js       `npm run screenshots`; reel.js records the README demo
 src/preload/     the only bridge between sandboxed renderers and main
 src/renderer/    critter + panel UIs (plain HTML/CSS/JS, no framework)

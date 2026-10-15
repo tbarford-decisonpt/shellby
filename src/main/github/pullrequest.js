@@ -2,7 +2,7 @@
 // repository to work in (the "Make a copy" step), and the pull request made
 // from what was done there (the "Open a pull request" step).
 //
-// The copy is a worktree of the clone on this PC (worktrees.js), on a fresh
+// The copy is a worktree of the clone on this PC (worktrees/index.js), on a fresh
 // shellby/... branch started from the repository's default branch as GitHub
 // has it, so the work doesn't carry whatever your checkout is in the middle of.
 //

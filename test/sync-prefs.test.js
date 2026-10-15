@@ -1,8 +1,8 @@
-// Settings and the friends list following you between PCs (sync-prefs.js,
+// Settings and the friends list following you between PCs (sync/prefs.js,
 // friends.js mergeSync, github/sync.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const prefs = require('../src/main/sync-prefs');
+const prefs = require('../src/main/sync/prefs');
 const { DEFAULTS } = require('../src/main/config');
 const { Friends, syncable, mergeSync, applySync, normalize } = require('../src/main/friends');
 const { GitHubApi } = require('../src/main/github/api');

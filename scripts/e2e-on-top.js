@@ -15,7 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { savePng } = require('./lib/shot');
-const native = require('../src/main/native-windows');
+const native = require('../src/main/desktop/native-windows');
 
 native.dpiAware(); // see the same physical pixels the app does
 

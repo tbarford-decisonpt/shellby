@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const { toItems } = require('../src/main/stream');
 const bg = require('../src/main/bg-sessions');
 const { purgePlan, purgeArgs } = require('../src/main/projects/purge');
-const M = require('../src/main/channel-messages');
+const M = require('../src/main/channels/messages');
 
 const toolUse = (name, input) => ({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'toolu_1', name, input }] } });
 const toolResult = (result, text = 'ok') => ({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'toolu_1', content: text }] }, tool_use_result: result });

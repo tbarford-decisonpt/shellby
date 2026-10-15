@@ -297,10 +297,10 @@ main's own window (the renderer can't skip it).
 
 | File | What |
 |---|---|
-| `src/main/flaky.js` | Pure: `normalizeCmd`, `parse`, `recordRun`, `setStatus`, `flakyView`, `due` (what to say). No I/O, no clock. |
+| `src/main/flaky/index.js` | Pure: `normalizeCmd`, `parse`, `recordRun`, `setStatus`, `flakyView`, `due` (what to say). No I/O, no clock. |
 | `src/main/stream.js` | `tail` on truncated tool results. |
 | `src/main/main.js` | Snapshot on test `tool`, record on `tool_result`, speech, IPC (`flaky:get`, `flaky:fix`, `flaky:quarantine`, `flaky:dismiss`), `flakyView` pushes. |
-| `src/main/xp.js` | `flakefix` award. |
+| `src/main/progression/xp.js` | `flakefix` award. |
 | `src/main/weekly.js` | `flaky` and `flakefix` kinds. |
 | `src/preload/*` | `getFlaky`, `onFlaky`, `fixFlaky`, `quarantineFlaky`, `dismissFlaky`. |
 | `src/renderer/panel/routines.js` + html/css | The Flaky tests section. |

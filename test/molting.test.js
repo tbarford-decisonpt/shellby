@@ -1,8 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { canMolt, molt, curveMult, moltBadge, moltView, tierShell } = require('../src/main/molting');
-const { xpForLevel, levelFor, levelOf, normalizeXp, award, mergeXpCounts, mergeMolt } = require('../src/main/xp');
-const { everLevel } = require('../src/main/levels');
+const { canMolt, molt, curveMult, moltBadge, moltView, tierShell } = require('../src/main/progression/molting');
+const { xpForLevel, levelFor, levelOf, normalizeXp, award, mergeXpCounts, mergeMolt } = require('../src/main/progression/xp');
+const { everLevel } = require('../src/main/progression/levels');
 
 const T0 = new Date(2026, 9, 14, 12).getTime();
 const at99 = () => normalizeXp({ total: xpForLevel(99), byKind: { task: 5 } });

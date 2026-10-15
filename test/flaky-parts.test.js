@@ -1,5 +1,5 @@
 // The flaky detective lives in flaky/ (ids, parsers, store, text) behind
-// src/main/flaky.js. test/flaky.test.js covers the behaviour through the index;
+// src/main/flaky/index.js. test/flaky.test.js covers the behaviour through the index;
 // these pin that each part works on its own and the index hands out the same
 // functions.
 const { test } = require('node:test');

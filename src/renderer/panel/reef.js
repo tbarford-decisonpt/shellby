@@ -1,4 +1,4 @@
-/* Shellby panel — reef health and coral (src/main/reef.js, docs/REEF.md).
+/* Shellby panel — reef health and coral (src/main/reef/index.js, docs/REEF.md).
    Two places: the Reef card under a project's page (html/reef.html), with its
    coral, each signal's last reading against its best, a sparkline, the next
    step and the watch toggle; and the Coral list on the Tank page

@@ -1,5 +1,5 @@
 /* Shellby panel — Dependency watch: the weekly look at outdated and vulnerable
-   packages, under the Projects list (src/main/depwatch.js). */
+   packages, under the Projects list (src/main/depwatch/index.js). */
 'use strict';
 (function () {
   const { h, api, state, $ } = SB;

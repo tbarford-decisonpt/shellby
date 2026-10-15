@@ -33,7 +33,7 @@ function hash(s) {
   return h;
 }
 
-const MAX_PER_DAY = 4; // the fourth-bounty perk (levels.js PERKS)
+const MAX_PER_DAY = 4; // the fourth-bounty perk (progression/levels.js PERKS)
 const orderFor = day => BOUNTIES.map(b => b.id).sort((x, y) => hash(`${day}|${x}`) - hash(`${day}|${y}`));
 
 /**

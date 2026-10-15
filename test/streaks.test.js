@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const S = require('../src/main/streaks');
+const S = require('../src/main/progression/streaks');
 
 const DAY = 24 * 60 * 60 * 1000;
 const at = (d, h = 12) => new Date(2026, 9, d, h).getTime(); // October 2026, local time

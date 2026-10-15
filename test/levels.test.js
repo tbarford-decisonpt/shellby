@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const L = require('../src/main/levels');
+const L = require('../src/main/progression/levels');
 const depths = require('../src/wardrobe/depths.json');
 
 test('every level from 20 to 99 unlocks something, with at most 5 gaps', () => {

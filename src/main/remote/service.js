@@ -282,7 +282,7 @@ function createRemoteService(deps) {
   }
 
   /**
-   * A short-lived claude there with `args`, for its plan usage (usage.js probe).
+   * A short-lived claude there with `args`, for its plan usage (usage/index.js probe).
    * Never asks for a passphrase: it runs on its own, so it just fails without a key. -> { exe, args, env } | null
    */
   function probeCommand(alias, args) {

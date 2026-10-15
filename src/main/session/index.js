@@ -160,7 +160,7 @@ class ClaudeSession extends Base {
     this.pending = new Map(); // requestId -> permission item
     // beforeWork(hookInput) -> hook output: set by main.js while a conversation
     // in a git project has no copy of its own yet. It sees every tool call that
-    // could change files before it runs, and can hold it back (worktrees.js).
+    // could change files before it runs, and can hold it back (worktrees/index.js).
     this.beforeWork = null;
     // takeSteers() -> [{ content, item }]: set by the manager. What you queued
     // while this turn runs, taken (and so no longer queued) the moment it's

@@ -1,4 +1,4 @@
-// What a copy has changed, for clash warnings (src/main/clash-scan.js),
+// What a copy has changed, for clash warnings (src/main/worktrees/clash-scan.js),
 // against real git in a temp folder: committed since it left its base, plus
 // uncommitted and untracked; and what's uncommitted in your own checkout.
 const { test } = require('node:test');
@@ -7,8 +7,8 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const scan = require('../src/main/clash-scan');
-const { findClashes } = require('../src/main/clash');
+const scan = require('../src/main/worktrees/clash-scan');
+const { findClashes } = require('../src/main/worktrees/clash');
 const worktrees = require('../src/main/worktrees');
 
 function setup() {

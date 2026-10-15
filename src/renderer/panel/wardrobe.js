@@ -3,7 +3,7 @@
 (function () {
   const { h, api, state, $ } = SB;
   const SLOT_LABEL = { hat: 'hat', face: 'face item', neck: 'neck item', held: 'held item', shell: 'shell item', effect: 'effect', skin: 'color', home: 'home', voice: 'voice' };
-  const HOME = 'home'; // his own shell (see src/main/shells.js)
+  const HOME = 'home'; // his own shell (see src/main/progression/shells.js)
   const OWN_VOICE = ['on it', 'nailed it', 'all quiet']; // a taste of voice.js LINES, for the "His own" tile
   const RARITY = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
   let slot = 'hat';

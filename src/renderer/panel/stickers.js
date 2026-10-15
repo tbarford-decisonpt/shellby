@@ -1,5 +1,5 @@
 /* Shellby panel — the Sticker Book: a sticker for every project shipped
-   (src/main/stickers.js), and his shell to decorate with them. Pick a sticker,
+   (src/main/stickers/index.js), and his shell to decorate with them. Pick a sticker,
    then a spot on his shell (or drag it there); keys work on the spots too. */
 'use strict';
 (function () {

@@ -5,21 +5,21 @@ const fs = require('fs');
 const attach = require('../attachments');
 const { TIMEOUTS_MIN } = require('../checks');
 const { setPlanOnly } = require('../claude/cli');
-const { SETTINGS: CLIMB_SETTINGS } = require('../climb');
+const { SETTINGS: CLIMB_SETTINGS } = require('../desktop/climb');
 const { MODES } = require('../config');
 const confirm = require('../confirm');
 const crashReport = require('../crash-report');
-const { COLONY_MAX } = require('../floor');
+const { COLONY_MAX } = require('../desktop/floor');
 const filelinks = require('../filelinks');
 const guard = require('../guard');
 const mischief = require('../mischief');
 const { isModel } = require('../models');
 const outputStyles = require('../outputstyles');
-const { SETTINGS: PERCH_SETTINGS } = require('../perch');
+const { SETTINGS: PERCH_SETTINGS } = require('../desktop/perch');
 const { EFFORTS } = require('../session');
 const sounds = require('../sounds');
 const shortcuts = require('../../renderer/panel/shortcuts'); // the panel's table: what your own keys are checked against
-const syncPrefs = require('../sync-prefs');
+const syncPrefs = require('../sync/prefs');
 const voice = require('../voice');
 const workmode = require('../workmode');
 
@@ -83,7 +83,7 @@ function registerSettingsIpc(ipcMain, d) {
     }
   }
 
-  // A sync brought settings you changed on another PC (sync-prefs.js). They're
+  // A sync brought settings you changed on another PC (sync/prefs.js). They're
   // saved already; here they take effect, and the panel hears about them.
   d.settingsSynced = before => {
     const now = d.config.data;
@@ -157,8 +157,8 @@ function registerSettingsIpc(ipcMain, d) {
     if ('ambient' in allowed && !sounds.AMBIENTS.includes(allowed.ambient)) delete allowed.ambient;
     if ('soundVolume' in allowed && !sounds.VOLUMES.includes(allowed.soundVolume)) delete allowed.soundVolume;
     if ('crashReports' in allowed && !crashReport.CONSENTS.includes(allowed.crashReports)) delete allowed.crashReports;
-    if ('perch' in allowed && !PERCH_SETTINGS.includes(allowed.perch)) delete allowed.perch;
-    if ('climb' in allowed && !CLIMB_SETTINGS.includes(allowed.climb)) delete allowed.climb;
+    if ('perch' in allowed && !PERCH_SETTINGS.includes(/** @type {string} */ (allowed.perch))) delete allowed.perch;
+    if ('climb' in allowed && !CLIMB_SETTINGS.includes(/** @type {string} */ (allowed.climb))) delete allowed.climb;
     if ('mischief' in allowed && !mischief.LEVELS.includes(allowed.mischief)) delete allowed.mischief;
     if ('mischiefPranks' in allowed) allowed.mischiefPranks = mischief.prankSet(allowed.mischiefPranks);
     if ('colony' in allowed) allowed.colony = Number.isInteger(allowed.colony) ? Math.max(0, Math.min(COLONY_MAX, allowed.colony)) : d.config.get('colony');

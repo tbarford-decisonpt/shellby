@@ -1,4 +1,4 @@
-// Reef health per project (reef.js, docs/REEF.md): the readings, where they
+// Reef health per project (reef/index.js, docs/REEF.md): the readings, where they
 // come from, and what a new best pays. Kept out of main.js, which only wires it up.
 //
 // Readings come from:

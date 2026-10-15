@@ -4,7 +4,7 @@
 // the tide pool), where a portrait would swamp him.
 //
 // One file per habitat, so two people can draw at once. Each maps a species
-// id to { palette, pixels } in the gifts.js format. Draw no outline round the
+// id to { palette, pixels } in the gifts/index.js format. Draw no outline round the
 // edge: art.inked adds a dark one, shaded from the colour it borders.
 //
 // Pure data. See test/bugdex-species.test.js and scripts/bugdex-sheet.js.

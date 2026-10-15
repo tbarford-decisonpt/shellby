@@ -1,4 +1,4 @@
-// His tank's IPC (src/main/tank.js): what's in it, saving a layout from the
+// His tank's IPC (src/main/tank/index.js): what's in it, saving a layout from the
 // panel's editor, and clearing the "new" dots on decor. Kept out of main.js,
 // which only wires it up.
 //
@@ -24,12 +24,12 @@ const DECORATE_MIN = 5; // pieces in a saved tank for the "decorate" quest
  *   wardrobe()     the Wardrobe (made at boot), for decor and its unlocks
  *   level()        the highest level he's ever reached (d.everLevel), for tank sizes
  *   questDone(id)  optional: the tank quests (decorate, bigger, milestone-piece, jar-in-tank, tank-share)
- *   shipped()      projects shipped (stickers.js), for the reef tank
+ *   shipped()      projects shipped (stickers/index.js), for the reef tank
  *   stat(event, payload)   feeds the achievements
  *   cardChanged()  optional: what's on your calling card changed, publish it soon
  *   speak(occasion, opts)  optional: a word on the desktop (voice.js; chatter applies)
  *   life()         optional: his life (life.js), for moments in the bond journal (bond.js MEMORIES)
- *   reefCorals()   optional: each watched reef's coral (reef.js corals())
+ *   reefCorals()   optional: each watched reef's coral (reef/index.js corals())
  * }
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js
  * @param d
@@ -68,7 +68,7 @@ function registerTankIpc(ipcMain, d) {
     return { ok: true, dropped, view: v, life };
   };
 
-  // The quests his tank teaches (quests.js); an id quests.js doesn't know yet does nothing.
+  // The quests his tank teaches (quests/index.js); an id quests/index.js doesn't know yet does nothing.
   function tankQuests(v, life) {
     if (!d.questDone) return;
     if (v.pieces.length >= DECORATE_MIN) d.questDone('decorate');

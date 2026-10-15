@@ -1,5 +1,5 @@
 // When a workflow's schedule triggers fire. Daily, weekly and every-few-hours
-// are exactly a routine's schedule (routines.js does the maths, DST and all);
+// are exactly a routine's schedule (routines/index.js does the maths, DST and all);
 // workflows add "every N minutes", since a workflow made only of commands and
 // requests can sensibly run far more often than a Claude task.
 const { nextRun, previousRun, describeSchedule } = require('../routines');
@@ -13,7 +13,7 @@ function minutesError(s) {
   return Number.isInteger(n) && n >= MIN_MINUTES && n <= MAX_MINUTES ? null : `Every must be ${MIN_MINUTES}-${MAX_MINUTES} whole minutes`;
 }
 
-// A routine-shaped stand-in, so routines.js can do the maths.
+// A routine-shaped stand-in, so routines/index.js can do the maths.
 const asRoutine = (schedule, anchor) => ({ enabled: true, schedule, createdAt: anchor });
 
 /** Next time strictly after fromMs, or null. `anchor` (ms) aligns intervals. */

@@ -1,4 +1,4 @@
-// His life in the tank, the part main keeps (src/main/tank.js keeps where things
+// His life in the tank, the part main keeps (src/main/tank/index.js keeps where things
 // stand). What he uses most becomes his favourite; a new piece gets a look and
 // a word; moving into a bigger tank is moving day; a complete set of finds on
 // show is a set on display; and now and then, on the desktop, he mentions it.
@@ -13,7 +13,7 @@
 // See test/tank-life.test.js.
 
 const MAX_USES = 999;          // per piece: enough to tell a favourite, never a big file
-const MAX_TRACKED = 64;        // tank.js HARD_CAP
+const MAX_TRACKED = 64;        // tank/index.js HARD_CAP
 const FAVOURITE_AFTER = 3;     // uses before a piece can be his favourite
 const MAX_SEEN_REFS = 300;
 const MAX_LINE = 24;           // voice.js MAX_LINE: the bubble's width

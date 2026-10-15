@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { HOME, SHELLS } = require('../src/main/shells');
+const { HOME, SHELLS } = require('../src/main/progression/shells');
 const { SIZE, MARKS, markUrl } = require('../src/renderer/shared/minishell');
 
 test('every home he can live in has a gutter mark, and no mark is spare', () => {

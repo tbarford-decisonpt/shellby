@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { releaseVelocity, isThrow, stepFlight, planStroll, stepStroll, wanders, CritterMotion, STROLL_RANGE, GRIP_SPEED, GRIP_CLEAR } = require('../src/main/motion');
+const { releaseVelocity, isThrow, stepFlight, planStroll, stepStroll, wanders, CritterMotion, STROLL_RANGE, GRIP_SPEED, GRIP_CLEAR } = require('../src/main/desktop/motion');
 
 const BOX = { minX: 0, maxX: 1700, minY: 0, floorY: 900 };
 

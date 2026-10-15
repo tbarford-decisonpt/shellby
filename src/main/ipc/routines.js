@@ -1,5 +1,5 @@
 // Routines and the things that run on their own: the routine editor and its
-// test runs, the weekly dependency watch (depwatch.js), and the usage forecast
+// test runs, the weekly dependency watch (depwatch/index.js), and the usage forecast
 // with the work held for after a reset (forecast.js, held.js).
 // Kept out of main.js, which only wires it up.
 const confirm = require('../confirm');
@@ -77,7 +77,7 @@ function registerRoutinesIpc(ipcMain, d) {
     return r ? d.runRoutine(r, { reason: 'manual' }) : { ok: false, error: 'Routine not found.' };
   });
 
-  // ---- dependency watch (depwatch.js). Only a project from the last check is
+  // ---- dependency watch (depwatch/index.js). Only a project from the last check is
   // accepted: the renderer names one, it never hands over a folder of its own.
   ipcMain.handle('depwatch:get', () => d.depWatch.view());
   ipcMain.handle('depwatch:set', (_e, on) => d.depWatch.setEnabled(on === true));
@@ -107,7 +107,7 @@ function registerRoutinesIpc(ipcMain, d) {
 
   // ---- usage forecast, and work held for after the reset
   ipcMain.handle('outlook:get', () => d.outlookView());
-  // Anything held for the reset finishes that quest (quests.js).
+  // Anything held for the reset finishes that quest (quests/index.js).
   ipcMain.handle('held:add', async (_e, input = {}) => {
     const r = await holdOne(input);
     if (r?.ok) d.questDone?.('reset');

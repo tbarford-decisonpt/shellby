@@ -4,16 +4,16 @@
 // Kept out of main.js, which only wires it up.
 const { app, BrowserWindow, powerMonitor, screen } = require('electron');
 const path = require('path');
-const { createClimbing } = require('../climbing');
-const { DESKTOP_CLASSES, covers: coversBox, panelCalm: panelCalmFor, keepOnDesktop, pin: pinToDesktop, sendToBottom, setOnTop, tuckUnder, veil } = require('../desktop-layer');
-const { createFloor } = require('../floor');
-const { createBeat, createFrontReader, signature } = require('../front-poll');
+const { createClimbing } = require('../desktop/climbing');
+const { DESKTOP_CLASSES, covers: coversBox, panelCalm: panelCalmFor, keepOnDesktop, pin: pinToDesktop, sendToBottom, setOnTop, tuckUnder, veil } = require('../desktop/desktop-layer');
+const { createFloor } = require('../desktop/floor');
+const { createBeat, createFrontReader, signature } = require('../desktop/front-poll');
 const focus = require('../focus');
-const { CritterMotion, wanders } = require('../motion');
-const native = require('../native-windows');
+const { CritterMotion, wanders } = require('../desktop/motion');
+const native = require('../desktop/native-windows');
 const { isTestRun, watchesDesktop } = require('../test-desktop');
-const { createPerching } = require('../perching');
-const { clampToDisplays } = require('../placement');
+const { createPerching } = require('../desktop/perching');
+const { clampToDisplays } = require('../desktop/placement');
 const { createPranks } = require('../pranks');
 const processJob = require('../process-job');
 const voice = require('../voice');
@@ -76,7 +76,7 @@ function wireWindows(d) {
   }
 
   // Back down on the desktop layer, unless he's up on a window (or in the air on
-  // his way to one), where he stays put. See perching.js.
+  // his way to one), where he stays put. See desktop/perching.js.
   function settleCritter() {
     if (d.perching) d.perching.home();
     else sendToBottom(d.critter);
@@ -236,7 +236,7 @@ function wireWindows(d) {
   // ---- Windows' animation effects
   // Off (prefers-reduced-motion, which his renderer reports: critter.js), his
   // window holds still too, not just his sprite: no strolls, climbs or hops onto
-  // your windows unless you switched strolling on yourself (motion.js wanders),
+  // your windows unless you switched strolling on yourself (desktop/motion.js wanders),
   // a throw is just a drop, and a fall lands in one step. Your own drag still
   // moves him. Test runs ignore it (CI has animations off, and the e2e checks
   // throw and climb him) unless SHELLBY_REDUCED_MOTION=1 asks.
@@ -356,9 +356,9 @@ function wireWindows(d) {
   // poll asks whether a game is up or the window in front covers him; while it
   // does he gets the locked-screen calm. With a game up the panel drops its
   // decorative loops, and stops the rest only when the game's window lies over
-  // it (panelCalm in desktop-layer.js): on another screen it's still watched.
+  // it (panelCalm in desktop/desktop-layer.js): on another screen it's still watched.
   // Under a game's window, or with the screen locked, calm isn't enough: he and
-  // his floor are hidden outright (desktop-layer.js veil). Only when the game
+  // his floor are hidden outright (desktop/desktop-layer.js veil). Only when the game
   // covers him: on another monitor he's still in plain sight. And not behind an
   // ordinary window: the poll is two seconds, and a crab missing from the desktop
   // that long after you minimize something would be noticed.
@@ -456,7 +456,7 @@ function wireWindows(d) {
     sendCalm();
   }
   // One poll for both: the window in front read once (its exe kept while it
-  // stays in front, front-poll.js), every 2 s, every 5 s once nothing has
+  // stays in front, desktop/front-poll.js), every 2 s, every 5 s once nothing has
   // changed for half a minute.
   const readFront = createFrontReader(native);
   const beat = createBeat();
@@ -477,7 +477,7 @@ function wireWindows(d) {
 
   // ---- on top of your apps
   // "Keep him on top of my apps" (Settings) lifts him and his floor out of the
-  // desktop layer (desktop-layer.js). He still steps back down behind a game, so
+  // desktop layer (desktop/desktop-layer.js). He still steps back down behind a game, so
   // he's never drawn over one, and while he's hiding: he needs your windows for that.
   function onTopNow() {
     return !d.CAPTURE && d.config.get('onTop') === true && !hidden.game && !d.playtime?.hiding();

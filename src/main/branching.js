@@ -15,7 +15,7 @@ const { randomUUID } = require('crypto');
 const branch = require('./branch');
 const worktrees = require('./worktrees');
 const changes = require('./changes');
-const { installCopyDeps, depsSentence } = require('./copy-deps');
+const { installCopyDeps, depsSentence } = require('./worktrees/copy-deps');
 
 const isStr = s => typeof s === 'string' && s.length > 0 && s.length < 10000;
 const snippet = t => {
@@ -60,7 +60,7 @@ function register(deps) {
       const lesson = where === 'before' ? deps.correctionFromTurns?.(tabId, 'retry', { turnIds: [turnId] }) : null;
       const r = await makeBranch({ tabId, turnId, at: where, send: !!send });
       if (r?.ok && lesson) deps.noteCorrection?.(tabId, lesson);
-      if (r?.ok && where === 'before') deps.questDone?.('branch'); // "Try it another way" (quests.js)
+      if (r?.ok && where === 'before') deps.questDone?.('branch'); // "Try it another way" (quests/index.js)
       return r;
     } catch (err) {
       deps.log.info(`branch: ${err.message}`);
@@ -110,7 +110,7 @@ function register(deps) {
       return { ok: false, error: "Claude Code's record of this conversation couldn't be carried into the copy." };
     }
 
-    // Its packages, if your checkout has them (copy-deps.js), before Claude
+    // Its packages, if your checkout has them (worktrees/copy-deps.js), before Claude
     // hears where it is: so its tests run straight away, and it never races npm.
     const packages = copy ? await installCopyDeps(copy).catch(err => ({ installed: false, error: err.message })) : null;
     if (packages?.error) deps.log.info(`branch: npm ci in the copy failed: ${packages.error}`);

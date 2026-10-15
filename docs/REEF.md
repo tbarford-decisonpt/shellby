@@ -54,7 +54,7 @@ Config `reef`, on this PC only, never synced: per project, its name, folder and 
 
 ## For developers
 
-- `src/main/reef.js`: the model (pure): `enable`, `reading`, `healthOf`, `nextImprovement`, `coralArt`, `reefView`, `corals`.
+- `src/main/reef/index.js`: the model (pure): `enable`, `reading`, `healthOf`, `nextImprovement`, `coralArt`, `reefView`, `corals`.
 - `src/main/reef/signals.js`: each signal's step and the parsers (pure).
 - `src/main/reef/probe.js`: the only I/O: `git grep`, `git diff --shortstat` and coverage files.
 - `src/main/wiring/reef.js`: the daily scheduler, `d.onCommandResult` (lint and test runs, with `dir` and `output`), `d.onReefNote(project, sig, value)` (project: its id, `{ id }` or a folder), the game-hub view `reef` (actions `watch`, `unwatch`, `check`, and `dev-reading` in test runs), and `d.reefCorals()` for the tank.

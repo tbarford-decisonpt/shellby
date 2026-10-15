@@ -92,7 +92,7 @@ const FLAGS = Object.freeze({
   '--tools': use('btw.js, backlog/trackers.js, council/look.js'),
   '--verbose': use('session/args.js'),
   '--version': use('claude/cli.js'),
-  '--worktree': skip('Shellby makes its own copies (copy-service.js), with its own branch names and installs.'),
+  '--worktree': skip('Shellby makes its own copies (worktrees/copy-service.js), with its own branch names and installs.'),
 });
 
 /** Every subcommand in `claude --help`. */

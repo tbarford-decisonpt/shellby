@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { STATS, CLASSES, statValue, xpForStat, classFor, characterSheet, isStatKind, noteClass, newClass } = require('../src/main/character');
-const { normalizeXp, award, xpSummary } = require('../src/main/xp');
+const { STATS, CLASSES, statValue, xpForStat, classFor, characterSheet, isStatKind, noteClass, newClass } = require('../src/main/progression/character');
+const { normalizeXp, award, xpSummary } = require('../src/main/progression/xp');
 const { weekSummary } = require('../src/main/weekly');
 
 // Tuesday 6 October 2026, mid-morning (local time).

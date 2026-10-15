@@ -78,7 +78,7 @@
       h('p', { class: 'recap-text', text: `Your usage window reset, and Shellby sent ${held.text}.` }));
   }
 
-  // Bugs Claude fixed while you were out, in the Bugdex's jars (src/main/bugdex.js).
+  // Bugs Claude fixed while you were out, in the Bugdex's jars (src/main/bugdex/index.js).
   function bugsBlock(b) {
     if (!b?.caught) return null;
     const line = `${b.caught} ${b.caught === 1 ? 'bug' : 'bugs'} caught${b.fresh ? `, ${b.fresh} new to the Bugdex` : ''}.`;

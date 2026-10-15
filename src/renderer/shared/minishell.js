@@ -1,5 +1,5 @@
 // The gutter mark on Shellby's messages: a 10x10 pixel mini of the shell he
-// lives in right now. One per home in src/main/shells.js, hand-drawn at this
+// lives in right now. One per home in src/main/progression/shells.js, hand-drawn at this
 // size rather than scaled down from the 13x12 grids — pixel art does not
 // survive resampling, and at 10px only the silhouette and the colours read.
 //
@@ -9,7 +9,7 @@
   const SIZE = 10;
 
   // Keyed by shell id; 'home' is the shell he hatched with. Keep in step with
-  // SHELLS in src/main/shells.js (test/minishell.test.js checks every id).
+  // SHELLS in src/main/progression/shells.js (test/minishell.test.js checks every id).
   const MARKS = Object.freeze({
     // His own shell, in his own coral — the mark the panel has always had,
     // now shaped like a shell instead of a square.
@@ -193,7 +193,7 @@
         '..........',
       ],
     },
-    // Levels 20 to 99 (src/main/shells-extra.js).
+    // Levels 20 to 99 (src/main/progression/shells-extra.js).
     'sea-urchin-shell': {
       palette: { K: '#2a1240', b: '#3e1b5e', v: '#5b2a86', V: '#8e4fc4', p: '#c48cf0', P: '#ecd2ff', w: '#ffffff', g: '#d77fb0' },
       pixels: [

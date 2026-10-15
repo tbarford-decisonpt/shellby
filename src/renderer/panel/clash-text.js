@@ -1,5 +1,5 @@
 /* Shellby panel — what clash warnings say (pure, no DOM), for clashes.js.
-   A clash is from main (src/main/clash.js): { key, root, base, files, more,
+   A clash is from main (src/main/worktrees/clash.js): { key, root, base, files, more,
    copies: [{ tabId, title, branch, checkout? }] }. titleOf(tabId) gives the
    name a tab has now, since tabs get renamed after main last looked. */
 'use strict';

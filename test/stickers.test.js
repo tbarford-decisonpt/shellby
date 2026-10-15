@@ -5,7 +5,7 @@ const path = require('path');
 const art = require('../src/main/stickers/art');
 const { shellMask, stickerSlots, STICKER } = require('../src/main/stickers/slots');
 const st = require('../src/main/stickers');
-const { SHELLS } = require('../src/main/shells');
+const { SHELLS } = require('../src/main/progression/shells');
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;

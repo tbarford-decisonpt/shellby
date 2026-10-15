@@ -5,12 +5,12 @@
 // Rechecked for a repository after a turn in it ends, after a copy is brought
 // home, when copies open or close, and every couple of minutes while a
 // repository has two copies or more. Debounced, git on a timeout, and never in
-// the way of a turn: nothing waits on it. The comparing is clash.js, the git
-// is clash-scan.js.
+// the way of a turn: nothing waits on it. The comparing is worktrees/clash.js, the git
+// is worktrees/clash-scan.js.
 // Kept out of main.js, which only wires it up.
 const path = require('path');
-const { findClashes, freshClashes, rootKey } = require('../clash');
-const clashScan = require('../clash-scan');
+const { findClashes, freshClashes, rootKey } = require('../worktrees/clash');
+const clashScan = require('../worktrees/clash-scan');
 const worktrees = require('../worktrees');
 
 const DEBOUNCE_MS = 1500;

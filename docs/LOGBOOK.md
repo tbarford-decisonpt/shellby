@@ -73,7 +73,7 @@ synced.
 
 ## Quest chapters
 
-`src/main/quests.js` (logic) and `src/main/quests/chapters.js` (copy). Eleven
+`src/main/quests/index.js` (logic) and `src/main/quests/chapters.js` (copy). Eleven
 chapters; Chapter 1 is the original four quests with their ids unchanged, so a
 saved line loads as Chapter 1 progress.
 
@@ -91,7 +91,7 @@ A quest in a chapter that isn't open can't complete. Quests inside a chapter go
 in any order.
 
 **State:** config `quests: { done: { id: at }, hidden, chapters: { id: { unlockedAt, doneAt } }, seenChapter }`.
-`sync-life.js` merges `done` as before, so new quest ids sync without changes.
+`sync/life.js` merges `done` as before, so new quest ids sync without changes.
 
 **Pay:** `quest` for each quest, `chapter` for each chapter, and `questline`
 once more for Chapter 1 (what finishing the old line always paid). Each chapter

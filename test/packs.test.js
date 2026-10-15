@@ -93,7 +93,7 @@ test('packs: unlockable items only reference achievements and seasons that exist
   }
 });
 
-// The tank (src/main/tank.js) falls back to these when nothing else is chosen,
+// The tank (src/main/tank/index.js) falls back to these when nothing else is chosen,
 // and a new tank should have something to put in it straight away.
 test('packs: the tank has its default floor and back glass, and a starter set', () => {
   const { decor } = catalog();

@@ -75,7 +75,7 @@ and Autonomous mode, which skips prompts by design.
 | Plugins → install | Malicious marketplace | Only CLI-listed ids, normalized sources, no `-y`, confirmation window | `src/main/marketplace.js` |
 | Workflows → commands | Outside data turning into code | Values passed as environment variables, never spliced into command text, plus host and path checks | `src/main/workflows/` |
 | Secrets → output | Tokens leaking into logs or prompts | Encrypted by Windows, kept out of prompts, redacted from run logs | `src/main/secret-gate.js` |
-| Phone → tasks | Stolen token starting work | Off by default, sender-bound, Ask first only, rate limits, no `!` or `/` | `src/main/phone-tasks.js` |
+| Phone → tasks | Stolen token starting work | Off by default, sender-bound, Ask first only, rate limits, no `!` or `/` | `src/main/channels/phone-tasks.js` |
 | Billing | Silently using an API key | **Always use my Claude plan** strips provider variables | `src/main/clipath.js`, `src/main/handoff.js` |
 
 ## When you change something here

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
   xpForLevel, xpForMarks, marksFor, MAX_MARKS, levelFor, award, classifyCommand, normalizeXp, AWARDS, TITLES, UNLOCKS, unlocksBetween, nextUnlock,
   streakMultiplier, withDevice, markRed, mergeXpCounts, xpSummary,
-} = require('../src/main/xp');
+} = require('../src/main/progression/xp');
 const { pickFor, BOUNTIES, CLEAR_ALL_XP } = require('../src/main/bounties');
 
 const T0 = new Date(2026, 9, 1, 12, 0, 0).getTime();

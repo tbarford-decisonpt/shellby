@@ -1,4 +1,4 @@
-/* Shellby panel — painting his tank (src/main/tank.js says where things stand).
+/* Shellby panel — painting his tank (src/main/tank/index.js says where things stand).
    Everything is drawn in art pixels: the caller scales the context by a whole
    number. Used by the Tank tab and by the porthole on the Health view.
 

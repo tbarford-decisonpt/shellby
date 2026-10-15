@@ -8,7 +8,7 @@ const path = require('path');
 const { installFakeElectron, fakeConfig } = require('./helpers/fake-ipc');
 
 installFakeElectron();
-const streaks = require('../src/main/streaks');
+const streaks = require('../src/main/progression/streaks');
 const { wireStreaks } = require('../src/main/wiring/streaks');
 
 const DAY = 24 * 60 * 60 * 1000;

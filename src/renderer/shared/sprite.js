@@ -174,7 +174,7 @@
     }
 
     // opts.shell swaps his home: a shell grid drawn instead of the skin's shell
-    // pixels (see src/main/shells.js), or 'none' while he's between shells.
+    // pixels (see src/main/progression/shells.js), or 'none' while he's between shells.
     const home = opts.shell === 'none' ? 'none' : opts.shell && Array.isArray(opts.shell.pixels) ? opts.shell : null;
     paintGrid(pixels, palette, 0, 0, (ch, x, y) => {
       const part = parts[ch] || 'extra';
@@ -205,7 +205,7 @@
       }
     }
 
-    // Stickers for the projects he's shipped (src/main/stickers.js), already
+    // Stickers for the projects he's shipped (src/main/stickers/index.js), already
     // placed by main in stacking order. They move with the shell, and there's
     // nowhere to put them while he's between shells.
     const stickerGroups = [];
@@ -288,7 +288,7 @@
   }
 
   // ------------------------------------------------------------ shell effects
-  // A shell may carry frames, a colour cycle, an aura and sparkles (src/main/shells-molt.js).
+  // A shell may carry frames, a colour cycle, an aura and sparkles (src/main/progression/shells-molt.js).
   // Frames are painted as stacked groups shown one at a time; a cycle paints its
   // keys' pixels with a class each and steps their fill; both run on CSS
   // keyframes in a <style> made for this shell, which reduced motion turns off,

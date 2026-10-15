@@ -1,5 +1,5 @@
 /* Shellby panel — Time: hours on each project for timesheets and invoices
-   (src/main/timetrack.js). A tab beside History. Everything is worked out in
+   (src/main/timetrack/index.js). A tab beside History. Everything is worked out in
    main; this draws it and sends back edits. */
 'use strict';
 (function () {

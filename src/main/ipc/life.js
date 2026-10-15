@@ -3,12 +3,12 @@
 // Kept out of main.js, which only wires it up.
 const { app, dialog, shell } = require('electron');
 const os = require('os');
-const { sendToBottom } = require('../desktop-layer');
+const { sendToBottom } = require('../desktop/desktop-layer');
 const confirm = require('../confirm');
-const native = require('../native-windows');
+const native = require('../desktop/native-windows');
 const { registerProjectsIpc } = require('../projects/ipc');
 const { run: runCli } = require('../claude/cli');
-const shells = require('../shells');
+const shells = require('../progression/shells');
 
 /**
  * @param {Pick<import('electron').IpcMain, 'handle' | 'on'>} ipcMain  main's, behind ipc-guard.js

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const perch = require('../src/main/perch');
+const perch = require('../src/main/desktop/perch');
 
 // A Medium Shellby: 160×136 window, feet 18 above its bottom, sprite 88 wide.
 const GEO = { width: 160, height: 136, foot: 18, half: 44, headroom: 118 };

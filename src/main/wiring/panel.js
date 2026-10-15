@@ -5,9 +5,9 @@
 const { BrowserWindow, app, ipcMain, screen } = require('electron');
 const path = require('path');
 const { attachContextMenu } = require('../context-menu');
-const { sendToBottom } = require('../desktop-layer');
-const native = require('../native-windows');
-const { panelPosition } = require('../placement');
+const { sendToBottom } = require('../desktop/desktop-layer');
+const native = require('../desktop/native-windows');
+const { panelPosition } = require('../desktop/placement');
 const { kindOfApp } = require('../surroundings');
 const { ignoresRealMouse } = require('../test-desktop');
 

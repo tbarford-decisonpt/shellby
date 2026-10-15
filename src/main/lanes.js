@@ -4,15 +4,15 @@
 //   lanes()        one lane per open conversation: what it's doing (working,
 //                  waiting on you, tests red, ready to merge), how big its
 //                  change is, and which other lanes changed the same files
-//                  (clash.js does the comparing; wiring/lanes.js the git).
+//                  (worktrees/clash.js does the comparing; wiring/lanes.js the git).
 //   mergeOrder()   the lanes that are ready, per repository and branch they go
 //                  home to, fewest overlaps first, then smallest.
 //   groupPrompts() identical prompts from several conversations as one ("4
 //                  want `npm test`"), so one answer can go to all of them.
 //
 // No I/O, no clock. See test/lanes.test.js.
-const { rootKey } = require('./clash');
-const { deskOnlyReason } = require('./replies');
+const { rootKey } = require('./worktrees/clash');
+const { deskOnlyReason } = require('./channels/replies');
 
 const STATES = Object.freeze(['waiting', 'working', 'red', 'ready', 'idle']);
 const RED = new Set(['fail', 'error', 'timeout']);
@@ -52,7 +52,7 @@ function parseNumstat(out) {
  * The board.
  *   tabs:    sessions.js `summary`
  *   diffs:   Map tabId -> { files: [path], added, removed } (copies only)
- *   clashes: clash.js findClashes' output
+ *   clashes: worktrees/clash.js findClashes' output
  *   roots:   Map tabId -> the repository a copy came from (tab.worktree.root)
  * -> [{ tabId, title, branch, base, root, state, files, added, removed, size,
  *       overlaps: [{ tabId, title, checkout, files }] }], in tab order.
@@ -130,7 +130,7 @@ function whatOf(p) {
 /**
  * Waiting prompts across every conversation (oldest first), grouped by the
  * same tool wanting the same thing. A prompt that has to be read at the desk
- * (replies.js deskOnlyReason: a question, a plan, a file Claude wrote...) is
+ * (channels/replies.js deskOnlyReason: a question, a plan, a file Claude wrote...) is
  * never answered in bulk: it stays a group of one with `look` set.
  * -> [{ key, toolName, what, count, look, prompts: [{ tabId, requestId }] }],
  *    the biggest group first, then the oldest.

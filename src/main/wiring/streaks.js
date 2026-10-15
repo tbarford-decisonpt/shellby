@@ -1,21 +1,21 @@
-// Streaks and nudges (streaks.js): the days you've worked, the repos you
+// Streaks and nudges (progression/streaks.js): the days you've worked, the repos you
 // worked in with their newest commit, and now and then a nudge back to one
 // that's gone quiet.
 // Kept out of main.js, which only wires it up.
 const { app } = require('electron');
 const focus = require('../focus');
 const { repoOf, lastCommitAt } = require('../gitinfo');
-const levels = require('../levels');
-const streaks = require('../streaks');
+const levels = require('../progression/levels');
+const streaks = require('../progression/streaks');
 const weekly = require('../weekly');
-const { normalizeXp } = require('../xp');
+const { normalizeXp } = require('../progression/xp');
 
 /** d: what main shares (main.js `shared`). */
 function wireStreaks(d) {
   // Dev/e2e only: run the nudge check on demand, ignoring quiet hours (nudges only fire 9:00-21:00).
   const NUDGE_TEST = !app.isPackaged && process.env.SHELLBY_NUDGE_TEST === '1';
 
-  // Tide-outs a week: two once the tide-out-plus perk is his (levels.js).
+  // Tide-outs a week: two once the tide-out-plus perk is his (progression/levels.js).
   const streakOpts = () => ({ perWeek: levels.perksFor(levels.everLevel(normalizeXp(d.config.get('xp')))).has('tide-out-plus') ? 2 : streaks.TIDE_OUTS_PER_WEEK });
 
   function streaksView() {
@@ -36,7 +36,7 @@ function wireStreaks(d) {
     d.refreshStatusLine();
   }
 
-  // The tide-outs the streak has leaned on, written down (streaks.js settleTideOuts)
+  // The tide-outs the streak has leaned on, written down (progression/streaks.js settleTideOuts)
   // so the panel shows 🌊 on them. Said once, kindly: a day off is allowed.
   function settleTideOuts() {
     if (d.CAPTURE || !d.config) return;

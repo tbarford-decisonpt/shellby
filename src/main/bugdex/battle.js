@@ -89,7 +89,7 @@ const isSuper = (move, type) => (SUPER[type] || []).includes(move);
  * A bug surfaces.
  *   enc: { species, rarity, type, project?, tabId? } (id is lifecycle.encId)
  *   opts: { id, boss, league ('elite' | 'champion' | null), stage (your own of it, 0-4), failed, now,
- *           rematch (history.js rematchOf: { n, last: { at, q } } | null) }
+ *           rematch (bugdex/history.js rematchOf: { n, last: { at, q } } | null) }
  */
 function start(enc, { id, boss = false, league = null, stage = 0, failed = null, now, rematch = null }) {
   const rarity = HP[enc.rarity] ? enc.rarity : 'common';

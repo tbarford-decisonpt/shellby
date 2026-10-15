@@ -129,7 +129,7 @@
     SB.toast(bits.join(' '), { ms: lineUp ? 14000 : 8000, ...(lineUp ? { action: lineUp.label, onAction: lineUp.onAction } : {}) });
   }
 
-  // ------------------------------------------------------------ clashes, sorted out in turn (src/main/home-line.js)
+  // ------------------------------------------------------------ clashes, sorted out in turn (src/main/worktrees/home-line.js)
   //
   // Copies that clash with their base line up: the one at the front merges the
   // base in, and once it has, it comes home by itself. The next starts on a base

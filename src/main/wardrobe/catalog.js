@@ -37,7 +37,7 @@ const DEFAULT_ANCHORS = Object.freeze({
   shellTop: Object.freeze([7, 0]),  // top of the shell
 });
 
-// Decor for his tank (src/main/tank.js). Pieces stand on the floor, against the
+// Decor for his tank (src/main/tank/index.js). Pieces stand on the floor, against the
 // back glass, or float in the water; substrates and backdrops are tiles the
 // tank repeats. Spots are where he can do something with a piece.
 const DECOR_CATEGORIES = ['structure', 'plant', 'rock', 'treasure', 'bubbler', 'substrate', 'backdrop'];
@@ -98,7 +98,7 @@ function checkUnlock(u, known) {
     if (typeof u.season !== 'string' || !known.seasons.has(u.season)) return [null, `unknown season ${q(u.season)}`];
     return [{ season: u.season }, null];
   }
-  // A level reached (levels.js): the highest ever, so a molt never takes it back.
+  // A level reached (progression/levels.js): the highest ever, so a molt never takes it back.
   if (hasOwn(u, 'level')) {
     if (!isInt(u.level, 2, 99)) return [null, 'unlock.level must be an integer 2–99'];
     return [{ level: u.level }, null];

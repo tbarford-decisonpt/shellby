@@ -6,12 +6,12 @@
 //   nudge  up on a window, he braces and gives it a shove (it stays on screen).
 //   note   he walks off the edge of the screen and hauls a little note back
 //          in for you, or digs one up if there's no edge to go off.
-//   tracks sandy footprints where he walks (drawn by floor.js).
+//   tracks sandy footprints where he walks (drawn by desktop/floor.js).
 //
 // Every step checks again that it's still fine: a click, a call, focus time,
 // a fullscreen app or a task starting, and he behaves.
 const mischief = require('./mischief');
-const climb = require('./climb');
+const climb = require('./desktop/climb');
 
 const TICK_MS = 250;
 const VK_ESCAPE = 0x1B;

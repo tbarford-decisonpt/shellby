@@ -6,7 +6,7 @@
 // into the panel. Kept out of main.js, which only wires it up.
 const { BrowserWindow, app } = require('electron');
 const path = require('path');
-const { clampToDisplays } = require('../placement');
+const { clampToDisplays } = require('../desktop/placement');
 const { ignoresRealMouse } = require('../test-desktop');
 
 const PANEL_DEFAULT = { width: 460, height: 700 };

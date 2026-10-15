@@ -11,8 +11,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { savePng } = require('./lib/shot');
-const { xpForLevel } = require('../src/main/levels');
-const { tierShell } = require('../src/main/shells');
+const { xpForLevel } = require('../src/main/progression/levels');
+const { tierShell } = require('../src/main/progression/shells');
 const { ACHIEVEMENTS } = require('../src/main/wardrobe/achievements');
 
 const ROOT = path.join(__dirname, '..');

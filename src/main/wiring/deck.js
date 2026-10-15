@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const deck = require('../deck');
 const { pack, FOLDER, FILE_NAME } = require('../deck-pack');
-const { deskOnlyReason } = require('../replies');
+const { deskOnlyReason } = require('../channels/replies');
 
 const PLUGIN_DIR = path.join(__dirname, '..', '..', 'streamdeck', FOLDER);
 

@@ -8,7 +8,7 @@
 // trophies read, notes nests for the reef, and serves the 'nests' game view.
 //
 // State lives in config bugNests ({ history, nests }), local and not synced.
-// The modules it leans on are pure (bugdex/quality.js, history.js, nests.js).
+// The modules it leans on are pure (bugdex/quality.js, bugdex/history.js, nests.js).
 
 const bugdex = require('../bugdex');
 const lifecycle = require('../bugdex/lifecycle');

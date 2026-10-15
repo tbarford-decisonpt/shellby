@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const B = require('../src/main/beach');
 const stickers = require('../src/main/stickers');
-const streaks = require('../src/main/streaks');
+const streaks = require('../src/main/progression/streaks');
 const gifts = require('../src/main/gifts');
 
 const at = (d, h = 12) => new Date(2026, 9, d, h).getTime(); // October 2026, local time

@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld('shellby', {
     // Windows' animation effects off (prefers-reduced-motion): main holds his window still too.
     reducedMotion: on => ipcRenderer.send('critter:reduced-motion', on === true),
     onPerch: on('critter:perch'),
-    onSurface: on('critter:surface'), // which way up he is: on the floor, a wall or the ceiling (src/main/climbing.js)
+    onSurface: on('critter:surface'), // which way up he is: on the floor, a wall or the ceiling (src/main/desktop/climbing.js)
     // His life between tasks (src/main/life.js, playtime.js): where your cursor
     // is, a prop for a scene, something in his claw or on his face, and what a
     // visiting crab says back.

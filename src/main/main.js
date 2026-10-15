@@ -6,9 +6,9 @@ const { randomUUID } = require('crypto');
 
 const { checkStatus, claudeMoved, currentClaude, findClaude } = require('./claude/cli');
 const { loadSkins } = require('./skins');
-const { clampToDisplays } = require('./placement');
+const { clampToDisplays } = require('./desktop/placement');
 const { REGISTRY_URL, PROTOCOL, findDeepLink } = require('./registry');
-const { withDevice } = require('./xp');
+const { withDevice } = require('./progression/xp');
 const statusLine = require('./statusline');
 const { Log } = require('./log');
 const crashReport = require('./crash-report');
@@ -187,7 +187,7 @@ const shared = {
     }
     return exe;
   },
-  // Where a tab's copy of its repo goes (copy-service.js), and Claude Code's own settings.
+  // Where a tab's copy of its repo goes (worktrees/copy-service.js), and Claude Code's own settings.
   worktreeHome: () => path.join(app.getPath('userData'), 'worktrees'),
   claudeConfigDir: () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'),
   // Remembered for Up and Ctrl+R in the box (parity.js).
@@ -199,7 +199,7 @@ const shared = {
   health: null, external: null, github: null, ci: null, ciGithub: null, ciGitlab: null, issues: null, updates: null, friends: null,
   profileCard: null, prBadge: null, critter: null, panel: null, tray: null, timeTracker: null, timeSync: null,
   workflows: null,                 // the Automate page's engine (workflows/service.js)
-  depWatch: null,                  // the weekly look at your projects' packages (depwatch.js)
+  depWatch: null,                  // the weekly look at your projects' packages (depwatch/index.js)
   claudeUpdates: null,             // the daily look at Claude Code's own version (claude/update.js)
   claudeLapsed: null,              // a turn failed as signed out: Settings says so (set by ipc/panel.js)
   projects: null,                  // the Projects page (projects/service.js)
@@ -211,15 +211,15 @@ const shared = {
   obsServer: null, rgbClient: null, presence: null, media: null, remote: null, channelSecret: null,
   deck: null, deckShown: null,     // the Stream Deck keys, and the conversation they follow (see deck.js)
   dictation: null, ptt: null,      // push-to-talk: hold the hotkey and say the task (see dictation.js)
-  motion: null,                    // throws and strolls (see motion.js)
-  perching: null,                  // up on your windows (see perching.js)
-  climbing: null,                  // up the edges of the screen and across the top (see climbing.js)
+  motion: null,                    // throws and strolls (see desktop/motion.js)
+  perching: null,                  // up on your windows (see desktop/perching.js)
+  climbing: null,                  // up the edges of the screen and across the top (see desktop/climbing.js)
   pranks: null,                    // mischief, if you asked for it (see pranks.js)
-  floor: null,                     // the strip of floor with his pals and footprints (see floor.js)
+  floor: null,                     // the strip of floor with his pals and footprints (see desktop/floor.js)
   life: null,                      // his life between tasks: scenes, gifts, the bond, your day (see life.js)
   tankRemark: null,                // a word about his tank for the desktop, set by ipc/tank.js (tank/life.js)
-  homeTurnEnded: null,             // a tab's turn ended: its place on the home line moves on, set by ipc/repo.js (home-line.js)
-  settingsSynced: null,            // settings changed on another PC take effect here, set by ipc/settings.js (sync-prefs.js)
+  homeTurnEnded: null,             // a tab's turn ended: its place on the home line moves on, set by ipc/repo.js (worktrees/home-line.js)
+  settingsSynced: null,            // settings changed on another PC take effect here, set by ipc/settings.js (sync/prefs.js)
   playtime: null,                  // hide and seek, fetch (see playtime.js)
   typing: null,                    // tapping along while you type (see typing.js)
   weatherSvc: null,                // the weather outside, for what he wears (see weather/service.js)
@@ -327,7 +327,7 @@ const { createCritter, createMischief, createMotion, placeCritter, watchIdleCost
 const { broadcastSkin, broadcastWardrobe, refreshCritter, wakeVoice } = share(wireCritter(shared));
 const { createManager, watchUsage } = share(wireSessions(shared));
 const { awardXp, checkWrapUp } = share(wireProgress(shared));
-share(wireQuestLine(shared)); // quests, one feature at a time (quests.js)
+share(wireQuestLine(shared)); // quests, one feature at a time (quests/index.js)
 share({ bugdex: wireBugdex(shared) }); // the bugs Claude has fixed for you, in jars
 const { createExternal, createHealth, createTimeTracker, stat } = share(wireTimetrack(shared));
 const { createCrabApi } = share(wireCrabApi(shared));
@@ -381,7 +381,7 @@ app.whenReady().then(() => {
   const { config } = shared;
   createWardrobe(); // credits past usage on its first run, so before any stat()
   stat('active');
-  // This PC's own XP count, so sync can add PCs together (xp.js).
+  // This PC's own XP count, so sync can add PCs together (progression/xp.js).
   if (!CAPTURE && !config.get('xp')?.device) config.set({ xp: withDevice(config.get('xp'), randomUUID()) });
   awardXp('day');
   every(() => { shared.wardrobe.collectSeasonals(); broadcastWardrobe(); eventsTick(); }, HOUR_MS);

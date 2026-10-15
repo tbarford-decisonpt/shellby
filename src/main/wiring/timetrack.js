@@ -1,4 +1,4 @@
-// Time on each project (timetrack.js), and what the Projects page and the
+// Time on each project (timetrack/index.js), and what the Projects page and the
 // Sticker Book show about each one.
 // Kept out of main.js, which only wires it up.
 const { BrowserWindow, Notification, app, clipboard, dialog, nativeImage, net, powerMonitor, safeStorage, shell } = require('electron');
@@ -15,22 +15,22 @@ const gifts = require('../gifts');
 const { projectOf } = require('../gitinfo');
 const { FAKE_SCENARIOS } = require('../health/fake');
 const { HealthService } = require('../health/service');
-const native = require('../native-windows');
+const native = require('../desktop/native-windows');
 const processJob = require('../process-job');
 const recap = require('../recap');
 const shellCmd = require('../shellcmd');
-const shells = require('../shells');
+const shells = require('../progression/shells');
 const stickers = require('../stickers');
-const streaks = require('../streaks');
+const streaks = require('../progression/streaks');
 const timetrack = require('../timetrack');
-const { TimeTracker } = require('../timetrack-service');
-const { TimeSync } = require('../timesync');
-const { markRed } = require('../xp');
+const { TimeTracker } = require('../timetrack/service');
+const { TimeSync } = require('../timetrack/timesync');
+const { markRed } = require('../progression/xp');
 const toast = require('../toast');
 
 /** d: what main shares (main.js `shared`). */
 function wireTimetrack(d) {
-  // ---- time on each project (timetrack.js)
+  // ---- time on each project (timetrack/index.js)
   //
   // The window in front, Claude's work and git's reflogs say which project you're
   // on; the seconds add up per day for timesheets and invoices. Off until you
@@ -71,7 +71,7 @@ function wireTimetrack(d) {
       panel: () => d.panel,
     });
     if (start) d.timeTracker.start();
-    // Sending days to Toggl, Clockify or Harvest (timesync.js). The token is
+    // Sending days to Toggl, Clockify or Harvest (timetrack/timesync.js). The token is
     // encrypted by Windows like the channel's, and never kept in the clear.
     d.timeSync = new TimeSync({
       config: d.config,
@@ -236,7 +236,7 @@ function wireTimetrack(d) {
     // Once the turn's diff is noted: did it just change a file another copy has? (wiring/clashes.js)
     const noted = Promise.resolve(d.endTurn(tabId));
     noted.then(() => d.clashTurnEnded?.(tabId), () => {});
-    // A copy lined up to sort out its clash and come home: maybe it just has (home-line.js).
+    // A copy lined up to sort out its clash and come home: maybe it just has (worktrees/home-line.js).
     noted.catch(() => {}).then(() => d.homeTurnEnded?.(tabId)).catch(err => d.log.info(`home line: ${err.message}`));
     // One of "Try it N ways"' tries: its tests, then its row on the card (wiring/tries.js).
     noted.catch(() => {}).then(() => d.tries?.turnEnded(tabId, item)).catch(err => d.log.info(`tries: ${err.message}`));

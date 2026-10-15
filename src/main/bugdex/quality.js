@@ -20,7 +20,7 @@ const TEST_CASE = /\b(it|test|describe)\s*\(|def test_|#\[test\]|func Test\w+\(|
 const CONFIG_PATH = /\.(json|ya?ml|toml|lock|ini)$/i;
 const SNAP_PATH = /\.snap$|(^|\/)__snapshots__\//;
 
-// The order the letters are written in (history.js keeps them per catch).
+// The order the letters are written in (bugdex/history.js keeps them per catch).
 const LETTERS = Object.freeze({ proof: 'p', firstTry: 'f', rootCause: 'r', wider: 'w' });
 const QUALITIES = Object.freeze(Object.keys(LETTERS));
 

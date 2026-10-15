@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const quests = require('../src/main/quests');
-const { AWARDS } = require('../src/main/xp');
+const { AWARDS } = require('../src/main/progression/xp');
 
 const ids = quests.CHAPTERS[0].quests.map(q => q.id);
 const doneAll = (order = ids) => order.reduce((s, id, i) => quests.completeQuest(s, id, 1000 + i).state, null);
