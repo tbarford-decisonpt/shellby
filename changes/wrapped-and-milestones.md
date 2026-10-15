@@ -1,6 +1,0 @@
-### New
-- **Shellby Wrapped.** Every January 2nd (or the first time you use him after it), Shellby shows you the year before in a few slides: your XP and levels, the days you spent together and your longest run, your busiest hour and day, the projects you shipped most, the bugs Claude caught and your nemesis, fixes that held, the reef, review, tide medals, and the pieces you earned for his tank. It ends on a card you can save, copy and post. Missed a year? It waits behind the 🎁 on Trophies. He's keeping the yearbook from today, and this year's fills in what he already knew, so it says "since" when it starts.
-- **Rare tank pieces for your milestones.** Forty new pieces, each earned by a milestone of its own: 10, 100, 250, 500 and 1,000 bugs caught, your first bug nest cleared, rematches won, fixes that held, a perfect tide, every Molt, a thriving reef, each review tier, each year of Wrapped, levels 25, 50, 75 and 99, quest chapters, and 60 and 100-day streaks. Lots of them move: jars bubble, a buoy blinks, a hawk turns its head, snow falls in the globes. They have their own Milestones shelf in the tank, where the ones still to come show as a silhouette with how close you are, and earning one offers to put it straight in.
-
-### Changed
-- His tank sizes go by the highest level he's ever reached, so they stay his after a Molt.

@@ -1,5 +1,0 @@
-### New
-- **Bug battles replay the real fix.** The finishing blows now come from what Claude actually did: a new test that proves it lands a Proof Strike, a fix at the cause a Root Cut, a pass on the first re-run First Try, and helpers a Crew Combo. Each catch card gets a fix report with those four marks.
-- **Rematches.** A bug you've caught in a project before comes back stronger, and remembers how it was fixed last time ("Last time: no test"). Win the rematch with a new test and it's Sealed.
-- **Bug nests.** When the same bug turns up three times in a month in one project, it nests there. Catch it and keep it away for 14 days (7 if a test sealed it) to clear the nest. Nests sit at the top of the Bugdex with a ring showing how close each is, plus a rematch history of every bug you've fought more than once.
-- **Good fixes pay off.** A fix with a new test at the root, a fix that stays fixed for 14 days and a cleared nest each earn XP, and count toward trophies that can unlock tank pieces. Nothing is ever taken away.

@@ -1,5 +1,0 @@
-### New
-
-- **Reef health per project.** Press **Watch this reef** on a project's page and he keeps an eye on how its code is doing: escape hatches like `ts-ignore` and `any`, lint problems, coverage, CI, flaky tests, vulnerable packages, bug nests and the test count. Only a new best counts, and each one grows a polyp on the project's coral. A worse day never takes anything away; it only turns the coral paler. Counts only, kept on this PC, and Shellby never runs your code to get them. See [Reef health](docs/REEF.md).
-- **Coral in his tank.** Every watched reef grows its own coral, shaped by the project and swaying in the current, on the tray's Plants shelf and in the new Coral list on the Tank page.
-- **Review mastery on Trophies.** Points for really reading Claude's work: a quiz passed on a turn, a review with a comment that says something, and a catch when Claude's next turn rewrites the lines you flagged before anything was pushed. Five tiers, from Tide-pool Reader to Abyssal Auditor, each paying XP, with tank pieces along the way.
