@@ -127,9 +127,48 @@ test('the ultra review is handed to the terminal launcher for that tab', async (
   assert.equal((await ipc.invoke('review:ultra', null)).ok, false);
 });
 
+test("an ultracode run's Stop and status go to that tab's session, by an id that looks like one", async () => {
+  const asked = [];
+  const session = {
+    stopRun: async id => { asked.push(['stop', id]); return { ok: true }; },
+    runView: id => (id === 'w1' ? { id, status: 'running' } : null),
+  };
+  const { ipc } = setup({ tabs: { t1: { session } } });
+  assert.equal((await ipc.invoke('ultracode:stop', { tabId: 't1', runId: 'w1' })).ok, true);
+  assert.deepEqual(asked, [['stop', 'w1']]);
+  assert.equal((await ipc.invoke('ultracode:stop', { tabId: 't1', runId: '../w1' })).ok, false);
+  assert.equal((await ipc.invoke('ultracode:stop', { tabId: 'gone', runId: 'w1' })).ok, false);
+  assert.equal(asked.length, 1, 'nothing asked for a bad id or a closed tab');
+  assert.deepEqual(await ipc.invoke('ultracode:status', { tabId: 't1', runId: 'w1' }), { id: 'w1', status: 'running' });
+  assert.equal(await ipc.invoke('ultracode:status', { tabId: 't1', runId: 'w2' }), null);
+  assert.equal(await ipc.invoke('ultracode:status', { tabId: 't1', runId: null }), null);
+});
+
+test('the first ultracode message asks in the confirm window, with a rough cost, and Cancel is the default', async () => {
+  const { FakeBrowserWindow } = require('./helpers/fake-ipc');
+  const session = { runModel: () => 'claude-opus-5' };
+  const { ipc } = setup({ tabs: { t1: { session } }, extra: { panel: null, dialogLook: () => ({}) } });
+  const answer = async index => {
+    const count = FakeBrowserWindow.all.length;
+    const asking = ipc.invoke('ultracode:confirm', 't1');
+    let win;
+    for (let i = 0; i < 50 && !(win = FakeBrowserWindow.all[count])?.webContents.sent.length; i++) await new Promise(r => setTimeout(r, 5));
+    const spec = win.webContents.sent[0].payload;
+    electron.ipcMain.emit('dialog:respond', { sender: win.webContents }, index);
+    return { spec, r: await asking };
+  };
+  const yes = await answer(0);
+  assert.match(yes.spec.title, /Ultracode/);
+  assert.match(yes.spec.detail, /\$\d.* to \$\d.* on claude-opus-5/);
+  assert.equal(yes.spec.buttons[yes.spec.defaultId].label, 'Cancel');
+  assert.deepEqual(yes.r, { ok: true });
+  assert.deepEqual((await answer(1)).r, { ok: false, cancelled: true });
+  assert.equal((await ipc.invoke('ultracode:confirm', 'gone')).ok, false);
+});
+
 test("none of it is open to the crab's window or a stranger", async () => {
   const { ipc } = setup();
-  for (const c of ['jobs:output', 'jobs:stop', 'memory:list', 'memory:save', 'memory:forget', 'cloud:list', 'cloud:run', 'review:ultra']) {
+  for (const c of ['jobs:output', 'jobs:stop', 'memory:list', 'memory:save', 'memory:forget', 'cloud:list', 'cloud:run', 'review:ultra', 'ultracode:stop', 'ultracode:status', 'ultracode:confirm']) {
     await assert.rejects(ipc.invokeAs(ipc.senders.critter, c, {}), undefined, c);
     await assert.rejects(ipc.invokeAs(ipc.senders.stranger, c, {}), undefined, c);
   }

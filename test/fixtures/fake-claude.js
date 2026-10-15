@@ -234,6 +234,51 @@ if (args.includes('--json-schema')) {
   });
 }
 
+// An ultracode run, as Claude Code 2.1.299 reports one (src/main/ultracode.js):
+// a Workflow call, task_started with task_type 'local_workflow', the tool's result
+// naming the run id, and the turn ends. Then task_progress with every phase and
+// agent so far, and task_notification when it ends. Seven agents in two phases,
+// one step every 300 ms. "forever" in the message keeps them all running until
+// a stop_task.
+function ultracodeRun(content) {
+  const taskId = `w${turn}ultra`;
+  const id = `tu_wf_${turn}`;
+  const forever = /\bforever\b/.test(content);
+  const phases = [{ type: 'workflow_phase', index: 0, title: 'Scout' }, { type: 'workflow_phase', index: 1, title: 'Fix' }];
+  const AGENTS = 7;
+  const label = i => (i <= 3 ? `Scout part ${i}` : `Fix finding ${i - 3}`);
+  const script = "export const meta = { name: 'audit', description: 'Audit the repo in parallel', phases: [{ title: 'Scout' }, { title: 'Fix' }] }";
+  out({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name: 'Workflow', input: { script } }] }, parent_tool_use_id: null, session_id: sessionId });
+  out({ type: 'system', subtype: 'task_started', task_id: taskId, tool_use_id: id, description: 'Audit the repo in parallel', task_type: 'local_workflow', workflow_name: 'audit', is_backgrounded: true, session_id: sessionId });
+  out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: `Workflow launched in background (task ${taskId}).` }] }, tool_use_result: { status: 'async_launched', taskId, taskType: 'local_workflow', workflowName: 'audit', runId: `wf_fake${turn}`, summary: 'Audit the repo in parallel' }, parent_tool_use_id: null, session_id: sessionId });
+  text('ULTRACODE LAUNCHED');
+  result(true);
+  let step = 0;
+  const snapshot = () => {
+    const started = Math.min(AGENTS, step * 2);
+    const done = forever ? 0 : Math.max(0, Math.min(AGENTS, step * 2 - 3));
+    const agents = [];
+    for (let i = 1; i <= started; i++) {
+      agents.push({ type: 'workflow_agent', index: i, label: label(i), phaseIndex: i <= 3 ? 0 : 1, phaseTitle: i <= 3 ? 'Scout' : 'Fix', model: 'claude-sonnet-5-5', state: i <= done ? 'done' : 'progress', tokens: 20000 * Math.min(step, 4), toolCalls: step });
+    }
+    return { agents, done };
+  };
+  const timer = setInterval(() => {
+    step++;
+    const { agents, done } = snapshot();
+    const tokens = agents.reduce((s, a) => s + a.tokens, 0);
+    out({ type: 'system', subtype: 'task_progress', task_id: taskId, tool_use_id: id, description: agents.length ? `${agents.at(-1).phaseTitle}: ${agents.at(-1).label}` : 'Audit the repo in parallel', usage: { total_tokens: tokens, tool_uses: step * agents.length, duration_ms: step * 300 }, last_tool_name: agents.at(-1)?.label, summary: 'Audit the repo in parallel', workflow_progress: [...phases, ...agents], session_id: sessionId });
+    if (done === AGENTS) end('completed', 'Dynamic workflow "audit" completed: the scouts found 4 things and all 4 are fixed.');
+  }, 300);
+  const end = (status, summary) => {
+    clearInterval(timer);
+    if (!bgJobs.has(taskId)) return;
+    bgJobs.delete(taskId);
+    out({ type: 'system', subtype: 'task_notification', task_id: taskId, tool_use_id: id, status, output_file: '', summary, usage: { total_tokens: 0, tool_uses: 0, duration_ms: step * 300 }, session_id: sessionId });
+  };
+  bgJobs.set(taskId, { stop: () => end('stopped', 'Dynamic workflow "audit" was stopped') });
+}
+
 function onLine(line) {
   const msg = JSON.parse(line);
 
@@ -324,6 +369,8 @@ function onLine(line) {
 
   if (note) text(`noted: ${note}`);
   if (content === 'crash') { process.exit(3); }
+  // The word "ultracode" on a line of its own -> a Workflow run in the background.
+  if (/(^|\n)ultracode\s*$/i.test(content)) { ultracodeRun(content); return; }
   // "editabs <absolute path> <words...>" -> a Write to that exact path, asked of
   // a registered PreToolUse hook first (a branch's fence); refused, it says why.
   if (content.startsWith('editabs ')) {
