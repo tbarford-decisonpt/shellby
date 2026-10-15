@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.86.0: Ultracode, a guided first run, and a steadier client
+
+### New
+- **The Council says what it costs.** Before it sits, the hint by Convene gives a range ("About $0.07–0.39") for the mode, the seats and the read. After, the minutes and Past sessions show what it really cost, added up from every call. If a call didn't say, it reads "at least".
+- **First steps.** Someone new gets a short path on the chat's start screen: open a project, give Claude a task, see what he changed, and say hi to the crab. Each step ticks itself off when you really do it, any of them can be skipped, and × puts the card away until Settings → General → Screens brings it back.
+- **The game opens when you're ready for it.** Finds, Stickers, Crew, the Bugdex, the Council, Us, the Tank, a project's Reef and Review mastery wait until First steps are done or he reaches level 3, then open as you work, each with a card that names the quest chapter teaching it and a "new" on its door until you look.
+- **Show everything now**, in Settings → General → Screens, for anyone who'd rather have every screen at once.
+- **Fix this, on the reef.** Every reef signal that can get better has a Fix this button. It opens a new conversation in that project with a prompt already in the box, naming the files with the most escape hatches or lint problems, the least-covered files, the failing CI checks, the flaky tests, the vulnerable packages or the bug nests, and how to check the fix. Nothing is sent until you press Enter.
+- **Fix the worst.** The Reef card also offers Fix the worst, which picks the signal with the most room to get better. When the next reading shows it improved, it's a new best and a polyp, as always.
+- **Ultracode, from the box.** The Ultracode chip under the box adds the word "ultracode" to what you send in that conversation, so Claude can send out a whole crew of agents in the background. It's off until you turn it on, and the first time he asks first, with a rough idea of what a run costs.
+- **A card for every run.** Its phases, how many agents are running and done, how long it's been going and what it has cost so far (at the least: Claude Code doesn't say the price), with Stop and how it ended. Close the conversation and bring it back, and the card is still there.
+- **The crew walks out.** A run's agents go out as helper crabs, a few at a time, with "+N more" for the rest, and walk home as they finish. What they spend counts on your usage meters.
+
+### Fixed
+- **Nothing he started outlives him.** Quitting now ends every task still running in the background (a one-off Claude Code run, a workflow's MCP server, a sign-in), and the packages a new copy installs are stopped, along with everything npm started, if they take too long or you quit.
+- **Closing a tab mid-turn no longer muddles other tabs' changes.** A conversation closed while it was working kept claiming the files it had touched, so other conversations' diffs and Undo could leave them out.
+- **A copy that can't be made says why.** With no git on the PC he used to say the folder wasn't a repository; and a folder of copies he couldn't write to (no permission, a full disk, too long a path) now gets a sentence instead of silence.
+- **Long conversations stay light.** Helpers that finished long ago are let go instead of piling up for the life of the conversation.
+- **The Council counts on your usage meters.** Its sittings now show up as their own line in who used your 5-hour and weekly windows.
+- **Copy works on long text.** Copy buttons said "Copied" but put nothing on the clipboard when the text ran past 2,000 characters, so long prompts, plans and code blocks never copied. They now copy in full.
+- **Bug nests reach the reef.** Open nests in the Bugdex never showed up on a project's reef. They do now.
+- **A panel full of busy tabs no longer freezes after you minimize it.** With a lot of conversations working at once, the panel used to redraw the whole tab strip for every progress report, fell behind, and stayed frozen (for minutes, in the worst case) while it caught up after you restored or maximized it. It now keeps up with the newest report and skips redrawing tabs that look the same.
+
+### Changed
+- **Screens say what they're for.** While you're new, Outfits, Health and the Logbook carry a line on what they do, and an empty History has a button to start your first conversation.
+- Already using Shellby? Nothing moves or hides for you.
+- **Helpers start folded.** A subagent's lane in the conversation now starts closed, with what it's doing on its one line. It opens by itself only when the helper needs your answer, and one you open stays open when it finishes.
+
 ## 0.85.0: The Logbook, levels to 99 and Shellby Wrapped
 
 ### New
