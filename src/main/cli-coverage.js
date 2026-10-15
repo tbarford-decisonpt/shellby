@@ -159,7 +159,7 @@ const TOOLS = Object.freeze({
   ToolSearch: use('stream.js: shown as a step'),
   WebFetch: use('stream.js'),
   WebSearch: use('stream.js'),
-  Workflow: use('workflows/run-queue.js'),
+  Workflow: use('ultracode.js: a run is a card, its agents helper crabs'),
   Write: use('stream.js, changes.js'),
 });
 

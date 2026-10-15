@@ -23,6 +23,7 @@ const crabmcp = require('../crabmcp');
 const processJob = require('../process-job');
 const todos = require('../../renderer/shared/todos');
 const jobs = require('../jobs');
+const ultracode = require('../ultracode');
 const { memoryOf } = require('../automemory');
 const { unknownType } = require('../cli-contract');
 const { args, EFFORTS, OPTIONAL_FLAGS, WORK_HOOK, STEER_HOOK, writeConfig, removeFile, initHooks } = require('./args');
@@ -30,6 +31,7 @@ const { control, DENY_MESSAGE } = require('./control');
 const { placeEdit } = require('./place');
 const { accounting } = require('./accounting');
 const { crew, TALK_MS } = require('./crew');
+const { ultra } = require('./ultra');
 
 // How often the reply's words as they're written reach the panel, at most.
 const PARTIAL_MS = 50;
@@ -77,7 +79,7 @@ function noteUnknown(event) {
  * @property {() => { exe: string, host: string, dir: string, env: Record<string, string>, extra?: string[], argsPrefix?: string[] } | null} [remote]
  */
 
-/** @typedef {typeof args & typeof control & typeof accounting & typeof crew} SessionMixins */
+/** @typedef {typeof args & typeof control & typeof accounting & typeof crew & typeof ultra} SessionMixins */
 // EventEmitter at run time: the mixins join the prototype at the end of this
 // file. The cast only lets the class (and tsc) see their methods on `this`.
 const Base = /** @type {new () => EventEmitter & SessionMixins} */ (/** @type {unknown} */ (EventEmitter));
@@ -183,6 +185,8 @@ class ClaudeSession extends Base {
     // Commands and Monitor watches running in the background (jobs.js): kept
     // apart from the helpers, so a `npm run dev` left running isn't a crab.
     this.jobs = jobs.create();
+    // Ultracode runs (Claude Code's Workflow tool, ultracode.js): a card each, and their agents as helper crabs.
+    this.ultra = ultracode.create();
     this.todos = todos.create();   // Claude's own to-do list (shared/todos.js)
     this.agentNames = new Map();   // Agent tool use id -> the name it was given, for SendMessage
     // Planning: started in plan mode, or Claude switched to it (EnterPlanMode),
@@ -309,6 +313,7 @@ class ClaudeSession extends Base {
       }
       if (crewChanged) this.emit('crew', this.crew);
       if (jobs.stopAll(this.jobs, Date.now())) this.emit('jobs', this.jobView()); // what it left running can't finish now
+      this.stopRuns();
       // You pressed Stop and it didn't wind down in time (interrupt() killed it),
       // or it went on its own meanwhile: a stop either way, not a crash.
       const stopped = this.interrupting;
@@ -424,9 +429,12 @@ class ClaudeSession extends Base {
       }
       case 'tool_result':
         jobs.noteResult(this.jobs, item);
+        if (item.workflowLaunch) this.noteLaunch(item.workflowLaunch);
         this.noteTodos(item);
         break;
       case 'task':
+        // An ultracode run is a card and a crowd of crabs, not a helper (ultracode.js).
+        if (ultracode.isRun(item, this.ultra)) return this.trackRun(item);
         // A command or a watch left running isn't a helper (jobs.js).
         if (jobs.isJob(item, this.jobs)) {
           if (jobs.track(this.jobs, item, Date.now())) this.emit('jobs', this.jobView());
@@ -463,7 +471,8 @@ class ClaudeSession extends Base {
         // A command that outran its timeout (or was backgrounded on purpose)
         // is still going: the turn ended, but the work isn't done.
         if (item.ok && !item.interrupted) {
-          const waiting = [...this.runningCrew(), ...jobs.running(this.jobs)].map(t => t.description || 'a background task');
+          const waiting = [...this.runningCrew().filter(t => !t.workflow), ...jobs.running(this.jobs), ...this.runningRuns()]
+            .map(t => t.description || t.name || 'a background task');
           if (waiting.length) item.waiting = waiting;
         }
         // Background subagents can outlive the turn, so pending prompts stay open;
@@ -602,7 +611,7 @@ class ClaudeSession extends Base {
   }
 }
 
-for (const mixin of [args, control, accounting, crew]) {
+for (const mixin of [args, control, accounting, crew, ultra]) {
   Object.defineProperties(ClaudeSession.prototype, Object.getOwnPropertyDescriptors(mixin));
 }
 

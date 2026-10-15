@@ -579,7 +579,7 @@ class SessionManager extends EventEmitter {
 
   // One state for the critter: asking beats working beats idle.
   get aggregate() {
-    let pending = 0, busy = 0, planning = 0, plans = 0;
+    let pending = 0, busy = 0, planning = 0, plans = 0, hiddenCrew = 0;
     const crew = [], tools = [], jobs = [], crewEnded = [];
     const now = Date.now();
     for (const t of this.tabs.values()) {
@@ -591,12 +591,13 @@ class SessionManager extends EventEmitter {
       for (const c of t.session.runningCrew()) {
         crew.push({ id: c.taskId, tabId: t.id, label: c.activity || c.description || c.subagentType || 'helper', type: c.subagentType || 'general-purpose', bubble: talkOf(c) }); // Claude Code's own default
       }
+      hiddenCrew += t.session.hiddenCrew?.() || 0; // an ultracode run's agents past the few out as crabs
       // Helpers that just finished, and how: one that did its job walks home with it, one that failed slumps.
       for (const c of t.session.crew) if (c.endedAt && now - c.endedAt < CREW_ENDED_MS) crewEnded.push({ id: c.taskId, ok: c.status === 'completed' });
     }
     // What the busy tab that moved last is doing, for how the crab works (work-pose.js).
     const latest = workPose.latest(tools);
-    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, crewEnded, jobs, planning, plans, tool: latest?.tool || null, toolAt: latest?.toolAt || null };
+    return { state: pending ? 'asking' : (busy || crew.length) ? 'working' : 'idle', pending, busy, crew, hiddenCrew, crewEnded, jobs, planning, plans, tool: latest?.tool || null, toolAt: latest?.toolAt || null };
   }
 
   changed() {

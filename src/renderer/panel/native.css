@@ -212,3 +212,31 @@
 .next-chip:hover, .next-chip:focus-visible { color: var(--sand); }
 .next-key { margin-left: auto; flex: none; font-size: var(--fs-11); color: var(--sand-faint); }
 @media (prefers-reduced-motion: reduce) { .goal-pin, .next-chip { animation: none; } }
+
+/* Ultracode (ultracode.js): the chip under the box, its line above it, and a run's card in the feed */
+.ultra-chip { margin-right: auto; padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--sand-faint); font: inherit; font-size: var(--fs-11); line-height: 18px; cursor: pointer; }
+.ultra-chip:hover, .ultra-chip:focus-visible { color: var(--sand); border-color: var(--sand-faint); }
+.ultra-chip.on { color: var(--abyss); background: var(--amber); border-color: var(--amber); }
+.ultra-note { margin: 0 0 8px; padding: 4px 10px; border-radius: var(--r-sm); background: var(--reef); border: 1px solid var(--line); border-left: 2px solid var(--amber); font-size: var(--fs-12); color: var(--sand-dim); }
+.ultra-card { margin: 6px 0 14px 16px; padding: 8px 11px 9px; border: 1px solid var(--line-soft); border-left: 2px solid var(--amber); border-radius: var(--r-sm); background: var(--ink); font-size: var(--fs-12); color: var(--sand-dim); }
+.ultra-card.status-completed { border-left-color: var(--glass); }
+.ultra-card.status-failed { border-left-color: var(--coral); }
+.ultra-card.status-stopped { border-left-color: var(--line); }
+.ultra-head { display: flex; align-items: baseline; gap: 8px; font-weight: 600; color: var(--sand); }
+.ultra-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ultra-desc, .ultra-says, .ultra-summary { margin: 5px 0 0; }
+.ultra-summary { white-space: pre-wrap; color: var(--sand); }
+.ultra-stats { margin: 5px 0 0; font-variant-numeric: tabular-nums; }
+.ultra-phases { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 0; padding: 0; list-style: none; }
+.ultra-phases li { color: var(--sand-faint); }
+.ultra-phases li.now { color: var(--amber); }
+.ultra-phases li.done { color: var(--glass); }
+.ultra-crabs { margin: 5px 0 0; }
+.ultra-agents { margin: 5px 0 0; padding: 5px 7px; border-radius: var(--r-sm); background: var(--reef); list-style: none; }
+.ultra-agent { display: flex; gap: 8px; }
+.ultra-agent-state { flex: none; width: 52px; color: var(--sand-faint); }
+.ultra-agent.running .ultra-agent-state { color: var(--amber); }
+.ultra-agent.done .ultra-agent-state { color: var(--glass); }
+.ultra-agent.failed .ultra-agent-state { color: var(--coral); }
+.ultra-agent-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ultra-actions { margin-top: 7px; }

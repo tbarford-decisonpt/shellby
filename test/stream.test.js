@@ -282,3 +282,41 @@ test('background_tasks_changed is a known event, read past on purpose', () => {
   assert.ok(KNOWN.system.has('background_tasks_changed'));
   assert.deepEqual(toItems({ type: 'system', subtype: 'background_tasks_changed', tasks: [] }), []);
 });
+
+// An ultracode run (Claude Code 2.1.299's Workflow tool): task_* events with
+// task_type 'local_workflow', its phases and agents on task_progress, and the
+// tool's result naming the run id (src/main/ultracode.js).
+test('an ultracode run start says its name, and its progress carries its phases and agents', () => {
+  const [s] = toItems({ type: 'system', subtype: 'task_started', task_id: 'wq1', tool_use_id: 'tu_wf', description: 'Audit the repo', task_type: 'local_workflow', workflow_name: 'audit', run_id: 'r1' });
+  assert.deepEqual([s.kind, s.phase, s.taskType, s.workflowName], ['task', 'started', 'local_workflow', 'audit']);
+  const [p] = toItems({ type: 'system', subtype: 'task_progress', task_id: 'wq1', tool_use_id: 'tu_wf', description: 'Scout: part 1',
+    usage: { total_tokens: 4200, tool_uses: 3, duration_ms: 900 },
+    workflow_progress: [
+      { type: 'workflow_phase', index: 0, title: 'Scout', kind: 'parallel' },
+      { type: 'workflow_agent', index: 1, label: 'part 1', phaseIndex: 0, phaseTitle: 'Scout', agentType: 'Explore', model: 'claude-sonnet-5-5', state: 'progress', tokens: 4200, toolCalls: 3, promptPreview: 'secret prompt' },
+      { type: 'workflow_agent', index: 2, label: 'part 2', phaseIndex: 0, state: 'error', error: 'it broke' },
+      { type: 'workflow_agent', index: 3, label: 'part 3', phaseIndex: 0, state: 'weird' },
+      { type: 'workflow_log', index: 0, text: 'a log line' },
+      { type: 'workflow_agent', label: 'no index' },
+      null,
+    ] });
+  assert.deepEqual(p.usage, { tokens: 4200, toolUses: 3, durationMs: 900 });
+  assert.deepEqual(p.workflow.phases, [{ index: 0, title: 'Scout' }]);
+  assert.deepEqual(p.workflow.agents[0], { index: 1, label: 'part 1', phase: 0, state: 'progress', type: 'Explore', model: 'claude-sonnet-5-5', tokens: 4200, tools: 3 });
+  assert.equal(p.workflow.agents[1].error, 'it broke');
+  assert.equal(p.workflow.agents[2].state, 'start', 'a state it does not know reads as started');
+  assert.equal(p.workflow.agents.length, 3, 'logs and broken entries left out');
+  assert.ok(!JSON.stringify(p).includes('secret prompt'), "an agent's prompt isn't kept");
+  // Throttled progress leaves the list out: no workflow then.
+  const [q] = toItems({ type: 'system', subtype: 'task_progress', task_id: 'wq1', usage: { total_tokens: 5000, tool_uses: 4, duration_ms: 1000 } });
+  assert.equal(q.workflow, undefined);
+});
+
+test("the Workflow tool's result names the run's task and its run id; other results don't", () => {
+  const ev = r => toItems({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_wf', content: 'launched' }] }, tool_use_result: r })[0];
+  assert.deepEqual(ev({ status: 'async_launched', taskId: 'wq1', taskType: 'local_workflow', workflowName: 'audit', runId: 'wf_abc', scriptPath: 'x.js' }).workflowLaunch,
+    { taskId: 'wq1', runId: 'wf_abc', name: 'audit' });
+  assert.equal(ev({ status: 'async_launched', taskId: 'wq1', taskType: 'local_workflow', error: 'SyntaxError' }).workflowLaunch.error, 'SyntaxError');
+  assert.equal(ev({ status: 'remote_launched', taskId: 'r1', taskType: 'remote_agent', sessionUrl: 'https://x' }).workflowLaunch, undefined);
+  assert.equal(ev({ agentId: 'a1', totalTokens: 5 }).workflowLaunch, undefined);
+});
