@@ -26,6 +26,9 @@
         item.more ? h('p', { class: 'small muted chg-more', text: `…and ${item.more} more.` }) : null,
         h('div', { class: 'chg-actions' }, undo, note));
       if (F.quizWorthy(item)) this.addQuiz(el, ref);
+      // Opening it is First steps' "See what changed" (first-run.js).
+      el.addEventListener('toggle', () => { if (el.open && SB.firstRunWants?.('result')) api.sawChanges(); });
+      SB.firstRunNudge?.('result', () => { el.open = true; el.scrollIntoView({ block: 'nearest' }); });
 
       // Two presses, so a stray click can't take a turn's work back.
       let armed = null;

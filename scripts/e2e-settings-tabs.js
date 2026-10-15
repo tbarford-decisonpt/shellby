@@ -51,7 +51,7 @@ const TABS = {
   around: ['Music', 'Typing along', 'Weather', 'Desk lighting', 'Discord', 'On a stream', 'Stream Deck'],
   claude: ['Claude Code', 'Mode', 'Model', 'Usage limit', 'Folder', 'Copies', 'Checks', 'Dev servers', 'Editor', 'Everywhere'],
   connect: ['Elsewhere', 'GitHub', 'GitLab', 'Other computers'],
-  general: ['System', 'Notifications', 'Shortcut', 'What you use', 'About'],
+  general: ['System', 'Notifications', 'Shortcut', 'Screens', 'What you use', 'About'],
 };
 
 (async () => {

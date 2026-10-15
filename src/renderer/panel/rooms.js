@@ -20,16 +20,28 @@
     ...[...document.querySelectorAll('.shellby-tabs [data-goto]')].map(b => ({ id: b.dataset.goto, b })),
   ].filter(d => d.id !== 'wardrobe' && d.id !== 'chat');
 
+  // Every room still shut, doors or not (the Reef card has none).
   const lockedIds = () => {
     if (!view || view.all || SB.isCrabOnly() || SB.isWorkMode?.()) return [];
+    if (Array.isArray(view.locked)) return view.locked;
     const open = new Set(view.open);
     return [...new Set(doors().map(d => d.id))].filter(id => !open.has(id));
   };
   SB.isRoomLocked = id => lockedIds().includes(id);
+  // Someone new before the core loop (main/first-run.js): the game waits.
+  SB.isGameWaiting = () => !!view && view.core === false && lockedIds().length > 0;
+  const freshIds = () => (view && !SB.isCrabOnly() && !SB.isWorkMode?.() ? view.fresh || [] : []);
 
   function apply() {
     const locked = new Set(lockedIds());
-    for (const { id, b } of doors()) b.classList.toggle('room-locked', locked.has(id));
+    const fresh = new Set(freshIds());
+    for (const { id, b } of doors()) {
+      b.classList.toggle('room-locked', locked.has(id));
+      b.classList.toggle('room-fresh', fresh.has(id));
+    }
+    // Rooms that are a card on a screen rather than a door (data-room).
+    document.querySelectorAll('[data-room]').forEach(el => el.classList.toggle('room-locked', locked.has(el.dataset.room)));
+    SB.renderScreensSetting?.();
     const more = $('dockMore');
     more.hidden = !locked.size;
     if (!locked.size) return;
@@ -40,6 +52,11 @@
   function moreText() {
     const n = view?.next;
     if (!n) return 'More screens open as he works.';
+    // The game's rooms wait for the core loop (main/first-run.js).
+    if (n.core) {
+      const lvl = SB.firstRunCoreLevel?.();
+      return `${n.name}${n.in ? ' (on his screen)' : ''} and the rest of his world open once you finish First steps${lvl ? ` or he reaches level ${lvl}` : ''}.`;
+    }
     return `${n.name}${n.in ? ' (on his screen)' : ''} opens after ${n.tasksToGo === 1 ? (view.tasks ? 'his next task' : 'his first task') : `${n.tasksToGo} more tasks`}.`;
   }
 
@@ -61,14 +78,21 @@
     if (SB.isCrabOnly() || SB.isWorkMode?.() || !opened.length) return;
     opened.forEach(r => glow(r.id));
     const [first] = opened;
+    // A quest chapter that teaches one of them gets a word (main/rooms.js chapter).
+    const taught = opened.find(r => r.chapter);
+    const quest = taught ? ` Chapter ${taught.chapter.n} of the quest line, ${taught.chapter.title}, shows you around ${taught.name}.` : '';
     SB.celebrate({
       eyebrow: 'New room',
       icon: '🚪',
       title: opened.length > 1 ? `${opened.slice(0, -1).map(r => r.name).join(', ')} and ${opened.at(-1).name} are open` : `${first.name} is open`,
-      text: opened.map(r => r.text).join(' '),
-      action: { label: 'Take a look', run: () => SB.setView(first.id) },
+      text: opened.map(r => r.text).join(' ') + quest,
+      action: { label: 'Take a look', run: () => SB.setView(goesTo(first.id)) },
     });
   }
+
+  // A room that's a card goes to the screen it sits on.
+  const PART_OF = { reef: 'projects', mastery: 'trophies' };
+  const goesTo = id => PART_OF[id] || id;
 
   SB.openAllRooms = async () => {
     received({ view: await api.openAllRooms() });
@@ -83,8 +107,12 @@
   SB.setView = target => {
     setView(target);
     // A tab of his screen is its own door; the bar's button is the screen's.
+    const fresh = new Set(freshIds());
+    // A room that's a card counts as seen when its screen is.
+    for (const [part, on] of Object.entries(PART_OF)) if (on === state.view && fresh.has(part)) api.seenRoom(part).then(v => received({ view: v })).catch(() => {});
     for (const id of new Set([state.view, SB.NAV_SECTION[state.view] || state.view])) {
       if (SB.isRoomLocked(id)) api.openRoom(id).then(v => received({ view: v })).catch(() => {}); // the screen showed; only the door stays shut
+      else if (fresh.has(id) && id === state.view) api.seenRoom(id).then(v => received({ view: v })).catch(() => {}); // its "new" goes
     }
   };
 

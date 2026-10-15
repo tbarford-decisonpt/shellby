@@ -74,6 +74,7 @@ function registerCritterIpc(ipcMain, d) {
     if (Date.now() - lastPet < 1500) return;
     lastPet = Date.now();
     d.stat('petted');
+    d.firstRunStep?.('crab');
     d.life?.onPet();
     if (['idle', 'sleeping'].includes(d.lastStatus.state)) { d.lastActivity = Date.now(); d.flashState('petted', 2600); }
   });
@@ -82,9 +83,21 @@ function registerCritterIpc(ipcMain, d) {
   ipcMain.handle('rooms:get', () => d.roomsPanelView());
   ipcMain.handle('rooms:open', (_e, id) => d.setRooms(rooms.openRoom(d.config.get('rooms'), String(id || ''))));
   ipcMain.handle('rooms:all', () => d.setRooms(rooms.openAll(d.config.get('rooms'))));
+  // A room visited: its "new" on the door goes.
+  ipcMain.handle('rooms:seen', (_e, id) => d.setRooms(rooms.seeRoom(d.config.get('rooms'), String(id || ''))));
+  // ---- First steps (first-run.js): the card's state, Skip and hide. Steps
+  // are done only by the real thing (wiring/first-run.js firstRunStep).
+  ipcMain.handle('firstrun:get', () => d.firstRunPanelView());
+  ipcMain.handle('firstrun:skip', (_e, id) => d.skipFirstStep(String(id || '')));
+  ipcMain.handle('firstrun:hide', (_e, hidden) => d.hideFirstRun(hidden === true));
+  // A changes block opened in the feed: seeing what changed, as the viewer is.
+  ipcMain.on('firstrun:saw-changes', () => d.firstRunStep?.('result'));
 
   // ---- what you use: a count per screen, on this PC only (feature-use.js)
   ipcMain.on('features:used', (_e, id) => {
+    // First steps: the file viewer is seeing what changed, Outfits is meeting him.
+    if (id === 'viewer') d.firstRunStep?.('result');
+    if (id === 'wardrobe') d.firstRunStep?.('crab');
     const next = featureUse.record(d.config.get('featureUse'), String(id || ''), Date.now());
     if (JSON.stringify(next) !== JSON.stringify(featureUse.normalize(d.config.get('featureUse')))) d.config.set({ featureUse: next });
   });

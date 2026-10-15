@@ -56,4 +56,43 @@ test('settings lost with no backup: logged, and still someone who was here', () 
   assert.match(errors[0][1], /old copy is at/);
   assert.equal(d.config.get('onboarded'), true);
   assert.deepEqual(d.config.get('rooms'), require('../src/main/rooms').initialRooms(true), 'every screen open');
+  assert.equal(require('../src/main/first-run').isComplete(d.config.get('firstRun')), true, 'and no First steps');
+});
+
+// First steps (first-run.js) and the core loop: decided once at boot, and
+// already finished for anyone with any progress, so nothing of theirs hides.
+function openWith(settings) {
+  fs.rmSync(path.join(userData, 'settings.backup.json'), { force: true });
+  fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify(settings));
+  return open().d.config;
+}
+const firstRun = require('../src/main/first-run');
+const rooms = require('../src/main/rooms');
+
+test('a brand-new profile gets First steps to do, and the game rooms wait for the core loop', () => {
+  const config = openWith({});
+  assert.equal(firstRun.isComplete(config.get('firstRun')), false);
+  assert.equal(config.get('rooms').core, false);
+});
+
+for (const [label, settings] of [
+  ['onboarded', { onboarded: true }],
+  ['with XP and no onboarded flag', { xp: { total: 40 } }],
+  ['mid-rooms from 0.85', { rooms: { tasks: 2, open: [], all: false } }],
+  ['with every screen open', { rooms: { tasks: 0, open: [], all: true } }],
+]) {
+  test(`an existing profile (${label}) sees no change: First steps done, nothing hidden`, () => {
+    const config = openWith(settings);
+    assert.equal(firstRun.isComplete(config.get('firstRun')), true);
+    assert.equal(firstRun.firstRunView(config.get('firstRun')).shows, false);
+    const v = rooms.roomsView(config.get('rooms'));
+    assert.equal(v.core, true);
+    if (settings.rooms?.tasks === 2) assert.ok(['finds', 'stickers', 'reef', 'mastery'].every(id => v.open.includes(id)), `${v.open}`);
+    if (settings.onboarded || settings.rooms?.all) assert.equal(v.all, true);
+  });
+}
+
+test('First steps are decided once and kept', () => {
+  const first = openWith({}).get('firstRun');
+  assert.deepEqual(open().d.config.get('firstRun'), first);
 });

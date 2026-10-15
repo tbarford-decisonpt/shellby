@@ -53,7 +53,8 @@
 
   // Only once he has finished a task (History is open), so someone brand new
   // meets the crab and the box first.
-  const cardShows = () => !off() && !view.hidden && !view.complete && !SB.isRoomLocked?.('history');
+  // First steps (first-run.js) go first: one card at a time on the start screen.
+  const cardShows = () => !off() && !view.hidden && !view.complete && !SB.isRoomLocked?.('history') && !SB.firstRunCardShows?.();
 
   function renderCard(el) {
     if (!el) return;

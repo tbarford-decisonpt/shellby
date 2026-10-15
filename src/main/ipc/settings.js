@@ -193,6 +193,7 @@ function registerSettingsIpc(ipcMain, d) {
     const before = d.config.data;
     d.config.set(allowed);
     applied(allowed, asked, before, { taste: true });
+    if (allowed.onboarded && !before.onboarded) d.firstRunStep?.('welcome'); // through the welcome screen: First steps' hello (first-run.js)
     return { settings: d.panelSettings(), hotkeyError, pushToTalkError };
   });
   ipcMain.handle('folder:pick', async () => {
