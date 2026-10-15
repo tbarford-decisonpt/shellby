@@ -137,9 +137,13 @@ async function windows() {
     // (He may have dug something up on his own meanwhile: his idle habits keep going.)
     check(afterDig.finds.total >= 1 && afterDig.finds.finds.find(f => f.id === found)?.owned, 'it is on the shelf');
     check(afterDig.finds.unseen.includes(found), '...marked new');
-    await wait(3500); // credited once he's finished showing it to you
-    check(saved().stats?.findsMade >= 1 && saved().wardrobe?.unlocked?.includes('beachcomber'), 'his first find earns Beachcomber');
-    check((await life()).bond.journal.some(e => e.kind === 'first-find'), 'and goes in the story');
+    // Credited once he's finished showing it to you, then saved: waited for, not a fixed sleep.
+    const credited = () => saved().stats?.findsMade >= 1 && saved().wardrobe?.unlocked?.includes('beachcomber');
+    for (let t = Date.now(); !credited() && Date.now() - t < 15000;) await wait(250);
+    check(credited(), 'his first find earns Beachcomber');
+    let story = false;
+    for (let t = Date.now(); !(story = (await life()).bond.journal.some(e => e.kind === 'first-find')) && Date.now() - t < 5000;) await wait(250);
+    check(story, 'and goes in the story');
     check(await panel.ev("shellby.dev.life({ what: 'dig' }).then(r => r === null)"), 'a second dig straight away finds nothing (the sand needs a rest)');
 
     // ------------------------------------------------------- 4. the Finds and Us pages
