@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.87.1: A screen opened at startup stays open
+
+### Fixed
+- **A screen you open while Shellby is starting stays open.** Opening Trophies, Outfits or any other screen in the first second or so used to bounce you back to the chat once the panel finished loading. It now stays where you went.
+
 ## 0.87.0: All files beside the chat, and Keep warm
 
 ### New
