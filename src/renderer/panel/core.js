@@ -11,6 +11,8 @@ const SB = window.SB = {
   // Set in a popped-out conversation's window: the one tab it shows. That
   // window is this same page with the chat alone (main's wiring/popouts.js).
   solo: new URLSearchParams(location.search).get('popout'),
+  // From the page's first script until boot.js has opened its first screen (setView, below).
+  starting: !new URLSearchParams(location.search).get('popout'),
   state: {
     settings: {}, status: {}, skins: [], skin: null, sessions: [], cwd: '', home: '',
     view: 'chat', version: '', packaged: false, updates: null,
@@ -377,6 +379,9 @@ SB.homeView = () => (SB.state.settings.crabOnly ? 'health' : 'chat');
 
 SB.setView = view => {
   const s = SB.state;
+  // A screen asked for while the panel starts (you, Ctrl+K, main): its start opens it at the end
+  // instead of the chat (boot.js). The chat itself is what the start goes to anyway.
+  if (SB.starting && view !== 'chat') SB.askedWhileStarting = view;
   // Just-the-crab mode has no chat: Health is home. A popped-out window has nothing but.
   if (view === 'chat' && s.settings.crabOnly) view = 'health';
   if (SB.solo) view = 'chat';
