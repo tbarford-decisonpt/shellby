@@ -54,13 +54,15 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
     for (let i = 0; i < 40 && !list.some(t => t.url.endsWith('panel.html')); i++) { list = await targets(); await wait(500); }
     const panel = await connect(list.find(t => t.url.endsWith('panel.html')).webSocketDebuggerUrl);
     const until = async (c, expr, ms = 8000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await c.ev(expr)) return true; await wait(120); } return false; };
-    await until(panel, "!document.getElementById('brandLevel').hidden");
+    await until(panel, "!!window.SB");
 
     // 1. At 99: the Molt button on the XP card, and the sheet offering tier shell I.
-    // The badge shows before the panel's start is over, and its start ends on the chat (boot.js):
-    // Trophies opened sooner is left at once.
-    check(await until(panel, "performance.getEntriesByName('shellby:panel-ready').length > 0", 20000), 'the panel has started');
+    // Opened as soon as the panel's page is there, which is before its start is over (boot.js):
+    // the start keeps it rather than ending on the chat.
+    const early = await panel.ev("performance.getEntriesByName('shellby:panel-ready').length === 0");
     await panel.ev("SB.setView('trophies')");
+    check(await until(panel, "performance.getEntriesByName('shellby:panel-ready').length > 0", 20000), 'the panel has started');
+    check(await panel.ev("SB.state.view") === 'trophies', `Trophies, opened while it was starting${early ? '' : ' (it had already started)'}, stays open`);
     // `=== false`, not `!…?.hidden`: before the XP card is drawn there is no button, and that must not pass.
     check(await until(panel, "document.querySelector('.lv-molt-btn')?.hidden === false"), 'the XP card offers the Molt');
     await panel.ev("document.querySelector('.lv-molt-btn').click()");

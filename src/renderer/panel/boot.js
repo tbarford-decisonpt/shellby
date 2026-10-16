@@ -256,7 +256,11 @@
     else await SB.newTab();
 
     if (b.cutOff?.length) setTimeout(() => SB.toast(window.ShellbyFeedLogic.cutOffToast(b.cutOff), { ms: 9000 }), 1200);
-    SB.setView(SB.needsOnboarding() ? 'onboarding' : b.startView || state.view === 'wardrobe' && 'wardrobe' || 'chat');
+    // Activating a tab above went to the chat; a screen asked for meanwhile is opened again.
+    const asked = SB.askedWhileStarting;
+    SB.starting = false;
+    SB.askedWhileStarting = null;
+    SB.setView(SB.needsOnboarding() ? 'onboarding' : b.startView || asked || state.view === 'wardrobe' && 'wardrobe' || 'chat');
     if (saved) SB.growForPanes(); // more room than the panel's own size: it grows, now or once the chat shows
     SB.restoreTrail?.(); // the trail open as you left it (trail.js)
     if (b.claudeTricks && !SB.needsOnboarding()) SB.showClaudeTricks(b.claudeTricks); // Claude Code updated: what it can do now
