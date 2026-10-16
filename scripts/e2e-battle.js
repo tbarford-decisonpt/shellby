@@ -115,6 +115,9 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({ 
     await snap('assist');
     await task('patch app.js fixed');
     await task('suite 0');
+    // The catch waits for main's picture of the code (a git snapshot after the turn), which can land well
+    // after the result on a slow runner: the battle is read once it's over, not after a fixed wait.
+    await until('shellby.getBugBattles().then(l => !!l[0]?.over)', 15000);
     b = await fight();
     // The finishing blow is the fix report's: app.js changed with nothing silenced, so a Root Cut (bugdex/quality.js).
     const blow = b?.moves.at(-3);
