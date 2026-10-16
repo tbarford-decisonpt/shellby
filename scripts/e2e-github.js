@@ -54,7 +54,7 @@ async function connect(url) {
     await wait(500);
     const title = await dlg.ev("document.querySelector('h1, h2, .title')?.textContent || ''");
     check(titleRe.test(title), `asks first: "${title}"`);
-    await dlg.ev(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(button)}).click()`);
+    await dlg.ev(`{ const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(button)}); setTimeout(() => b.click(), 0); true; }`);
     dlg.close();
   }
   try {

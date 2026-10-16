@@ -142,7 +142,7 @@ async function launch(port, env) {
       check(d.title === `Turn off "${pick}"?` && /stays installed/.test(d.message), 'the confirm window says it stays installed');
       check(d.focused === 'Cancel', 'Cancel is the default');
       await dlg.shot(path.join(real, 'lean-confirm.png'));
-      await dlg.ev("[...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Cancel').click()");
+      await dlg.ev("{ const b = [...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Cancel'); setTimeout(() => b.click(), 0); true; }");
       dlg.close();
       check(await poll(panel, `!SB.state.lean.off.some(p => p.name === ${JSON.stringify(pick)}) && SB.state.lean.plugins.some(p => p.name === ${JSON.stringify(pick)})`), `${pick} is still on after Cancel`);
     }

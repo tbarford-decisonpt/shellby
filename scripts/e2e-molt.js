@@ -80,7 +80,7 @@ const targets = async () => { try { return await (await fetch(`http://127.0.0.1:
       const dlg = await connect(dlgT.webSocketDebuggerUrl);
       await until(dlg, "(document.getElementById('title')?.textContent || '').length > 0");
       check(/^Molt into/.test(await dlg.ev("document.getElementById('title').textContent")), 'it asks to molt');
-      await dlg.ev("[...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Molt').click()");
+      await dlg.ev("{ const b = [...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Molt'); setTimeout(() => b.click(), 0); true; }");
       dlg.close();
     }
 

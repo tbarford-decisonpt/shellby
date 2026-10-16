@@ -154,7 +154,7 @@ async function target(suffix, tries = 40) {
       check(d.danger && d.focused === 'Cancel', 'it is red, and Cancel is the default');
       check(/can't show everything/.test(d.note), "it doesn't promise the mod is safe");
       await dlg.shoot(out.replace(/\.png$/, '-confirm.png'));
-      await dlg.ev("[...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Cancel').click()");
+      await dlg.ev("{ const b = [...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Cancel'); setTimeout(() => b.click(), 0); true; }");
       dlg.close();
     }
     check(await until(`!${row}?.querySelector('.mod-switch')?.disabled`) && !(await ev(`SB.state.toolbox.mods.find(m => m.id === '${ID}').enabled`)), 'Cancel leaves it off');
@@ -168,7 +168,7 @@ async function target(suffix, tries = 40) {
       // 3. Turn it on: the real CLI writes it into the home's settings.
       dlg = await askOn();
       if (dlg) {
-        await dlg.ev("[...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Turn it on').click()");
+        await dlg.ev("{ const b = [...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Turn it on'); setTimeout(() => b.click(), 0); true; }");
         dlg.close();
       }
       check(await until(`SB.state.toolbox.mods.find(m => m.id === '${ID}')?.enabled === true`, 60000), 'Turn it on turns it on');

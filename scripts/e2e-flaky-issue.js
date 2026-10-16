@@ -77,7 +77,9 @@ fs.writeFileSync(path.join(base, 'userdata', 'settings.json'), JSON.stringify({
     const dlg = await connect(d.webSocketDebuggerUrl);
     await until(dlg, "(document.getElementById('title')?.textContent || '').length > 0", 5000);
     const said = await dlg.ev("({ title: document.getElementById('title').textContent, text: document.body.innerText })");
-    await dlg.ev(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(button)}).click()`);
+    // Clicked once this call has answered: the click closes the window, and a page that closes
+    // before replying leaves the call with no answer at all.
+    await dlg.ev(`{ const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(button)}); setTimeout(() => b.click(), 0); true; }`);
     dlg.close();
     // Gone before the next one is looked for: a slow CI box still lists this one
     // as it closes, and a connection to it never answers.

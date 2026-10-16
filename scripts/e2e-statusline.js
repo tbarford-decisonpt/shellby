@@ -85,7 +85,7 @@ const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '');
     await wait(500);
     const title = await dlg.ev("document.querySelector('h1, h2, .title')?.textContent || ''");
     check(/Add Shellby to Claude Code/.test(title), `dialog: "${title}"`);
-    await dlg.ev("[...document.querySelectorAll('button')].find(b => /Add it/.test(b.textContent)).click()");
+    await dlg.ev("{ const b = [...document.querySelectorAll('button')].find(b => /Add it/.test(b.textContent)); setTimeout(() => b.click(), 0); true; }");
     await wait(1000);
     const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
     check(settings.statusLine?.command === COMMAND && settings.theme === 'dark', 'statusLine added, other settings kept');

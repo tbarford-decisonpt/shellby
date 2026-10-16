@@ -115,7 +115,7 @@ async function windows() {
 
     // ------------------------------------------------------- 3. How he's doing
     await panel.ev("SB.setView('us')");
-    check(await until(panel, "!document.getElementById('usNeeds').hidden", 4000), 'the Us page shows how he is doing');
+    check(await until(panel, "!document.getElementById('usNeeds').hidden", 10000), 'the Us page shows how he is doing');
     check(await panel.ev("document.querySelectorAll('#usMeters [role=meter]').length === 4"), '...four meters, each a real meter');
     check(await panel.ev("[...document.querySelectorAll('#usMeters .us-meter-cells')].every(m => m.querySelector('i.floor'))"), '...each with its sand floor');
     check(await panel.ev("/missing you/.test(document.getElementById('usNeedsMood').textContent)"), '...and says what is up in words');
@@ -130,6 +130,8 @@ async function windows() {
     // ------------------------------------------------------- 4. Feed
     await critter.ev('window.__cls.clear(); window.__props.clear(); window.__said.length = 0; true');
     const before = (await needs()).pantry.total;
+    // Only a crab who is free plays it out (care.js munch): busy, say still reacting to a trophy, he just says thanks.
+    check(await until(panel, 'shellby.getLife().then(v => v.free)', 20000), 'he is free to be fed');
     await panel.ev("document.querySelector('[data-care=feed]').click()");
     check(await until(critter, "window.__props.has('prop-plankton-drop')", 4000), 'a plankton drifts down to him');
     check(await until(critter, "window.__cls.has('bit-munch')", 4000), '...and he munches it');
@@ -142,7 +144,7 @@ async function windows() {
     await wait(1500);
     check(saved().stats?.snacksFed === 1 && saved().wardrobe?.unlocked?.includes('snack-time'), 'and earns Snack Time');
     check((saved().xp?.log || []).some(e => e.kind === 'feed'), '...and a little XP');
-    await wait(3000); // let him finish
+    check(await until(panel, 'shellby.getLife().then(v => v.free)', 20000), 'he has finished his snack');
 
     // ------------------------------------------------------- 5. Rinse
     await critter.ev('window.__props.clear(); true');
@@ -152,7 +154,7 @@ async function windows() {
     check(r1.life.needs.meters.find(m => m.id === 'tidiness').value === 100, '...and he is shiny');
     const r2 = await panel.ev('shellby.needs.rinse()');
     check(!r2?.ok && /shiny|again/i.test(r2.error), `a second rinse says why not (${r2?.error})`);
-    await wait(4500);
+    check(await until(panel, 'shellby.getLife().then(v => v.free)', 20000), 'he has finished his rinse');
 
     // ------------------------------------------------------- 6. Tuck in
     const t = await panel.ev('shellby.needs.tuck()');

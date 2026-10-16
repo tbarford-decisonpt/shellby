@@ -79,7 +79,7 @@ async function connect(url) {
     if (!d) return check(false, 'confirm window for Visiting crabs');
     const dlg = await connect(d.webSocketDebuggerUrl);
     await wait(500);
-    await dlg.ev("[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Turn on').click()");
+    await dlg.ev("{ const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Turn on'); setTimeout(() => b.click(), 0); true; }");
     dlg.close();
     await wait(1000);
   }

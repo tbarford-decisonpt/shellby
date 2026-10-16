@@ -57,7 +57,7 @@ git('commit', '-qm', 'init');
     const idle = () => until('!SB.activeTab().busy', 15000);
     const lastReply = () => ev("[...SB.activeTab().el.querySelectorAll('.msg.assistant')].at(-1)?.textContent || ''");
     const active = () => ev('SB.state.activeTab');
-    const menuClick = label => ev(`(b => { if (b) b.click(); return !!b; })([...SB.$('rewindMenu').querySelectorAll('.menu-item')].find(b => b.textContent.includes(${JSON.stringify(label)}) && !b.disabled))`);
+    const menuClick = label => ev(`(b => { if (b) setTimeout(() => b.click(), 0); return !!b; })([...SB.$('rewindMenu').querySelectorAll('.menu-item')].find(b => b.textContent.includes(${JSON.stringify(label)}) && !b.disabled))`);
     const entry = tabId => ev(`shellby.listSessions().then(l => l.find(s => s.id === ${JSON.stringify(tabId)}) || null)`);
     const read = file => { try { return fs.readFileSync(file, 'utf8').trim(); } catch { return null; } };
     // The confirm window: press one of its buttons.

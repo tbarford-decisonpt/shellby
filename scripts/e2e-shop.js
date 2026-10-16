@@ -104,7 +104,7 @@ async function until(fn, what, ms = 30000) {
       if (d.danger === official) throw new Error(`danger styling should be ${!official}`);
       if (d.focused !== 'Cancel') throw new Error('Cancel must be the default button');
       await dlg.shot(path.join(profile, shotName));
-      await dlg.evaluate(`[...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Cancel').click()`);
+      await dlg.evaluate(`{ const b = [...document.querySelectorAll('#actions button')].find(b => b.textContent === 'Cancel'); setTimeout(() => b.click(), 0); true; }`);
       dlg.close();
       await until(() => panel.evaluate(`!document.querySelector('#shopList .shop-row.is-busy')`), 'install to cancel');
       const still = await panel.evaluate(`[...document.querySelectorAll('#shopList .shop-row')].find(r => r.querySelector('strong').textContent === ${JSON.stringify(pick)})?.classList.contains('is-installed')`);

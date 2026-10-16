@@ -620,6 +620,7 @@ function createLife(d) {
       needs: care.view(),
       scenes: { seen: seen.length, of: scenes.SCENES.length, list: scenes.SCENES.map(s => ({ id: s.id, name: seen.includes(s.id) ? s.name : null })) },
       onCall, playing,
+      free: free(), // nothing he is in the middle of: a care action plays out in full (care.js munch)
     };
   }
 

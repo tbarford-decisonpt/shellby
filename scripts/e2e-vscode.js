@@ -182,7 +182,7 @@ fs.mkdirSync(claudeConfig);
       for (let t = 0; t < 10000 && !(await dev("document.querySelectorAll('#actions button').length")); t += 150) await wait(150);
       const detail = await dev("document.body.textContent");
       check(/npm run typecheck/.test(detail), 'it asks first, naming the command');
-      await dev("[...document.querySelectorAll('#actions button')][0].click()");
+      await dev("{ const b = [...document.querySelectorAll('#actions button')][0]; setTimeout(() => b.click(), 0); true; }");
       dws.close();
     } else check(false, 'it asks first, naming the command');
     check(await until("document.querySelector('#problemsList .pb-row')", 30000), 'the typecheck\'s error is listed');

@@ -89,7 +89,7 @@ const ntfy = http.createServer((req, res) => {
       const dev = expr => new Promise(r => { const i = ++did; dp.set(i, m => r(m.result?.result?.value)); dws.send(JSON.stringify({ id: i, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true, awaitPromise: true } })); });
       for (let t = 0; t < 10000 && !(await dev(`document.getElementById('title')?.textContent === ${JSON.stringify(title)} && document.activeElement?.tagName === 'BUTTON'`)); t += 150) await wait(150);
       const seen = await dev("({ message: document.getElementById('message').textContent, focused: document.activeElement?.textContent })");
-      await dev(`[...document.querySelectorAll('#actions button')].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
+      await dev(`{ const b = [...document.querySelectorAll('#actions button')].find(b => b.textContent === ${JSON.stringify(label)}); setTimeout(() => b.click(), 0); true; }`);
       dws.close();
       return seen;
     };
